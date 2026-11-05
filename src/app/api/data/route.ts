@@ -211,6 +211,18 @@ export async function GET(request: Request) {
       attendanceParams = [collegeId, fullDateThreshold];
     }
 
+    // Attendance is by far the heaviest slice here: on the local snapshot 23 000 rows is
+    // 3.4 MB of the ~4.2 MB admin payload, more than every other slice combined. Only four
+    // surfaces read it — admin's monitoring and insight tabs plus the CAM, mentor and
+    // student dashboards (the only isExamDate() callers are those same three). A KAM, SME,
+    // L&D or fee manager was downloading every attendance row of their campuses, or of the
+    // whole institution, into an array no component touches. /api/data?fields=attendance
+    // stays open for any of them if a KAM view starts needing it.
+    if (!(isStudent || isMentor || isCM || isAdmin)) {
+      attendanceSql = "SELECT 1 WHERE 1=0";
+      attendanceParams = [];
+    }
+
     const isSME = role === "sme";
     const isLnd = role === "L and D";
     const needsDemo = isAdmin || isSME || isLnd || isCM || isMentor;
