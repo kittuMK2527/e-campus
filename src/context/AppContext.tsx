@@ -190,6 +190,22 @@ function parseAttendancePayload(data: any): StudentAttendance[] {
   });
 }
 
+/**
+ * Stable identity for a handler whose body must still read the latest state.
+ * Used for refreshData, which is a dependency of DashboardLayout's data-change listener
+ * effect and — through retryDataLoad — of the context value's dep array. A fresh function
+ * object every render re-bound seven window listeners per render, cancelled the 500ms
+ * debounced refresh mid-burst, and rebuilt the context value so every useApp consumer
+ * re-rendered even when nothing it exposed had changed.
+ */
+function useStableCallback<T extends (...args: never[]) => unknown>(fn: T): T {
+  const latest = useRef<T>(fn);
+  useEffect(() => {
+    latest.current = fn;
+  });
+  return useMemo(() => (((...args: Parameters<T>) => latest.current(...args)) as unknown) as T, []);
+}
+
 export interface Holiday {
   id: string;
   title: string;
@@ -827,7 +843,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const hasSaturdaySlots = slots.some(s => s.day === "Saturday");
   const workingDays = (collegeWorkingDays === 6 || hasSaturdaySlots) ? 6 : 5;
 
-  const weekDates = getWeekDates(weekOffset, baseDate, workingDays);
+  // Memoised because it is a context value dependency: a fresh array every render rebuilt the
+  // context object, so every useApp() consumer re-rendered on every provider render.
+  const weekDates = useMemo(
+    () => getWeekDates(weekOffset, baseDate, workingDays),
+    [weekOffset, baseDate, workingDays]
+  );
 
   const [customShiftTimeSlots, setCustomShiftTimeSlots] = useState<any>(SHIFT_TIME_SLOTS);
 
@@ -882,7 +903,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // snapshot would land last, resurrecting deleted records on screen.
   const refreshDataSeq = useRef(0);
   const refreshDataInFlight = useRef<{ key: string; promise: Promise<any> } | null>(null);
-  const refreshData = async (silent: boolean = true, scope?: { role: Role; userId: string }) => {
+  const refreshDataImpl = async (silent: boolean = true, scope?: { role: Role; userId: string }) => {
     const scopeKey = scope ? `${scope.role}:${scope.userId}` : "auto";
     // Piggyback only on an identical scope — a scoped caller must not receive
     // an unscoped in-flight response.
@@ -1002,6 +1023,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshDataInFlight.current = { key: scopeKey, promise };
     return promise;
   };
+  const refreshData = useStableCallback(refreshDataImpl);
 
   /** Manual retry after a failed full data refresh (powers the DashboardLayout retry banner). */
   const retryDataLoad = useCallback(async () => {
@@ -1030,6 +1052,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   /** Targeted domain workspace loader for active role */
+  // Identity-stable because initApp's effect keys off it — re-creating it would re-run the
+  // whole bootstrap. So it reads the college list through a ref: closing over `colleges`
+  // meant it always saw the initial empty array, and a CM without a college_id fell through
+  // to institution-wide ?college_id-less reads.
+  const collegesRef = useRef(colleges);
+  useEffect(() => {
+    collegesRef.current = colleges;
+  }, [colleges]);
+
   const loadRoleWorkspace = useCallback(async (role: Role, userId: string, collegeId?: string) => {
     setIsDataLoading(true);
     try {
@@ -1041,7 +1072,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (slotsData?.success && Array.isArray(slotsData.slots)) setSlots(slotsData.slots);
         if (requestsData?.success && Array.isArray(requestsData.requests)) setRequests(requestsData.requests);
       } else if (role === "cm") {
-        const targetCol = collegeId || (colleges.length > 0 ? colleges[0].id : "");
+        const targetCol = collegeId || (collegesRef.current[0]?.id || "");
         const colQuery = targetCol ? `college_id=${encodeURIComponent(targetCol)}` : "";
         const [slotsData, reqsData, mentorsData] = await Promise.all([
           apiFetch(colQuery ? `/api/slots?${colQuery}` : `/api/slots`).catch(() => ({})),
@@ -1055,25 +1086,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const slotsData = await apiFetch(`/api/slots?college_id=${encodeURIComponent(collegeId || "")}`).catch(() => ({}));
         if (slotsData?.success && Array.isArray(slotsData.slots)) setSlots(slotsData.slots);
       } else if (role === "kam") {
-        const [collegesData, kamData] = await Promise.all([
-          apiFetch("/api/colleges").catch(() => ({})),
-          apiFetch(`/api/kam?id=${encodeURIComponent(userId)}`).catch(() => ({}))
-        ]);
+        // Only the dead `/api/kam` beside this call was removed — its response was never read
+        // here. The colleges fetch stays: the bundle narrows a KAM to their own campuses and
+        // returns an empty slice for a KAM with none assigned, so this is the last thing that
+        // can still populate the campus list. Widening vs. narrowing that is an access-control
+        // call, not a latency one.
+        const collegesData = await apiFetch("/api/colleges").catch(() => ({}));
         if (collegesData?.success && Array.isArray(collegesData.colleges)) setColleges(collegesData.colleges);
       } else if (role === "admin") {
-        const [collegesData, signupData] = await Promise.all([
-          apiFetch("/api/colleges").catch(() => ({})),
-          apiFetch("/api/admin/signup-requests").catch(() => ({}))
-        ]);
-        if (collegesData?.success && Array.isArray(collegesData.colleges)) setColleges(collegesData.colleges);
+        // Only the full pending-signup list is unique to this call. `/api/data/reference`
+        // pre-warms `SELECT * FROM colleges ORDER BY name` and the bundle re-sets it, so the
+        // parallel /api/colleges fetch here was a third copy of the same rows.
+        const signupData = await apiFetch("/api/admin/signup-requests").catch(() => ({}));
         if (signupData?.success && Array.isArray(signupData.requests)) setSignupRequests(signupData.requests);
       } else if (role === "sme") {
         const availData = await apiFetch(`/api/sme-availability?sme_id=${encodeURIComponent(userId)}`).catch(() => ({}));
         if (availData?.success && Array.isArray(availData.availability)) setSmeAvailability(availData.availability);
       }
-      // L&D has no workspace read of its own: neither sme_users nor the allocator has a
-      // college_id, so the demo-sessions calls here always sent an unscoped
-      // ?college_id-less request that the endpoint rejects with 400. /api/data already
+      // L&D has no workspace read of its own. Its old demo-sessions calls were unscoped
+      // ?college_id-less requests the endpoint rejects with 400, and /api/data already
       // returns the role-scoped demoSessions slice for both sme and L&D.
     } catch (err) {
       console.warn("loadRoleWorkspace error:", err);
