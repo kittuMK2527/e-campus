@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Unreferenced modules kept for reference; tsconfig already excludes them.
+    "archive/**",
   ]),
 ]);
 

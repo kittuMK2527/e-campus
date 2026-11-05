@@ -142,7 +142,8 @@ describe("CRUD write guards", () => {
   });
 
   it("keeps the dead CRUD surfaces deleted or unimported", () => {
-    // oldadmin.tsx is preserved in the repository for historical reference, but must never be imported into active surfaces
+    // oldadmin.tsx lives under archive/components/ for historical reference. It is outside
+    // tsconfig's include, so the only way it back into the app is an explicit import.
     const admin = read("/src/components/AdminDashboard.tsx");
     expect(admin).not.toContain("oldadmin");
 
