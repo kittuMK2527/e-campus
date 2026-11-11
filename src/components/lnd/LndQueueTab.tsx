@@ -55,8 +55,8 @@ export default function LndQueueTab({
               Sessions requiring re-booking.
             </p>
           </div>
-          <div className="rounded-xl border border-[#D528A2]/25 bg-[#D528A2]/5 dark:bg-[#D528A2]/10 p-3">
-            <span className="text-[9.5px] font-black uppercase tracking-wider text-[#D528A2] dark:text-[#f45fc6] block">
+          <div className="rounded-xl border border-[#4F46E5]/25 bg-[#4F46E5]/5 dark:bg-[#4F46E5]/10 p-3">
+            <span className="text-[9.5px] font-black uppercase tracking-wider text-[#4F46E5] dark:text-[#818CF8] block">
               Pending Head / SME Approval
             </span>
             <span className="text-lg font-black leading-tight text-slate-900 dark:text-white">
@@ -79,7 +79,7 @@ export default function LndQueueTab({
             </div>
             <button
               onClick={fetchDemoReallocations}
-              className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-[#D528A2] hover:border-[#D528A2]/40 transition-all cursor-pointer"
+              className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-[#4F46E5] hover:border-[#4F46E5]/40 transition-all cursor-pointer"
               title="Refresh"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${loadingReallocations ? "animate-spin" : ""}`} />
@@ -97,7 +97,7 @@ export default function LndQueueTab({
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-xs font-black text-slate-900 dark:text-white">{req.subject}</span>
-                      <span className="px-1.5 py-0.5 rounded bg-[#D528A2]/10 border border-[#D528A2]/20 text-[#D528A2] dark:text-[#f45fc6] text-[9px] font-black uppercase">
+                      <span className="px-1.5 py-0.5 rounded bg-[#4F46E5]/10 border border-[#4F46E5]/20 text-[#4F46E5] dark:text-[#818CF8] text-[9px] font-black uppercase">
                         Week {req.week ?? "—"}
                       </span>
                       <span className={`px-1.5 py-0.5 rounded border text-[9px] font-black uppercase ${req.request_kind === "reschedule"
@@ -131,7 +131,7 @@ export default function LndQueueTab({
                       placeholder="Decision notes (optional)"
                       value={reallocNotesMap[req.id] || ""}
                       onChange={e => setReallocNotesMap(prev => ({ ...prev, [req.id]: e.target.value }))}
-                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-medium text-slate-800 dark:text-white focus:outline-none focus:border-[#D528A2]"
+                      className="w-full px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[11px] font-medium text-slate-800 dark:text-white focus:outline-none focus:border-[#4F46E5]"
                     />
                     <div className="flex items-center gap-2">
                       <button
@@ -184,7 +184,7 @@ export default function LndQueueTab({
             <button
               type="button"
               onClick={() => setSwapRequestsTab("pending")}
-              className={`pb-2 px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${swapRequestsTab === "pending" ? "border-[#D528A2] text-[#D528A2]" : "border-transparent text-slate-400"
+              className={`pb-2 px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${swapRequestsTab === "pending" ? "border-[#4F46E5] text-[#4F46E5]" : "border-transparent text-slate-400"
                 }`}
             >
               Pending Review ({demoSwapRequests.filter((r: any) => r.status === "pending").length})
@@ -192,7 +192,7 @@ export default function LndQueueTab({
             <button
               type="button"
               onClick={() => setSwapRequestsTab("resolved")}
-              className={`pb-2 px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${swapRequestsTab === "resolved" ? "border-[#D528A2] text-[#D528A2]" : "border-transparent text-slate-400"
+              className={`pb-2 px-4 text-xs font-black uppercase tracking-wider border-b-2 transition-all cursor-pointer ${swapRequestsTab === "resolved" ? "border-[#4F46E5] text-[#4F46E5]" : "border-transparent text-slate-400"
                 }`}
             >
               Resolution Logs ({demoSwapRequests.filter((r: any) => r.status !== "pending").length})
@@ -207,14 +207,14 @@ export default function LndQueueTab({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black text-slate-900 dark:text-white">{req.smeName}</span>
-                        <span className="px-2 py-0.5 bg-[#D528A2]/10 text-[#D528A2] rounded-md text-[9px] font-extrabold uppercase">
+                        <span className="px-2 py-0.5 bg-[#4F46E5]/10 text-[#4F46E5] rounded-md text-[9px] font-extrabold uppercase">
                           {(req.swapType === "mentor" || req.swapType === "internal") ? "Mentor Swap" : "Time Slot Swap"}
                         </span>
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold mt-1">
                         Original: {req.mentorName} ({req.dateStr} • {req.timeSlot})
                       </p>
-                      <p className="text-xs font-bold text-[#D528A2] mt-0.5">
+                      <p className="text-xs font-bold text-[#4F46E5] mt-0.5">
                         Proposed: {(req.swapType === "mentor" || req.swapType === "internal") ? (req.proposedMentorName || req.targetMentorName) : `${req.proposedDateStr} • ${req.proposedTimeSlot}`}
                       </p>
                     </div>

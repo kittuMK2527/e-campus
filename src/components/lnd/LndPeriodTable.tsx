@@ -48,7 +48,7 @@ export default function LndPeriodTable({
               const dayInfo = getEffectiveDayOrderInfo(date.dateStr, date.day, idx, selectedCollegeId !== "all" ? selectedCollegeId : undefined);
               return (
                 <th key={date.dateStr} className="sticky top-0 z-20 p-4 text-[10.5px] font-black text-slate-700 dark:text-slate-300 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur-xs border-b border-slate-200/80 dark:border-slate-800 uppercase w-[17%] border-l border-slate-100 dark:border-slate-800 text-center">
-                  <div className={`font-black text-[11px] tracking-tight ${dayInfo.isHoliday ? "text-rose-600 dark:text-rose-400" : "text-[#D528A2] dark:text-[#f45fc6]"}`}>
+                  <div className={`font-black text-[11px] tracking-tight ${dayInfo.isHoliday ? "text-rose-600 dark:text-rose-400" : "text-[#4F46E5] dark:text-[#818CF8]"}`}>
                     {dayInfo.isHoliday ? "Holiday" : dayInfo.dayOrder}
                   </div>
                   <div className="text-[9px] text-slate-400 font-bold tracking-tight mt-0.5">{date.day.slice(0, 3)} ({date.formatted})</div>
@@ -73,8 +73,8 @@ export default function LndPeriodTable({
                   {isFirstBeyond && (
                     <tr className="bg-slate-100/70 dark:bg-slate-900/70 border-t border-b border-slate-200 dark:border-slate-800">
                       <td colSpan={6} className="p-3.5 text-left">
-                        <div className="flex items-center gap-2 text-[#D528A2] dark:text-[#f45fc6] font-black text-xs uppercase tracking-widest">
-                          <Moon className="h-4.5 w-4.5 text-[#D528A2] animate-pulse" />
+                        <div className="flex items-center gap-2 text-[#4F46E5] dark:text-[#818CF8] font-black text-xs uppercase tracking-widest">
+                          <Moon className="h-4.5 w-4.5 text-[#4F46E5] animate-pulse" />
                           Beyond College Hours
                         </div>
                       </td>
@@ -85,7 +85,7 @@ export default function LndPeriodTable({
                     <tr className="bg-amber-50/20 dark:bg-amber-950/10">
                       <td className="sticky left-0 z-10 p-3 border-r border-slate-100 dark:border-slate-800 bg-amber-50/95 dark:bg-slate-900/95 backdrop-blur-xs align-middle">
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
-                          <Coffee className="h-3.5 w-3.5 text-[#F4A863]" />
+                          <Coffee className="h-3.5 w-3.5 text-[#7C3AED]" />
                           Lunch
                         </span>
                       </td>
@@ -165,7 +165,7 @@ export default function LndPeriodTable({
                                           className={`flex flex-col p-1.5 rounded-lg border text-[9.5px] font-bold cursor-pointer transition-all hover:translate-x-0.5 text-left ${isFree
                                             ? "bg-mint-50/40 dark:bg-mint-950/20 border-mint-200 dark:border-mint-800 text-mint-800 dark:text-mint-300 hover:bg-mint-50 dark:hover:bg-mint-900/30"
                                             : isDemo
-                                              ? "bg-[#D528A2]/10 dark:bg-[#D528A2]/20 border-[#D528A2]/30 text-[#D528A2] dark:text-[#f45fc6] hover:bg-[#D528A2]/15"
+                                              ? "bg-[#4F46E5]/10 dark:bg-[#4F46E5]/20 border-[#4F46E5]/30 text-[#4F46E5] dark:text-[#818CF8] hover:bg-[#4F46E5]/15"
                                               : isPreview
                                                 ? "bg-amber-50/30 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 hover:bg-amber-50"
                                                 : isBlocked
@@ -179,7 +179,7 @@ export default function LndPeriodTable({
                                             <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${isFree
                                               ? "bg-mint-500"
                                               : isDemo
-                                                ? "bg-[#D528A2]"
+                                                ? "bg-[#4F46E5]"
                                                 : isPreview
                                                   ? "bg-amber-500"
                                                   : isBlocked
@@ -206,7 +206,7 @@ export default function LndPeriodTable({
                                             timeSlot: time
                                           });
                                         }}
-                                        className="w-full py-1 text-[8.5px] font-black text-[#D528A2] hover:text-[#c02090] bg-[#D528A2]/5 hover:bg-[#D528A2]/10 border border-dashed border-[#D528A2]/30 rounded-lg transition-colors cursor-pointer"
+                                        className="w-full py-1 text-[8.5px] font-black text-[#4F46E5] hover:text-[#4338CA] bg-[#4F46E5]/5 hover:bg-[#4F46E5]/10 border border-dashed border-[#4F46E5]/30 rounded-lg transition-colors cursor-pointer"
                                       >
                                         + {hiddenCount} More
                                       </button>

@@ -1,8 +1,7 @@
 import { after } from "next/server";
 import { getDb, readInChunks, chunkList, type QueryFailure } from "@/lib/db";
-import { renderEmailShell, BadgeColor } from "@/lib/mail";
-import { dispatchMail } from "@/lib/mailAsync";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 interface ExternalInterviewNotificationOptions {
   interviewId: string;
@@ -138,8 +137,6 @@ export async function dispatchExternalInterviewNotifications(
     // 7. Determine notification titles & text based on actionType
     let notifTitle = `[External Interview] ${subject}`;
     let notifMsg = `External interview request for ${subject} (${classGroup}) on ${targetDate}.`;
-    let badgeColor: BadgeColor = "purple";
-    let badgeText = "External Interview";
 
     if (actionType === "created") {
       notifTitle = `[External Interview Request] ${subject}`;
@@ -147,19 +144,15 @@ export async function dispatchExternalInterviewNotifications(
     } else if (actionType === "accepted") {
       notifTitle = `[External Interview Accepted] ${subject}`;
       notifMsg = `External interview for ${subject} accepted by ${actorName}. GMeet Link is ready.`;
-      badgeColor = "emerald";
     } else if (actionType === "declined") {
       notifTitle = `[External Interview Declined] ${subject}`;
       notifMsg = `External interview for ${subject} was declined by partner CM and cascaded to next priority.`;
-      badgeColor = "rose";
     } else if (actionType === "assigned") {
       notifTitle = `[External Interview Assigned] ${subject}`;
       notifMsg = `Mentors assigned for external interview ${subject} on ${targetDate}.`;
-      badgeColor = "indigo";
     } else if (actionType === "pending_confirmation") {
       notifTitle = `[External Interview Awaiting Confirmation] ${subject}`;
       notifMsg = `The priority allocation for ${subject} on ${targetDate} is ready. Please confirm your campus allocation.`;
-      badgeColor = "indigo";
     }
 
     // 8. Insert In-App Notifications for all affected Users
@@ -167,84 +160,25 @@ export async function dispatchExternalInterviewNotifications(
     // per recipient, which for a regional broadcast meant hundreds of sequential queries.
     const now = new Date().toISOString();
     const candidates = Array.from(notificationUserIds);
+    // 8. Dispatch Real-Time In-App Notifications
     if (candidates.length > 0) {
       try {
-        const roleRows: any[] = await readInChunks(db, candidates, (chunk, ph) => ({
-          sql: `SELECT id, reference_id, email, role FROM users
-                WHERE id IN (${ph}) OR reference_id IN (${ph}) OR email IN (${ph})`,
-          params: [...chunk, ...chunk, ...chunk]
-        }));
-        const candidateSet = new Set(candidates);
-        const roleByCandidate = new Map<string, string>();
-        for (const row of roleRows || []) {
-          for (const key of [row.id, row.reference_id, row.email]) {
-            if (key && candidateSet.has(key)) roleByCandidate.set(key, row.role || "cm");
-          }
-        }
-
-        const notifRows: any[][] = [];
-        for (const userId of candidates) {
-          const role = roleByCandidate.get(userId) || "cm";
-          const link = role === "student" ? "/student/interviews" : role === "mentor" ? "/mentor/interviews" : role === "kam" ? "/kam/analytics" : "/cm/interviews";
-          notifRows.push([generateId("notif_ext"), userId, notifTitle, notifMsg, link, now]);
-        }
-
-        for (const part of chunkList(notifRows, 500)) {
-          await db.run(
-            `INSERT INTO notifications (id, user_id, title, message, is_read, link, created_at)
-             VALUES ${part.map(() => "(?, ?, ?, ?, 0, ?, ?)").join(", ")}`,
-            part.flat()
-          );
-        }
+        await dispatchSystemNotification(db, {
+          userIds: candidates,
+          title: notifTitle,
+          message: notifMsg,
+          link: "/cm/interviews",
+          type: "info",
+          domain: "interviews",
+          action: "capacity_requested",
+          collegeId: targetCollege?.id || originCollege?.id || undefined,
+        });
       } catch (errNotif) {
         console.warn("Error inserting in-app notifications:", errNotif);
       }
     }
 
-    // 9. Dispatch Branded Email Notifications
-    const emailRecipients = new Set<string>();
-
-    if (kamUser?.email) emailRecipients.add(kamUser.email);
-    regionalCAMs.forEach((cam: any) => {
-      if (cam.email) emailRecipients.add(cam.email);
-    });
-    targetCAMs.forEach((cam: any) => {
-      if (cam.email) emailRecipients.add(cam.email);
-    });
-
-    const recipientEmails = Array.from(emailRecipients);
-
-    if (recipientEmails.length > 0) {
-      const regionalCollegeNames = regionalColleges.map((c: any) => c.name).join(", ");
-      
-      await dispatchMail({
-        bcc: recipientEmails,
-        subject: `${notifTitle} — Regional Notification (${regionalColleges.length} Colleges)`,
-        htmlBody: renderEmailShell({
-          title: notifTitle,
-          badgeText: badgeText,
-          badgeColor: badgeColor,
-          description: `${notifMsg}<br/><br/><strong>Region Colleges Covered:</strong> ${regionalCollegeNames || originCollege?.name}`,
-          details: [
-            { label: "Subject", value: subject, highlight: true },
-            { label: "Class Group", value: classGroup },
-            { label: "Target Date", value: targetDate },
-            { label: "Origin College", value: originCollege?.name || originCollegeId },
-            ...(targetCollege ? [{ label: "Target College", value: targetCollege.name }] : []),
-            ...(studentCount ? [{ label: "Student Count", value: String(studentCount) }] : []),
-            ...(gmeetLink ? [{ label: "Google Meet Link", value: gmeetLink, highlight: true }] : []),
-            ...(options.gcalLink ? [{ label: "Google Calendar Event", value: options.gcalLink }] : []),
-            { label: "Topics", value: topics },
-            { label: "KAM in Charge", value: kamUser?.name || "Regional KAM" }
-          ],
-          ctaText: gmeetLink ? "Join Google Meet Room →" : "Open E-Campus Dashboard →",
-          ctaUrl: gmeetLink || undefined
-        }),
-        context: "regional-interview-broadcast"
-      });
-    }
-
-    console.log(`[External Notification] Successfully notified ${notificationUserIds.size} users; regional mail queued for ${recipientEmails.length} staff addresses`);
+    console.log(`[External Notification] Successfully notified ${notificationUserIds.size} users`);
   } catch (error) {
     console.error("Failed to dispatch external interview notifications:", error);
   }

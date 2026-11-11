@@ -13,7 +13,7 @@ const noCacheHeaders = {
 };
 
 export async function GET(request: Request) {
-  const { auth, errorResponse } = await requireAuth(request, { checkCsrf: false });
+  const { auth, errorResponse } = await requireAuth(request, { allowPasswordChangeRequired: true });
   if (errorResponse || !auth) {
     return errorResponse || NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401, headers: noCacheHeaders });
   }

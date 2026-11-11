@@ -8,7 +8,7 @@ import { generateId } from "@/lib/id";
 
 export async function POST(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["mentor", "sme", "L and D"] });
+    const { errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin", "mentor", "sme", "L and D"] });
     if (errorResponse) return errorResponse;
     const db = await getDb();
     const body = await request.json();
@@ -43,18 +43,19 @@ export async function POST(request: Request) {
     const originId = originCollege?.id || interview.origin_college_id || interview.college_id;
     const kamId = originCollege?.kam_id;
 
-    if (!kamId) {
-      return NextResponse.json(
-        { success: false, message: "Origin campus does not have a KAM assigned. External interview capacity broadcast requires a partner college network under the same KAM." },
-        { status: 400 }
-      );
+    // 1. Fetch partner colleges under the same KAM (excluding origin college)
+    let regionalColleges = kamId
+      ? await db.all("SELECT * FROM colleges WHERE kam_id = ? AND id != ?", [kamId, originId])
+      : [];
+
+    // 2. Fallback: If no other colleges share this specific KAM zone, broadcast to all other partner colleges in network
+    if (!regionalColleges || regionalColleges.length === 0) {
+      regionalColleges = await db.all("SELECT * FROM colleges WHERE id != ?", [originId]);
     }
 
-    // Fetch all colleges under KAM (strictly partner colleges under this SAME KAM, excluding origin college)
-    const regionalColleges = await db.all("SELECT * FROM colleges WHERE kam_id = ? AND id != ?", [kamId, originId]);
     if (!regionalColleges || regionalColleges.length === 0) {
       return NextResponse.json(
-        { success: false, message: "No other partner colleges found under this KAM zone to broadcast capacity requests to." },
+        { success: false, message: "No other partner colleges found in the network to broadcast capacity requests to." },
         { status: 400 }
       );
     }
@@ -71,7 +72,7 @@ export async function POST(request: Request) {
       const [cmRows, existingRows] = await db.multiQuery(
         [
           {
-            sql: `SELECT college_id, id, name FROM campus_managers WHERE college_id IN (${placeholders}) ORDER BY created_at ASC`,
+            sql: `SELECT college_id, id, name FROM campus_managers WHERE college_id IN (${placeholders}) ORDER BY id ASC`,
             params: collegeIds,
           },
           {

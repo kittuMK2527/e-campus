@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { BookOpen, Plus, Edit, Trash2, X, MoreVertical } from "lucide-react";
+import { BookOpen, Plus, Edit, Trash2, X } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/button";
 import { TableSurface } from "@/components/dashboard/TableSurface";
@@ -15,7 +15,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -160,7 +161,6 @@ export const SmesTab: React.FC<SmesTabProps> = ({
       <PageHeader
         icon={BookOpen}
         title="Subject Matter Experts"
-        subtitle="Specialists who review curriculum and mentor subject groups."
         actions={
           <Button
             variant="ghost"
@@ -207,14 +207,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 cursor-pointer"
-                        title="SME Options"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
+                      <ActionDropdownButton size="sm" title="SME Options" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>SME Options</DropdownMenuLabel>
@@ -241,7 +234,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
                 <div className="flex flex-col items-center gap-2 text-gray-400">
                   <BookOpen className="h-8 w-8" />
                   <p className="text-sm font-semibold">
-                    No Subject Matter Experts registered in the database yet. Click "Add SME" to get started.
+                    No Subject Matter Experts assigned yet. Click "Add SME" to get started.
                   </p>
                 </div>
               </TableCell>
@@ -258,7 +251,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
             if (!next) setShowModal(false);
           }}
           ariaLabel="Subject Matter Expert"
-          overlayClassName="bg-gray-900/50 backdrop-blur-sm p-4"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
           panelClassName="max-w-md overflow-hidden animate-slideUp p-0 space-y-0 max-h-[90vh]"
         >
           <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">

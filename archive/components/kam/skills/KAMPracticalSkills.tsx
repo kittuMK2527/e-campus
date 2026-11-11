@@ -202,7 +202,7 @@ export const KAMPracticalSkills: React.FC<{ selectedCollegeId?: string; kamId?: 
                 setSearch(e.target.value);
                 setCurrentPage(1);
               }}
-              className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none w-48"
+              className="pl-8 pr-3 py-1.5 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-700 outline-none w-48"
             />
           </div>
         </div>
@@ -215,7 +215,7 @@ export const KAMPracticalSkills: React.FC<{ selectedCollegeId?: string; kamId?: 
           <div className="overflow-x-auto rounded-xl border border-slate-200">
             <Table>
               <TableHeader>
-                <TableRow className="bg-slate-50 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-500 border-b border-slate-200">
+                <TableRow className="bg-sunken text-[10px] font-black uppercase text-slate-500 border-b border-slate-200">
                   <TableHead onClick={() => handleSort("mentorName")} className="cursor-pointer hover:text-slate-800">
                     <div className="flex items-center gap-1">Faculty / Mentor <ArrowUpDown className="h-3 w-3" /></div>
                   </TableHead>

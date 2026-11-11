@@ -40,9 +40,16 @@ const nextConfig: NextConfig = {
   // aimed at a route the running build lacks dead-ends the entire login flow.
   // Native binaries must stay outside the webpack bundle — resvg's .node file
   // is loaded by Node directly (skill report chart rendering).
-  serverExternalPackages: ["@resvg/resvg-js"],
+  serverExternalPackages: ["@resvg/resvg-js", "pg"],
   // Raise API route body size limit to 50MB for bulk attendance imports
   experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "@tanstack/react-query",
+      "clsx",
+      "tailwind-merge"
+    ],
     serverActions: {
       bodySizeLimit: "50mb",
     },

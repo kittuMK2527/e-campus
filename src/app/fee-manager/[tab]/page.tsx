@@ -4,11 +4,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { FeeManagerDashboard } from "@/components/FeeManagerDashboard";
+import { resolveFeeManagerTab } from "@/lib/utils";
 
 export default function FeeManagerTabPage() {
   const params = useParams();
-  const routeTab = (params?.tab as string) || "overview";
-  const [activeTab, setActiveTab] = useState<string>(routeTab);
+  const routeTab = resolveFeeManagerTab(params?.tab);
+  const [activeTab, setActiveTab] = useState(routeTab);
 
   useEffect(() => {
     if (routeTab) setActiveTab(routeTab);
@@ -17,7 +18,7 @@ export default function FeeManagerTabPage() {
   useEffect(() => {
     const onPopState = () => {
       const parts = window.location.pathname.split("/").filter(Boolean);
-      const tabFromUrl = parts[1] || "overview";
+      const tabFromUrl = resolveFeeManagerTab(parts[1]);
       setActiveTab(tabFromUrl);
     };
     window.addEventListener("popstate", onPopState);
@@ -25,9 +26,9 @@ export default function FeeManagerTabPage() {
   }, []);
 
   const handleTabChange = useCallback((newTab: string) => {
-    setActiveTab(newTab);
+    const cleanTab = resolveFeeManagerTab(newTab.split("?")[0]);
+    setActiveTab(cleanTab);
     if (typeof window !== "undefined") {
-      const cleanTab = newTab.split("?")[0];
       const targetUrl = `/fee-manager/${cleanTab}`;
       if (window.location.pathname !== targetUrl) {
         window.history.pushState(null, "", targetUrl);
@@ -38,7 +39,7 @@ export default function FeeManagerTabPage() {
   return (
     <DashboardLayout requiredRole="fee_manager">
       <FeeManagerDashboard
-        activeTab={activeTab as any}
+        activeTab={activeTab}
         onTabChange={handleTabChange}
       />
     </DashboardLayout>

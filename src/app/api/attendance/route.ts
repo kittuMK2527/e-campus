@@ -4,6 +4,7 @@ import { requireAuth, Role } from "@/lib/authGuard";
 import { getInstitutionDateStr, getInstitutionDateStrOffset } from "@/lib/localDate";
 import { generateId } from "@/lib/id";
 import { ensureMigration } from "@/lib/migrations";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 
 // Without this, Vercel routes to iad1 (Washington DC) → ~200ms per DB call
 export const maxDuration = 60; // seconds — bulk imports need breathing room
@@ -132,47 +133,46 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const { auth, errorResponse } = await requireAuth(request, {
-      allowedRoles: ["admin", "cm", "kam", "mentor", "student"],
+      allowedRoles: ["admin", "cm", "kam", "mentor"],
       checkCsrf: true
     });
     if (errorResponse) return errorResponse;
+
+    const actor = auth!.user;
+    const actorRole = actor.role?.toLowerCase() || "";
+    const isRealAdmin = actorRole === "admin" || actorRole === "super admin";
+    const actorCollegeId = actor.college_id;
+    const realActorName = actor.name || actor.email || (isRealAdmin ? "Admin" : "Campus Manager");
 
     const db = await getDb();
     const body = await request.json();
     const { action } = body;
 
-    // ── ATTENDANCE CORRECTION BY CAM ───────────────────────────────
+    // ── ATTENDANCE CORRECTION BY CAM / ADMIN ───────────────────────
     if (action === "correct") {
+      if (actorRole === "mentor") {
+        return NextResponse.json(
+          { success: false, message: "Mentors cannot directly correct locked attendance. Please request CM approval." },
+          { status: 403 }
+        );
+      }
+
       const {
         studentId,
         slotId,
         dateStr,
         newStatus,
-        reason,
-        changedBy,
-        changedByRole,
-        isAdminOverride
+        reason
       } = body;
 
-      if (!studentId || !slotId || !dateStr || !newStatus || !reason || !changedBy) {
+      if (!studentId || !slotId || !dateStr || !newStatus || !reason) {
         return NextResponse.json({ success: false, message: "Missing required fields for correction" }, { status: 400 });
       }
 
-      // The student row, the admin-override probe and the existing record all key off
-      // the body, so one round trip answers all three. The third one picks between an
-      // INSERT and an UPDATE, so a failed slice must not read as "nothing marked yet".
-      const lowerActor = String(changedBy).toLowerCase().trim();
       const correctFailures: QueryFailure[] = [];
-      const [studentRows, adminRows, existingRows] = await db.multiQuery(
+      const [studentRows, existingRows] = await db.multiQuery(
         [
-          { sql: "SELECT name, correction_count FROM students WHERE id = ?", params: [studentId] },
-          isAdminOverride && changedBy
-            ? {
-                sql: "SELECT id FROM users WHERE (LOWER(id) = ? OR LOWER(email) = ? OR LOWER(reference_id) = ?) AND role = 'admin' " +
-                  "UNION SELECT id FROM admin_users WHERE LOWER(id) = ? OR LOWER(email) = ? OR LOWER(name) = ?",
-                params: [lowerActor, lowerActor, lowerActor, lowerActor, lowerActor, lowerActor],
-              }
-            : { sql: "SELECT 1 WHERE 1=0" },
+          { sql: "SELECT id, name, college_id, correction_count FROM students WHERE id = ?", params: [studentId] },
           { sql: "SELECT status FROM student_attendance WHERE studentId = ? AND slotId = ? AND dateStr = ?", params: [studentId, slotId, dateStr] },
         ],
         correctFailures
@@ -187,11 +187,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, message: "Student not found" }, { status: 404 });
       }
 
-      const currentCount = student.correction_count || 0;
-      let verifiedAdminOverride = false;
-      if (isAdminOverride && changedBy) {
-        verifiedAdminOverride = adminRows.length > 0 || lowerActor === "admin" || lowerActor === "super admin";
+      // Campus isolation: CM can only correct students in their own assigned campus
+      if (actorRole === "cm" && actorCollegeId && student.college_id) {
+        if (student.college_id.toLowerCase() !== actorCollegeId.toLowerCase()) {
+          return NextResponse.json(
+            { success: false, message: "Unauthorized: You can only correct attendance for students of your assigned campus." },
+            { status: 403 }
+          );
+        }
       }
+
+      const currentCount = student.correction_count || 0;
+      // Bug 2 Fix: Only genuine verified admin session can override the 2-correction limit
+      const verifiedAdminOverride = isRealAdmin;
 
       if (currentCount >= 2 && !verifiedAdminOverride) {
         return NextResponse.json({
@@ -212,65 +220,89 @@ export async function POST(request: Request) {
         // Update existing
         await db.run(
           "UPDATE student_attendance SET status = ?, markedBy = ?, timestamp = ? WHERE studentId = ? AND slotId = ? AND dateStr = ?",
-          [newStatus, changedBy, new Date().toISOString(), studentId, slotId, dateStr]
+          [newStatus, realActorName, new Date().toISOString(), studentId, slotId, dateStr]
         );
       } else {
         // Insert new
         const recordId = makeAttendanceId();
         await db.run(
           "INSERT INTO student_attendance (id, studentId, slotId, dateStr, status, markedBy, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [recordId, studentId, slotId, dateStr, newStatus, changedBy, new Date().toISOString()]
+          [recordId, studentId, slotId, dateStr, newStatus, realActorName, new Date().toISOString()]
         );
       }
 
       // Increment student correction counter (only for non-admin standard corrections)
-      if (!isAdminOverride) {
+      if (!isRealAdmin) {
         await db.run(
           "UPDATE students SET correction_count = COALESCE(correction_count, 0) + 1 WHERE id = ?",
           [studentId]
         );
       }
 
-      // Log into audit trail
+      // Log into audit trail with genuine actor details
       const logId = generateId("l");
       const description = `Attendance corrected for ${student.name} (${studentId}) on ${dateStr} in slot ${slotId}. Status changed from ${oldStatus.toUpperCase()} to ${newStatus.toUpperCase()}. Reason: "${reason}"`;
 
       await db.run(
         `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp, old_status, new_status, reason, changed_by)
            VALUES (?, 'attendance_correction', ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          logId,
-          description,
-          changedBy,
-          changedByRole || "Campus Manager",
-          new Date().toISOString(),
-          oldStatus,
-          newStatus,
-          reason,
-          changedBy
-        ]
+        logId,
+        description,
+        realActorName,
+        isRealAdmin ? "Admin" : (actor.role || "Campus Manager"),
+        new Date().toISOString(),
+        oldStatus,
+        newStatus,
+        reason,
+        realActorName
       );
 
-      // DATA_FLOW_AUDIT D9: return the authoritative corrected row so the client
-      // merges the full record (real id, markedBy, timestamp) instead of just the status.
-      const correctedRow = await db.get(
-        "SELECT * FROM student_attendance WHERE studentId = ? AND slotId = ? AND dateStr = ?",
-        [studentId, slotId, dateStr]
-      );
+      // DATA_FLOW_AUDIT D9: build the corrected row from what we already know rather
+      // than doing a round-trip SELECT after the write. All fields the client needs
+      // are available here.
+      const nowStr = new Date().toISOString();
+      const correctedRow = existing
+        ? { ...existing, status: newStatus, markedBy: realActorName, timestamp: nowStr }
+        : { id: existing?.id || makeAttendanceId(), studentId, slotId, dateStr, status: newStatus, markedBy: realActorName, timestamp: nowStr };
+
+      notifyRealtimeEvent({
+        domain: "attendance",
+        action: "corrected",
+        collegeId: student.college_id || undefined,
+        targetRoles: ["student", "cm", "admin"],
+        payload: { studentId, slotId, dateStr, status: newStatus }
+      });
 
       return NextResponse.json({
         success: true,
         message: "Attendance corrected successfully.",
-        newCount: currentCount + 1,
-        record: correctedRow || null
+        newCount: isRealAdmin ? currentCount : currentCount + 1,
+        correctionCount: isRealAdmin ? currentCount : currentCount + 1,
+        limit: 2,
+        record: correctedRow
       });
     }
 
     // ── DIRECT PERIOD MARKING (CAM / FACULTY) ──────────────────────────────
     if (action === "mark_period") {
-      const { studentId, slotId, dateStr, status, markedBy } = body;
+      const { studentId, slotId, dateStr, status } = body;
       if (!studentId || !slotId || !dateStr || !status) {
         return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
+      }
+
+      // Campus isolation: check that student belongs to actor's campus
+      const targetStudent = await db.get("SELECT college_id FROM students WHERE id = ?", [studentId]);
+      if (!targetStudent) {
+        return NextResponse.json({ success: false, message: "Student not found" }, { status: 404 });
+      }
+
+      if (actorRole === "cm" && actorCollegeId && targetStudent.college_id) {
+        if (targetStudent.college_id.toLowerCase() !== actorCollegeId.toLowerCase()) {
+          return NextResponse.json(
+            { success: false, message: "Unauthorized: You can only mark attendance for students of your assigned campus." },
+            { status: 403 }
+          );
+        }
       }
 
       if (status === "not_marked") {
@@ -279,33 +311,42 @@ export async function POST(request: Request) {
           [studentId, slotId, dateStr]
         );
       } else {
-        const existing = await db.get(
-          "SELECT id FROM student_attendance WHERE studentId = ? AND slotId = ? AND dateStr = ?",
-          [studentId, slotId, dateStr]
+        // Single UPSERT replaces the SELECT-then-INSERT-or-UPDATE pattern (2 round trips → 1).
+        const recordId = makeAttendanceId();
+        await db.run(
+          `INSERT INTO student_attendance (id, studentId, slotId, dateStr, status, markedBy, timestamp)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT (studentId, slotId, dateStr)
+           DO UPDATE SET status = EXCLUDED.status, markedBy = EXCLUDED.markedBy, timestamp = EXCLUDED.timestamp`,
+          [recordId, studentId, slotId, dateStr, status, realActorName, new Date().toISOString()]
         );
-
-        if (existing) {
-          await db.run(
-            "UPDATE student_attendance SET status = ?, markedBy = ?, timestamp = ? WHERE id = ?",
-            [status, markedBy || "Manager", new Date().toISOString(), existing.id]
-          );
-        } else {
-          const recordId = makeAttendanceId();
-          await db.run(
-            "INSERT INTO student_attendance (id, studentId, slotId, dateStr, status, markedBy, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [recordId, studentId, slotId, dateStr, status, markedBy || "Manager", new Date().toISOString()]
-          );
-        }
       }
+
+      notifyRealtimeEvent({
+        domain: "attendance",
+        action: "period_marked",
+        collegeId: targetStudent.college_id || undefined,
+        targetRoles: ["student", "cm", "mentor", "admin"],
+        payload: { studentId, slotId, dateStr, status }
+      });
 
       return NextResponse.json({ success: true, message: "Attendance updated." });
     }
 
     // ── BULK ATTENDANCE IMPORT (HIGH-PERFORMANCE BATCH SQL) ───────────────
     if (action === "bulk_import") {
+      if (actorRole === "mentor") {
+        return NextResponse.json({ success: false, message: "Mentors are not authorized for bulk attendance imports." }, { status: 403 });
+      }
+
       const { records, students: incomingStudents, markedBy, collegeId: importCollegeId } = body;
       if (!records || !Array.isArray(records) || records.length === 0) {
         return NextResponse.json({ success: false, message: "No attendance records to import" }, { status: 400 });
+      }
+
+      const effectiveCollegeId = (actorRole === "cm" && actorCollegeId) ? actorCollegeId : importCollegeId;
+      if (!effectiveCollegeId && !isRealAdmin) {
+        return NextResponse.json({ success: false, message: "Target campus (collegeId) is required for bulk import." }, { status: 400 });
       }
 
       const nowStr = new Date().toISOString();
@@ -325,7 +366,7 @@ export async function POST(request: Request) {
             params.push(
               st.id, st.name, st.roll_number || st.id,
               st.department || "General", st.classGroup || "General Batch",
-              st.college_id || importCollegeId || null, nowStr
+              st.college_id || effectiveCollegeId || null, nowStr
             );
           });
           studentBatchStatements.push({
@@ -344,22 +385,24 @@ export async function POST(request: Request) {
 
       // Fetch slots with day + classGroup for compact record expansion on server
       // Compact records have no slotId — server looks up all slots for (classGroup, dayOfWeek)
-      const validSlots = importCollegeId
-        ? await db.all("SELECT id, day, classGroup FROM slots WHERE college_id = ?", importCollegeId)
+      const validSlots = effectiveCollegeId
+        ? await db.all("SELECT id, day, classGroup FROM slots WHERE college_id = ?", effectiveCollegeId)
         : await allCapped(db, "SELECT id, day, classGroup FROM slots", [], 30000);
       const validSlotIds = new Set(validSlots.map((s: any) => s.id));
 
       // Expansion cache: "dayName||classGroup" → slotId[] (avoids repeated filter scans)
+      // Bug 8 Fix: Match classGroup strictly and skip blank class names
       const expansionCache = new Map<string, string[]>();
       const getExpansionSlotIds = (dayName: string, classGroup: string): string[] => {
-        const key = `${dayName}||${(classGroup || "").toLowerCase()}`;
-        if (expansionCache.has(key)) return expansionCache.get(key)!;
         const cg = (classGroup || "").toLowerCase().trim();
+        if (!cg) return []; // Blank class matches nothing; never expand blindly to all classes
+        const key = `${dayName}||${cg}`;
+        if (expansionCache.has(key)) return expansionCache.get(key)!;
         const matched = (validSlots as any[]).filter(s => {
           if (dayName && s.day !== dayName) return false;
-          if (!s.classGroup) return true; // global slot — applies to all cohorts
+          if (!s.classGroup) return false;
           const sg = s.classGroup.toLowerCase().trim();
-          return sg === cg || sg.includes(cg) || cg.includes(sg);
+          return sg === cg; // Exact cohort match, no loose .includes()
         }).map((s: any) => s.id);
         expansionCache.set(key, matched);
         return matched;
@@ -502,6 +545,14 @@ export async function POST(request: Request) {
       }
 
 
+      notifyRealtimeEvent({
+        domain: "attendance",
+        action: "bulk_imported",
+        collegeId: effectiveCollegeId || undefined,
+        targetRoles: ["student", "cm", "mentor", "admin"],
+        payload: { count }
+      });
+
       return NextResponse.json({
         success: true,
         message: `Successfully imported ${count} attendance entries.${skippedNote}`,
@@ -517,7 +568,6 @@ export async function POST(request: Request) {
       attendance,
       markedBy,
       actorName,
-      actorRole,
       coveredSubject,
       type, // 'Regular' | 'Non-Regular'
       mode, // 'Online' | 'Offline'
@@ -636,6 +686,14 @@ export async function POST(request: Request) {
       )
       : [];
 
+    notifyRealtimeEvent({
+      domain: "attendance",
+      action: "marked",
+      collegeId: slot.college_id || undefined,
+      targetRoles: ["student", "cm", "mentor", "admin"],
+      payload: { slotId, dateStr, count: insertedCount }
+    });
+
     return NextResponse.json({ success: true, message: "Attendance marked successfully.", insertedCount, records: storedRows });
   } catch (error: any) {
     console.error("API POST Attendance error:", error);
@@ -645,10 +703,15 @@ export async function POST(request: Request) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { errorResponse } = await requireAuth(request, {
+    const { auth, errorResponse } = await requireAuth(request, {
       allowedRoles: ["admin", "cm", "kam"]
     });
     if (errorResponse) return errorResponse;
+
+    const actor = auth!.user;
+    const actorRole = actor.role?.toLowerCase() || "";
+    const isRealAdmin = actorRole === "admin" || actorRole === "super admin";
+    const actorCollegeId = actor.college_id;
 
     const db = await getDb();
     const { searchParams } = new URL(request.url);
@@ -657,16 +720,40 @@ export async function DELETE(request: NextRequest) {
     const endDate = searchParams.get("endDate");
     const studentIdParam = searchParams.get("studentId") || searchParams.get("rollNo") || searchParams.get("regNo");
     const clearAll = searchParams.get("all") === "true";
+    const scopeParam = searchParams.get("scope");
+
+    // Bug 3 Fix: Enforce collegeId boundary — prevent date deletes from wiping all colleges
+    let effectiveCollegeId = searchParams.get("collegeId")?.trim() || null;
+    if (actorRole === "cm") {
+      if (!actorCollegeId) {
+        return NextResponse.json({ success: false, message: "No campus is assigned to this Campus Manager account." }, { status: 403 });
+      }
+      effectiveCollegeId = actorCollegeId;
+    } else if (actorRole === "kam") {
+      if (!effectiveCollegeId) {
+        return NextResponse.json({ success: false, message: "Campus (collegeId) is required for attendance deletion." }, { status: 400 });
+      }
+      const kamColleges = await db.all("SELECT college_id FROM kam_colleges WHERE kam_id = ?", [actor.reference_id || actor.id]);
+      const kamCids = new Set(kamColleges.map((r: any) => String(r.college_id).toLowerCase()));
+      if (kamCids.size > 0 && !kamCids.has(effectiveCollegeId.toLowerCase())) {
+        return NextResponse.json({ success: false, message: "Unauthorized: Campus is not assigned to your account." }, { status: 403 });
+      }
+    } else if (!isRealAdmin && !effectiveCollegeId) {
+      return NextResponse.json({ success: false, message: "Campus (collegeId) is required for attendance deletion." }, { status: 400 });
+    }
 
     let targetStudentIds: string[] = [];
     if (studentIdParam) {
       targetStudentIds.push(studentIdParam);
       // Look up student from db to also get their alternative IDs (id, roll_number, register_number)
       const st = await db.get(
-        "SELECT id, roll_number, register_number FROM students WHERE id = ? OR roll_number = ? OR register_number = ?",
+        "SELECT id, roll_number, register_number, college_id FROM students WHERE id = ? OR roll_number = ? OR register_number = ?",
         [studentIdParam, studentIdParam, studentIdParam]
       );
       if (st) {
+        if (effectiveCollegeId && st.college_id && st.college_id.toLowerCase() !== effectiveCollegeId.toLowerCase()) {
+          return NextResponse.json({ success: false, message: "Unauthorized: Student does not belong to the selected campus." }, { status: 403 });
+        }
         if (st.id) targetStudentIds.push(st.id);
         if (st.roll_number) targetStudentIds.push(st.roll_number);
         if (st.register_number) targetStudentIds.push(st.register_number);
@@ -674,7 +761,6 @@ export async function DELETE(request: NextRequest) {
       targetStudentIds = Array.from(new Set(targetStudentIds));
     }
 
-    const collegeId = searchParams.get("collegeId");
     const department = searchParams.get("department");
     const classGroup = searchParams.get("classGroup");
 
@@ -684,9 +770,9 @@ export async function DELETE(request: NextRequest) {
     const buildStudentFilter = () => {
       let sql = "SELECT id FROM students WHERE 1=1";
       const params: any[] = [];
-      if (collegeId) {
+      if (effectiveCollegeId) {
         sql += " AND college_id = ?";
-        params.push(collegeId);
+        params.push(effectiveCollegeId);
       }
       if (department && department !== "all") {
         sql += " AND department = ?";
@@ -712,7 +798,7 @@ export async function DELETE(request: NextRequest) {
           message: `Cleared attendance for student (${targetStudentIds.join(", ")}) from ${startDate} to ${endDate}.`,
           deletedCount: res.changes
         });
-      } else if (hasDeptOrBatch || collegeId) {
+      } else if (hasDeptOrBatch || effectiveCollegeId) {
         // Two-step: resolve student IDs first (avoids subquery param binding issues with libSQL)
         const { sql: stSql, params: stParams } = buildStudentFilter();
         const scopedStudents = await db.all(stSql, stParams);
@@ -737,16 +823,21 @@ export async function DELETE(request: NextRequest) {
           message: `Cleared ${totalDeleted} attendance record(s) from ${startDate} to ${endDate}.`,
           deletedCount: totalDeleted
         });
-      } else {
+      } else if (isRealAdmin && scopeParam === "all_colleges") {
         const res = await db.run(
           "DELETE FROM student_attendance WHERE dateStr >= ? AND dateStr <= ?",
           [startDate, endDate]
         );
         return NextResponse.json({
           success: true,
-          message: `Cleared attendance records from ${startDate} to ${endDate}.`,
+          message: `Cleared attendance records from ${startDate} to ${endDate} across all campuses.`,
           deletedCount: res.changes
         });
+      } else {
+        return NextResponse.json(
+          { success: false, message: "Campus (collegeId) is required. Cross-campus deletion requires verified Admin with scope=all_colleges." },
+          { status: 400 }
+        );
       }
     }
 
@@ -780,7 +871,7 @@ export async function DELETE(request: NextRequest) {
 
     // 4. Single Date
     if (dateStr) {
-      if (hasDeptOrBatch || collegeId) {
+      if (hasDeptOrBatch || effectiveCollegeId) {
         // Two-step: resolve student IDs first
         const { sql: stSql, params: stParams } = buildStudentFilter();
         const scopedStudents = await db.all(stSql, stParams);
@@ -800,18 +891,23 @@ export async function DELETE(request: NextRequest) {
           totalDeleted += r.changes;
         }
         return NextResponse.json({ success: true, message: `Deleted attendance for date ${dateStr}`, deletedCount: totalDeleted });
-      } else {
+      } else if (isRealAdmin && scopeParam === "all_colleges") {
         const res = await db.run("DELETE FROM student_attendance WHERE dateStr = ?", [dateStr]);
-        return NextResponse.json({ success: true, message: `Deleted attendance for date ${dateStr}`, deletedCount: res.changes });
+        return NextResponse.json({ success: true, message: `Deleted attendance for date ${dateStr} across all campuses`, deletedCount: res.changes });
+      } else {
+        return NextResponse.json(
+          { success: false, message: "Campus (collegeId) is required. Cross-campus deletion requires verified Admin with scope=all_colleges." },
+          { status: 400 }
+        );
       }
     }
 
     // 5. Clear All / Full Wipe
     // ALWAYS scope to collegeId when provided — never wipe other colleges' data
     if (clearAll) {
-      if (collegeId) {
+      if (effectiveCollegeId) {
         // Two-step: resolve IDs for this college, then delete
-        const collegeStudents = await db.all("SELECT id FROM students WHERE college_id = ?", [collegeId]);
+        const collegeStudents = await db.all("SELECT id FROM students WHERE college_id = ?", [effectiveCollegeId]);
         if (collegeStudents.length === 0) {
           return NextResponse.json({ success: true, message: "No students found for this campus.", deletedCount: 0 });
         }
@@ -832,16 +928,23 @@ export async function DELETE(request: NextRequest) {
           message: "All attendance records for this campus have been cleared.",
           deletedCount: totalDeleted
         });
+      } else if (isRealAdmin && scopeParam === "all_colleges") {
+        const res = await db.run("DELETE FROM student_attendance");
+        return NextResponse.json({
+          success: true,
+          message: "All attendance records across all campuses have been cleared.",
+          deletedCount: res.changes
+        });
       } else {
         return NextResponse.json({
           success: false,
-          message: "collegeId is required for a full wipe. Cross-campus deletion is not permitted."
+          message: "collegeId is required for a wipe. Cross-campus deletion is not permitted."
         }, { status: 400 });
       }
     }
 
     // 6. Scoped wipe by dept/batch/college (no all flag)
-    if (hasDeptOrBatch || collegeId) {
+    if (hasDeptOrBatch || effectiveCollegeId) {
       // Two-step: resolve IDs, then delete
       const { sql: stSql, params: stParams } = buildStudentFilter();
       const scopedStudents = await db.all(stSql, stParams);

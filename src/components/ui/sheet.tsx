@@ -91,7 +91,7 @@ const SheetContent: React.FC<SheetContentProps> = ({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-[60] bg-slate-950/50 backdrop-blur-[2px] animate-in fade-in duration-200"
+        className="fixed inset-0 z-[60] bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
         onClick={() => onOpenChange(false)}
         aria-hidden="true"
       />
@@ -103,9 +103,9 @@ const SheetContent: React.FC<SheetContentProps> = ({
         aria-modal="true"
         data-open={open}
         className={cn(
-          "fixed top-0 bottom-0 z-[61] flex flex-col bg-white border-l border-slate-200 shadow-2xl",
+          "fixed top-0 bottom-0 z-[61] flex flex-col bg-white border-l border-slate-200 shadow-card-lg",
           "transition-transform duration-300 ease-out",
-          "animate-in slide-in-from-right duration-300",
+          "animate-slide-in-right",
           side === "right" ? "right-0" : "left-0",
           width,
           className

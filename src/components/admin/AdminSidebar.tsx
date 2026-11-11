@@ -162,20 +162,20 @@ export function AdminSidebar({
         onFocus={() => prefetchRoleTab(queryClient, "admin", item.id, {})}
         className={`relative w-full flex items-center gap-2.5 rounded-xl px-3 py-2 text-left transition-colors cursor-pointer ${
           isActive
-            ? "bg-indigo-50/90 font-bold text-indigo-700 shadow-xs"
-            : `hover:bg-slate-50 hover:text-slate-900 ${
+            ? "bg-zinc-900 font-extrabold text-white shadow-xs"
+            : `hover:bg-slate-100/70 hover:text-slate-900 ${
                 primary ? "font-semibold text-slate-700" : "font-medium text-slate-600"
               }`
         }`}
       >
         <Icon
           className={`h-4 w-4 shrink-0 ${
-            isActive ? "text-indigo-600" : primary ? "text-slate-500" : "text-slate-400"
+            isActive ? "text-amber-400" : primary ? "text-slate-500" : "text-slate-400"
           }`}
         />
         <span className="truncate text-[13px] leading-5">{item.label}</span>
         {isActive && (
-          <span className="absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-[#D528A2]" />
+          <span className="absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-amber-500" />
         )}
       </button>
     );
@@ -272,7 +272,7 @@ export function AdminSidebar({
               }}
               className={`w-full flex items-center justify-center rounded-lg py-2.5 transition-colors cursor-pointer ${
                 hasActiveItem
-                  ? "bg-indigo-50 text-indigo-600"
+                  ? "bg-zinc-900 text-amber-400"
                   : "text-slate-500 hover:bg-slate-50 hover:text-slate-800"
               }`}
             >
@@ -282,9 +282,9 @@ export function AdminSidebar({
               <div className="absolute left-full top-0 pl-2 w-60 z-50">
                 <div
                   aria-label={group.title}
-                  className="rounded-xl border border-slate-200 bg-white shadow-xl p-2 space-y-0.5"
+                  className="rounded-xl border border-slate-200 bg-white shadow-card-lg p-2 space-y-0.5"
                 >
-                  <div className="px-2 py-1.5 text-[10.5px] font-black uppercase tracking-wider text-indigo-600 border-b border-slate-100 mb-1">
+                  <div className="px-2 py-1.5 text-[10.5px] font-black uppercase tracking-wider text-zinc-900 border-b border-slate-100 mb-1">
                     {group.title}
                   </div>
                   {group.items.map(item => renderItem(item))}
@@ -301,7 +301,7 @@ export function AdminSidebar({
     <>
       <aside
         ref={asideRef}
-        className={`hidden md:flex shrink-0 flex-col self-stretch min-h-0 my-5 z-30 rounded-2xl border border-slate-200/80 bg-white/95 backdrop-blur-md shadow-card ${
+        className={`hidden md:flex shrink-0 flex-col self-stretch min-h-0 my-5 z-30 rounded-2xl border border-slate-100 bg-white/95 backdrop-blur-md shadow-card ${
           collapsed ? "w-20 p-2" : "w-64 p-3.5"
         }`}
         aria-label="Admin workspace navigation"
@@ -309,15 +309,22 @@ export function AdminSidebar({
         {collapsed ? railNav : expandedNav}
 
         {!collapsed && (
-          <div className="relative overflow-hidden rounded-xl bg-indigo-50/60 p-3 border border-indigo-100/80 my-2 shrink-0">
-            <div className="text-[11px] font-bold text-slate-800">Need Help?</div>
-            <a
-              href="mailto:support@faceprep.in"
-              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-0.5"
+          <div
+            onClick={() => typeof window !== "undefined" && window.dispatchEvent(new CustomEvent("open-feedback-modal"))}
+            className="relative overflow-hidden rounded-xl bg-zinc-50 p-3 border border-zinc-200/80 my-2 shrink-0 cursor-pointer hover:bg-zinc-100/90 transition-colors group"
+          >
+            <div className="text-[11px] font-bold text-zinc-900">Need Help?</div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("open-feedback-modal"));
+              }}
+              className="text-[11px] font-bold text-amber-600 hover:text-amber-700 flex items-center gap-1 mt-0.5 transition-colors cursor-pointer"
             >
               <span>Contact Support</span>
               <span>&rarr;</span>
-            </a>
+            </button>
           </div>
         )}
 
@@ -344,7 +351,7 @@ export function AdminSidebar({
           <aside
             ref={drawerRef}
             aria-label="Admin workspace navigation"
-            className="absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-white shadow-2xl p-3 animate-slide-in-left"
+            className="absolute inset-y-0 left-0 flex w-[86%] max-w-[320px] flex-col bg-white shadow-card-lg p-3 animate-slide-in-left"
           >
             <div className="shrink-0 flex items-center justify-between px-1 pb-1.5">
               <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-400">

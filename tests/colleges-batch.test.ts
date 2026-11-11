@@ -70,7 +70,7 @@ beforeEach(() => {
 
 describe("GET /api/colleges", () => {
   it("loads all three lists in one batched call", async () => {
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/colleges") as any);
     const body = await res.json();
 
     expect(res.status).toBe(200);
@@ -86,7 +86,7 @@ describe("GET /api/colleges", () => {
   it("surfaces a database error instead of an empty campus list", async () => {
     h.state.throwOnMultiQuery = "pool timeout";
 
-    const res = await GET();
+    const res = await GET(new Request("http://localhost/api/colleges") as any);
     const body = await res.json();
 
     expect(res.status).toBe(500);

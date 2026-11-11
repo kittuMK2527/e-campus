@@ -13,6 +13,19 @@ import {
 
 const VERDICTS = new Set(["pending", "cleared", "not_cleared", "needs_revision"]);
 
+function extractSemesterFromClassGroup(cg?: string | null): string | null {
+  if (!cg) return null;
+  const m = cg.match(/(?:sem(?:ester)?|s)\s*([1-8])/i);
+  if (m) return `Semester ${m[1]}`;
+  const romanMatch = cg.match(/\b(I|II|III|IV|V|VI|VII|VIII)\b/i);
+  if (romanMatch) {
+    const rMap: Record<string, number> = { i: 1, ii: 2, iii: 3, iv: 4, v: 5, vi: 6, vii: 7, viii: 8 };
+    const num = rMap[romanMatch[1].toLowerCase()];
+    if (num) return `Semester ${num}`;
+  }
+  return null;
+}
+
 /** Pick the best weekly plan per (subject, week): Verified > Submitted > latest updated. */
 function pickBestPlan(plans: any[]): any | null {
   if (!plans || plans.length === 0) return null;
@@ -99,24 +112,38 @@ export async function GET(request: Request) {
     }
     trackerQuery += " ORDER BY date DESC LIMIT 600";
 
-    // ── 5. Subject type map (subjects table) ───────────────────────────
+    // ── 5. Timetable slots (mentor teaching allocations) ────────────────
+    let slotQuery = "SELECT DISTINCT mentorid, course, semester, department, classgroup FROM slots WHERE 1=1";
+    const slotParams: any[] = [];
+    if (mentorId) {
+      slotQuery += " AND mentorid = ?";
+      slotParams.push(mentorId);
+    }
+    if (collegeId && collegeId !== "all") {
+      slotQuery += " AND college_id = ?";
+      slotParams.push(collegeId);
+    }
+    slotQuery += " LIMIT 5000";
+
+    // ── 6. Subject type & curriculum map (subjects table) ───────────────
     const slices: { sql: string; params: any[] }[] = [
       { sql: clearanceQuery, params: clearanceParams },
       { sql: planQuery, params: planParams },
       { sql: demoQuery, params: demoParams },
       { sql: trackerQuery, params: trackerParams },
-      { sql: "SELECT name, type FROM subjects", params: [] },
+      { sql: "SELECT name, type, semester, department, college_id FROM subjects", params: [] },
+      { sql: slotQuery, params: slotParams },
     ];
 
-    // ── 6. Mentor roster for the requested scope ───────────────────────
+    // ── 7. Mentor roster for the requested scope ───────────────────────
     if (mentorId) {
-      slices.push({ sql: "SELECT id, name, college_id FROM mentors WHERE id = ?", params: [mentorId] });
+      slices.push({ sql: "SELECT id, name, college_id, subjects FROM mentors WHERE id = ?", params: [mentorId] });
     } else if (collegeId && collegeId !== "all") {
-      slices.push({ sql: "SELECT id, name, college_id FROM mentors WHERE college_id = ? ORDER BY name ASC", params: [collegeId] });
+      slices.push({ sql: "SELECT id, name, college_id, subjects FROM mentors WHERE college_id = ? ORDER BY name ASC", params: [collegeId] });
     }
 
     const failedSlices: QueryFailure[] = [];
-    const [clearances, plans, demos, trackerRows, subjectRows, mentorRoster] = await db.multiQuery(slices, failedSlices);
+    const [clearances, plans, demos, trackerRows, subjectRows, slotRows, mentorRoster] = await db.multiQuery(slices, failedSlices);
     if (failedSlices.length > 0) {
       const tables = failedSlices.map(f => f.sql.match(/FROM\s+([a-z_]+)/i)?.[1] || "unknown");
       console.error("GET /api/skill-tracker partial read:", failedSlices.map(f => `${f.sql.slice(0, 80)} → ${f.error}`).join(" | "));
@@ -127,8 +154,22 @@ export async function GET(request: Request) {
     }
 
     const subjectTypeMap = new Map<string, string>();
+    const subjectSemesterMap = new Map<string, string>();
+    const subjectDeptMap = new Map<string, string>();
+
     subjectRows.forEach((s: any) => {
-      if (s?.name) subjectTypeMap.set(normalizeTopic(s.name), s.type || "");
+      if (s?.name) {
+        const k = normalizeTopic(s.name);
+        subjectTypeMap.set(k, s.type || "");
+        if (s.semester) {
+          if (s.college_id) subjectSemesterMap.set(`${k}__${s.college_id}`, s.semester);
+          if (!subjectSemesterMap.has(k)) subjectSemesterMap.set(k, s.semester);
+        }
+        if (s.department) {
+          if (s.college_id) subjectDeptMap.set(`${k}__${s.college_id}`, s.department);
+          if (!subjectDeptMap.has(k)) subjectDeptMap.set(k, s.department);
+        }
+      }
     });
 
     const resolveType = (subjectName: string): "Skill" | "Academic" =>
@@ -140,7 +181,7 @@ export async function GET(request: Request) {
     const skillDemos = demos.filter(d => isSkillSubjectName(d.subject || ""));
     const skillClearances = clearances.filter(c => isSkillSubjectName(c.subject));
 
-    // ── 7. Build per mentor × subject × week roll-up ───────────────────
+    // ── 8. Build per mentor × subject × week roll-up ───────────────────
     // Group plans by (subject, week)
     const plansByKey = new Map<string, any[]>();
     plans.forEach(p => {
@@ -156,10 +197,6 @@ export async function GET(request: Request) {
       clearancesBySubjectWeek.get(key)!.push(c);
     });
 
-    const mentorSubjects = new Set<string>();
-    plans.forEach(p => mentorSubjects.add(p.subject));
-    clearances.forEach(c => mentorSubjects.add(c.subject));
-
     const weeksFilter = weekNumber && weekNumber !== "all" ? [parseInt(weekNumber, 10)] : Array.from({ length: 16 }, (_, i) => i + 1);
 
     const mentors: any[] = mentorRoster || [];
@@ -169,11 +206,28 @@ export async function GET(request: Request) {
     const mentorNames = new Map<string, string>(mentors.map((m: any) => [m.id, m.name]));
 
     for (const mId of mentorIds) {
-      // Mentors with neither plans nor clearances are skipped in campus scope
-      const subjForMentor = new Set<string>(
-        plans.filter(p => p.mentor_id === mId).map(p => p.subject)
-      );
-      skillClearances.filter(c => c.mentor_id === mId).forEach(c => subjForMentor.add(c.subject));
+      const mentorObj = mentors.find((m: any) => m.id === mId);
+      const subjForMentor = new Set<string>();
+
+      // 1. From plans
+      plans.filter(p => p.mentor_id === mId).forEach(p => {
+        if (p.subject) subjForMentor.add(p.subject);
+      });
+      // 2. From skill clearances
+      skillClearances.filter(c => c.mentor_id === mId).forEach(c => {
+        if (c.subject) subjForMentor.add(c.subject);
+      });
+      // 3. From timetable slots
+      (slotRows || []).filter((s: any) => s.mentorid === mId).forEach((s: any) => {
+        if (s.course) subjForMentor.add(s.course);
+      });
+      // 4. From mentor profile subjects
+      if (mentorObj?.subjects) {
+        String(mentorObj.subjects).split(",").forEach(s => {
+          const trimmed = s.trim();
+          if (trimmed) subjForMentor.add(trimmed);
+        });
+      }
 
       for (const subj of subjForMentor) {
         const subjKey = normalizeTopic(subj);
@@ -184,8 +238,9 @@ export async function GET(request: Request) {
         for (const wk of weeksFilter) {
           const key = `${subjKey}__${wk}`;
           const wkPlans = (plansByKey.get(key) || []).filter(p => p.mentor_id === mId);
-          if (wkPlans.length === 0 && !(clearancesBySubjectWeek.get(key) || []).some(c => c.mentor_id === mId)) {
-            continue; // nothing planned and no verdict for this week → omit
+          const hasClearance = (clearancesBySubjectWeek.get(key) || []).some(c => c.mentor_id === mId);
+          if (wkPlans.length === 0 && !hasClearance) {
+            continue; // only include planned or clearance weeks in the week loop
           }
           const bestPlan = pickBestPlan(wkPlans);
           const wkDemos = skillDemos.filter(d =>
@@ -211,14 +266,43 @@ export async function GET(request: Request) {
           });
         }
 
-        if (weeks.length === 0) continue;
+        // If no plans or clearances exist yet for this mentor's skill subject, provide a baseline Week 1 so the subject is visible on the tracker
+        if (weeks.length === 0) {
+          weeks.push({
+            week_number: 1,
+            topics: [],
+            topics_planned: 0,
+            topics_conducted: 0,
+            demo_status: null,
+            demo_marks: null,
+            demo_id: null,
+            verdict: "pending" as const,
+            score: null,
+            remarks: null,
+            verified_by: null,
+            verified_at: null,
+            weekly_plan_id: null,
+            plan_status: null
+          });
+        }
+
+        const mentorCollegeId = mentorObj?.college_id || collegeId;
+        const semFromSubj = (mentorCollegeId && subjectSemesterMap.get(`${subjKey}__${mentorCollegeId}`)) || subjectSemesterMap.get(subjKey);
+        const deptFromSubj = (mentorCollegeId && subjectDeptMap.get(`${subjKey}__${mentorCollegeId}`)) || subjectDeptMap.get(subjKey);
+        const slotMatch = (slotRows || []).find((s: any) => s.mentorid === mId && normalizeTopic(s.course) === subjKey);
+        const samplePlan = plans.find(p => p.mentor_id === mId && normalizeTopic(p.subject) === subjKey);
+        const semFromPlan = samplePlan?.class_group ? extractSemesterFromClassGroup(samplePlan.class_group) : null;
+        const resolvedSemester = semFromSubj || slotMatch?.semester || semFromPlan || null;
+        const resolvedDepartment = deptFromSubj || slotMatch?.department || samplePlan?.department || null;
 
         mentorRows.push({
           mentor_id: mId,
           mentor_name: mentorNames.get(mId) || null,
-          college_id: (mentors.find(m => m.id === mId) as any)?.college_id || null,
+          college_id: mentorCollegeId || null,
           subject: subj,
           subject_type: subjectType,
+          semester: resolvedSemester,
+          department: resolvedDepartment,
           weeks
         });
       }

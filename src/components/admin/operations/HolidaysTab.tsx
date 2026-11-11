@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Calendar, Plus, Trash2, MoreVertical } from "lucide-react";
+import { Calendar, Plus, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { Select } from "@/components/ui/select";
@@ -16,7 +16,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { College, useApp } from "@/context/AppContext";
 import { HolidayDialog } from "@/components/admin/dialogs/HolidayDialog";
@@ -144,7 +145,6 @@ export const HolidaysTab: React.FC<HolidaysTabProps> = ({
       <PageHeader
         icon={Calendar}
         title="Campus Holidays"
-        subtitle="National, regional and campus-specific holiday calendar."
         actions={
           <Button
             variant="ghost"
@@ -226,14 +226,7 @@ export const HolidaysTab: React.FC<HolidaysTabProps> = ({
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 cursor-pointer"
-                          title="Holiday Options"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        <ActionDropdownButton size="sm" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Holiday Options</DropdownMenuLabel>

@@ -74,7 +74,7 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       ariaLabel="Faculty Mentor"
-      overlayClassName="bg-gray-900/50 backdrop-blur-sm p-4"
+      overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
       panelClassName="max-w-lg overflow-hidden animate-slideUp p-0 space-y-0 max-h-[90vh]"
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">

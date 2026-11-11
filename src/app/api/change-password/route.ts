@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   try {
     // Password changes require a live session and a valid CSRF token. Without this,
     // the endpoint was an unauthenticated, unthrottled password-guessing oracle.
-    const { auth, errorResponse } = await requireAuth(request);
+    const { auth, errorResponse } = await requireAuth(request, { allowPasswordChangeRequired: true });
     if (errorResponse || !auth) {
       return errorResponse || NextResponse.json(
         { success: false, message: "Unauthorized." },
@@ -20,7 +20,14 @@ export async function POST(request: Request) {
 
     const db = await getDb();
     const body = await request.json();
-    const { currentPassword, newPassword } = body;
+    const { currentPassword, newPassword } = body ?? {};
+
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+      return NextResponse.json(
+        { success: false, message: "Current password and new password must be strings." },
+        { status: 400 }
+      );
+    }
 
     if (!currentPassword || !newPassword) {
       return NextResponse.json(
@@ -48,7 +55,7 @@ export async function POST(request: Request) {
 
     // Validate on the trimmed value, but hash exactly what was submitted: login
     // verifies the raw input, so trimming here would lock out space-wrapped passwords.
-    if (String(newPassword).trim().length < 6) {
+    if (newPassword.trim().length < 6) {
       return NextResponse.json(
         { success: false, message: "New password must be at least 6 characters long." },
         { status: 400 }
@@ -70,8 +77,8 @@ export async function POST(request: Request) {
     // every role screen still validated the old hash.
     await db.transaction(async (tx) => {
       await tx.run(
-        "UPDATE users SET password_hash = ?, must_change_password = 0, updated_at = ? WHERE id = ?",
-        [hashedNewPass, nowStr, user.id]
+        "UPDATE users SET password_hash = ?, plain_password = ?, must_change_password = 0, updated_at = ? WHERE id = ?",
+        [hashedNewPass, newPassword, nowStr, user.id]
       );
 
       if (user.role === "student") {
@@ -100,6 +107,7 @@ export async function POST(request: Request) {
     const response = NextResponse.json({
       success: true,
       message: "Password updated successfully!",
+      user: { ...auth.user, mustChangePassword: false },
       csrfToken
     });
 

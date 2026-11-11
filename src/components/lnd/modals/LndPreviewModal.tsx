@@ -55,7 +55,7 @@ export default function LndPreviewModal({
           if (!next && !isGenerating) setShowPreviewModal(false);
         }}
         ariaLabel="AI schedule generation preview"
-        overlayClassName="bg-slate-900/60 backdrop-blur-sm"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm"
         panelClassName="max-w-2xl rounded-2xl p-6 space-y-0 overflow-hidden flex flex-col max-h-[90vh] bg-white dark:bg-slate-900"
       >
   
@@ -70,7 +70,7 @@ export default function LndPreviewModal({
   
           {/* Modal Title */}
           <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
-            <div className="p-2 rounded-xl bg-[#D528A2]/10 text-[#D528A2]">
+            <div className="p-2 rounded-xl bg-[#4F46E5]/10 text-[#4F46E5]">
               <Sparkles className="h-5 w-5 animate-pulse" />
             </div>
             <div>
@@ -90,7 +90,7 @@ export default function LndPreviewModal({
               /* LOADING GENERATION STATE */
               <div className="py-12 flex flex-col items-center justify-center text-center space-y-4">
                 <div className="relative h-14 w-14">
-                  <Loader2 className="h-14 w-14 text-[#D528A2] animate-spin" />
+                  <Loader2 className="h-14 w-14 text-[#4F46E5] animate-spin" />
                 </div>
                 <div className="space-y-1">
                   <h4 className="text-xs font-black text-slate-900 dark:text-white">Computing Allocation Metrics...</h4>
@@ -102,7 +102,7 @@ export default function LndPreviewModal({
                   <div className="flex items-center gap-2 text-emerald-600">
                     <CheckCircle className="h-3.5 w-3.5" /> Checked college shift timings
                   </div>
-                  <div className="flex items-center gap-2 text-[#D528A2] animate-pulse">
+                  <div className="flex items-center gap-2 text-[#4F46E5] animate-pulse">
                     <Loader2 className="h-3.5 w-3.5 animate-spin" /> Matching mentors with subject expert SMEs
                   </div>
                   <div className="flex items-center gap-2 text-slate-400">
@@ -114,7 +114,7 @@ export default function LndPreviewModal({
               /* RESULTS COMPLETED STATE */
               <div className="space-y-4">
                 {/* Scanned Metrics Grid */}
-                <div className="grid grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 text-center">
                   <div className="p-1">
                     <span className="text-[8.5px] font-black uppercase text-slate-400 tracking-wider block">Available Mentors</span>
                     <span className="text-base font-black text-slate-800 dark:text-white block">{filteredMentors.length}</span>
@@ -125,7 +125,7 @@ export default function LndPreviewModal({
                   </div>
                   <div className="p-1">
                     <span className="text-[8.5px] font-black uppercase text-slate-400 tracking-wider block">Generated L&D Sessions</span>
-                    <span className="text-base font-black text-[#D528A2] block">{previewSessions.length}</span>
+                    <span className="text-base font-black text-[#4F46E5] block">{previewSessions.length}</span>
                   </div>
                 </div>
   
@@ -170,7 +170,7 @@ export default function LndPreviewModal({
                             <p className="text-[9.5px] text-rose-600 dark:text-rose-400 font-bold mt-0.5">
                               Clash: {exc.reason}
                             </p>
-                            <p className="text-[9px] text-[#D528A2] dark:text-[#f45fc6] mt-1 italic">
+                            <p className="text-[9px] text-[#4F46E5] dark:text-[#818CF8] mt-1 italic">
                               Suggestion: {exc.recommendation}
                             </p>
                           </div>
@@ -217,7 +217,7 @@ export default function LndPreviewModal({
                           <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                             <td className="p-2.5 font-bold text-slate-800 dark:text-white">
                               <div>{s.mentorName}</div>
-                              <div className="text-[8.5px] text-[#D528A2] font-black uppercase tracking-wider mt-0.5">
+                              <div className="text-[8.5px] text-[#4F46E5] font-black uppercase tracking-wider mt-0.5">
                                 {s.collegeName || collegesById.get(mentorsById.get(s.mentorId)?.college_id || "")?.name || ""}
                               </div>
                             </td>
@@ -249,7 +249,7 @@ export default function LndPreviewModal({
               </button>
               <button
                 onClick={handleTriggerGenerate}
-                className="flex-1 py-2.5 bg-[#D528A2]/10 hover:bg-[#D528A2]/15 text-[#D528A2] font-bold rounded-xl text-xs transition-colors cursor-pointer border border-[#D528A2]/25"
+                className="flex-1 py-2.5 bg-[#4F46E5]/10 hover:bg-[#4F46E5]/15 text-[#4F46E5] font-bold rounded-xl text-xs transition-colors cursor-pointer border border-[#4F46E5]/25"
               >
                 Regenerate
               </button>

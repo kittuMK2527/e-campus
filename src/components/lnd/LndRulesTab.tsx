@@ -110,7 +110,7 @@ export default function LndRulesTab({
                 max={10}
                 value={targetDemosCount}
                 onChange={(e) => setTargetDemosCount(Math.max(1, parseInt(e.target.value) || 1))}
-                className="w-16 text-center py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#D528A2]/30"
+                className="w-16 text-center py-1.5 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-black bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
               />
               <span className="text-xs font-bold text-slate-500 dark:text-slate-400">L&D session(s) / week</span>
             </div>
@@ -140,7 +140,7 @@ export default function LndRulesTab({
                       max={14}
                       value={localVal}
                       onChange={(e) => setDeptRuleInputs(prev => ({ ...prev, [groupName]: Math.max(1, parseInt(e.target.value) || 1) }))}
-                      className="w-14 text-center p-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#D528A2]/30"
+                      className="w-14 text-center p-1.5 text-xs font-bold border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 rounded-lg bg-sunken dark:bg-slate-800 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
                     />
                     <button
                       onClick={async () => {
@@ -154,7 +154,7 @@ export default function LndRulesTab({
                         }
                       }}
                       disabled={!isDirty || savingRuleGroup === groupName}
-                      className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all ${isDirty && savingRuleGroup !== groupName ? "bg-[#D528A2] hover:bg-[#c02090] text-white shadow-xs cursor-pointer" : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                      className={`px-3 py-1.5 text-[10px] font-black rounded-lg transition-all ${isDirty && savingRuleGroup !== groupName ? "bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-xs cursor-pointer" : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
                         }`}
                     >
                       Save
@@ -171,7 +171,7 @@ export default function LndRulesTab({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-4">
             <div>
               <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                <Users className="h-4 w-4 text-[#D528A2]" />
+                <Users className="h-4 w-4 text-[#4F46E5]" />
                 Individual Mentor Targets
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
@@ -233,11 +233,11 @@ export default function LndRulesTab({
                   return (
                     <tr key={m.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <User className="h-3.5 w-3.5 text-[#D528A2]" />
+                        <User className="h-3.5 w-3.5 text-[#4F46E5]" />
                         {m.name}
                       </td>
                       <td className="p-3">
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#D528A2]/10 text-[#D528A2] dark:text-[#f45fc6] border border-[#D528A2]/20">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-[#4F46E5]/10 text-[#4F46E5] dark:text-[#818CF8] border border-[#4F46E5]/20">
                           {groupName}
                         </span>
                       </td>
@@ -245,7 +245,7 @@ export default function LndRulesTab({
                         {colName}
                       </td>
                       <td className="p-3 text-center">
-                        <span className="px-2.5 py-1 rounded-lg bg-[#D528A2]/10 text-[#D528A2] dark:text-[#f45fc6] font-black text-xs">
+                        <span className="px-2.5 py-1 rounded-lg bg-[#4F46E5]/10 text-[#4F46E5] dark:text-[#818CF8] font-black text-xs">
                           {customTarget} L&D/Wk
                         </span>
                       </td>
@@ -272,7 +272,7 @@ export default function LndRulesTab({
                             type="button"
                             onClick={() => handleSetMentorTarget(m.id, customTarget + 1)}
                             aria-label={`Increase ${m.name} weekly L&D target`}
-                            className="w-6 h-6 rounded-lg bg-[#D528A2] hover:bg-[#c02090] text-white font-black flex items-center justify-center cursor-pointer shadow-xs transition-colors"
+                            className="w-6 h-6 rounded-lg bg-[#4F46E5] hover:bg-[#4338CA] text-white font-black flex items-center justify-center cursor-pointer shadow-xs transition-colors"
                           >
                             +
                           </button>

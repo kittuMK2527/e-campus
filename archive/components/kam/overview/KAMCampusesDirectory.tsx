@@ -70,7 +70,7 @@ export const KAMCampusesDirectory: React.FC<KAMCampusesDirectoryProps> = ({
               placeholder="Search campus or CM..."
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="pl-8 pr-3 py-1.5 border border-slate-200 bg-slate-50 text-xs rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D528A2] font-semibold w-48"
+              className="pl-8 pr-3 py-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken text-xs rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D528A2] font-semibold w-48"
             />
           </div>
         </div>

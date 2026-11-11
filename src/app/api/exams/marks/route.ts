@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getDb, chunkList, writeInChunks, type QueryFailure } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -272,6 +274,33 @@ export async function POST(request: Request) {
         );
       }
     });
+
+    notifyRealtimeEvent({
+      domain: "exams",
+      action: "marks_updated",
+      collegeId: exam.college_id,
+      payload: { examId: exam_id, count: byStudent.size }
+    });
+    notifyRealtimeEvent({
+      domain: "attendance",
+      action: "marked",
+      collegeId: exam.college_id,
+      payload: { type: "Exam", examId: exam_id }
+    });
+
+    const studentIds = Array.from(byStudent.keys());
+    if (studentIds.length > 0) {
+      dispatchSystemNotification(db, {
+        userIds: studentIds,
+        title: `Exam Marks Published — ${exam.subject || "Exam"}`,
+        message: `Your marks for ${exam.name || exam.subject} have been recorded. Check Exams to view your score.`,
+        link: "/student/exams",
+        type: "success",
+        domain: "exams",
+        action: "marks_submitted",
+        collegeId: exam.college_id,
+      }).catch(() => {});
+    }
 
     return NextResponse.json({ success: true, message: `Successfully recorded marks and attendance for ${byStudent.size} students` });
   } catch (error: any) {

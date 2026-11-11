@@ -457,7 +457,7 @@ interface AppContextProps {
   setCurrentShift: (shift: ShiftType) => void;
   shiftTimeSlots: Record<ShiftType, string[]>;
   getTimeSlots: (shift: string, semesterOrClassGroup?: string, targetCollegeId?: string) => string[];
-  setRole: (role: Role, userId?: string, extra?: { collegeId?: string; userEmail?: string; userName?: string; isSuperAdmin?: boolean }) => void;
+  setRole: (role: Role, userId?: string, extra?: { collegeId?: string; userEmail?: string; userName?: string; isSuperAdmin?: boolean; mustChangePassword?: boolean }) => void;
   assignSlot: (mentorId: string, day: string, time: string, course: string, location: string, classGroup?: string) => Promise<void>;
   deleteSlot: (slotId: string) => Promise<void>;
   updateSlot: (
@@ -575,7 +575,8 @@ interface AppContextProps {
   refreshData: (silent?: boolean, scope?: { role: Role; userId: string }) => Promise<any>;
   /** Invalidate a change domain and notify every open tab/role to re-read. */
   notifyDataChanged: (domain: string) => void;
-  refreshAttendance: (collegeId?: string) => Promise<void>;
+  refreshAttendance: (collegeId?: string, options?: { limit?: number; days?: number }) => Promise<void>;
+  refreshRequests: () => Promise<void>;
   students: Student[];
   studentAttendance: StudentAttendance[];
   setStudentAttendance: React.Dispatch<React.SetStateAction<StudentAttendance[]>>;
@@ -798,6 +799,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const attendanceLockEnabled = systemSettings.attendance_lock_enabled !== false;
 
   const [currentUser, setCurrentUser] = useState<AuthenticatedUser | null>(null);
+  const sessionUserRef = useRef<AuthenticatedUser | null>(null);
+  const sessionVersionRef = useRef(0);
+  const setSessionUser = useCallback((user: AuthenticatedUser | null) => {
+    sessionVersionRef.current += 1;
+    sessionUserRef.current = user;
+    setCurrentUser(user);
+    if (user?.mustChangePassword) {
+      localStorage.setItem("fp_must_change_pass", "true");
+    } else {
+      localStorage.removeItem("fp_must_change_pass");
+    }
+  }, []);
   const [currentCampusScope, setCurrentCampusScope] = useState<string>("all");
   const [lastSyncTime, setLastSyncTime] = useState<string>(() => new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true }));
 
@@ -904,6 +917,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const refreshDataSeq = useRef(0);
   const refreshDataInFlight = useRef<{ key: string; promise: Promise<any> } | null>(null);
   const refreshDataImpl = async (silent: boolean = true, scope?: { role: Role; userId: string }) => {
+    const sessionUser = sessionUserRef.current;
+    if (!sessionUser || sessionUser.mustChangePassword) return;
     const scopeKey = scope ? `${scope.role}:${scope.userId}` : "auto";
     // Piggyback only on an identical scope — a scoped caller must not receive
     // an unscoped in-flight response.
@@ -941,6 +956,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const data = await apiFetch(`/api/data?role=${role}&userId=${encodeURIComponent(userId)}`);
+      if (sessionUserRef.current !== sessionUser) return;
       if (data.success) {
         // Some slices can fail while the rest load — name them, because "couldn't reach
         // the database" sent people to check a healthy prod database. A slice that only
@@ -1000,7 +1016,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     } catch (e) {
       console.error("Error fetching data from API:", e);
-      if (seq === refreshDataSeq.current) {
+      if (seq === refreshDataSeq.current && sessionUserRef.current === sessionUser) {
         const report = describeLoadFailure(e);
         setDataLoadError(true);
         setDataLoadMessage(report.message);
@@ -1034,14 +1050,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ── Surgical attendance-only refresh — re-fetches only studentAttendance from DB ──
   // Use this after bulk import or when mentor-marked data needs to reflect in CAM view
-  const refreshAttendance = async (targetCollegeId?: string) => {
+  const refreshAttendance = async (targetCollegeId?: string, options?: { limit?: number; days?: number }) => {
+    const sessionUser = sessionUserRef.current;
+    if (!sessionUser || sessionUser.mustChangePassword) return;
     try {
       setIsDataLoading(true); // show the top sync progress line during the swap
       const role = currentRole || currentUser?.role || "";
       const userId = currentUser?.reference_id || currentUser?.id || "";
       const colParam = targetCollegeId ? `&college_id=${encodeURIComponent(targetCollegeId)}` : "";
-      const data = await apiFetch(`/api/data?role=${role}&userId=${encodeURIComponent(userId)}${colParam}&fields=attendance`);
-      if (data.success && data.studentAttendance) {
+      const limitParam = options?.limit ? `&attendanceLimit=${encodeURIComponent(options.limit)}` : "";
+      const daysParam = options?.days ? `&attendanceDays=${encodeURIComponent(options.days)}` : "";
+      const data = await apiFetch(`/api/data?role=${role}&userId=${encodeURIComponent(userId)}${colParam}${limitParam}${daysParam}&fields=attendance`);
+      if (sessionUserRef.current === sessionUser && data.success && data.studentAttendance) {
         setStudentAttendance(parseAttendancePayload(data));
       }
     } catch (e) {
@@ -1051,61 +1071,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  /** Targeted domain workspace loader for active role */
-  // Identity-stable because initApp's effect keys off it — re-creating it would re-run the
-  // whole bootstrap. So it reads the college list through a ref: closing over `colleges`
-  // meant it always saw the initial empty array, and a CM without a college_id fell through
-  // to institution-wide ?college_id-less reads.
-  const collegesRef = useRef(colleges);
-  useEffect(() => {
-    collegesRef.current = colleges;
-  }, [colleges]);
+  // ── Fast surgical requests-only refresh ──
+  const refreshRequests = useCallback(async () => {
+    const sessionUser = sessionUserRef.current;
+    if (!sessionUser || sessionUser.mustChangePassword) return;
+    try {
+      const data = await apiFetch("/api/requests");
+      if (sessionUserRef.current === sessionUser && data?.success && Array.isArray(data.requests)) {
+        setRequests(data.requests);
+      }
+    } catch (e) {
+      console.warn("Error refreshing requests:", e);
+    }
+  }, []);
 
   const loadRoleWorkspace = useCallback(async (role: Role, userId: string, collegeId?: string) => {
+    const sessionUser = sessionUserRef.current;
+    if (!sessionUser || sessionUser.mustChangePassword) return;
+    // loadRoleWorkspace fires before /api/data returns, giving the UI early data
+    // for the most time-sensitive slice per role. It must NOT duplicate slices that
+    // /api/data already returns — those fire in parallel and will overwrite anyway.
     setIsDataLoading(true);
     try {
       if (role === "mentor") {
+        // Mentor's own slots and incoming requests are scoped by mentorId — small,
+        // fast, and not duplicated by /api/data's broader college-scoped slot slice.
         const [slotsData, requestsData] = await Promise.all([
           apiFetch(`/api/slots?mentorId=${encodeURIComponent(userId)}`).catch(() => ({})),
-          apiFetch(`/api/requests?targetStaffId=${encodeURIComponent(userId)}`).catch(() => ({}))
+          apiFetch(`/api/requests`).catch(() => ({}))
         ]);
+        if (sessionUserRef.current !== sessionUser) return;
         if (slotsData?.success && Array.isArray(slotsData.slots)) setSlots(slotsData.slots);
         if (requestsData?.success && Array.isArray(requestsData.requests)) setRequests(requestsData.requests);
-      } else if (role === "cm") {
-        const targetCol = collegeId || (collegesRef.current[0]?.id || "");
-        const colQuery = targetCol ? `college_id=${encodeURIComponent(targetCol)}` : "";
-        const [slotsData, reqsData, mentorsData] = await Promise.all([
-          apiFetch(colQuery ? `/api/slots?${colQuery}` : `/api/slots`).catch(() => ({})),
-          apiFetch(colQuery ? `/api/requests?status=pending_cm&${colQuery}` : `/api/requests?status=pending_cm`).catch(() => ({})),
-          apiFetch(colQuery ? `/api/mentors?${colQuery}` : `/api/mentors`).catch(() => ({}))
-        ]);
-        if (slotsData?.success && Array.isArray(slotsData.slots)) setSlots(slotsData.slots);
-        if (reqsData?.success && Array.isArray(reqsData.requests)) setRequests(reqsData.requests);
-        if (mentorsData?.success && Array.isArray(mentorsData.mentors)) setMentors(mentorsData.mentors);
-      } else if (role === "student") {
-        const slotsData = await apiFetch(`/api/slots?college_id=${encodeURIComponent(collegeId || "")}`).catch(() => ({}));
-        if (slotsData?.success && Array.isArray(slotsData.slots)) setSlots(slotsData.slots);
-      } else if (role === "kam") {
-        // Only the dead `/api/kam` beside this call was removed — its response was never read
-        // here. The colleges fetch stays: the bundle narrows a KAM to their own campuses and
-        // returns an empty slice for a KAM with none assigned, so this is the last thing that
-        // can still populate the campus list. Widening vs. narrowing that is an access-control
-        // call, not a latency one.
-        const collegesData = await apiFetch("/api/colleges").catch(() => ({}));
-        if (collegesData?.success && Array.isArray(collegesData.colleges)) setColleges(collegesData.colleges);
-      } else if (role === "admin") {
-        // Only the full pending-signup list is unique to this call. `/api/data/reference`
-        // pre-warms `SELECT * FROM colleges ORDER BY name` and the bundle re-sets it, so the
-        // parallel /api/colleges fetch here was a third copy of the same rows.
-        const signupData = await apiFetch("/api/admin/signup-requests").catch(() => ({}));
-        if (signupData?.success && Array.isArray(signupData.requests)) setSignupRequests(signupData.requests);
       } else if (role === "sme") {
+        // SME availability is not in /api/data for admin/KAM — only in the sme-scoped slice.
         const availData = await apiFetch(`/api/sme-availability?sme_id=${encodeURIComponent(userId)}`).catch(() => ({}));
-        if (availData?.success && Array.isArray(availData.availability)) setSmeAvailability(availData.availability);
+        if (sessionUserRef.current === sessionUser && availData?.success && Array.isArray(availData.availability)) setSmeAvailability(availData.availability);
       }
-      // L&D has no workspace read of its own. Its old demo-sessions calls were unscoped
-      // ?college_id-less requests the endpoint rejects with 400, and /api/data already
-      // returns the role-scoped demoSessions slice for both sme and L&D.
+      // cm, kam, admin, student, fee_manager, L&D:
+      // All their core data (slots, requests, mentors, colleges, signup-requests)
+      // is already returned by /api/data which fires in parallel from the call site.
+      // Firing separate fetches here created duplicate HTTP requests and race conditions
+      // where the workspace fetch could overwrite fresher /api/data results.
     } catch (err) {
       console.warn("loadRoleWorkspace error:", err);
     } finally {
@@ -1114,20 +1121,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    const version = sessionVersionRef.current;
     const initApp = async () => {
       document.documentElement.classList.remove("dark");
 
-      // 1. Authenticate with server using HttpOnly cookie & load live profile.
-      //    The reference slice is public and does not depend on who is signed in, so
-      //    it goes out in the same wave instead of after the identity round trip.
       let authUser: AuthenticatedUser | null = null;
-      const [authData, refData] = await Promise.all([
-        apiFetch("/api/auth/me").catch(() => ({ success: false })),
-        apiFetch("/api/data/reference").catch((refErr: unknown) => {
-          console.warn("Reference data bootstrap error:", refErr);
-          return { success: false };
-        })
-      ]);
+      const authData = await apiFetch("/api/auth/me").catch(() => ({ success: false }));
+      if (cancelled || sessionVersionRef.current !== version) return;
       if (authData.success && authData.user) {
         authUser = authData.user;
         if (authData.csrfToken) {
@@ -1135,19 +1136,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      // 2. Fast-path reference bootstrap (<30KB). Applied whether or not the session
-      //    is live: the endpoint is public and a signed-out visitor on the login page
-      //    becomes this user seconds later, so the lists are a pre-warm, not a leak.
-      if (refData.success) {
-        if (refData.colleges) setColleges(refData.colleges);
-        if (refData.subjects) setSubjectsList(refData.subjects);
-        if (refData.departments) setDepartmentsList(refData.departments);
-        if (refData.academicYears) setAcademicYears(refData.academicYears);
-        if (refData.systemSettings) setSystemSettings(prev => ({ ...prev, ...refData.systemSettings }));
-      }
-
       if (!authUser) {
-        setCurrentUser(null);
+        setSessionUser(null);
         setCurrentRoleState("mentor");
         setCurrentMentor(null);
         setCurrentHR(null);
@@ -1160,7 +1150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      setCurrentUser(authUser);
+      setSessionUser(authUser);
 
       // 3. Restore session using authoritative server user immediately (< 50ms total boot)
       // A super admin is restored as the admin console only: the role never
@@ -1253,7 +1243,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     initApp();
-  }, [loadRoleWorkspace]);
+    return () => { cancelled = true; };
+  }, [loadRoleWorkspace, setSessionUser]);
 
   useEffect(() => {
     const today = new Date();
@@ -1265,7 +1256,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentStudent, currentMentor, studentAttendance, slots]);
 
   // ── Set current role and user from DB data ─────────────────────────────────
-  const setRole = (role: Role, userId?: string, extra?: { collegeId?: string; userEmail?: string; userName?: string; isSuperAdmin?: boolean }) => {
+  const setRole = (role: Role, userId?: string, extra?: { collegeId?: string; userEmail?: string; userName?: string; isSuperAdmin?: boolean; mustChangePassword?: boolean }) => {
     role = normalizeRoleValue(role);
     setCurrentRoleState(role);
     const userEmail = (extra?.userEmail || currentUser?.email || (typeof window !== "undefined" ? localStorage.getItem("fp_user_email") : "") || "").toLowerCase().trim();
@@ -1273,15 +1264,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const userName = extra?.userName || currentUser?.name || (typeof window !== "undefined" ? localStorage.getItem("fp_user_name") : "") || "";
     const collegeId = extra?.collegeId || currentUser?.college_id || (typeof window !== "undefined" ? localStorage.getItem("fp_user_college_id") : "") || "";
     const isSuper = extra?.isSuperAdmin ?? currentUser?.isSuperAdmin ?? roleGrantsSuperAdmin(role);
+    const mustChangePassword = extra?.mustChangePassword ?? sessionUserRef.current?.mustChangePassword ?? false;
 
-    setCurrentUser({
+    setSessionUser({
       id: sessionUserId || `user_${role}`,
       reference_id: sessionUserId,
       role: role,
       email: userEmail,
       name: userName || userEmail || "User",
       college_id: collegeId,
-      isSuperAdmin: isSuper
+      isSuperAdmin: isSuper,
+      mustChangePassword
     });
 
     if (collegeId) {
@@ -1312,7 +1305,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (targetCamId) {
         const placeholderCam = { id: targetCamId, name: userName || (userEmail ? userEmail.split("@")[0] : ""), email: userEmail, college_id: collegeId, role: "cm" as const };
         setCurrentCAM(placeholderCam as any);
-        fetch(`/api/cm?id=${encodeURIComponent(targetCamId)}`).then(r => r.json()).then(d => {
+        if (!mustChangePassword) fetch(`/api/cm?id=${encodeURIComponent(targetCamId)}`).then(r => r.json()).then(d => {
           if (d.success && d.cam) {
             setCurrentCAM({ ...d.cam, role: "cm" as const });
           }
@@ -1324,7 +1317,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (targetKamId) {
         const placeholderKam = { id: targetKamId, name: userName || (userEmail ? userEmail.split("@")[0] : ""), email: userEmail, college_id: collegeId, role: "kam" as const };
         setCurrentKAM(placeholderKam as any);
-        fetch(`/api/kam?id=${encodeURIComponent(targetKamId)}`).then(r => r.json()).then(d => {
+        if (!mustChangePassword) fetch(`/api/kam?id=${encodeURIComponent(targetKamId)}`).then(r => r.json()).then(d => {
           const kamData = d.kam || d.cam;
           if (d.success && kamData) {
             setCurrentKAM({ ...kamData, role: "kam" as const });
@@ -1337,7 +1330,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (targetAdminId) {
         const placeholderAdmin = { id: targetAdminId, name: userName || "Administrator", email: userEmail, role: "admin" as const };
         setCurrentAdmin(placeholderAdmin);
-        fetch(`/api/admin?id=${encodeURIComponent(targetAdminId)}`).then(r => r.json()).then(d => {
+        if (!mustChangePassword) fetch(`/api/admin?id=${encodeURIComponent(targetAdminId)}`).then(r => r.json()).then(d => {
           if (d.success && d.admin) {
             setCurrentAdmin({ ...d.admin, role: "admin" as const });
           }
@@ -1428,7 +1421,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       sessionStorage.clear();
     }
 
-    setCurrentUser(null);
+    setSessionUser(null);
     setCurrentMentor(null);
     setCurrentHR(null);
     setCurrentCAM(null);
@@ -1461,6 +1454,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       window.removeEventListener("ecampus_session_expired", handleSessionExpired);
     };
   }, [logout, toastFn]);
+
+  useEffect(() => {
+    const requirePasswordChange = () => {
+      const user = sessionUserRef.current;
+      if (!user || user.mustChangePassword) return;
+      setSessionUser({ ...user, mustChangePassword: true });
+      void queryClient.cancelQueries();
+      setIsDataLoading(false);
+    };
+    window.addEventListener("ecampus_password_change_required", requirePasswordChange);
+    return () => window.removeEventListener("ecampus_password_change_required", requirePasswordChange);
+  }, [queryClient, setSessionUser]);
 
   const setCurrentShift = (shift: ShiftType) => {
     localStorage.setItem("fp_current_shift", shift);
@@ -1616,6 +1621,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         request_type: requestType || data.request?.request_type || (isCamTarget ? "late_attendance" : undefined)
       };
       setRequests(prev => [newRequest, ...prev]);
+      broadcastDataChanged("requests");
+    } else if (data.duplicate && data.request) {
+      // Synchronize the existing request into state if not already present
+      setRequests(prev => {
+        if (prev.some(r => r.id === data.request.id)) return prev;
+        return [data.request, ...prev];
+      });
+      throw new Error(data.message || "A request for this session already exists.");
     } else {
       throw new Error(data.message || "Failed to request handover");
     }
@@ -1666,6 +1679,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         request_type: "swap_compensate"
       };
       setRequests(prev => [newRequest, ...prev]);
+      broadcastDataChanged("requests");
       return { success: true, message: data.message || "Swap offer sent!" };
     } else {
       return { success: false, message: data.message || "Failed to send swap offer." };
@@ -2141,8 +2155,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
     const data = await res.json();
     if (data.success) {
-      // Surgical update: update request status in-place
-      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status } : r));
+      // Surgical update: update request status in-place (and cascade to any duplicates for the same slot)
+      const targetReq = requests.find(r => r.id === requestId);
+      setRequests(prev => prev.map(r => {
+        if (r.id === requestId) return { ...r, status, headerReason };
+        if (targetReq && r.requestorId === targetReq.requestorId && r.slotId === targetReq.slotId && r.dateStr === targetReq.dateStr && (r.status === "pending" || r.status === "pending_cm" || r.status === "pending_cam")) {
+          return { ...r, status, headerReason };
+        }
+        return r;
+      }));
 
       // DATA_FLOW_AUDIT D3: prefer the server's authoritative handover row over a
       // locally-constructed one (the server handles swap reversal and FK fallbacks
@@ -2445,9 +2466,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       const data = await res.json();
       if (data.success) {
-        if (data.mentors && Array.isArray(data.mentors)) {
-          setMentors(prev => [...prev, ...data.mentors]);
+        if (data.mentors && Array.isArray(data.mentors) && data.mentors.length > 0) {
+          setMentors(prev => {
+            const next = [...prev];
+            for (const newM of data.mentors) {
+              const idx = next.findIndex(m => m.id === newM.id || (m.email && newM.email && m.email.toLowerCase() === newM.email.toLowerCase()));
+              if (idx !== -1) {
+                next[idx] = { ...next[idx], ...newM };
+              } else {
+                next.push(newM);
+              }
+            }
+            return next;
+          });
         }
+        await refreshData(true);
       }
       return data;
     } catch (e: any) {
@@ -3470,12 +3503,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addInterview = async (interviewData: Partial<StudentInterview>) => {
     try {
-      const res = await fetch("/api/interviews", {
+      const data = await apiFetch<any>("/api/interviews", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(interviewData),
+        body: interviewData,
       });
-      const data = await res.json();
       if (data.success && data.interview) {
         setInterviews(prev => [data.interview, ...prev.filter(i => i.id !== data.interview.id)]);
         return { success: true, interview: data.interview };
@@ -3489,8 +3520,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const deleteInterview = async (id: string) => {
     try {
-      const res = await fetch(`/api/interviews?id=${encodeURIComponent(id)}`, { method: "DELETE" });
-      const data = await res.json();
+      const data = await apiFetch<any>(`/api/interviews?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       if (data.success) {
         setInterviews(prev => prev.filter(i => i.id !== id));
         return { success: true, message: data.message };
@@ -3924,6 +3954,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     refreshData,
     notifyDataChanged: broadcastDataChanged,
     refreshAttendance,
+    refreshRequests,
     students,
     updateStudent,
     deleteStudent,

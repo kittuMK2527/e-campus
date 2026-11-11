@@ -7,6 +7,7 @@ import { checkMentorAvailability, checkSmeAvailability, loadAvailabilityContext 
 import type { AvailabilityContext } from "@/lib/availability";
 import { requireRole, requireSession, apiAuthErrorResponse } from "@/lib/api-auth";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
 
 /**
@@ -354,21 +355,17 @@ export async function POST(request: Request) {
         ]
       );
 
-      // Notify L&D (in-app: L&D users get a queue view;
-      // we notify the SME too since their availability is impacted)
+      // Notify L&D and the SME via zero-delay notification engine
       if (demo.smeId) {
-        const notifId = generateId("notif");
-        await db.run(
-          `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-           VALUES (?, ?, ?, ?, 0, '/l-and-d', 'demo_reallocation_proposed', ?)`,
-          [
-            notifId,
-            demo.smeId,
-            "L&D Reallocation Proposed",
-            `${demo.mentorName} proposed moving the ${demo.subject} L&D session from ${demo.dateStr} (${demo.timeSlot}) to ${proposedDateStr} (${proposedTimeSlot}). Awaiting L&D approval.`,
-            new Date().toISOString()
-          ]
-        ).catch(() => {});
+        await dispatchSystemNotification(db, {
+          userIds: [demo.smeId],
+          title: "L&D Reallocation Proposed",
+          message: `${demo.mentorName} proposed moving the ${demo.subject} L&D session from ${demo.dateStr} (${demo.timeSlot}) to ${proposedDateStr} (${proposedTimeSlot}). Awaiting L&D approval.`,
+          link: "/l-and-d",
+          type: "warning",
+          domain: "demos",
+          action: "reallocated",
+        }).catch(() => {});
       }
 
       // Audit log
@@ -455,19 +452,16 @@ export async function POST(request: Request) {
         [decidedBy || "L&D", new Date().toISOString(), decisionNotes || null, requestId]
       );
 
-      // Notifications: mentor + SME
-      const notifId = generateId("notif");
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-         VALUES (?, ?, ?, ?, 0, '/mentor/demo_evaluations', 'demo_reallocation_approved', ?)`,
-        [
-          notifId,
-          req.mentor_id,
-          "L&D Reallocation Approved",
-          `Your ${req.subject} L&D session has been moved to ${req.proposed_date_str} (${req.proposed_time_slot}). SME: ${req.sme_name}.`,
-          new Date().toISOString()
-        ]
-      ).catch(() => {});
+      // Notifications: mentor + SME via zero-delay notification engine
+      await dispatchSystemNotification(db, {
+        userIds: [req.mentor_id, req.sme_id].filter(Boolean),
+        title: "L&D Reallocation Approved",
+        message: `Your ${req.subject} L&D session has been moved to ${req.proposed_date_str} (${req.proposed_time_slot}). SME: ${req.sme_name}.`,
+        link: "/mentor/demo_evaluations",
+        type: "success",
+        domain: "demos",
+        action: "reallocated",
+      }).catch(() => {});
 
       const auditId = generateId("audit");
       await db.run(

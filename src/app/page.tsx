@@ -33,7 +33,6 @@ export default function Home() {
     isLoading: appLoading,
     mentors,
     students,
-    colleges,
     submitSignupRequest,
     logout
   } = useApp();
@@ -123,7 +122,8 @@ export default function Home() {
           collegeId: data.collegeId,
           userEmail: data.userEmail || email.trim(),
           userName: resolvedName,
-          isSuperAdmin
+          isSuperAdmin,
+          mustChangePassword: Boolean(data.mustChangePassword)
         });
 
         // Navigation is handled by the auth effect above so there is a single redirect authority.
@@ -186,7 +186,7 @@ export default function Home() {
 
 
   return (
-    <div className="min-h-screen flex font-sans overflow-hidden bg-white relative">
+    <div className="min-h-dvh flex font-sans overflow-hidden bg-white relative">
       {/* ── LEFT HERO PANEL (LIGHT UI) ── */}
       <div className="hidden lg:flex lg:w-[50%] xl:w-[54%] flex-col relative overflow-hidden bg-slate-50 border-r border-slate-100">
         {/* Shifting dynamic glowing orb backdrops (extremely soft for Light Mode) */}
@@ -302,7 +302,7 @@ export default function Home() {
                       placeholder="John Doe"
                       value={signupName}
                       onChange={(e) => setSignupName(e.target.value)}
-                      className="w-full bg-slate-50/70 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 focus:border-slate-800 focus:bg-white transition-all shadow-sm"
+                      className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
                       disabled={signupLoading}
                     />
                   </div>
@@ -320,7 +320,7 @@ export default function Home() {
                       placeholder="e.g. john.doe@faceprep.in"
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
-                      className="w-full bg-slate-50/70 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 focus:border-slate-800 focus:bg-white transition-all shadow-sm"
+                      className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
                       disabled={signupLoading}
                     />
                   </div>
@@ -338,7 +338,7 @@ export default function Home() {
                       placeholder="••••••••"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
-                      className="w-full bg-slate-50/70 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 focus:border-slate-800 focus:bg-white transition-all shadow-sm"
+                      className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
                       disabled={signupLoading}
                     />
                   </div>
@@ -356,7 +356,7 @@ export default function Home() {
                       placeholder="••••••••"
                       value={signupConfirmPassword}
                       onChange={(e) => setSignupConfirmPassword(e.target.value)}
-                      className="w-full bg-slate-50/70 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 focus:border-slate-800 focus:bg-white transition-all shadow-sm"
+                      className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl px-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
                       disabled={signupLoading}
                     />
                   </div>
@@ -402,14 +402,14 @@ export default function Home() {
                         Email address or Roll number
                       </label>
                       <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500 group-focus-within:text-slate-800 transition-colors pointer-events-none" />
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-slate-700 transition-colors pointer-events-none" />
                         <input
                           id="login-email"
                           type="text"
                           placeholder="e.g. your.name@faceprep.in"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-11 pr-4 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 focus:border-slate-800 focus:bg-white transition-all duration-200 shadow-sm"
+                          className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
                           disabled={loginLoading}
                           autoComplete="email"
                           aria-invalid={Boolean(loginError)}
@@ -424,14 +424,14 @@ export default function Home() {
                         Password
                       </label>
                       <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-slate-800 transition-colors pointer-events-none" />
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-slate-700 transition-colors pointer-events-none" />
                         <input
                           id="login-password"
                           type={showPassword ? "text" : "password"}
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full bg-slate-50/70 border border-slate-200 rounded-xl pl-11 pr-11 py-3 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-800/10 focus:border-slate-800 focus:bg-white transition-all duration-200 shadow-sm"
+                          className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl pl-10 pr-11 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
                           disabled={loginLoading}
                           autoComplete="current-password"
                           aria-invalid={Boolean(loginError)}
@@ -442,9 +442,9 @@ export default function Home() {
                           onClick={() => setShowPassword((v) => !v)}
                           aria-label={showPassword ? "Hide password" : "Show password"}
                           aria-pressed={showPassword}
-                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-700 transition-colors cursor-pointer"
+                          className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                         >
-                          {showPassword ? <EyeOff className="h-4.5 w-4.5" /> : <Eye className="h-4.5 w-4.5" />}
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
                       </div>
                     </div>
@@ -463,7 +463,7 @@ export default function Home() {
 
                     {showForgotNote && (
                       <p role="status" className="text-[11px] leading-relaxed text-slate-600 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 animate-slideDown">
-                        Password resets are handled by your administrator — ask your Campus Manager or the Super Admin to reset it from Admin → User Credentials.
+                        Contact your Campus Manager or Administrator to reset your password.
                       </p>
                     )}
 

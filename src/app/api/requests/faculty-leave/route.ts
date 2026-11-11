@@ -1,12 +1,11 @@
 export const maxDuration = 60;
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { getDb, readInChunks, type QueryFailure } from "@/lib/db";
 import { requireAuth, Role } from "@/lib/authGuard";
-import { renderEmailShell } from "@/lib/mail";
-import { dispatchMail, sendMailAsync } from "@/lib/mailAsync";
 import { checkMentorAvailability, loadAvailabilityContext, type AvailabilityContext } from "@/lib/availability";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 import { applyHandoverDateCorrection, correctStaleHandoverDate } from "@/lib/handoverDates";
 
 // Faculty leave reads and writes the live schedule (handovers, mentor_attendance)
@@ -290,36 +289,30 @@ export async function POST(request: Request) {
 
             // 1. In-app notification to the assigned SME (freeing their slot and letting them know mentor will reschedule)
             if (demo.smeId) {
-              const smeNotifId = generateId("notif");
-              await db.run(
-                `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-                 VALUES (?, ?, ?, ?, 0, ?, 'demo_cancelled', ?)`,
-                [
-                  smeNotifId,
-                  demo.smeId,
-                  "L&D On Hold — Mentor on Leave",
-                  `L&D session for ${demo.subject} with ${reqRecord.mentorName} on ${demo.dateStr} (${demo.timeSlot}) is on hold due to approved mentor leave. Slot has been freed; mentor will reschedule.`,
-                  "/sme/demo_list",
-                  new Date().toISOString()
-                ]
-              );
+              await dispatchSystemNotification(db, {
+                userIds: [demo.smeId],
+                title: "L&D On Hold — Mentor on Leave",
+                message: `L&D session for ${demo.subject} with ${reqRecord.mentorName} on ${demo.dateStr} (${demo.timeSlot}) is on hold due to approved mentor leave. Slot has been freed; mentor will reschedule.`,
+                link: "/sme/demo_list",
+                type: "warning",
+                domain: "demos",
+                action: "availability_updated",
+                collegeId: reqRecord.college_id || undefined,
+              });
             }
 
             // 2. In-app notification to the mentor prompting them to pick a new date & slot
             if (reqRecord.mentor_id) {
-              const mentorNotifId = generateId("notif");
-              await db.run(
-                `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-                 VALUES (?, ?, ?, ?, 0, ?, 'demo_reschedule_prompt', ?)`,
-                [
-                  mentorNotifId,
-                  reqRecord.mentor_id,
-                  "L&D Reschedule Required",
-                  `Your L&D session for ${demo.subject} on ${demo.dateStr} falls during your approved leave. Please open Demo Evaluations to pick a new date and time slot.`,
-                  "/mentor/demo_evaluations",
-                  new Date().toISOString()
-                ]
-              );
+              await dispatchSystemNotification(db, {
+                userIds: [reqRecord.mentor_id],
+                title: "L&D Reschedule Required",
+                message: `Your L&D session for ${demo.subject} on ${demo.dateStr} falls during your approved leave. Please open Demo Evaluations to pick a new date and time slot.`,
+                link: "/mentor/demo_evaluations",
+                type: "reminder",
+                domain: "demos",
+                action: "availability_updated",
+                collegeId: reqRecord.college_id || undefined,
+              });
             }
 
             // 3. Audit log
@@ -383,53 +376,22 @@ export async function POST(request: Request) {
         }
       }
 
-      // Trigger Email Notification to Mentor (End 2)
-      if (reqRecord.mentorEmail) {
-        const emailSubject = `[Update] Your ${reqRecord.request_type} Request Has Been ${newStatus.toUpperCase()}`;
-        const emailHtml = renderEmailShell({
-          title: `Application ${newStatus.toUpperCase()}`,
-          badgeText: newStatus === "approved" ? "APPROVED BY CM" : "REJECTED BY CM",
-          badgeColor: newStatus === "approved" ? "emerald" : "rose",
-          description: `Hello ${reqRecord.mentorName}, your ${reqRecord.request_type} application has been ${newStatus} by your Campus Manager.`,
-          details: [
-            { label: "Request Type", value: reqRecord.request_type, highlight: true },
-            { label: "Date Schedule", value: `${reqRecord.start_date} to ${reqRecord.end_date}` },
-            { label: "Status", value: newStatus.toUpperCase(), highlight: true },
-            { label: "Processed By", value: approvedBy || "Campus Manager" },
-            ...(rejectionReason ? [{ label: "CM Remarks", value: rejectionReason }] : [])
-          ],
-          footerText: "Official notification from FACE Prep E-Campus Operations."
-        });
-
-        // Dispatched after the response: a slow relay must not hold up the
-        // CM's approve click for the full 12s mail deadline.
-        sendMailAsync({
-          to: reqRecord.mentorEmail,
-          subject: emailSubject,
-          htmlBody: emailHtml,
-          context: "faculty-leave-decision"
-        });
-      }
-
-      // In-app notification to mentor (bell) so the decision is visible without email
+      // In-app notification to mentor (bell) so the decision is visible
       if (reqRecord.mentor_id) {
         try {
-          const decisionNotifId = generateId("notif");
           const dateSpan = reqRecord.end_date && reqRecord.end_date !== reqRecord.start_date
             ? `${reqRecord.start_date} to ${reqRecord.end_date}`
             : reqRecord.start_date;
-          await db.run(
-            `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-             VALUES (?, ?, ?, ?, 0, ?, 'leave_decision', ?)`,
-            [
-              decisionNotifId,
-              reqRecord.mentor_id,
-              `${reqRecord.request_type} Request ${newStatus === "approved" ? "Approved" : "Rejected"}`,
-              `Your ${reqRecord.request_type} application for ${dateSpan} has been ${newStatus} by ${approvedBy || "Campus Manager"}.${rejectionReason ? ` Remarks: ${rejectionReason}` : ""}`,
-              "/mentor/leaves",
-              new Date().toISOString()
-            ]
-          );
+          await dispatchSystemNotification(db, {
+            userIds: [reqRecord.mentor_id],
+            title: `${reqRecord.request_type} Request ${newStatus === "approved" ? "Approved" : "Rejected"}`,
+            message: `Your ${reqRecord.request_type} application for ${dateSpan} has been ${newStatus} by ${approvedBy || "Campus Manager"}.${rejectionReason ? ` Remarks: ${rejectionReason}` : ""}`,
+            link: "/mentor/leaves",
+            type: newStatus === "approved" ? "success" : "alert",
+            domain: "requests",
+            action: "resolved",
+            collegeId: reqRecord.college_id || undefined,
+          });
         } catch (notifErr) {
           console.error("Failed to write leave decision notification for mentor:", notifErr);
         }
@@ -628,132 +590,6 @@ export async function POST(request: Request) {
         }
       }
     }
-
-    // Mail is the slow part of this request (up to 12s per leg), and the cover-mentor
-    // batch used to be a detached promise — Vercel froze the function at the response, so
-    // those requests simply never went out. after() runs it once the response lands.
-    after(async () => {
-      // Fetch KAM for CC and the Campus Manager together — both are keyed off the
-      // college and only feed the email, so they share one round trip.
-      const recipientFailures: QueryFailure[] = [];
-      const [kamRows, camRows] = await db.multiQuery(
-        [
-          { sql: `SELECT email FROM kam_users WHERE college_id = ? LIMIT 1`, params: [effectiveCollegeId] },
-          { sql: `SELECT email, name FROM campus_managers WHERE college_id = ? LIMIT 1`, params: [effectiveCollegeId] },
-        ],
-        recipientFailures
-      );
-      const kamEmail: string | null = kamRows[0]?.email || null;
-      let camUser: any = camRows[0] || null;
-      if (!camUser && recipientFailures.some(f => f.sql.includes("campus_managers"))) {
-        // Legacy campuses still keep their manager in `cams`; only a failed read of
-        // campus_managers means "table absent", never a plain "no rows".
-        try {
-          camUser = await db.get(
-            `SELECT email, name FROM cams WHERE college_id = ? LIMIT 1`,
-            [effectiveCollegeId]
-          );
-        } catch (_) {}
-      }
-
-      // MAIL-C04 Fix: Don't send to hardcoded fallback; log warning instead
-      const cmEmail = camUser?.email;
-      if (!cmEmail) {
-        console.warn(`No CM email found for college ${effectiveCollegeId} — leave notification skipped`);
-        // Optionally: escalate to super admin
-        const adminEmail = process.env.SUPER_ADMIN_EMAIL;
-        if (adminEmail) {
-          try {
-            const escalationHtml = renderEmailShell({
-              title: `[Escalation] No CM Configured for ${effectiveCollegeId}`,
-              badgeText: "SYSTEM ALERT",
-              badgeColor: "rose",
-              description: `A leave request was submitted but no Campus Manager email is configured for college ${effectiveCollegeId}.`,
-              details: [
-                { label: "Faculty", value: mentor?.name || "Unknown", highlight: true },
-                { label: "Request Type", value: requestType },
-                { label: "Date Range", value: `${startDate} to ${effectiveEndDate}` },
-                { label: "College ID", value: effectiveCollegeId }
-              ]
-            });
-            await dispatchMail({
-              to: adminEmail,
-              subject: `[System Alert] No CM for Leave Request - ${effectiveCollegeId}`,
-              htmlBody: escalationHtml,
-              context: "no-cm-escalation"
-            });
-          } catch (_) {}
-        }
-      } else {
-        try {
-          const coverSummary = createdHandovers.length > 0
-            ? `${createdHandovers.length} class(es) have cover mentors requested by the faculty.`
-            : "";
-          const needsCoverSummary = needsManualCover.length > 0
-            ? `${needsManualCover.length} class(es) have no cover assigned — manual intervention required.`
-            : "";
-
-          const emailSubject = `[Action Required] New ${requestType} Request - ${mentor?.name || "Faculty"}`;
-          const emailHtml = renderEmailShell({
-            title: `New ${requestType} Application Pending Review`,
-            badgeText: requestType === "Emergency Leave" ? "EMERGENCY — ACTION REQUIRED" : "ACTION REQUIRED",
-            badgeColor: requestType === "Emergency Leave" ? "rose" : "amber",
-            description: `Faculty member ${mentor?.name || "A Mentor"} has submitted a new ${requestType} application. ${coverSummary} ${needsCoverSummary}`,
-            details: [
-              { label: "Faculty Name", value: mentor?.name || "Faculty", highlight: true },
-              { label: "Department", value: mentor?.department || "General" },
-              { label: "Request Type", value: requestType, highlight: true },
-              { label: "Schedule", value: requestType === "Permission" && startTime ? `${startDate} (${startTime} - ${endTime})` : `${startDate} to ${effectiveEndDate}` },
-              { label: "Mandatory Reason", value: finalReason },
-              ...(createdHandovers.length > 0 ? [{ label: "Cover Requests Sent", value: createdHandovers.map(h => `${h.course} → ${h.coverMentorName}`).join(", ") }] : []),
-              ...(needsManualCover.length > 0 ? [{ label: "Needs Manual Cover", value: needsManualCover.map(h => `${h.course} on ${h.dateStr}`).join(", "), highlight: true }] : [])
-            ],
-            ctaText: "Open CM Dashboard to Review →",
-            footerText: "Official operational notification from FACE Prep E-Campus System."
-          });
-
-          await dispatchMail({
-            to: kamEmail ? [cmEmail, kamEmail] : cmEmail,
-            subject: emailSubject,
-            htmlBody: emailHtml,
-            context: "faculty-leave-to-cm"
-          });
-        } catch (mailErr) {
-          console.error("Failed to send leave request email to CM:", mailErr);
-        }
-      }
-
-      // MAIL-M04: batch cover-mentor mails, dispatched after the response
-      if (createdHandovers.length > 0) {
-        await Promise.allSettled(
-          createdHandovers.map((handover: any) => {
-            if (!handover.coverMentorEmail) return Promise.resolve();
-            const coverEmailHtml = renderEmailShell({
-              title: "Cover Class Request",
-              badgeText: "COVER REQUESTED",
-              badgeColor: "amber",
-              description: `${mentor?.name || "A colleague"} has selected you to cover their class while on ${requestType}. Please review and accept or decline in your dashboard.`,
-              details: [
-                { label: "Subject", value: handover.course, highlight: true },
-                { label: "Class Group", value: handover.classGroup || "General" },
-                { label: "Date", value: handover.dateFormatted, highlight: true },
-                { label: "Time Slot", value: handover.time },
-                { label: "Requested By", value: mentor?.name || "Faculty" },
-                { label: "Leave Reason", value: finalReason }
-              ],
-              ctaText: "Open Dashboard to Accept or Decline →",
-              footerText: "Please respond promptly. If you decline, the requesting mentor will be notified to select another cover."
-            });
-            return dispatchMail({
-              to: handover.coverMentorEmail,
-              subject: `[Cover Request] ${handover.course} on ${handover.dateFormatted} — ${mentor?.name || "Faculty"}`,
-              htmlBody: coverEmailHtml,
-              context: "cover-request"
-            });
-          })
-        ).catch((err) => console.error("Cover-mentor mails failed:", err));
-      }
-    });
 
     return NextResponse.json({
       success: true,

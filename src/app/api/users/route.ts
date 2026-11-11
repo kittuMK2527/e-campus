@@ -82,7 +82,7 @@ export async function GET(request: Request) {
     const role = rawRole && rawRole.toLowerCase() !== "all" ? normalizeRole(rawRole) : "";
 
     const offset = (page - 1) * limit;
-    let query = "SELECT id, email, role, reference_id, status, must_change_password, last_login, created_at, updated_at FROM users WHERE 1=1";
+    let query = "SELECT id, email, role, reference_id, status, must_change_password, plain_password, last_login, created_at, updated_at FROM users WHERE 1=1";
     let countQuery = "SELECT COUNT(*) as count FROM users WHERE 1=1";
     const params: any[] = [];
     const countParams: any[] = [];
@@ -120,7 +120,11 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: false, error: "Could not load the user list. Please try again." }, { status: 500 });
     }
 
-    const users = userRows.map((u: any) => ({ ...u, role: normalizeRole(u.role) }));
+    const users = userRows.map((u: any) => ({
+      ...u,
+      role: normalizeRole(u.role),
+      plain_password: u.plain_password || (u.must_change_password ? DEFAULT_PASSWORD : (!u.last_login ? DEFAULT_PASSWORD : DEFAULT_PASSWORD))
+    }));
     const total = Number(countRows[0]?.count) || 0;
 
     // Enrich with display names from profile tables so the admin dashboard
@@ -205,8 +209,8 @@ export async function POST(request: Request) {
       await db.transaction(async (tx) => {
         await tx.run(
           `INSERT INTO users (id, email, password_hash, plain_password, role, reference_id, status, must_change_password, created_at, updated_at)
-           VALUES (?, ?, ?, NULL, ?, ?, ?, 1, ?, ?)`,
-          [newId, cleanEmail, passHash, normalizedRole, refId, userStatus, nowStr, nowStr]
+           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+          [newId, cleanEmail, passHash, rawPassword, normalizedRole, refId, userStatus, nowStr, nowStr]
         );
 
         if (userRole === "kam") {
@@ -286,8 +290,8 @@ export async function POST(request: Request) {
 
       await db.transaction(async (tx) => {
         await tx.run(
-          "UPDATE users SET password_hash = ?, plain_password = NULL, must_change_password = 1, updated_at = ? WHERE id = ?",
-          [defaultPasswordHash, nowStr, user.id]
+          "UPDATE users SET password_hash = ?, plain_password = ?, must_change_password = 1, updated_at = ? WHERE id = ?",
+          [defaultPasswordHash, defaultPassword, nowStr, user.id]
         );
 
         // Sync password to role specific tables
@@ -354,17 +358,19 @@ export async function PUT(request: Request) {
     const nowStr = new Date().toISOString();
 
     let passHash = existingUser.password_hash;
+    let plainPass = existingUser.plain_password || DEFAULT_PASSWORD;
     let mustChange = existingUser.must_change_password || 0;
     if (newPassword && newPassword.trim()) {
       passHash = hashPassword(newPassword.trim());
+      plainPass = newPassword.trim();
       mustChange = 0;
     }
 
     await db.run(
       `UPDATE users
-       SET email = ?, role = ?, reference_id = ?, status = ?, password_hash = ?, plain_password = NULL, must_change_password = ?, updated_at = ?
+       SET email = ?, role = ?, reference_id = ?, status = ?, password_hash = ?, plain_password = ?, must_change_password = ?, updated_at = ?
        WHERE id = ?`,
-      [cleanEmail, userRole, refId, userStatus, passHash, mustChange, nowStr, id]
+      [cleanEmail, userRole, refId, userStatus, passHash, plainPass, mustChange, nowStr, id]
     );
 
     // Any of these edits invalidates the sessions that were issued against the old

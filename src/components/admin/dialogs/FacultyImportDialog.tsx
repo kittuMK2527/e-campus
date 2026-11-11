@@ -33,7 +33,7 @@ export const FacultyImportDialog: React.FC<FacultyImportDialogProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       ariaLabel="Faculty Bulk Import Preview"
-      overlayClassName="p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+      overlayClassName="p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
       panelClassName="max-w-4xl p-6 space-y-5 max-h-[90vh] flex flex-col"
     >
       <div className="flex items-center justify-between border-b border-gray-100 pb-4">

@@ -47,6 +47,25 @@ export function getClientCsrfToken(): string | null {
   return null;
 }
 
+const NETWORK_RETRY_DELAY_MS = 400;
+
+/**
+ * A backgrounded tab or a just-restarted dev server drops an in-flight fetch as a
+ * TypeError before any HTTP status exists. One short retry recovers the first GET
+ * after a wake-up instead of showing the stale-data banner; mutations are never
+ * retried because a duplicate write is worse than a visible error.
+ */
+async function fetchWithNetworkRetry(doFetch: () => Promise<Response>): Promise<Response> {
+  try {
+    return await doFetch();
+  } catch (err: any) {
+    if (err?.name === "AbortError") throw err;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) throw err;
+    await new Promise((resolve) => setTimeout(resolve, NETWORK_RETRY_DELAY_MS));
+    return doFetch();
+  }
+}
+
 /**
  * Transparent fetch interceptor that automatically attaches CSRF tokens,
  * anti-cache headers, and catches 401 session expirations across all components.
@@ -92,7 +111,10 @@ export function installFetchInterceptor() {
       };
     }
 
-    const res = await originalFetch(input, init);
+    const doFetch = () => originalFetch(input, init);
+    const res = (isApiCall && method === "GET")
+      ? await fetchWithNetworkRetry(doFetch)
+      : await doFetch();
 
     // Global session expiry interception: if 401 with SESSION_IDLE, SESSION_EXPIRED, or NO_SESSION
     if (res.status === 401 && isApiCall && !url.includes("/api/login") && !url.includes("/api/auth/me")) {
@@ -105,31 +127,19 @@ export function installFetchInterceptor() {
       } catch (_) {}
     }
 
+    if (res.status === 403 && isApiCall) {
+      const json = await res.clone().json().catch(() => null);
+      if (json?.code === "PASSWORD_CHANGE_REQUIRED") {
+        window.dispatchEvent(new CustomEvent("ecampus_password_change_required"));
+      }
+    }
+
     return res;
   };
 }
 
 if (typeof window !== "undefined") {
   installFetchInterceptor();
-}
-
-const NETWORK_RETRY_DELAY_MS = 400;
-
-/**
- * A backgrounded tab or a just-restarted dev server drops an in-flight fetch as a
- * TypeError before any HTTP status exists. One short retry recovers the first GET
- * after a wake-up instead of showing the stale-data banner; mutations are never
- * retried because a duplicate write is worse than a visible error.
- */
-async function fetchWithNetworkRetry(doFetch: () => Promise<Response>): Promise<Response> {
-  try {
-    return await doFetch();
-  } catch (err: any) {
-    if (err?.name === "AbortError") throw err;
-    if (typeof navigator !== "undefined" && navigator.onLine === false) throw err;
-    await new Promise((resolve) => setTimeout(resolve, NETWORK_RETRY_DELAY_MS));
-    return doFetch();
-  }
 }
 
 export interface ApiFetchOptions extends Omit<RequestInit, "body"> {

@@ -1,10 +1,11 @@
 export const maxDuration = 60;
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAuth, Role } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
-import { renderAnnouncementEmail, BRAND } from "@/lib/mail";
+import { dispatchSystemNotification } from "@/lib/notifications";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 
 const ANNOUNCE_READ_ROLES: Role[] = [
   "admin", "cm", "kam", "sme", "mentor", "student", "fee_manager", "L and D", "hr"
@@ -67,60 +68,32 @@ export async function POST(request: Request) {
       [newId, title, description || null, created_by || "Admin", target_role || "All", college_id || null, nowStr]
     );
 
-    // Email mentors (and other target roles) for this announcement.
-    // Only fire emails when a specific college is targeted — system-wide "All"
-    // announcements go to potentially hundreds of colleges; those should use
-    // the in-app notification system rather than mass email to avoid spam.
-    // The directory reads that build the recipient list only feed mail, so they are
-    // deferred with the send instead of holding up the admin's POST.
-    if (college_id) {
-      after(async () => {
-        try {
-          const { dispatchMail } = await import("@/lib/mailAsync");
-          const wantsMentors = !target_role || target_role === "All" || target_role === "mentor";
-          const wantsCms = !target_role || target_role === "All" || target_role === "cm";
+    // Instant multi-recipient dispatch: notify all users or target audience
+    const normalizedTarget = (target_role || "All").toLowerCase();
+    const targetRoles = normalizedTarget === "all"
+      ? ["student", "mentor", "cm", "kam", "admin"]
+      : [normalizedTarget];
 
-          const [mentorRows, cmRows] = await db.multiQuery([
-            wantsMentors
-              ? { sql: "SELECT email FROM mentors WHERE college_id = ? AND email IS NOT NULL AND email != ''", params: [college_id] }
-              : { sql: "SELECT 1 WHERE 1=0" },
-            wantsCms
-              ? { sql: "SELECT email FROM campus_managers WHERE college_id = ? AND email IS NOT NULL AND email != ''", params: [college_id] }
-              : { sql: "SELECT 1 WHERE 1=0" },
-          ]);
-
-          const recipientEmails = Array.from(
-            new Set(
-              [...mentorRows, ...cmRows]
-                .map((r: any) => r.email)
-                .filter(Boolean)
-                .map((e: string) => e.toLowerCase().trim())
-            )
-          );
-
-          if (recipientEmails.length === 0) return;
-
-          const dateStr = new Date().toLocaleDateString("en-IN", {
-            day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata"
-          });
-
-          await dispatchMail({
-            to: recipientEmails[0],       // proper To for the first address
-            bcc: recipientEmails.slice(1), // rest in BCC — no roster leak
-            subject: `${BRAND.emailPrefix} ${title}`,
-            htmlBody: renderAnnouncementEmail({
-              recipientName: "Team",
-              title,
-              message: description || title,
-              category: target_role && target_role !== "All" ? `${target_role} Notice` : "University Notice",
-              dateStr,
-            }),
-            context: "announcement-notify",
-          });
-        } catch (_) {
-          /* Announcement is already stored; mail failure must not undo it. */
+    try {
+      await dispatchSystemNotification(db, {
+        roles: targetRoles,
+        collegeId: college_id || undefined,
+        title: `Announcement: ${title}`,
+        message: description ? (description.length > 120 ? description.slice(0, 117) + "..." : description) : "A new campus announcement was posted.",
+        link: "/announcements",
+        type: "info",
+        domain: "notifications",
+        action: "created",
+        payload: {
+          announcementId: newId,
+          title,
+          description,
+          collegeId: college_id || null,
+          targetRole: target_role || "All"
         }
       });
+    } catch (notifErr: any) {
+      console.warn("Announcements: notification dispatch error", notifErr?.message);
     }
 
     return NextResponse.json({ success: true, message: "Announcement created successfully." });

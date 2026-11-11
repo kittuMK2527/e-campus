@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Megaphone, Plus, Trash2, Loader2, MoreVertical, Copy } from "lucide-react";
+import { Megaphone, Plus, Trash2, Loader2, Copy } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/Pagination";
@@ -16,7 +16,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { AnnouncementDialog } from "@/components/admin/dialogs/AnnouncementDialog";
 import { AnnouncementFormState } from "@/components/admin/types";
@@ -154,7 +155,6 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
       <PageHeader
         icon={Megaphone}
         title="Campus Announcements"
-        subtitle="Broadcast notices to every campus, a single role, or one campus."
         actions={
           <Button
             variant="ghost"
@@ -185,21 +185,14 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
               return (
                 <div
                   key={ann.id}
-                  className="p-5 bg-white border border-slate-100 rounded-2xl shadow-card hover:shadow-md hover:border-indigo-100 transition-all relative flex flex-col justify-between"
+                  className="p-5 bg-white border border-slate-100 rounded-2xl shadow-card hover:shadow-card-lg hover:border-indigo-100 transition-all relative flex flex-col justify-between"
                 >
                   <div className="space-y-3">
                     <div className="flex justify-between items-start gap-4">
                       <h3 className="text-sm font-bold text-gray-900 leading-snug">{ann.title}</h3>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-900 cursor-pointer"
-                            title="Announcement Options"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
+                          <ActionDropdownButton size="sm" title="Announcement Options" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel>Announcement</DropdownMenuLabel>

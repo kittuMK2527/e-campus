@@ -16,8 +16,8 @@ export default function LndEvaluatorPills({ smes, selectedId, onSelect }: LndEva
   const pill = (active: boolean) =>
     `px-2.5 py-1 rounded-full text-[10px] font-black border transition-all cursor-pointer ${
       active
-        ? "bg-[#D528A2] text-white border-[#D528A2] shadow-2xs"
-        : "bg-white/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#D528A2]/50 hover:text-[#D528A2] dark:hover:text-[#f45fc6]"
+        ? "bg-[#4F46E5] text-white border-[#4F46E5] shadow-2xs"
+        : "bg-white/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-[#4F46E5]/50 hover:text-[#4F46E5] dark:hover:text-[#818CF8]"
     }`;
 
   return (

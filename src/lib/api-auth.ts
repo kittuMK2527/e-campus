@@ -14,9 +14,11 @@ export { normalizeRole };
 
 export class ApiAuthError extends Error {
   status: number;
-  constructor(message: string, status = 401) {
+  code?: string;
+  constructor(message: string, status = 401, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -46,6 +48,9 @@ export async function getSessionFromRequest(request: Request): Promise<SessionPa
   }
 
   if (!liveUser) return null;
+  if (liveUser.mustChangePassword) {
+    throw new ApiAuthError("You must change your password before continuing.", 403, "PASSWORD_CHANGE_REQUIRED");
+  }
 
   return {
     userId: liveUser.reference_id || liveUser.id,
@@ -82,7 +87,7 @@ export async function requireRole(request: Request, ...allowed: string[]): Promi
 /** Converts an ApiAuthError into a JSON 401/403 response. */
 export function apiAuthErrorResponse(err: unknown): NextResponse | null {
   if (err instanceof ApiAuthError) {
-    return NextResponse.json({ success: false, message: err.message }, { status: err.status });
+    return NextResponse.json({ success: false, message: err.message, code: err.code }, { status: err.status });
   }
   return null;
 }

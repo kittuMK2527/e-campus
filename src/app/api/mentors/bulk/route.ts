@@ -9,8 +9,9 @@ import { generateId } from "@/lib/id";
 
 export async function POST(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin"] });
+    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["admin", "cm"] });
     if (errorResponse) return errorResponse;
+    const user = auth?.user;
     const db = await getDb();
     const body = await request.json();
     const { mentors, defaultCollegeId } = body;
@@ -28,11 +29,14 @@ export async function POST(request: Request) {
     const collegeNameMap = new Map(allColleges.map((c: any) => [String(c.name).toLowerCase().trim(), c.id]));
     const fallbackCollegeId = (defaultCollegeId && collegeIdSet.has(defaultCollegeId))
       ? defaultCollegeId
-      : (allColleges[0]?.id || null);
+      : (user?.college_id && collegeIdSet.has(user.college_id))
+        ? user.college_id
+        : (allColleges[0]?.id || null);
 
     const now = new Date().toISOString();
     let importedCount = 0;
     const errors: string[] = [];
+    const writtenMentors: any[] = [];
     // Hashing is deliberately expensive; a per-row call spent seconds of CPU on a
     // 50-row import even though every new account gets the same default password.
     const defaultPasswordHash = hashPassword(DEFAULT_PASSWORD);
@@ -174,6 +178,21 @@ export async function POST(request: Request) {
         userById.set(String(writtenUser.id), writtenUser);
         userByReference.set(String(targetId), writtenUser);
 
+        writtenMentors.push({
+          id: targetId,
+          name: cleanName,
+          email: cleanEmail,
+          department: cleanDept,
+          avatar: avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
+          subjects: rawSubjects || "",
+          classes: rawClasses || "",
+          shift: cleanShift,
+          college_id: safeCollegeId,
+          mentor_group: cleanDept,
+          subject_group: cleanDept,
+          role: "mentor"
+        });
+
         importedCount++;
       }
     });
@@ -183,6 +202,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       count: importedCount,
+      mentors: writtenMentors,
       errors,
       message: `Successfully processed ${importedCount} faculty member(s).`
     });

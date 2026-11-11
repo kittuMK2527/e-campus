@@ -167,7 +167,8 @@ export function UserProfileBar({ onOpenChangePassword }: UserProfileBarProps) {
         break;
     }
 
-    const initials = (name || "User")
+    const cleanName = (name || "User").replace(/^\[[^\]]*\]\s*/, "");
+    const initials = cleanName
       .split(" ")
       .map((part) => part[0])
       .filter(Boolean)
@@ -222,13 +223,13 @@ export function UserProfileBar({ onOpenChangePassword }: UserProfileBarProps) {
         ref={triggerRef}
         type="button"
         onClick={handleToggle}
-        className="flex h-9 items-center gap-2 px-2.5 sm:px-3 rounded-2xl bg-slate-50 dark:bg-slate-800/90 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700/80 transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+        className="flex h-9 items-center gap-2 px-2.5 sm:px-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/80 focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700/80 transition-all cursor-pointer shadow-xs focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
         aria-haspopup="menu"
         aria-expanded={isOpen}
         aria-controls="profile-menu"
       >
         {/* Avatar / Initials Pill */}
-        <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center font-extrabold text-white text-[10px] shadow-sm shrink-0 overflow-hidden">
+        <div className="h-7 w-7 rounded-lg bg-linear-to-tr from-indigo-600 to-indigo-700 flex items-center justify-center font-bold text-white text-[11px] shadow-2xs shrink-0 overflow-hidden tracking-tight">
           {userInfo.avatarUrl ? (
             <img src={userInfo.avatarUrl} alt={userInfo.name} className="h-full w-full object-cover" />
           ) : (
@@ -258,7 +259,7 @@ export function UserProfileBar({ onOpenChangePassword }: UserProfileBarProps) {
           id="profile-menu"
           role="menu"
           aria-label="Account menu"
-          className="absolute right-0 mt-2.5 w-64 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          className="absolute right-0 mt-2.5 w-64 bg-white dark:bg-slate-800 border border-slate-200/90 dark:border-slate-700 rounded-2xl shadow-card-lg z-50 overflow-hidden animate-scaleUp"
         >
           {/* User Info Header */}
           <div className="px-4 py-3.5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-800/60">

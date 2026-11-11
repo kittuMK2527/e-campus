@@ -141,6 +141,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     setToasts((prev) => [...prev, { id, message, type }].slice(-MAX_VISIBLE_TOASTS));
   }, []);
 
+  // WF-P05: Global custom event listener so non-React helpers (exportToPrintablePDF, etc.)
+  // can surface non-blocking toasts without window.alert().
+  useEffect(() => {
+    const handleGlobalToast = (e: any) => {
+      const { message, type } = e.detail || {};
+      if (message) toast(message, type || "info");
+    };
+    window.addEventListener("fp_toast", handleGlobalToast);
+    return () => window.removeEventListener("fp_toast", handleGlobalToast);
+  }, [toast]);
+
   // Timers are created/cleared here so the cap, pause, and manual dismissal
   // all clean up after themselves instead of leaving orphaned timeouts.
   // Remaining-time tracking keeps the progress bar and dismissal in sync.
@@ -290,13 +301,13 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {/* ── Floating Action Progress Indicator ───── */}
       {isActionLoading && (
         <div
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10001] flex items-center gap-3 px-5 py-3 rounded-xl bg-slate-900/90 text-white backdrop-blur-xl border border-slate-700/80 shadow-2xl animate-in fade-in slide-in-from-bottom-3 duration-200 pointer-events-none"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[10001] flex items-center gap-3 px-5 py-3 rounded-xl bg-slate-900/90 text-white backdrop-blur-xl border border-slate-700/80 shadow-card-lg animate-scaleUp pointer-events-none"
           role="status"
           aria-live="polite"
         >
           <div className="flex items-center gap-1.5" aria-hidden="true">
             <div className="h-2.5 w-2.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: "0s", animationDuration: "0.8s" }} />
-            <div className="h-2.5 w-2.5 rounded-full bg-[#D528A2] animate-bounce" style={{ animationDelay: "0.15s", animationDuration: "0.8s" }} />
+            <div className="h-2.5 w-2.5 rounded-full bg-[#4F46E5] animate-bounce" style={{ animationDelay: "0.15s", animationDuration: "0.8s" }} />
             <div className="h-2.5 w-2.5 rounded-full bg-rose-400 animate-bounce" style={{ animationDelay: "0.30s", animationDuration: "0.8s" }} />
           </div>
           <span className="text-xs font-bold tracking-wide text-slate-100">{actionMessage || "Processing request..."}</span>

@@ -212,22 +212,23 @@ export function Combobox({
           }
         }}
         className={cn(
-          "w-full flex items-center justify-between p-2.5 bg-white dark:bg-[#131317] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 shadow-xs transition-all cursor-pointer outline-none",
-          "hover:border-slate-300 dark:hover:border-slate-700 focus-visible:ring-2 focus-visible:ring-[#D528A2]/50 focus-visible:border-[#D528A2]",
-          open && "border-[#D528A2] ring-2 ring-[#D528A2]/20",
+          "w-full flex items-center justify-between px-3.5 py-2 min-h-[36px] bg-white dark:bg-[#181820] shadow-2xs border border-slate-200/90 dark:border-slate-800 rounded-2xl text-xs font-bold text-slate-800 dark:text-slate-200 transition-all cursor-pointer outline-none",
+          "hover:border-slate-300 dark:hover:border-slate-700 focus-visible:ring-2 focus-visible:ring-amber-500/20 focus-visible:border-amber-500",
+          open && "bg-white dark:bg-[#131317] border-amber-500 ring-2 ring-amber-500/20",
           disabled && "opacity-50 cursor-not-allowed"
         )}
       >
         <span className="truncate pr-2 flex items-center gap-2">
           {selectedOption?.icon && <span className="shrink-0">{selectedOption.icon}</span>}
-          <span className={selectedOption ? "font-bold" : "text-slate-400 font-normal"}>
+          <span className={selectedOption ? "font-bold text-slate-800 dark:text-slate-100" : "text-slate-400 font-normal"}>
             {selectedOption ? selectedOption.label : placeholder}
           </span>
         </span>
         <ChevronDown
+          strokeWidth={2.4}
           className={cn(
-            "w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform duration-200",
-            open && "rotate-180 text-[#D528A2]"
+            "w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0 transition-transform duration-200",
+            open && "rotate-180 text-amber-500"
           )}
           aria-hidden="true"
         />
@@ -240,7 +241,7 @@ export function Combobox({
           aria-labelledby={label ? labelId : undefined}
           aria-label={label ? undefined : accessibleName}
           tabIndex={-1}
-          className="absolute left-0 top-full mt-1.5 w-full min-w-[220px] bg-white dark:bg-[#181820] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl z-[200] overflow-hidden animate-in fade-in zoom-in-95 duration-150"
+          className="absolute left-0 top-full mt-1.5 w-full min-w-[220px] bg-white dark:bg-[#181820] border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl z-[200] overflow-hidden p-1.5 animate-scaleUp"
         >
           {searchable && options.length > 5 && (
             <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-black/20">
@@ -259,7 +260,7 @@ export function Combobox({
                     setActiveIndex(0);
                   }}
                   placeholder={searchPlaceholder}
-                  className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-[#131317] border border-slate-200 dark:border-slate-800 rounded-lg outline-none font-medium text-slate-800 dark:text-slate-100 focus:border-[#D528A2]"
+                  className="w-full pl-8 pr-2.5 py-1 text-xs bg-white dark:bg-[#131317] border border-slate-200 dark:border-slate-800 rounded-lg outline-none font-medium text-slate-800 dark:text-slate-100 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                 />
               </div>
             </div>
@@ -286,11 +287,11 @@ export function Combobox({
                     className={cn(
                       "w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-left transition-colors cursor-pointer",
                       isSelected
-                        ? "bg-[#D528A2]/10 text-[#D528A2] dark:text-[#f45fc6] font-black"
+                        ? "bg-amber-500/15 text-amber-800 dark:text-amber-400 font-black"
                         : "text-slate-700 dark:text-slate-200 hover:bg-slate-100/70 dark:hover:bg-slate-800/60 font-semibold",
                       // Keyboard highlight is a ring, not the brand tint, so "current value" and
                       // "where Enter lands" stay visually distinct.
-                      isActive && "bg-slate-100 dark:bg-slate-800 ring-1 ring-inset ring-[#D528A2]/50"
+                      isActive && "bg-slate-100 dark:bg-slate-800 ring-1 ring-inset ring-amber-500/50"
                     )}
                   >
                     <div className="truncate pr-2 flex-1 min-w-0">
@@ -305,7 +306,7 @@ export function Combobox({
                       )}
                     </div>
                     {isSelected && (
-                      <Check className="w-3.5 h-3.5 text-[#D528A2] dark:text-[#f45fc6] stroke-[3] shrink-0 ml-1.5" aria-hidden="true" />
+                      <Check className="w-3.5 h-3.5 text-amber-500 dark:text-amber-400 stroke-[3] shrink-0 ml-1.5" aria-hidden="true" />
                     )}
                   </button>
                 );

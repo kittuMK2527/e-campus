@@ -48,7 +48,7 @@ export const MentorGroupDialog: React.FC<MentorGroupDialogProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       ariaLabel="Mentor Group"
-      overlayClassName="bg-gray-900/50 backdrop-blur-sm p-4"
+      overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
       panelClassName="max-w-md overflow-hidden animate-slideUp p-0 space-y-0 max-h-[90vh]"
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">

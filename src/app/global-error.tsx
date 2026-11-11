@@ -20,7 +20,7 @@ export default function GlobalError({
   return (
     <html lang="en">
       <body style={{ margin: 0, fontFamily: "system-ui, sans-serif", background: "#f8fafc" }}>
-        <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ maxWidth: 420, width: "100%", background: "#fff", border: "1px solid #e2e8f0", borderRadius: 16, padding: 32, textAlign: "center" }}>
             <h1 style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", margin: "0 0 8px" }}>Application error</h1>
             <p style={{ fontSize: 12, color: "#64748b", margin: "0 0 16px" }}>

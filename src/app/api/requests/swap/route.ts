@@ -3,11 +3,11 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { getDb, type QueryFailure } from "@/lib/db";
 import { requireAuth, Role } from "@/lib/authGuard";
-import { renderSwapOfferEmail, BRAND } from "@/lib/mail";
-import { sendMailAsync } from "@/lib/mailAsync";
 import { checkMentorAvailability } from "@/lib/availability";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 // A swap reassigns a live class slot and emails the other mentor.
 const SWAP_ROLES: Role[] = ["mentor", "cm", "kam", "admin"];
@@ -114,23 +114,30 @@ export async function POST(request: Request) {
       new Date().toISOString()
     );
 
-    const subject = `${BRAND.emailPrefix} New Swap Compensation Offer - ${offerSlot.course}`;
-    const htmlBody = renderSwapOfferEmail({
-      requestorName: requestor.name,
-      targetMentorName: targetStaff.name,
-      dateStr: offerDateFormatted,
-      time: `${offerSlot.time} (${offerSlot.day})`,
-      course: offerSlot.course,
-      classGroup: offerSlot.classGroup || "General",
-      kind: "class",
-      ctaUrl: `${BRAND.portalUrl}/mentor/handovers`
-    });
-    sendMailAsync({
-      to: targetStaff.email,
-      subject,
-      htmlBody,
-      context: "swap-compensation-offer"
-    });
+    // Realtime Push: trigger target mentor immediately with in-app & device notification
+    try {
+      await dispatchSystemNotification(db, {
+        userIds: [targetStaffId],
+        roles: ["admin"],
+        collegeId: requestor.college_id,
+        title: `Class Swap Offered by ${requestor.name}`,
+        message: `${requestor.name} offered to cover "${offerSlot.course}" on ${offerDateFormatted} as compensation.`,
+        link: "/mentor/handover",
+        type: "info",
+        domain: "notifications",
+        action: "created",
+        payload: { requestId: newId, requestorId, targetStaffId, slotId: offerSlotId, dateStr: offerDateStr }
+      });
+    } catch (_) {}
+
+    try {
+      notifyRealtimeEvent({
+        domain: "requests",
+        action: "created",
+        targetUserIds: [targetStaffId],
+        payload: { requestId: newId, requestorId, slotId: offerSlotId, dateStr: offerDateStr }
+      });
+    } catch (_) {}
 
     return NextResponse.json({
       success: true,

@@ -8,7 +8,7 @@ export interface PrefetchScope {
   collegeIds?: string;
 }
 
-const PREFETCH_STALE_MS = 45_000;
+const PREFETCH_STALE_MS = 60_000;
 
 function warm(queryClient: QueryClient, queryKey: readonly unknown[], queryFn: () => Promise<any>) {
   // prefetchQuery never rejects into React; failures simply leave the cache cold.

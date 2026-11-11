@@ -422,6 +422,33 @@ export function renderAccountWelcomeEmail(data: {
   });
 }
 
+export function renderSmeDailyReportEmail(data: any): string {
+  return renderEmailShell({
+    title: data?.title || "SME Daily Evaluation Report",
+    badgeText: "SME Report",
+    badgeColor: "indigo",
+    description: data?.message || data?.summary || "Daily SME evaluation report summary.",
+  });
+}
+
+export function renderSmeWeeklyDigestEmail(data: any): string {
+  return renderEmailShell({
+    title: data?.title || "SME Weekly Digest",
+    badgeText: "Weekly Digest",
+    badgeColor: "purple",
+    description: data?.message || data?.summary || "Weekly SME evaluation digest summary.",
+  });
+}
+
+export function renderMonthlySkillReportEmail(data: any): string {
+  return renderEmailShell({
+    title: data?.title || "Monthly Skill Development Report",
+    badgeText: "Skill Report",
+    badgeColor: "emerald",
+    description: data?.message || data?.summary || "Monthly student skill development report.",
+  });
+}
+
 /** Non-fatal welcome dispatch — account creation must not fail because mail is down. */
 export async function sendAccountWelcomeEmail(data: {
   to: string;

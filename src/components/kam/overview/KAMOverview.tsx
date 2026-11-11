@@ -37,7 +37,7 @@ interface CampusCard {
 interface KAMOverviewProps {
   kpis: {
     totalStudents: number;
-    avgAttendance: number;
+    avgAttendance: number | null | string;
     activeFaculty: number;
     totalCampuses: number;
     campusHealth: number;
@@ -80,8 +80,8 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-44 overflow-visible">
         <defs>
           <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.35" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.0" />
+            <stop offset="0%" stopColor="#0F172A" stopOpacity="0.08" />
+            <stop offset="100%" stopColor="#0F172A" stopOpacity="0.0" />
           </linearGradient>
         </defs>
         {/* Horizontal Grid lines */}
@@ -98,7 +98,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
         })}
         {/* Area fill & line */}
         <path d={areaD} fill="url(#trendGrad)" />
-        <path d={pathD} fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" />
+        <path d={pathD} fill="none" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" />
         {/* Points */}
         {points.map((p, i) => (
           <circle
@@ -106,7 +106,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
             cx={p.x}
             cy={p.y}
             r="3"
-            className="fill-indigo-600 hover:r-5 transition-all cursor-pointer"
+            className="fill-slate-900 hover:r-4 transition-all cursor-pointer"
           >
             <title>{`${p.dateStr}: ${p.attendancePct}% Attendance`}</title>
           </circle>
@@ -120,10 +120,10 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
       {/* ── 1. Top Executive KPI Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Students */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-indigo-300 transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Students</span>
-            <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
               <Users className="h-4 w-4" />
             </div>
           </div>
@@ -137,7 +137,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
         </div>
 
         {/* Avg Attendance */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-emerald-300 transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg Attendance</span>
             <div className="h-8 w-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
@@ -145,31 +145,35 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{kpis.avgAttendance}%</span>
-            <span className="text-xs font-bold text-emerald-600 flex items-center">
-              <TrendingUp className="h-3 w-3 mr-0.5" /> +1.8%
+            <span className="text-2xl font-black text-slate-900">
+              {kpis.avgAttendance !== null && kpis.avgAttendance !== undefined ? `${kpis.avgAttendance}%` : "No data"}
             </span>
+            {kpis.avgAttendance !== null && kpis.avgAttendance !== undefined && (
+              <span className="text-xs font-bold text-emerald-600 flex items-center">
+                <TrendingUp className="h-3 w-3 mr-0.5" /> +1.8%
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-slate-400 font-medium mt-1">Portfolio average (last 30 days)</p>
         </div>
 
         {/* Active Faculty */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-blue-300 transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Faculty Deployed</span>
-            <div className="h-8 w-8 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
               <GraduationCap className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-2xl font-black text-slate-900">{kpis.activeFaculty}</span>
-            <span className="text-xs font-bold text-blue-600">100% Covered</span>
+            <span className="text-xs font-bold text-slate-600">100% Covered</span>
           </div>
           <p className="text-[11px] text-slate-400 font-medium mt-1">Active Mentors & Lab Instructors</p>
         </div>
 
         {/* At Risk Students */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-amber-300 transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Attention Needed</span>
             <div className="h-8 w-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
@@ -184,7 +188,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
         </div>
 
         {/* Campus Operational Health */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-rose-300 transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Portfolio Health</span>
             <div className="h-8 w-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
@@ -210,7 +214,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
             </div>
             <button
               onClick={() => onNavigateTab("attendance")}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+              className="text-xs font-bold text-slate-800 hover:text-slate-950 flex items-center gap-1"
             >
               Deep View <ArrowUpRight className="h-3.5 w-3.5" />
             </button>
@@ -235,7 +239,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
               </div>
               <button
                 onClick={() => onNavigateTab("students")}
-                className="text-xs font-bold text-indigo-600 hover:underline"
+                className="text-xs font-bold text-slate-800 hover:text-slate-950 hover:underline"
               >
                 View All
               </button>
@@ -323,17 +327,17 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
             <div
               key={c.id}
               onClick={() => onSelectCampus(c.id)}
-              className="bg-white rounded-2xl p-5 border border-slate-100 shadow-card hover:shadow-card-lg hover:border-indigo-300 transition-all cursor-pointer flex flex-col justify-between group"
+              className="bg-white rounded-2xl p-5 border border-slate-100 shadow-card shadow-xs hover:border-slate-400 transition-all cursor-pointer flex flex-col justify-between group"
             >
               <div>
                 {/* Header */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black text-sm">
+                    <div className="h-10 w-10 rounded-lg bg-slate-900 text-white flex items-center justify-center font-bold text-sm">
                       <Building2 className="h-5 w-5" />
                     </div>
                     <div>
-                      <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+                      <h4 className="text-xs font-extrabold text-slate-900 group-hover:text-slate-950 transition-colors line-clamp-1">
                         {c.name}
                       </h4>
                       <p className="text-[10px] font-bold text-slate-400">{c.location} • {c.code}</p>
@@ -345,7 +349,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
                 </div>
 
                 {/* Metrics Grid */}
-                <div className="grid grid-cols-3 gap-2 mt-4 py-3 border-y border-slate-100 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4 py-3 border-y border-slate-100 text-center">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Students</span>
                     <p className="text-xs font-black text-slate-800">{c.totalStudents}</p>
@@ -356,7 +360,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Avg Att.</span>
-                    <p className="text-xs font-black text-indigo-600">{c.attendancePct}%</p>
+                    <p className="text-xs font-bold text-slate-900">{c.attendancePct}%</p>
                   </div>
                 </div>
 
@@ -380,7 +384,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
               </div>
 
               {/* Action Footer */}
-              <div className="mt-4 pt-2 flex items-center justify-between text-xs font-bold text-indigo-600 group-hover:translate-x-0.5 transition-transform">
+              <div className="mt-4 pt-2 flex items-center justify-between text-xs font-bold text-slate-800 group-hover:translate-x-0.5 transition-transform">
                 <span>Enter Campus Dashboard</span>
                 <ChevronRight className="h-4 w-4" />
               </div>

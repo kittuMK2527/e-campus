@@ -47,18 +47,18 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       ariaLabel="User Credential"
-      overlayClassName="p-4 bg-gray-900/50 backdrop-blur-sm"
+      overlayClassName="p-4 bg-slate-950/60 backdrop-blur-sm"
       panelClassName="max-w-md overflow-hidden animate-slideUp p-0 space-y-0 max-h-[90vh]"
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
         <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5 font-sans">
           <ShieldCheck className="h-5 w-5 text-indigo-600" />
-          {editingUser ? "Edit User Credential" : "Create User Credential"}
+          {editingUser ? "Edit User" : "Add User"}
         </h3>
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Close user credential dialog"
+          aria-label="Close dialog"
           onClick={() => onOpenChange(false)}
           className="h-auto w-auto p-1 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer text-gray-500 hover:text-gray-800"
         >
@@ -75,12 +75,12 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
         )}
 
         <div className="space-y-1">
-          <label className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">Email Address</label>
+          <label className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">Email</label>
           <Input
-            aria-label="Email Address"
+            aria-label="Email"
             type="email"
             required
-            placeholder="e.g. user@faceprep.in"
+            placeholder="user@faceprep.in"
             value={form.email}
             onChange={(e) => onFormChange({ ...form, email: e.target.value })}
             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
@@ -88,53 +88,52 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">System Role</label>
+          <label className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">Role</label>
           <Select
-            aria-label="System Role"
+            aria-label="Role"
             value={form.role}
             onChange={(e) => onFormChange({ ...form, role: e.target.value })}
             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
           >
-            <option value="admin">Admin (System Administrator)</option>
-            <option value="cm">CM (Campus Manager)</option>
-            <option value="kam">KAM (Key Account Manager)</option>
-            <option value="mentor">Mentor (Faculty Staff)</option>
-            <option value="sme">SME (Subject Matter Expert)</option>
-            <option value="student">Student (Learner)</option>
-            <option value="fee_manager">Fee Manager (Fee Operations)</option>
-            <option value="L and D">L&D (Learning and Development)</option>
-            <option value="hr">HR (Human Resources)</option>
+            <option value="admin">Admin</option>
+            <option value="cm">Campus Manager (CM)</option>
+            <option value="kam">Key Account Manager (KAM)</option>
+            <option value="mentor">Faculty Mentor</option>
+            <option value="sme">Subject Matter Expert (SME)</option>
+            <option value="student">Student</option>
+            <option value="fee_manager">Fee Manager</option>
+            <option value="L and D">L&D</option>
+            <option value="hr">HR</option>
           </Select>
         </div>
 
         {editingUser && (
-          <div className="p-3 bg-indigo-50/60 border border-indigo-200 rounded-xl space-y-1">
-            <div className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider">Current / Active Password</div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="font-mono text-xs font-black text-indigo-950 bg-white px-2.5 py-1 rounded-md border border-indigo-200">
-                {editingUser.plain_password || "Not stored (hash only)"}
-              </span>
-              <Button
-                variant="ghost"
-                type="button"
-                onClick={() => editingUser.plain_password && onCopyPassword && onCopyPassword(editingUser.id, editingUser.plain_password)}
-                disabled={!editingUser.plain_password}
-                className="h-auto flex items-center gap-1 text-[10px] font-extrabold text-indigo-700 bg-white hover:bg-indigo-100/70 border border-indigo-200 px-2 py-1 rounded-md transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {copiedPassId === editingUser.id ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
-                Copy
-              </Button>
+          <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between">
+            <div>
+              <div className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider">Current Password</div>
+              <div className="font-mono text-sm font-black text-indigo-950 mt-0.5">
+                {editingUser.plain_password || "password123"}
+              </div>
             </div>
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={() => onCopyPassword && onCopyPassword(editingUser.id, editingUser.plain_password || "password123")}
+              className="h-auto flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              {copiedPassId === editingUser.id ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+              Copy
+            </Button>
           </div>
         )}
 
         <div className="space-y-1">
           <label className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">
-            {editingUser ? "Change Password (leave blank to keep current)" : "Initial Password"}
+            {editingUser ? "New Password (optional)" : "Password"}
           </label>
           <Input
             type="text"
-            placeholder={editingUser ? "Enter new password if changing" : "Leave blank to use the institution default"}
+            placeholder={editingUser ? "Leave blank to keep unchanged" : "Default: password123"}
             value={form.password || ""}
             onChange={(e) => onFormChange({ ...form, password: e.target.value })}
             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 font-mono text-xs"
@@ -142,11 +141,11 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
         </div>
 
         <div className="space-y-1">
-          <label className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">Reference Entity ID (Optional)</label>
+          <label className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">Reference ID (optional)</label>
           <Input
-            aria-label="Reference Entity ID (Optional)"
+            aria-label="Reference ID (optional)"
             type="text"
-            placeholder="e.g. mentor_123 or student_456"
+            placeholder="e.g. mentor_101 or student_101"
             value={form.reference_id || ""}
             onChange={(e) => onFormChange({ ...form, reference_id: e.target.value })}
             className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 font-mono text-[11px]"
@@ -181,7 +180,7 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
             disabled={isSubmitting}
             className="h-auto btn-gradient px-5 py-2 text-white rounded-xl shadow-sm transition-all font-bold cursor-pointer disabled:opacity-60"
           >
-            {isSubmitting ? "Saving..." : editingUser ? "Update User" : "Create User"}
+            {isSubmitting ? "Saving..." : editingUser ? "Save Changes" : "Create User"}
           </Button>
         </div>
       </form>

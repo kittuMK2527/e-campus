@@ -4,12 +4,12 @@ export const revalidate = 0;
 
 import { NextResponse } from "next/server";
 import { getDb, type QueryFailure } from "@/lib/db";
-import { renderHandoverRequestEmail, BRAND } from "@/lib/mail";
-import { sendMailAsync } from "@/lib/mailAsync";
 import { checkMentorAvailability } from "@/lib/availability";
 import { requireAuth } from "@/lib/authGuard";
 import { applyHandoverDateCorrection, correctStaleHandoverDate } from "@/lib/handoverDates";
 import { generateId } from "@/lib/id";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 const noCacheHeaders = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
@@ -150,6 +150,26 @@ export async function POST(request: Request) {
       (typeof reason === "string" && reason.toLowerCase().includes("late attendance"));
 
     if (isMetaRequest) {
+      // Check for duplicate pending or approved requests for this slot and date
+      const existingReq = await db.get(
+        `SELECT id, status, reason, timestamp, request_type, dateStr, slotId, targetStaffName, targetStaffId FROM handover_requests 
+         WHERE requestorId = ? AND slotId = ? AND dateStr = ? 
+         AND status IN ('pending', 'pending_cm', 'pending_cam', 'approved') 
+         ORDER BY timestamp DESC LIMIT 1`,
+        mentorId, slotId, dateStr
+      );
+      if (existingReq) {
+        return NextResponse.json({
+          success: false,
+          duplicate: true,
+          message: existingReq.status === "approved"
+            ? "An approval request for this period has already been approved."
+            : "A request for this period is already pending CM approval.",
+          requestId: existingReq.id,
+          request: existingReq
+        }, { status: 409 });
+      }
+
       // The requestor and the (optional) real slot both key off the body, so they
       // leave as one round trip. A failed requestor read must not read as "not found".
       const metaFailures: QueryFailure[] = [];
@@ -211,6 +231,32 @@ export async function POST(request: Request) {
         requestor.name,
         new Date().toISOString()
       );
+
+      // Realtime in-app & device notification to CM and Admin
+      try {
+        await dispatchSystemNotification(db, {
+          roles: ["cm", "admin"],
+          collegeId: requestor.college_id,
+          title: `Pending Request: ${requestor.name}`,
+          message: `${requestor.name} submitted request: ${reason.slice(0, 80)}`,
+          link: "/cm/approvals",
+          type: "warning",
+          domain: "notifications",
+          action: "created",
+          payload: { requestId: newId, requestorId: mentorId, slotId, dateStr }
+        });
+      } catch (_) {}
+
+      // Realtime Push: trigger CM and Admin instantly
+      try {
+        notifyRealtimeEvent({
+          domain: "requests",
+          action: "created",
+          targetRoles: ["cm", "admin"],
+          collegeId: requestor.college_id,
+          payload: { requestId: newId, requestorId: mentorId, slotId, dateStr }
+        });
+      } catch (_) {}
 
       return NextResponse.json({
         success: true,
@@ -280,7 +326,25 @@ export async function POST(request: Request) {
 
     const initialStatus = isEmergency ? "pending_cm" : "pending";
 
-
+    // Check for duplicate pending or approved requests for this slot and date
+    const existingReq = await db.get(
+      `SELECT id, status, reason, timestamp, request_type, dateStr, slotId, targetStaffName, targetStaffId FROM handover_requests 
+       WHERE requestorId = ? AND slotId = ? AND dateStr = ? 
+       AND status IN ('pending', 'pending_cm', 'pending_cam', 'approved') 
+       ORDER BY timestamp DESC LIMIT 1`,
+      mentorId, slotId, dateStr
+    );
+    if (existingReq) {
+      return NextResponse.json({
+        success: false,
+        duplicate: true,
+        message: existingReq.status === "approved"
+          ? "This slot has already been approved for handover."
+          : "A handover request for this slot is already pending.",
+        requestId: existingReq.id,
+        request: existingReq
+      }, { status: 409 });
+    }
 
     // Unified Availability Validation for covering faculty
     const availability = await checkMentorAvailability(db, {
@@ -331,23 +395,33 @@ export async function POST(request: Request) {
       new Date().toISOString()
     );
 
-    const subject = `${BRAND.emailPrefix} New Class Handover Request - ${subjectName || slot.course}`;
-    const htmlBody = renderHandoverRequestEmail({
-      requestorName: requestor.name,
-      coverStaffName: coverStaff.name,
-      dateStr: dateFormatted,
-      time: `${slot.time} (${slot.day})`,
-      course: subjectName || slot.course,
-      classGroup: slot.classGroup || "General",
-      reason,
-      ctaUrl: `${BRAND.portalUrl}/mentor/handovers`
-    });
-    sendMailAsync({
-      to: coverStaff.email,
-      subject,
-      htmlBody,
-      context: "handover-request"
-    });
+    // Realtime in-app & device notification to target cover mentor and CM (if emergency)
+    try {
+      await dispatchSystemNotification(db, {
+        userIds: [targetStaffId],
+        roles: isEmergency ? ["cm", "admin"] : ["admin"],
+        collegeId: requestor.college_id,
+        title: isEmergency ? `EMERGENCY Handover: ${requestor.name}` : `Class Handover Request`,
+        message: `${requestor.name} requested you to cover "${subjectName || slot.course}" on ${dateFormatted}.`,
+        link: "/mentor/handover",
+        type: isEmergency ? "warning" : "info",
+        domain: "notifications",
+        action: "created",
+        payload: { requestId: newId, requestorId: mentorId, targetStaffId, slotId, dateStr }
+      });
+    } catch (_) {}
+
+    // Realtime Push: trigger target cover staff and CM (if emergency)
+    try {
+      notifyRealtimeEvent({
+        domain: "requests",
+        action: "created",
+        targetUserIds: [targetStaffId],
+        targetRoles: isEmergency ? ["cm", "admin"] : undefined,
+        collegeId: requestor.college_id,
+        payload: { requestId: newId, requestorId: mentorId, slotId, dateStr }
+      });
+    } catch (_) {}
 
     return NextResponse.json({
       success: true,

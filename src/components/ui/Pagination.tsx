@@ -63,7 +63,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           onPageSizeChange(Number(e.target.value));
           onPageChange(1);
         }}
-        className="cursor-pointer rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-bold text-slate-700 focus:border-[#D528A2] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        className="cursor-pointer rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken px-2 py-1 text-xs font-bold text-slate-700 focus:border-[#4F46E5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
       >
         {sizes.map((opt) => (
           <option key={opt} value={opt}>
@@ -130,7 +130,7 @@ export const Pagination: React.FC<PaginationProps> = ({
                   aria-current={safePage === p ? "page" : undefined}
                   className={`h-8 min-w-[32px] rounded-lg px-1.5 text-xs font-extrabold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 ${
                     safePage === p
-                      ? "bg-gradient-to-r from-[#D528A2] to-[#F4A863] text-white shadow-xs"
+                      ? "bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white shadow-xs"
                       : "border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
                   }`}
                 >

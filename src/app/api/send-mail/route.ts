@@ -12,6 +12,9 @@ import {
   renderSmeEvaluationEmail,
   renderTimetableUpdateEmail,
   renderAnnouncementEmail,
+  renderSmeDailyReportEmail,
+  renderSmeWeeklyDigestEmail,
+  renderMonthlySkillReportEmail,
 } from "@/lib/mail";
 import { requireRole, apiAuthErrorResponse } from "@/lib/api-auth";
 
@@ -32,6 +35,9 @@ const ALLOWED_TEMPLATES: Record<string, (data: any) => string> = {
   sme_evaluation: renderSmeEvaluationEmail,
   timetable_update: renderTimetableUpdateEmail,
   announcement: renderAnnouncementEmail,
+  sme_daily_report: renderSmeDailyReportEmail,
+  sme_weekly_digest: renderSmeWeeklyDigestEmail,
+  monthly_skill_report: renderMonthlySkillReportEmail,
   custom: (data) =>
     renderEmailShell({
       title: data.title || "Operational Notice",
@@ -78,8 +84,8 @@ async function unknownRecipients(db: any, emails: string[]): Promise<string[]> {
 
 export async function POST(request: Request) {
   try {
-    // Only authenticated admins/CAMs may send mail via this endpoint.
-    await requireRole(request, "admin", "cm");
+    // Authenticated roles allowed to send mail via this endpoint:
+    await requireRole(request, "admin", "cm", "sme", "kam");
 
     const body = await request.json();
     const { to, subject, template, data } = body;

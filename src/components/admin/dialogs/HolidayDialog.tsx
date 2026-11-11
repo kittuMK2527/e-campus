@@ -35,7 +35,7 @@ export const HolidayDialog: React.FC<HolidayDialogProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       ariaLabel="Schedule Campus Holiday"
-      overlayClassName="p-4 bg-gray-900/50 backdrop-blur-sm"
+      overlayClassName="p-4 bg-slate-950/60 backdrop-blur-sm"
       panelClassName="max-w-md overflow-hidden animate-slideUp p-0 space-y-0 max-h-[90vh]"
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">

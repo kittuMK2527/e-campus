@@ -104,7 +104,7 @@ const Dialog: React.FC<DialogProps> = ({
   return createPortal(
     <div
       className={cn(
-        "fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm font-sans animate-in fade-in duration-150",
+        "fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm font-sans animate-fadeIn",
         overlayClassName
       )}
       onMouseDown={(event) => {
@@ -118,7 +118,7 @@ const Dialog: React.FC<DialogProps> = ({
         aria-label={ariaLabel}
         tabIndex={-1}
         className={cn(
-          "relative z-10 w-full max-w-2xl max-h-[85vh] overflow-y-auto bg-white dark:bg-[#131317] rounded-xl border border-slate-200/80 dark:border-slate-800/80 shadow-2xl p-6 space-y-5 text-slate-800 dark:text-slate-200 focus:outline-none",
+          "relative z-10 w-full max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain bg-white dark:bg-[#131317] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-card-lg p-4 sm:p-6 space-y-4 sm:space-y-5 text-slate-800 dark:text-slate-200 focus:outline-none animate-scaleUp",
           panelClassName
         )}
       >

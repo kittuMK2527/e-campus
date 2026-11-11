@@ -6,8 +6,6 @@ import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
 import { runStartupMigrations } from "@/lib/migrations";
 import { seedAdminOnly, seedDatabase } from "@/lib/seed";
-import { dumpProductionData } from "../../../../scripts/dump_prod_data.mjs";
-import { runSqlSeed, runSnapshotSeed } from "../../../../scripts/seed_db.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -217,6 +215,7 @@ export async function POST(request: NextRequest) {
         addLog("Starting database snapshot export...");
         job.progress = 30;
 
+        const { dumpProductionData } = await import("../../../../scripts/dump_prod_data.mjs");
         const dumpResult = await dumpProductionData({
           logger: (msg: string) => addLog(msg)
         });
@@ -235,6 +234,7 @@ export async function POST(request: NextRequest) {
           const sqlSeedPath = path.resolve(process.cwd(), "data", "seeds", "seed.sql");
           const snapshotPath = path.resolve(process.cwd(), "data", "seeds", "production_dump.json");
 
+          const { runSqlSeed, runSnapshotSeed } = await import("../../../../scripts/seed_db.mjs");
           if (options.useSqlSeed && fs.existsSync(sqlSeedPath)) {
             addLog("Executing SQL seed script (seed.sql)...");
             await runSqlSeed({ logger: (msg: string) => addLog(msg) });

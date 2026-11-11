@@ -28,6 +28,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { isAnyPendingCmRequest } from "@/lib/requestStatus";
 
 const PIE_COLORS = ["#f59e0b", "#10b981", "#6366f1", "#f43f5e", "#8b5cf6", "#14b8a6"];
 
@@ -273,7 +274,7 @@ export function OversightHub() {
       requests as any[],
       (r) => r.mentorObj?.college_id || mentors.find((m) => m.id === r.requestorId)?.college_id
     );
-    const pending = scopedRequests.filter((r) => r.status === "pending_cam" || r.status === "pending").length;
+    const pending = scopedRequests.filter((r) => isAnyPendingCmRequest(r.status)).length;
     const approved = approvedHandovers.filter(
       (h) => campusFilter === "all" || colleges.some((c) => c.id === campusFilter && (h as any).college_id === c.id)
     ).length;
@@ -282,7 +283,7 @@ export function OversightHub() {
         name: c.name.length > 14 ? c.name.slice(0, 14) + "…" : c.name,
         Pending: (requests as any[]).filter(
           (r) =>
-            (r.status === "pending_cam" || r.status === "pending") &&
+            (isAnyPendingCmRequest(r.status)) &&
             mentors.find((m) => m.id === r.requestorId)?.college_id === c.id
         ).length,
         Approved: (approvedHandovers as any[]).filter((h) => (h as any).college_id === c.id).length
@@ -391,7 +392,6 @@ export function OversightHub() {
       <PageHeader
         icon={Building2}
         title="Oversight & Approvals Hub"
-        subtitle="Cross-campus operational oversight — actionable approvals, handovers, tickets, and workload analytics."
         actions={
           <div className="flex items-center gap-2">
             <Select
@@ -1060,7 +1060,7 @@ export function OversightHub() {
             value={rejectionReason}
             onChange={(e) => setRejectionReason(e.target.value)}
             placeholder="Explain why this request is being rejected (e.g. Schedule conflict, insufficient notice, policy violation)..."
-            className="w-full text-xs p-3 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium bg-slate-50"
+            className="w-full text-xs p-3 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500 font-medium bg-sunken"
           />
         </div>
 

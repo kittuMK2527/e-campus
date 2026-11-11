@@ -5,7 +5,6 @@ import { getDb, allCapped, syncMentorSubjectGroups } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { hashPassword } from "@/lib/auth";
 import { DEFAULT_PASSWORD } from "@/lib/authConfig";
-import { sendAccountWelcomeEmail } from "@/lib/mail";
 
 export async function GET(request: Request) {
   try {
@@ -43,7 +42,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin"] });
+    const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin", "cm"] });
     if (errorResponse) return errorResponse;
     const db = await getDb();
     const body = await request.json();
@@ -80,8 +79,6 @@ export async function POST(request: Request) {
 
     await syncMentorSubjectGroups(db);
 
-    await sendAccountWelcomeEmail({ to: cleanEmail, recipientName: name, roleLabel: "Faculty Mentor" });
-
     return NextResponse.json({ success: true, message: "Mentor created successfully." });
   } catch (error: any) {
     console.error("API POST Mentors error:", error);
@@ -91,7 +88,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin"] });
+    const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin", "cm"] });
     if (errorResponse) return errorResponse;
     const db = await getDb();
     const body = await request.json();
@@ -146,7 +143,7 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin"] });
+    const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin", "cm"] });
     if (errorResponse) return errorResponse;
     const db = await getDb();
     const { searchParams } = new URL(request.url);

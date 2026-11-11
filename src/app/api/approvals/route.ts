@@ -3,9 +3,8 @@ export const maxDuration = 60;
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
-import { renderEmailShell } from "@/lib/mail";
-import { sendMailAsync } from "@/lib/mailAsync";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -156,8 +155,6 @@ export async function PUT(request: Request) {
     // autocommitted statements, a failure left an approval marked resolved with
     // the leave still Pending (or the reverse) — and the notification insert was
     // swallowed with .catch(console.warn), so the requester was simply never told.
-    let pendingMail: { to: string; subject: string; htmlBody: string } | null = null;
-
     await db.transaction(async (tx) => {
       await tx.run(
         `UPDATE approvals SET
@@ -207,25 +204,6 @@ export async function PUT(request: Request) {
                 params
               );
             }
-
-            if (student.email) {
-              pendingMail = {
-                to: student.email,
-                subject: `[Leave Approved] Your ${leaveReq.type?.toUpperCase()} request for ${leaveReq.dateStr} has been APPROVED`,
-                htmlBody: renderEmailShell({
-                  title: "Leave Request Approved",
-                  badgeText: "Approved",
-                  badgeColor: "emerald",
-                  description: `Dear ${student.name}, your ${leaveReq.type?.toUpperCase()} request for <strong>${leaveReq.dateStr}</strong> has been approved. Attendance has been excused as Present.`,
-                  details: [
-                    { label: "Date", value: leaveReq.dateStr, highlight: true },
-                    { label: "Approved By", value: approver_name },
-                    { label: "Status", value: "Approved & Excused" }
-                  ],
-                  ctaText: "Open Student Dashboard →"
-                })
-              };
-            }
           }
         }
       } else if (module_type === "faculty_leave") {
@@ -240,20 +218,16 @@ export async function PUT(request: Request) {
         );
       }
 
-      // In-app notification creation
-      await tx.run(
-        `INSERT INTO notifications (id, user_id, title, message, type, link, is_read, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 0, ?)`,
-        [
-          generateId("notif"),
-          approval.requester_id,
-          `Request ${status.toUpperCase()}: ${module_type.replace("_", " ").toUpperCase()}`,
-          `Your request has been ${status} by ${approver_name}. ${reasonText ? `Remarks: ${reasonText}` : ""}`,
-          status === "approved" ? "result" : "alert",
-          `#`,
-          now
-        ]
-      );
+      // Real-time zero-delay in-app notification dispatch
+      await dispatchSystemNotification(tx, {
+        userIds: [approval.requester_id],
+        title: `Request ${status.toUpperCase()}: ${module_type.replace("_", " ").toUpperCase()}`,
+        message: `Your request has been ${status} by ${approver_name}. ${reasonText ? `Remarks: ${reasonText}` : ""}`,
+        type: status === "approved" ? "result" : "alert",
+        link: module_type === "faculty_leave" ? "/mentor/leave" : "/mentor/schedule",
+        domain: "approvals",
+        action: "resolved",
+      });
 
       // Audit Log Entry
       await tx.run(
@@ -268,15 +242,6 @@ export async function PUT(request: Request) {
         ]
       );
     });
-
-    // pendingMail is assigned inside db.transaction's callback, which control-flow
-    // analysis does not follow, so it is still typed as null at this read.
-    const mailJob = pendingMail as { to: string; subject: string; htmlBody: string } | null;
-    if (mailJob) {
-      // The resolution is committed; the requester hears about it once the
-      // response is on the wire instead of after a relay leg.
-      sendMailAsync({ ...mailJob, context: "approval-resolution" });
-    }
 
     const updatedApproval = await db.get("SELECT * FROM approvals WHERE id = ?", [approval_id]);
     return NextResponse.json({

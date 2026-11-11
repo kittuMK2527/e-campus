@@ -110,7 +110,7 @@ export default function LndFilterBar({
   ], [smes]);
 
   return (
-    <div className="relative z-30 bg-white/90 dark:bg-[#131317]/90 border border-slate-100 dark:border-slate-800/80 p-4 rounded-xl shadow-card backdrop-blur-md flex flex-col gap-3.5 w-full">
+    <div className="relative z-30 bg-white/90 dark:bg-[#131317]/90 border border-slate-100 dark:border-slate-800/80 p-4 rounded-2xl shadow-card backdrop-blur-md flex flex-col gap-3.5 w-full">
       {/* Row 1 — filters: labelled, searchable, keyboard-operable comboboxes */}
       <div className="flex flex-col lg:flex-row lg:items-end gap-3">
         <div className="flex flex-1 flex-col sm:flex-row flex-wrap gap-3">
@@ -155,7 +155,7 @@ export default function LndFilterBar({
             <div
               role="group"
               aria-labelledby="lnd-week-control-label"
-              className="mt-1 flex items-center gap-1 p-1 bg-slate-50 dark:bg-[#181820] border border-slate-200 dark:border-slate-800 rounded-xl"
+              className="mt-1 flex items-center gap-1 p-1 bg-slate-50 dark:bg-[#181820] border border-slate-200 dark:border-slate-800 rounded-2xl"
             >
               <Button
                 variant="outline"
@@ -231,7 +231,7 @@ export default function LndFilterBar({
             Free Slot
           </span>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-pink-50 text-pink-800 dark:bg-pink-950/40 dark:text-pink-300 border border-pink-200/70 dark:border-pink-800/50">
-            <span className="h-2 w-2 rounded-full bg-pink-500 shrink-0" />
+            <span className="h-2 w-2 rounded-full bg-indigo-500 shrink-0" />
             Confirmed Booked
           </span>
           <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-800 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200/70 dark:border-purple-800/50">
@@ -256,32 +256,32 @@ export default function LndFilterBar({
         <div
           role="group"
           aria-label="Grid view mode"
-          className="flex items-center gap-1 p-0.5 bg-slate-100 dark:bg-slate-800/80 rounded-lg border border-slate-200 dark:border-slate-700"
+          className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700"
         >
           <button
             type="button"
             aria-pressed={gridDisplayMode === "master"}
             onClick={() => onGridDisplayMode("master")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-black transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
               gridDisplayMode === "master"
-                ? "bg-white dark:bg-[#131317] text-[#D528A2] dark:text-[#f45fc6] shadow-2xs ring-1 ring-inset ring-[#D528A2]/30"
+                ? "bg-white dark:bg-[#131317] text-zinc-900 dark:text-zinc-100 shadow-2xs ring-1 ring-inset ring-amber-500/40"
                 : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
-            {gridDisplayMode === "master" ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />}
+            {gridDisplayMode === "master" ? <Check className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" /> : <Sparkles className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" />}
             <span>Master Grid (SME Settings)</span>
           </button>
           <button
             type="button"
             aria-pressed={gridDisplayMode === "periods"}
             onClick={() => onGridDisplayMode("periods")}
-            className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-[11px] font-black transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black transition-all cursor-pointer ${
               gridDisplayMode === "periods"
-                ? "bg-white dark:bg-[#131317] text-[#D528A2] dark:text-[#f45fc6] shadow-2xs ring-1 ring-inset ring-[#D528A2]/30"
+                ? "bg-white dark:bg-[#131317] text-zinc-900 dark:text-zinc-100 shadow-2xs ring-1 ring-inset ring-amber-500/40"
                 : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
             }`}
           >
-            {gridDisplayMode === "periods" ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : <Table className="h-3.5 w-3.5" aria-hidden="true" />}
+            {gridDisplayMode === "periods" ? <Check className="h-3.5 w-3.5 text-amber-500" aria-hidden="true" /> : <Table className="h-3.5 w-3.5" aria-hidden="true" />}
             <span>Campus Period View</span>
           </button>
         </div>

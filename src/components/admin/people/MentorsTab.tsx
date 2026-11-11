@@ -23,14 +23,17 @@ import {
   Eye,
   Edit,
   Trash2,
-  MoreVertical
+  ChevronDown,
+  X,
+  RotateCcw
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { MentorDialog, type MentorFormState } from "@/components/admin/dialogs/MentorDialog";
 import { FacultyImportDialog } from "@/components/admin/dialogs/FacultyImportDialog";
@@ -400,52 +403,58 @@ export const MentorsTab: React.FC = () => {
       <PageHeader
         icon={UserCheck}
         title="Faculty Mentors"
-        subtitle="Faculty directory, subject mappings and campus assignments."
         actions={
-          <Button
-            variant="ghost"
-            onClick={() => handleOpenMentorModal()}
-            className="h-auto btn-gradient shadow-sm text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
-          >
-            <Plus className="h-4 w-4" />
-            Add Mentor
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => handleOpenMentorModal()}
+              className="h-auto btn-gradient shadow-sm text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer shrink-0"
+            >
+              <Plus className="h-4 w-4" />
+              Add Mentor
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <ActionDropdownButton />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem
+                  onClick={handleDownloadFacultyTemplate}
+                  className="gap-2 cursor-pointer text-xs"
+                >
+                  <Download className="h-3.5 w-3.5 text-emerald-600" />
+                  <span>Download Template</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => {
+                    const input = document.getElementById("admin-mentor-bulk-input");
+                    if (input) input.click();
+                  }}
+                  className="gap-2 cursor-pointer text-xs"
+                >
+                  <Upload className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>Bulk Import (Excel / CSV)</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <input
+              id="admin-mentor-bulk-input"
+              type="file"
+              accept=".xlsx, .xls, .csv"
+              onChange={handleFacultyFileSelect}
+              className="hidden"
+            />
+          </div>
         }
       />
 
-      <FilterBar
-        aside={
-          <>
-            <Button
-              variant="ghost"
-              type="button"
-              onClick={handleDownloadFacultyTemplate}
-              className="h-auto px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs"
-              title="Download Faculty Excel Template for Selected College"
-            >
-              <Download className="h-4 w-4" />
-              Template
-            </Button>
-
-            <label className="px-3 py-1.5 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer shrink-0 shadow-2xs">
-              <Upload className="h-4 w-4" />
-              Bulk Import
-              <input
-                type="file"
-                accept=".xlsx, .xls, .csv"
-                onChange={handleFacultyFileSelect}
-                className="hidden"
-              />
-            </label>
-          </>
-        }
-      >
+      <FilterBar>
         {/* Import target campus selector */}
         <div
-          className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3"
+          className="flex h-9 items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 shadow-2xs"
           title="Campus used by Template and Bulk Import"
         >
-          <Building2 className="h-4 w-4 shrink-0 text-indigo-600" />
+          <Building2 className="h-4 w-4 shrink-0 text-amber-500" />
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Import</span>
           <Select
             aria-label="Import campus"
@@ -462,7 +471,7 @@ export const MentorsTab: React.FC = () => {
         </div>
 
         {/* Campus filter for the directory list */}
-        <div className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3">
+        <div className="flex h-9 items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 shadow-2xs">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Campus</span>
           <Select
             aria-label="Filter mentors by campus"
@@ -488,8 +497,18 @@ export const MentorsTab: React.FC = () => {
             placeholder="Search faculty..."
             value={mentorSearchQuery}
             onChange={e => setMentorSearchQuery(e.target.value)}
-            className="w-full pl-9"
+            className="w-full pl-9 pr-8 rounded-2xl"
           />
+          {mentorSearchQuery && (
+            <button
+              type="button"
+              onClick={() => setMentorSearchQuery("")}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 cursor-pointer"
+              title="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
       </FilterBar>
 
@@ -519,10 +538,24 @@ export const MentorsTab: React.FC = () => {
         <TableBody>
           {filteredMentors.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={isCampusShiftBased ? 7 : 6} className="h-32 text-center">
-                <div className="flex flex-col items-center gap-2 text-gray-400">
-                  <UserCheck className="h-8 w-8" />
-                  <p className="text-sm font-semibold">No mentors found matching your search.</p>
+              <TableCell colSpan={isCampusShiftBased ? 7 : 6} className="h-36 text-center">
+                <div className="flex flex-col items-center justify-center gap-2 text-slate-500 py-4">
+                  <UserCheck className="h-8 w-8 text-slate-300" />
+                  <p className="text-sm font-bold text-slate-700">No mentors found matching your search</p>
+                  <p className="text-xs text-slate-400">Try adjusting your filters or search keywords</p>
+                  {(mentorSearchQuery || mentorCollegeFilter !== "all") && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMentorSearchQuery("");
+                        setMentorCollegeFilter("all");
+                      }}
+                      className="mt-2 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-xl transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="h-3.5 w-3.5" />
+                      Reset Filters
+                    </button>
+                  )}
                 </div>
               </TableCell>
             </TableRow>
@@ -577,14 +610,7 @@ export const MentorsTab: React.FC = () => {
                     <div className="flex items-center justify-end">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg cursor-pointer"
-                            title="Mentor Actions"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
+                          <ActionDropdownButton size="sm" title="Mentor Actions" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-44">
                           <DropdownMenuItem

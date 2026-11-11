@@ -7,8 +7,7 @@ import { getDb, chunkList } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
-import { sendMailAsync } from "@/lib/mailAsync";
-import { renderEmailShell, BRAND } from "@/lib/mail";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -124,51 +123,18 @@ export async function POST(request: Request) {
 
     // Dispatch in-app notification to KAM
     try {
-      const notifId = generateId("notif");
       const cmName = cm?.name || "Campus Manager";
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, type, is_read, created_at)
-         VALUES (?, ?, ?, ?, 'cm_leave', 0, ?)`,
-        [
-          notifId,
-          effectiveKamId,
-          `New CM Leave Request: ${cmName}`,
-          `${cmName} applied for ${requestType} from ${startDate} to ${effectiveEndDate}. Reason: ${reason.trim().slice(0, 80)}`,
-          nowTimestamp
-        ]
-      ).catch(() => {});
-    } catch (_) {}
-
-    // Email KAM so they're not relying solely on the in-app bell
-    try {
-      const kamUser = await db.get(
-        `SELECT email, name FROM kam_users WHERE id = ? LIMIT 1`,
-        [effectiveKamId]
-      );
-      if (kamUser?.email) {
-        const cmName = cm?.name || "Campus Manager";
-        const collegeName = cm?.college_name || effectiveCollegeId;
-        sendMailAsync({
-          to: kamUser.email,
-          subject: `${BRAND.emailPrefix} [Action Required] CM Leave Request — ${cmName}`,
-          htmlBody: renderEmailShell({
-            title: "Campus Manager Leave Application",
-            badgeText: requestType === "Emergency" ? "EMERGENCY — REVIEW NOW" : "ACTION REQUIRED",
-            badgeColor: requestType === "Emergency" ? "rose" : "amber",
-            description: `Campus Manager <strong>${cmName}</strong> has submitted a leave application and is awaiting your review.`,
-            details: [
-              { label: "CM Name",      value: cmName,                                                       highlight: true },
-              { label: "College",      value: collegeName },
-              { label: "Leave Type",   value: requestType,                                                  highlight: true },
-              { label: "Date Range",   value: startDate === effectiveEndDate ? startDate : `${startDate} to ${effectiveEndDate}` },
-              { label: "Reason",       value: reason.trim() },
-            ],
-            ctaText: "Review in KAM Dashboard →",
-            ctaUrl: `${BRAND.portalUrl}/kam/faculty-governance`,
-          }),
-          context: "cm-leave-request",
-        });
-      }
+      await dispatchSystemNotification(db, {
+        userIds: effectiveKamId ? [effectiveKamId] : undefined,
+        roles: !effectiveKamId ? ["kam"] : undefined,
+        title: `New CM Leave Request: ${cmName}`,
+        message: `${cmName} applied for ${requestType} from ${startDate} to ${effectiveEndDate}. Reason: ${reason.trim().slice(0, 80)}`,
+        type: "approval",
+        link: "/kam/leave",
+        domain: "cm-leave",
+        action: "submitted",
+        collegeId: effectiveCollegeId,
+      });
     } catch (_) {}
 
     return NextResponse.json({
@@ -264,51 +230,16 @@ export async function PATCH(request: Request) {
 
     // Notify CM of the decision via in-app bell
     try {
-      const notifId = generateId("notif");
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, type, is_read, created_at)
-         VALUES (?, ?, ?, ?, 'cm_leave_decision', 0, ?)`,
-        [
-          notifId,
-          leaveReq.cam_id,
-          `Leave Request ${status === "approved" ? "Approved" : "Rejected"}`,
-          `Your request for ${leaveReq.request_type} (${leaveReq.start_date}) has been ${status} by ${approvedBy}.${rejectionReason ? ` Remarks: ${rejectionReason}` : ""}`,
-          nowTimestamp
-        ]
-      ).catch(() => {});
-    } catch (_) {}
-
-    // Email the CM directly — they shouldn't have to check the portal to find out
-    try {
-      const camRow = await db.get(
-        `SELECT email, name FROM campus_managers WHERE id = ? LIMIT 1`,
-        [leaveReq.cam_id]
-      );
-      if (camRow?.email) {
-        const dateRange = leaveReq.end_date && leaveReq.end_date !== leaveReq.start_date
-          ? `${leaveReq.start_date} to ${leaveReq.end_date}`
-          : leaveReq.start_date;
-        sendMailAsync({
-          to: camRow.email,
-          subject: `${BRAND.emailPrefix} Your ${leaveReq.request_type} Request Has Been ${status === "approved" ? "Approved" : "Rejected"}`,
-          htmlBody: renderEmailShell({
-            title: `Leave Request ${status === "approved" ? "Approved" : "Rejected"}`,
-            badgeText: status === "approved" ? "APPROVED" : "REJECTED",
-            badgeColor: status === "approved" ? "emerald" : "rose",
-            description: `Dear <strong>${camRow.name || "Campus Manager"}</strong>, your leave application has been reviewed by your KAM.`,
-            details: [
-              { label: "Leave Type",  value: leaveReq.request_type, highlight: true },
-              { label: "Date Range",  value: dateRange },
-              { label: "Status",      value: status.toUpperCase(),  highlight: true },
-              { label: "Reviewed By", value: approvedBy },
-              ...(rejectionReason ? [{ label: "Remarks", value: rejectionReason }] : []),
-            ],
-            ctaText: "View Leave Status →",
-            ctaUrl: `${BRAND.portalUrl}/cm/leaves`,
-          }),
-          context: "cm-leave-decision",
-        });
-      }
+      await dispatchSystemNotification(db, {
+        userIds: [leaveReq.cam_id],
+        title: `Leave Request ${status === "approved" ? "Approved" : "Rejected"}`,
+        message: `Your request for ${leaveReq.request_type} (${leaveReq.start_date}) has been ${status} by ${approvedBy}.${rejectionReason ? ` Remarks: ${rejectionReason}` : ""}`,
+        type: status === "approved" ? "success" : "alert",
+        link: "/cm/leave",
+        domain: "cm-leave",
+        action: "resolved",
+        collegeId: leaveReq.college_id,
+      });
     } catch (_) {}
 
     return NextResponse.json({

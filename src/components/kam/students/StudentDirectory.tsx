@@ -4,7 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/apiFetch";
 import { qk } from "@/lib/queryKeys";
-import { Search, User, Eye, ArrowUpDown, Building2, FileSpreadsheet } from "lucide-react";
+import { Search, User, Eye, ArrowUpDown, Building2, FileSpreadsheet, X } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { Student360 } from "./Student360";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
@@ -169,8 +169,8 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-card">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Embedded College Selector */}
-          <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
-            <Building2 className="h-3.5 w-3.5 text-[#D528A2]" />
+          <div className="flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-2xl border border-slate-200">
+            <Building2 className="h-3.5 w-3.5 text-amber-500" />
             <select
               value={selectedCollegeId}
               onChange={e => setSelectedCollegeId(e.target.value)}
@@ -201,7 +201,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                 onClick={() => setRiskFilter(r.key)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
                   isActive
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-sm shadow-indigo-100"
+                    ? "bg-zinc-900 text-white border-zinc-900 shadow-sm"
                     : `${r.color} hover:opacity-80`
                 }`}
               >
@@ -220,8 +220,18 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
               placeholder="Search name, roll no, reg no…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-9 pr-8 py-1.5 text-xs font-semibold bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                title="Clear search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
           </div>
 
           <Button
@@ -242,7 +252,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 text-slate-500 font-black uppercase text-[10px] tracking-wider">
+              <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-black uppercase text-[10px] tracking-wider">
                 <TableHead onClick={() => handleSort("name")} className="cursor-pointer hover:text-slate-800">
                   <div className="flex items-center gap-1">Student <ArrowUpDown className="h-3 w-3" /></div>
                 </TableHead>

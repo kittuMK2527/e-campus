@@ -205,7 +205,7 @@ export const KAMFacultyGovernance: React.FC<{
                   placeholder="Search faculty name..."
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none w-56"
+                  className="pl-8 pr-3 py-1.5 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-700 outline-none w-56"
                 />
               </div>
             </div>
@@ -213,7 +213,7 @@ export const KAMFacultyGovernance: React.FC<{
             <div className="overflow-x-auto rounded-xl border border-slate-200">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-500 border-b border-slate-200">
+                  <TableRow className="bg-sunken text-[10px] font-black uppercase text-slate-500 border-b border-slate-200">
                     <TableHead onClick={() => handlePunchSort("name")} className="cursor-pointer hover:text-slate-800">
                       <div className="flex items-center gap-1">Faculty Name <ArrowUpDown className="h-3 w-3" /></div>
                     </TableHead>
@@ -331,7 +331,7 @@ export const KAMFacultyGovernance: React.FC<{
               <div className="overflow-x-auto rounded-xl border border-slate-200">
                 <Table>
                   <TableHeader>
-                    <TableRow className="bg-slate-50 hover:bg-slate-50 text-[10px] font-black uppercase text-slate-500 border-b border-slate-200">
+                    <TableRow className="bg-sunken text-[10px] font-black uppercase text-slate-500 border-b border-slate-200">
                       <TableHead>Faculty Member</TableHead>
                       <TableHead>Campus & Dept</TableHead>
                       <TableHead>Leave Dates</TableHead>

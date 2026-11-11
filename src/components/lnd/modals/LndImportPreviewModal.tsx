@@ -29,7 +29,7 @@ export default function LndImportPreviewModal({
           if (!next) setShowDemoExcelImportModal(false);
         }}
         ariaLabel="L&D schedule Excel import preview"
-        overlayClassName="bg-slate-900/60 backdrop-blur-xs"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm"
         panelClassName="max-w-4xl max-h-[85vh] p-0 space-y-0 overflow-hidden flex flex-col rounded-2xl bg-white dark:bg-[#131317]"
       >
   
@@ -44,7 +44,7 @@ export default function LndImportPreviewModal({
                   L&D Schedule Excel Import Preview
                 </h3>
                 <p className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
-                  Target Subject Group: <strong className="text-[#D528A2] dark:text-[#f45fc6]">{demoImportPreview?.targetSubjectGroup}</strong>
+                  Target Subject Group: <strong className="text-[#4F46E5] dark:text-[#818CF8]">{demoImportPreview?.targetSubjectGroup}</strong>
                 </p>
               </div>
             </div>
@@ -60,7 +60,7 @@ export default function LndImportPreviewModal({
           <div className="p-5 overflow-y-auto space-y-4 flex-1">
   
             {/* Metric Summary Cards */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl">
                 <span className="text-[10px] font-black uppercase text-slate-400 block">Total Rows Parsed</span>
                 <span className="text-lg font-black text-slate-800 dark:text-white">{demoImportPreview?.parsed.length || 0}</span>
@@ -127,7 +127,7 @@ export default function LndImportPreviewModal({
                           {item.dayName}
                           <span className="block text-[9.5px] font-medium text-slate-400">{item.dateStr}</span>
                         </td>
-                        <td className="p-2.5 font-bold text-[#D528A2] dark:text-[#f45fc6]">{item.timeSlot}</td>
+                        <td className="p-2.5 font-bold text-[#4F46E5] dark:text-[#818CF8]">{item.timeSlot}</td>
                         <td className="p-2.5 font-semibold text-slate-800 dark:text-slate-200">{item.mentorName}</td>
                         <td className="p-2.5 font-semibold text-slate-800 dark:text-slate-200">{item.smeName}</td>
                         <td className="p-2.5 text-slate-600 dark:text-slate-300 font-medium">{item.subject}</td>

@@ -1,10 +1,8 @@
 export const maxDuration = 60;
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authGuard";
 import { getDb, allCapped, type QueryFailure } from "@/lib/db";
-import { renderEmailShell } from "@/lib/mail";
-import { dispatchMail, sendMailAsync } from "@/lib/mailAsync";
 import { notifyExternalInterviewsAfterResponse } from "@/lib/interview-notifications";
 import { checkMentorAvailability, loadAvailabilityContext } from "@/lib/availability";
 import type { AvailabilityContext } from "@/lib/availability";
@@ -181,7 +179,13 @@ export async function POST(request: Request) {
 
     // Internal interviews are in-person; any previously saved Meet room must be cleared,
     // not preserved by a COALESCE that only skipped the new value.
-    const nextMeetLink = interview.type === "internal" ? null : (gmeet_link || interview.gmeet_link || null);
+    let nextMeetLink = interview.type === "internal" ? null : (gmeet_link || interview.gmeet_link || null);
+    if (interview.type !== "internal" && !nextMeetLink) {
+      const chars = "abcdefghijklmnopqrstuvwxyz";
+      const randStr = (len: number) => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+      const meetCode = randStr(3) + "-" + randStr(4) + "-" + randStr(3);
+      nextMeetLink = "https://meet.google.com/" + meetCode;
+    }
 
     await db.run(
       `UPDATE student_interviews 
@@ -358,7 +362,7 @@ export async function POST(request: Request) {
           slotRunningIndex++;
 
           // Internal interviews do NOT use Google Meet (in-person physical on campus)
-          const effectiveMeetLink = isInternal ? null : (gmeet_link || interview.gmeet_link || null);
+          const effectiveMeetLink = isInternal ? null : (nextMeetLink || gmeet_link || interview.gmeet_link || null);
           const studentGCalUrl = isInternal || !effectiveMeetLink ? null : generateStudentGCalUrl({
             studentName: stName,
             studentEmail: stEmail,
@@ -408,40 +412,10 @@ export async function POST(request: Request) {
       }
     }
 
-    // Mentor names and addresses come from the single mentor lookup done up front
-    const mentorEmails: string[] = mappedMentorIds
-      .map((id: string) => mentorById.get(id)?.email)
-      .filter(Boolean);
+    // Mentor names come from the single mentor lookup done up front
     const mentorNames: string[] = mappedMentorIds
       .map((id: string) => mentorById.get(id)?.name)
       .filter(Boolean);
-
-    // Send branded email to mapped mentors (after the response). BCC keeps each
-    // mentor's address private from the rest of the cohort.
-    if (mentorEmails.length > 0) {
-      sendMailAsync({
-        bcc: mentorEmails,
-        subject: `[Interview Assignment] You have been assigned — ${interview.subject} on ${interview.target_date}`,
-        htmlBody: renderEmailShell({
-          title: "You Have Been Assigned to Conduct an Interview",
-          badgeText: interview.type === "external" ? "External Interview" : "Internal Interview",
-          badgeColor: interview.type === "external" ? "purple" : "emerald",
-          description: `Dear Mentor, Campus Manager <strong>${cm_name}</strong> has assigned you to conduct a student interview session for <strong>${interview.subject}</strong>. Please prepare accordingly.`,
-          details: [
-            { label: "Subject", value: interview.subject, highlight: true },
-            { label: "Class Group", value: interview.class_group || "All Classes" },
-            { label: "Target Date", value: interview.target_date || "" },
-            { label: "Interview Type", value: (interview.type || "internal").toUpperCase() },
-            { label: "Student Count", value: String(updatedCount) },
-            { label: "Topics", value: interview.topics || "General Review" },
-            ...(interview.type !== "internal" && gmeet_link ? [{ label: "Google Meet Link", value: gmeet_link, highlight: true }] : (interview.type === "internal" ? [{ label: "Interview Mode", value: "In-Person On-Campus Evaluation", highlight: true }] : [])),
-            { label: "Assigned By", value: cm_name },
-          ],
-          ctaText: "Open Mentor Dashboard to Evaluate →",
-        }),
-        context: "interview-assignment-mentors"
-      });
-    }
 
     // Notify KAM & Regional Colleges
     if (interview.type === "external") {
@@ -460,45 +434,11 @@ export async function POST(request: Request) {
         gmeetLink: gmeet_link || interview.gmeet_link,
         actorName: cm_name
       });
-    } else {
-      // Deferred with its own lookup: the allocation is already committed, and the
-      // KAM mail must not cost the CM a read plus a 12s relay leg.
-      after(async () => {
-        const kamRows = await db.all(`
-          SELECT k.email, k.name FROM kam_users k
-          INNER JOIN colleges c ON c.kam_id = k.id
-          WHERE c.id = COALESCE(?, ?)
-        `, [interview.college_id || null, interview.origin_college_id || null]);
-
-        const kamEmail = kamRows?.[0]?.email;
-        const kamName = kamRows?.[0]?.name;
-        if (kamEmail) {
-          await dispatchMail({
-            to: kamEmail,
-            subject: `[Interview Assigned] ${interview.subject} — ${interview.college_id || interview.origin_college_id}`,
-            htmlBody: renderEmailShell({
-              title: "Interview Session Assigned & Scheduled",
-              badgeText: "KAM Notification",
-              badgeColor: "indigo",
-              description: `Dear <strong>${kamName}</strong>, Campus Manager <strong>${cm_name}</strong> has allocated mentors for an interview session.`,
-              details: [
-                { label: "Subject", value: interview.subject, highlight: true },
-                { label: "Target Date", value: interview.target_date || "" },
-                { label: "Student Count", value: String(updatedCount) },
-                { label: "Mentors Assigned", value: mentorNames.join(", ") || "N/A" },
-                { label: "Campus Manager", value: cm_name },
-              ],
-              ctaText: "View Interview Dashboard →",
-            }),
-            context: "interview-assignment-kam"
-          });
-        }
-      });
     }
 
     return NextResponse.json({
       success: true,
-      message: `Successfully assigned ${updatedCount} students & mapped ${mappedMentorIds.length} mentor(s). Notification emails are being sent.`
+      message: `Successfully assigned ${updatedCount} students & mapped ${mappedMentorIds.length} mentor(s).`
     });
   } catch (error: any) {
     console.error("POST /api/interviews/assign error:", error);

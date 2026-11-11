@@ -42,7 +42,11 @@ vi.mock("@/lib/mail", () => {
     renderSwapOfferEmail: render,
     renderSmeEvaluationEmail: render,
     renderTimetableUpdateEmail: render,
-    renderAnnouncementEmail: render
+    renderAnnouncementEmail: render,
+    renderSmeDailyReportEmail: render,
+    renderSmeWeeklyDigestEmail: render,
+    monthly_skill_report: render,
+    renderMonthlySkillReportEmail: render
   };
 });
 

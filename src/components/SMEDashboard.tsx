@@ -665,7 +665,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
           {/* Sidebar Header */}
           {!isCollapsed ? (
             <div className="mb-5 pb-4 border-b border-slate-200/60 dark:border-slate-800">
-              <p className="text-[9px] font-black uppercase tracking-widest text-pink-600 dark:text-pink-400 mb-1">SME Portal</p>
+              <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-1">SME Portal</p>
               <h2 className="text-base font-black text-slate-800 dark:text-white leading-tight">SME Workspace</h2>
               <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
                 {currentSME.subject ? `${currentSME.subject} Expert` : "Subject Matter Expert"}
@@ -673,7 +673,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
             </div>
           ) : (
             <div className="mb-4 pb-3 border-b border-slate-200/60 dark:border-slate-800 text-center">
-              <Sparkles className="h-5 w-5 text-pink-600 dark:text-pink-400 mx-auto" />
+              <Sparkles className="h-5 w-5 text-amber-500 dark:text-amber-400 mx-auto" />
             </div>
           )}
 
@@ -691,16 +691,16 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                   title={isCollapsed ? item.label : undefined}
                   className={`w-full flex items-center transition-all duration-150 cursor-pointer rounded-xl font-bold ${isCollapsed ? "justify-center px-0 py-3" : "justify-between px-3.5 py-2.5 text-xs"
                     } ${isActive
-                      ? "bg-gradient-to-r from-pink-600 to-violet-600 text-white shadow-sm"
-                      : "text-slate-600 hover:text-pink-600 hover:bg-pink-50/80 dark:text-slate-400 dark:hover:text-pink-300 dark:hover:bg-white/5"
+                      ? "bg-zinc-900 text-white shadow-xs border border-white/10 dark:bg-zinc-900 dark:text-white"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
                     }`}
                 >
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-white" : "text-slate-400 dark:text-slate-500"}`} />
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? "text-amber-400" : "text-slate-400 dark:text-slate-500"}`} />
                     {!isCollapsed && <span className="truncate">{item.label}</span>}
                   </div>
                   {item.count > 0 && (
-                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${isActive ? "bg-white/25 text-white" : "bg-pink-600 text-white"
+                    <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full shrink-0 ${isActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-zinc-900 text-white"
                       }`}>
                       {item.count}
                     </span>
@@ -732,7 +732,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
 
       {/* ── Main Content Body Area ── */}
       <main className="flex-1 w-full overflow-y-auto h-full pb-20 md:pb-12 scroll-touch">
-        <div className="p-3 md:p-6 space-y-6 max-w-[1400px] mx-auto animate-in fade-in slide-in-from-bottom-3 duration-250">
+        <div className="p-3 md:p-6 space-y-6 max-w-[1400px] mx-auto animate-scaleUp">
 
           {/* Top Header Banner & Profile Card */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-card">
@@ -765,7 +765,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 <RefreshCw className="h-4 w-4" />
               </button>
               <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shrink-0">
-                <div className="h-7 w-7 rounded-full bg-pink-600 text-white flex items-center justify-center text-xs font-black">
+                <div className="h-7 w-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">
                   {currentSME.name?.charAt(0) || "S"}
                 </div>
                 <div className="text-left hidden sm:block">
@@ -778,14 +778,14 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
 
           {/* System Alerts */}
           {successMsg && (
-            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-3 text-xs font-bold shadow-xs animate-in zoom-in-95">
+            <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl flex items-center gap-3 text-xs font-bold shadow-xs animate-scaleUp">
               <CheckCircle className="h-5 w-5 text-emerald-600 shrink-0" />
               <span>{successMsg}</span>
               <button onClick={() => setSuccessMsg("")} className="ml-auto text-emerald-500 hover:text-emerald-700 cursor-pointer"><X className="h-4 w-4" /></button>
             </div>
           )}
           {errorMsg && (
-            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-3 text-xs font-bold shadow-xs animate-in zoom-in-95">
+            <div className="p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl flex items-center gap-3 text-xs font-bold shadow-xs animate-scaleUp">
               <AlertCircle className="h-5 w-5 text-rose-600 shrink-0" />
               <span>{errorMsg}</span>
               <button onClick={() => setErrorMsg("")} className="ml-auto text-rose-500 hover:text-rose-700 cursor-pointer"><X className="h-4 w-4" /></button>
@@ -800,7 +800,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 type="button"
                 onClick={() => handleTabChange(tab.id as any)}
                 className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab.id
-                    ? "bg-slate-900 text-white dark:bg-pink-600 dark:text-white shadow-xs"
+                    ? "bg-slate-900 text-white dark:bg-indigo-600 dark:text-white shadow-xs"
                     : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
                   }`}
               >
@@ -910,7 +910,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                               <Award className="h-3 w-3" /> View Score
                             </button>
                           ) : (
-                            <button onClick={() => handleOpenEvaluate(demo)} className="px-3 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-[10px] font-extrabold cursor-pointer shadow-2xs flex items-center gap-1">
+                            <button onClick={() => handleOpenEvaluate(demo)} className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-[10px] font-extrabold cursor-pointer shadow-2xs flex items-center gap-1 border border-white/10">
                               <CheckSquare className="h-3 w-3" /> Evaluate Session
                             </button>
                           )}
@@ -948,7 +948,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                       type="button"
                       onClick={() => { setFilterStatus(tab.value); setPage(1); }}
                       className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer whitespace-nowrap ${filterStatus === tab.value
-                          ? "bg-pink-600 text-white shadow-2xs"
+                          ? "bg-zinc-900 text-white shadow-2xs"
                           : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300"
                         }`}
                     >
@@ -958,27 +958,37 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 </div>
 
                 {/* Filter Toolbar */}
-                <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 p-3.5 rounded-xl">
+                <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 p-3.5 rounded-2xl">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <select aria-label="College filter" value={filterCollege} onChange={e => { setFilterCollege(e.target.value); setPage(1); }}
-                      className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
+                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
                       <option value="All">All Colleges</option>
                       {uniqueColleges.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <select aria-label="Subject filter" value={filterSubject} onChange={e => { setFilterSubject(e.target.value); setPage(1); }}
-                      className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
+                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
                       <option value="All">All Subjects</option>
                       {uniqueSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <select aria-label="Mentor group filter" value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setPage(1); }}
-                      className="px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-pink-500 cursor-pointer">
+                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
                       <option value="All">All Groups</option>
                       {uniqueGroups.map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
                     <div className="relative">
                       <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input type="text" placeholder="Search mentor, date, subject..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-                        className="w-full pl-8 pr-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500" />
+                        className="w-full pl-8 pr-8 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      {searchQuery && (
+                        <button
+                          type="button"
+                          onClick={() => { setSearchQuery(""); setPage(1); }}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                          title="Clear search"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1038,7 +1048,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                               </button>
                             ) : demo.status === "confirmed" ? (
                               <>
-                                <button onClick={() => handleOpenEvaluate(demo)} className="px-3.5 py-1.5 bg-pink-600 hover:bg-pink-700 text-white rounded-lg text-xs font-extrabold transition-all cursor-pointer shadow-2xs flex items-center gap-1">
+                                <button onClick={() => handleOpenEvaluate(demo)} className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-extrabold transition-all cursor-pointer shadow-2xs flex items-center gap-1 border border-white/10">
                                   <CheckSquare className="h-3.5 w-3.5" /> Evaluate Session
                                 </button>
                                 <button onClick={() => handleOpenSwapModal(demo)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 transition-all cursor-pointer flex items-center gap-1">
@@ -1114,7 +1124,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
               <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <SlidersHorizontal className="h-5 w-5 text-[#D528A2]" />
+                    <SlidersHorizontal className="h-5 w-5 text-[#4F46E5]" />
                     SME Working Windows & Schedule Settings
                   </h3>
                   <p className="text-xs text-slate-500 font-medium max-w-2xl">
@@ -1134,10 +1144,10 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         <div
                           key={d}
                           onClick={() => { setSelectedAvailDay(d); setShowAvailModal(true); }}
-                          className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800/60 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-200/80 dark:border-slate-700 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer transition-all"
+                          className="px-2.5 py-1 bg-sunken dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-800 rounded-lg border border-slate-200 inset-shadow-well/80 dark:border-slate-700 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer transition-all"
                           title="Click to configure this day"
                         >
-                          <span className="font-extrabold text-[#D528A2]">{d.slice(0, 3)}:</span>
+                          <span className="font-extrabold text-[#4F46E5]">{d.slice(0, 3)}:</span>
                           {wins.length === 0 ? (
                             <span className="text-slate-400">9–5:30 (Default)</span>
                           ) : (
@@ -1173,7 +1183,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <button
                       type="button"
                       onClick={() => setShowAvailModal(true)}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-[#D528A2] text-white hover:bg-[#b81d89] shadow-xs flex items-center gap-2 cursor-pointer transition-all shrink-0 ml-auto"
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-[#4F46E5] text-white hover:bg-[#b81d89] shadow-xs flex items-center gap-2 cursor-pointer transition-all shrink-0 ml-auto"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       Edit My Timings & Windows
@@ -1286,7 +1296,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <button
                       type="button"
                       onClick={() => handleOpenSwapModal(confirmedDemos[0])}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all shrink-0"
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-white shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all shrink-0 border border-white/10"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Reallocate an Upcoming Demo
                     </button>
@@ -1421,7 +1431,17 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                   <div className="relative flex-1 w-full">
                     <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input type="text" placeholder="Search evaluations by mentor, subject, or date..." value={historySearch} onChange={e => { setHistorySearch(e.target.value); setHistoryPage(1); }}
-                      className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500" />
+                      className="w-full pl-10 pr-9 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                    {historySearch && (
+                      <button
+                        type="button"
+                        onClick={() => { setHistorySearch(""); setHistoryPage(1); }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                        title="Clear search"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -1495,7 +1515,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 if (!next) setSwapModalSession(null);
               }}
               ariaLabel="Reallocate L&D session"
-              overlayClassName="bg-slate-950/45 backdrop-blur-sm"
+              overlayClassName="bg-slate-950/60 backdrop-blur-sm"
               panelClassName="max-w-lg rounded-xl p-6 space-y-5 max-h-[90vh] bg-white dark:bg-slate-900"
             >
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
@@ -1516,7 +1536,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <div>
                       <label className="text-[9px] font-black uppercase text-slate-400 block mb-1.5">Reason for Reallocation</label>
                       <select value={swapReason} onChange={e => setSwapReason(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold cursor-pointer"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold cursor-pointer"
                         aria-label="Reason for Reallocation">
                         <option value="CM Approved Mentor Leave">CM Approved Mentor Leave</option>
                         <option value="SME Unavailable">SME Unavailable</option>
@@ -1527,12 +1547,12 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <div>
                       <label className="text-[9px] font-black uppercase text-slate-400 block mb-1.5">Remarks (Optional)</label>
                       <textarea rows={3} value={swapRemarks} onChange={e => setSwapRemarks(e.target.value)} placeholder="Provide context..."
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         aria-label="Remarks (Optional)" />
                     </div>
                     <div className="flex gap-3 pt-2">
                       <button type="button" onClick={() => setSwapModalSession(null)} className="flex-1 px-4 py-2.5 text-xs font-extrabold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Cancel</button>
-                      <button type="button" onClick={() => setSwapStep(2)} className="flex-1 px-4 py-2.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-all cursor-pointer shadow-2xs">Find Free Slot Options</button>
+                      <button type="button" onClick={() => setSwapStep(2)} className="flex-1 px-4 py-2.5 text-xs font-extrabold text-white bg-zinc-900 hover:bg-zinc-800 border border-white/10 rounded-lg transition-all cursor-pointer shadow-2xs">Find Free Slot Options</button>
                     </div>
                   </div>
                 ) : (
@@ -1553,7 +1573,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                                 <span className="text-[8px] font-black uppercase text-indigo-500 block">Match</span>
                                 <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{cand.score}%</span>
                               </div>
-                              {selectedProposedTime?.dateStr === cand.dateStr && selectedProposedTime?.timeSlot === cand.timeSlot && <Check className="h-4.5 w-4.5 text-indigo-500 animate-in fade-in" />}
+                              {selectedProposedTime?.dateStr === cand.dateStr && selectedProposedTime?.timeSlot === cand.timeSlot && <Check className="h-4.5 w-4.5 text-indigo-500 animate-fadeIn" />}
                             </div>
                           </div>
                         ))
@@ -1564,7 +1584,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <div className="flex gap-3 pt-2">
                       <button type="button" onClick={() => setSwapStep(1)} className="flex-1 px-4 py-2.5 text-xs font-extrabold text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">Back</button>
                       <button type="button" disabled={submitting} onClick={handleSubmitSwapRequest}
-                        className="flex-1 px-4 py-2.5 text-xs font-extrabold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg disabled:opacity-50 transition-all cursor-pointer shadow-2xs">
+                        className="flex-1 px-4 py-2.5 text-xs font-extrabold text-white bg-zinc-900 hover:bg-zinc-800 border border-white/10 rounded-lg disabled:opacity-50 transition-all cursor-pointer shadow-2xs">
                         {submitting ? "Submitting..." : "Submit Reallocation"}
                       </button>
                     </div>
@@ -1581,7 +1601,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 if (!next) setEvaluationModalSession(null);
               }}
               ariaLabel="SME L&D evaluation form"
-              overlayClassName="bg-slate-950/45 backdrop-blur-sm"
+              overlayClassName="bg-slate-950/60 backdrop-blur-sm"
               panelClassName="max-w-lg rounded-xl p-6 space-y-5 max-h-[90vh] bg-white dark:bg-slate-900"
             >
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
@@ -1622,7 +1642,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           max={crit.max}
                           value={evalScores[crit.key] || 0}
                           onChange={e => updateScore(crit.key, Number(e.target.value), crit.max)}
-                          className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-pink-500"
+                          className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         />
                       </div>
                     ))}
@@ -1650,7 +1670,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                       value={comments}
                       onChange={e => setComments(e.target.value)}
                       placeholder="Provide feedback on course knowledge, presentation delivery, confidence, student interaction..."
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-pink-500"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       aria-label="Pedagogical Comments &amp; Feedback"
                     />
                   </div>
@@ -1662,7 +1682,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     Cancel
                   </button>
                   <button type="button" disabled={submitting} onClick={handleConfirmEvaluation}
-                    className="flex-1 px-4 py-2.5 text-xs font-extrabold text-white bg-pink-600 hover:bg-pink-700 rounded-lg disabled:opacity-50 transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer">
+                    className="flex-1 px-4 py-2.5 text-xs font-extrabold text-white bg-zinc-900 hover:bg-zinc-800 border border-white/10 rounded-lg disabled:opacity-50 transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer">
                     {submitting ? "Submitting..." : "Submit Evaluation"}
                   </button>
                 </div>
@@ -1677,7 +1697,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 if (!next) setViewEvalSession(null);
               }}
               ariaLabel="SME evaluation record"
-              overlayClassName="bg-slate-950/45 backdrop-blur-sm"
+              overlayClassName="bg-slate-950/60 backdrop-blur-sm"
               panelClassName="max-w-md rounded-xl p-6 space-y-5 max-h-[90vh] bg-white dark:bg-slate-900"
             >
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
@@ -1751,13 +1771,13 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 if (!next) setShowAvailModal(false);
               }}
               ariaLabel="Configure working windows and slot timings"
-              overlayClassName="bg-black/60 backdrop-blur-xs overflow-y-auto"
+              overlayClassName="bg-slate-950/60 backdrop-blur-sm overflow-y-auto"
               panelClassName="max-w-2xl rounded-2xl p-0 space-y-0 overflow-hidden bg-white dark:bg-slate-900 my-8 max-h-[90vh]"
             >
                 {/* Modal Header */}
                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-[#D528A2]/10 text-[#D528A2] rounded-xl">
+                    <div className="p-2.5 bg-[#4F46E5]/10 text-[#4F46E5] rounded-xl">
                       <SlidersHorizontal className="h-5 w-5" />
                     </div>
                     <div>
@@ -1790,8 +1810,8 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         onClick={() => setSelectedAvailDay("ALL")}
                         className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                           selectedAvailDay === "ALL"
-                            ? "bg-[#D528A2] text-white shadow-xs"
-                            : "text-slate-700 dark:text-slate-300 hover:text-[#D528A2]"
+                            ? "bg-[#4F46E5] text-white shadow-xs"
+                            : "text-slate-700 dark:text-slate-300 hover:text-[#4F46E5]"
                         }`}
                       >
                         All Weekdays (Mon - Fri)
@@ -1806,7 +1826,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           onClick={() => setSelectedAvailDay(d)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             selectedAvailDay === d
-                              ? "bg-white dark:bg-slate-900 text-[#D528A2] shadow-xs font-black"
+                              ? "bg-white dark:bg-slate-900 text-[#4F46E5] shadow-xs font-black"
                               : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
                           }`}
                         >
@@ -1910,7 +1930,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                                     copy[idx].startTime = to12Hour(e.target.value);
                                     setDayWindows(copy);
                                   }}
-                                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-[#D528A2] cursor-pointer"
+                                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
                                 />
                               </div>
                               <span className="text-slate-400 font-black mt-4">→</span>
@@ -1924,7 +1944,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                                     copy[idx].endTime = to12Hour(e.target.value);
                                     setDayWindows(copy);
                                   }}
-                                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-[#D528A2] cursor-pointer"
+                                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
                                 />
                               </div>
                             </div>
@@ -1951,7 +1971,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         onClick={() => {
                           setDayWindows([...dayWindows, { startTime: "01:30 PM", endTime: "05:30 PM", slotType: "training" }]);
                         }}
-                        className="w-full p-3.5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#D528A2] text-slate-600 dark:text-slate-400 hover:text-[#D528A2] flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer"
+                        className="w-full p-3.5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#4F46E5] text-slate-600 dark:text-slate-400 hover:text-[#4F46E5] flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer"
                       >
                         <Plus className="h-4 w-4" />
                         Add Another Time Window
@@ -2035,7 +2055,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           }
                         }
                       }}
-                      className="px-6 py-2.5 rounded-xl text-xs font-black bg-[#D528A2] text-white hover:bg-[#b81d89] shadow-md flex items-center gap-2 transition-all cursor-pointer"
+                      className="px-6 py-2.5 rounded-xl text-xs font-black bg-[#4F46E5] text-white hover:bg-[#b81d89] shadow-md flex items-center gap-2 transition-all cursor-pointer"
                     >
                       <Save className="h-4 w-4" />
                       {isSavingAvail

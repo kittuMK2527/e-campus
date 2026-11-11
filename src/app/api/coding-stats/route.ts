@@ -21,9 +21,12 @@ function getExternalPool(): pg.Pool | null {
     externalPool = new pg.Pool({
       connectionString: HR_LC_DB_URL,
       ssl: { rejectUnauthorized: false },
-      max: 10,
+      max: 6,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 8000
+      connectionTimeoutMillis: 5000
+    });
+    externalPool.on("error", (err: any) => {
+      console.warn("[External Coding Stats Pool] Error on idle client (client evicted):", err?.message || err);
     });
   }
   return externalPool;
@@ -179,7 +182,18 @@ export async function GET(req: NextRequest) {
         { status: 503 }
       );
     }
-    const client = await pool.connect();
+    let client: pg.PoolClient | null = null;
+    try {
+      client = await pool.connect();
+    } catch (connErr: any) {
+      console.warn("[Coding Stats] External database unreachable:", connErr?.message);
+      return NextResponse.json({
+        success: false,
+        message: "Coding stats service temporarily unreachable",
+        leetcode: { found: false, solvedTotal: 0, solvedEasy: 0, solvedMedium: 0, solvedHard: 0, ranking: null },
+        hackerrank: { found: false, solved: 0, attempted: 0, computedScore: 0, rank: null }
+      });
+    }
 
     try {
       /* ─────────────────────────────────────────────────────────────────

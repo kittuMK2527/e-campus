@@ -219,7 +219,7 @@ export const SundayScheduleCard: React.FC<SundayScheduleCardProps> = ({ collegeI
                           }))
                         }
                         aria-label={`Open ${dayLabel(row.dateStr)} for classes`}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-[#D528A2]/40"
+                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-[#4F46E5]/40"
                       />
                       <Badge variant={row.working ? "success" : "secondary"}>
                         {row.working ? "Working" : "Closed"}

@@ -1,10 +1,11 @@
 export const maxDuration = 60;
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { getDb, chunkList, inPlaceholders, type QueryFailure } from "@/lib/db";
 import { deriveSubjectType } from "@/lib/skillTracker";
 import { requireRole, requireSession, apiAuthErrorResponse, normalizeRole } from "@/lib/api-auth";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 import { ensureMigration } from "@/lib/migrations";
 
 function parseTimeToMinutes(t: string): number {
@@ -521,118 +522,6 @@ export async function POST(request: Request) {
         console.warn("[demo-sessions] skill clearance sync failed:", clearanceErr?.message);
       }
 
-      // ── Mentor score notification email ──
-      // Always send the evaluated mentor their score — regardless of pass/fail.
-      // The recipient lookup and the send both move behind the response: a slow
-      // relay would otherwise add its full 12s deadline to the SME's save click.
-      after(async () => {
-        try {
-          const { dispatchMail } = await import("@/lib/mailAsync");
-          const { renderSmeEvaluationEmail, BRAND: brand } = await import("@/lib/mail");
-          const mentorEmailRow: any = await db.get(
-            "SELECT email, name, department, mentor_group FROM mentors WHERE id = ? LIMIT 1",
-            [session.mentorId]
-          ).catch(() => null);
-
-          if (mentorEmailRow?.email) {
-            const passMark   = 50;
-            const passed     = marks >= passMark;
-            const groupLabel = mentorEmailRow.mentor_group || mentorEmailRow.department || session.stream || "General";
-            await dispatchMail({
-              to: mentorEmailRow.email,
-              subject: `${brand.emailPrefix} Your L&D Evaluation Score — ${session.subject} (${session.dateStr})`,
-              htmlBody: renderSmeEvaluationEmail({
-                mentorName:  mentorEmailRow.name || session.mentorName || "Mentor",
-                smeName:     session.smeName    || "Subject Matter Expert",
-                rating:      `${marks} / 100 — ${passed ? "✅ Cleared" : "❌ Not Cleared"}`,
-                feedback:    comments || "Review full scorecard on the portal.",
-                mentorGroup: groupLabel,
-              }),
-              context: "sme-evaluation-score",
-            });
-          }
-        } catch (_) {
-          // Never block evaluation on email failure
-        }
-      });
-
-      // ── Phase C: compliance-gap escalation mail (KAM + CM, SME CC'd) ──
-      // Any unmet criterion (unticked checkbox or final mark below threshold)
-      // triggers one email; the evaluation itself is NEVER blocked.
-      if (unmetItems.length > 0) {
-        after(async () => {
-          try {
-            const { dispatchMail } = await import("@/lib/mailAsync");
-            const { renderDemoComplianceEmail } = await import("@/lib/mail");
-
-            // Mentor, KAM roster and SME evaluator all key off the session, so they
-            // leave as one group. Mail-only: a failed slice degrades to a missing
-            // recipient, and the evaluation result is already recorded.
-            const complianceFailures: QueryFailure[] = [];
-            const [mentorRows, kams, smes] = await db.multiQuery([
-              { sql: "SELECT id, name, department, mentor_group, college_id FROM mentors WHERE id = ?", params: [session.mentorId] },
-              { sql: "SELECT name, email FROM kam_users WHERE email IS NOT NULL" },
-              { sql: "SELECT name, email FROM sme_users WHERE id = ? AND email IS NOT NULL", params: [session.smeId] },
-            ], complianceFailures);
-            if (complianceFailures.length > 0) {
-              console.warn("[demo-sessions] compliance recipients incomplete:", complianceFailures.map(f => f.error).join("; "));
-            }
-            const mentorRow: any = mentorRows[0] || null;
-            const department = mentorRow?.department || mentorRow?.mentor_group || session.stream || "General";
-            const collegeId = mentorRow?.college_id || null;
-
-            const toEmails: string[] = [];
-            const ccEmails: string[] = [];
-
-            kams.forEach((k: any) => { if (k.email) toEmails.push(k.email); });
-
-            // CM: campus_managers for the mentor's college (fall back to all CMs)
-            const cms: any[] = collegeId
-              ? await db.all("SELECT name, email FROM campus_managers WHERE college_id = ? AND email IS NOT NULL", [collegeId]).catch(() => [])
-              : await db.all("SELECT name, email FROM campus_managers WHERE email IS NOT NULL").catch(() => []);
-            cms.forEach((c: any) => { if (c.email) toEmails.push(c.email); });
-
-            // SME evaluator CC'd on the thread
-            smes.forEach((s: any) => { if (s.email) ccEmails.push(s.email); });
-
-            const dedupTo = Array.from(new Set(toEmails.map((e: string) => e.toLowerCase().trim())));
-            const dedupCc = Array.from(new Set(ccEmails.map((e: string) => e.toLowerCase().trim()))).filter((e) => !dedupTo.includes(e));
-
-            if (dedupTo.length > 0) {
-              const scaleMax = 100;
-              const html = renderDemoComplianceEmail({
-                recipientName: "Key Account Manager / Campus Manager",
-                mentorName: session.mentorName || mentorRow?.name || "Mentor",
-                department,
-                subject: session.subject || "General",
-                dateStr: session.dateStr,
-                timeSlot: session.timeSlot,
-                smeName: session.smeName || "Subject Matter Expert",
-                finalMark: `${marks} / ${scaleMax}`,
-                unmetItems
-              });
-              await dispatchMail({
-                to: dedupTo,
-                cc: dedupCc,
-                subject: `[Demo Compliance Gap] ${session.mentorName} — ${session.subject} (${session.dateStr})`,
-                htmlBody: html,
-                context: "demo-compliance-gap",
-              });
-            }
-          } catch (mailErr: any) {
-            console.warn("[demo-sessions] compliance escalation mail failed:", mailErr?.message);
-          }
-        });
-
-        // Audit log the gap
-        const gapAuditId = generateId("audit");
-        await db.run(
-          `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp)
-           VALUES (?, 'demo_compliance_gap', ?, ?, 'SME', ?)`,
-          [gapAuditId, `Compliance gap on demo for ${session.mentorName} (${session.subject}): unmet criteria — ${unmetItems.join("; ")}. Escalation mail being sent to KAM/CM.`, session.smeName, new Date().toISOString()]
-        ).catch(() => {});
-      }
-
       // Audit Log
       const auditId = generateId("audit");
       await db.run(
@@ -641,7 +530,7 @@ export async function POST(request: Request) {
         [auditId, `Evaluated demo for ${session.mentorName}: Scored ${marks}/100. Comments: ${comments}`, session.smeName, new Date().toISOString()]
       );
 
-      return NextResponse.json({ success: true, message: unmetItems.length > 0 ? "Evaluation saved. Compliance gap escalated to KAM/CM." : "Evaluation saved successfully!" });
+      return NextResponse.json({ success: true, message: unmetItems.length > 0 ? "Evaluation saved. Compliance gap logged." : "Evaluation saved successfully!" });
 
     } else if (action === "reschedule") {
       const { sessionId, mentorId, newDateStr, newTimeSlot, comments: rescheduleComments } = body;
@@ -742,27 +631,17 @@ export async function POST(request: Request) {
         );
       });
 
-      // Notify every L&D viewer with ONE multi-row insert instead of one round trip per
-      // campus manager — with ~30 campuses the loop alone was ~6s on this request.
-      const lndViewers: any[] = await db.all("SELECT id FROM campus_managers").catch(() => []);
-      if (lndViewers.length > 0) {
-        const notifiedAt = new Date().toISOString();
-        const notifMessage = `${session.mentorName} requested moving the ${session.subject} L&D session from ${session.dateStr} (${session.timeSlot}) to ${newDateStr} (${newTimeSlot}).`;
-        const notifRows = lndViewers
-          .filter((alloc: any) => alloc?.id)
-          .map((alloc: any) => [generateId("notif"), alloc.id, "L&D Reschedule Awaiting Approval", notifMessage, 0, "/l-and-d", "demo_reschedule_requested", notifiedAt]);
-        if (notifRows.length > 0) {
-          const oneRow = `(${notifRows[0].map(() => "?").join(", ")})`;
-          for (let i = 0; i < notifRows.length; i += 100) {
-            const part = notifRows.slice(i, i + 100);
-            await db.run(
-              `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-               VALUES ${part.map(() => oneRow).join(", ")}`,
-              part.flat()
-            ).catch((notifErr: any) => console.warn("[demo-sessions] reschedule notifications failed:", notifErr?.message));
-          }
-        }
-      }
+      // Notify every L&D viewer via zero-delay notification engine
+      const notifMessage = `${session.mentorName} requested moving the ${session.subject} L&D session from ${session.dateStr} (${session.timeSlot}) to ${newDateStr} (${newTimeSlot}).`;
+      await dispatchSystemNotification(db, {
+        roles: ["cm", "admin"],
+        title: "L&D Reschedule Awaiting Approval",
+        message: notifMessage,
+        link: "/l-and-d",
+        type: "warning",
+        domain: "demos",
+        action: "availability_updated",
+      }).catch((notifErr: any) => console.warn("[demo-sessions] reschedule notifications failed:", notifErr?.message));
 
       // Audit Log
       const auditId = generateId("audit");

@@ -24,7 +24,7 @@ export function PageHeader({
     >
       <div className="flex min-w-0 items-center gap-3">
         {Icon && (
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-indigo-50/80 border border-indigo-100/80 text-indigo-600 shadow-card">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200/80 dark:border-zinc-700 text-amber-500 shadow-card">
             <Icon className="h-5 w-5" />
           </div>
         )}

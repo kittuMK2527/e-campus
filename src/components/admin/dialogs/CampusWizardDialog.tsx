@@ -651,12 +651,11 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
         if (issues.length > 0) {
           toast(`Campus saved, but ${issues.length} related item(s) failed: ${issues.join(" ")}`, "error");
         }
-        if (!editingCampus) {
-          setCampusSuccessCreatedId(updatedForm.id);
-        } else {
-          if (issues.length === 0) toast("Campus updated successfully.", "success");
-          onOpenChange(false);
+        if (issues.length === 0) {
+          toast(editingCampus ? "Campus updated successfully." : "Campus created successfully.", "success");
         }
+        onOpenChange(false);
+        setCampusSuccessCreatedId(null);
       } else {
         setModalError(res.message || "Failed to save campus.");
       }
@@ -672,7 +671,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       ariaLabel="Campus Setup Wizard"
-      overlayClassName="bg-gray-900/50 backdrop-blur-sm p-4 overflow-y-auto"
+      overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto"
       panelClassName={`overflow-hidden animate-slideUp flex flex-col my-auto max-h-[90vh] transition-all duration-300 ${
         campusWizardStep === 3 ? "max-w-5xl" : "max-w-2xl"
       } p-0 space-y-0`}
@@ -686,7 +685,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
           </h3>
           {draftLastSaved && !editingCampus && !campusSuccessCreatedId && (
             <span className="text-[10px] font-black text-pink-700 bg-gradient-to-r from-pink-50 to-amber-50 border border-pink-200/80 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs animate-fadeIn">
-              <span className="h-1.5 w-1.5 rounded-full bg-pink-500 animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
               Draft Auto-Saved ({draftRole.toUpperCase()} · {draftLastSaved})
             </span>
           )}
@@ -871,8 +870,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
             {campusWizardStep === 1 && (
               <div className="space-y-4 animate-fadeIn">
                 <div className="pb-1 border-b border-gray-100">
-                  <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Campus Information</h4>
-                  <p className="text-[9.5px] text-gray-400 font-semibold mt-0.5">Only campus-level details here. Courses and timings come next.</p>
+                  <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Campus Details</h4>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1094,12 +1092,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
             {campusWizardStep === 2 && (
               <div className="space-y-4 animate-fadeIn">
                 <div className="pb-1 border-b border-gray-100 flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Courses</h4>
-                    <p className="text-[9.5px] text-gray-400 font-semibold mt-0.5">
-                      Add campus courses with designated room/classroom and shift. Duplicate any course in 1 click.
-                    </p>
-                  </div>
+                  <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Courses</h4>
                   <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
                     {wizardCourses.length} Course{wizardCourses.length !== 1 ? "s" : ""}
                   </span>
@@ -1301,12 +1294,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
             {campusWizardStep === 3 && (
               <div className="space-y-4 animate-fadeIn">
                 <div className="pb-1 border-b border-gray-100 flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Shift Configuration</h4>
-                    <p className="text-[9.5px] text-gray-400 font-semibold mt-0.5">
-                      Configure start time with clock widget, period durations, and breaks with live floating side-by-side preview.
-                    </p>
-                  </div>
+                  <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Shift Configuration</h4>
                   {campusForm.has_shifts === 1 && (
                     <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
                       {(["shift_1", "shift_2", "general"] as const).map(sh => (
@@ -1437,7 +1425,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                           {showClockPresets && (
                             <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-indigo-200 rounded-xl p-2.5 shadow-lg z-30 space-y-1.5 animate-fadeIn">
                               <div className="text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Quick Clock Presets</div>
-                              <div className="grid grid-cols-4 gap-1">
+                              <div className="grid grid-cols-1 sm:grid-cols-4 gap-1">
                                 {["08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "01:00 PM", "01:30 PM", "02:00 PM"].map(timePreset => (
                                   <button
                                     key={timePreset}
@@ -1701,7 +1689,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                     {(() => {
                       const schedule = calculateShiftSchedule(shiftConfigsParams[activeConfigShift]);
                       return (
-                        <div className="bg-slate-900 text-white p-4.5 rounded-xl space-y-3.5 shadow-xl border border-slate-800 animate-fadeIn">
+                        <div className="bg-slate-900 text-white p-4.5 rounded-xl space-y-3.5 shadow-card border border-slate-800 animate-fadeIn">
                           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                             <div>
                               <div className="text-[11px] uppercase font-black tracking-wider text-indigo-300 flex items-center gap-1.5">
@@ -1958,7 +1946,6 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
               <div className="space-y-4 animate-fadeIn">
                 <div className="pb-1 border-b border-gray-100">
                   <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Review & Create</h4>
-                  <p className="text-[9.5px] text-gray-400 font-semibold mt-0.5">Confirm all details before creating the campus.</p>
                 </div>
 
                 {/* Campus Info Summary */}

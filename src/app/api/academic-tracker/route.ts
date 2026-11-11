@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/authGuard";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 
 export async function GET(request: Request) {
   try {
@@ -148,7 +149,11 @@ export async function POST(request: Request) {
     if (errorResponse) return errorResponse;
     const db = await getDb();
     // Idempotent, runs once per process — adds weekly plan linkage columns before writes.
-    await ensureMigration("academic_tracker_weekly_plan_link");
+    try {
+      await ensureMigration("academic_tracker_weekly_plan_link");
+    } catch (migrationErr) {
+      console.error("[academic-tracker] migration ensure failed:", migrationErr);
+    }
     const body = await request.json();
 
     // ─────────────────────────────────────────────────────────────
@@ -215,6 +220,13 @@ export async function POST(request: Request) {
         "SELECT * FROM weekly_academic_tasks WHERE LOWER(TRIM(class_group)) = LOWER(TRIM(?)) AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ?",
         [classGroup.trim(), subject.trim(), parseInt(weekNumber, 10)]
       );
+
+      notifyRealtimeEvent({
+        domain: "tracker",
+        action: "task_assigned",
+        targetRoles: ["student", "mentor", "cm", "admin"],
+        payload: { classGroup, subject, weekNumber }
+      });
 
       return NextResponse.json({ success: true, task: savedTask });
     }
@@ -302,6 +314,13 @@ export async function POST(request: Request) {
         "SELECT * FROM student_academic_tracker WHERE LOWER(TRIM(class_group)) = LOWER(TRIM(?)) AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ?",
         [classGroup.trim(), subject.trim(), parseInt(weekNumber, 10)]
       );
+
+      notifyRealtimeEvent({
+        domain: "tracker",
+        action: "marks_updated",
+        targetRoles: ["student", "mentor", "cm", "admin"],
+        payload: { classGroup, subject, weekNumber, updatedCount }
+      });
 
       return NextResponse.json({
         success: true,
@@ -393,6 +412,14 @@ export async function POST(request: Request) {
         [email, classGroup.trim(), subject.trim(), parseInt(weekNumber, 10)]
       );
 
+      notifyRealtimeEvent({
+        domain: "tracker",
+        action: "student_graded",
+        targetUserIds: [studentId, email].filter(Boolean) as string[],
+        targetRoles: ["student", "mentor", "cm", "admin"],
+        payload: { studentEmail: email, classGroup, subject, weekNumber }
+      });
+
       return NextResponse.json({ success: true, entry: updatedEntry });
     }
 
@@ -452,16 +479,18 @@ export async function POST(request: Request) {
         [resolvedCollegeId, todayStr]
       );
 
-      if (!dayConfig || !dayConfig.day_type || dayConfig.day_order === "None") {
+      // Holiday check takes priority - cannot log periods on holidays
+      if (dayConfig && dayConfig.day_type === "holiday") {
         return NextResponse.json(
-          { success: false, message: "Day order has not been configured by Campus Manager for today. The CM must set today's day schedule before period conduction can be logged." },
+          { success: false, message: `Today is marked as a Holiday by Campus Manager${dayConfig.notes ? ` (${dayConfig.notes})` : ""}. Period conduction cannot be logged on a holiday.` },
           { status: 422 }
         );
       }
 
-      if (dayConfig.day_type === "holiday") {
+      // Day order validation - ensures CM has set a valid day schedule
+      if (!dayConfig || !dayConfig.day_type || dayConfig.day_order === "None") {
         return NextResponse.json(
-          { success: false, message: `Today is marked as a Holiday by Campus Manager${dayConfig.notes ? ` (${dayConfig.notes})` : ""}. Period conduction cannot be logged on a holiday.` },
+          { success: false, message: "Day order has not been configured by Campus Manager for today. The CM must set today's day schedule before period conduction can be logged." },
           { status: 422 }
         );
       }
@@ -513,6 +542,9 @@ export async function POST(request: Request) {
       [mentorId.trim(), date.trim(), periodSlot.trim(), subject.trim(), classGroup.trim()]
     );
 
+    // Log the conduction event for analytics and tracking
+    console.log(`[academic-tracker] Period conduction logged: mentor=${mentorId}, date=${date}, period=${periodSlot}, class=${classGroup}, subject=${subject}`);
+
     return NextResponse.json({
       success: true,
       message: "Academic log recorded successfully.",
@@ -549,24 +581,61 @@ export async function DELETE(request: Request) {
     const subject = searchParams.get("subject");
     const weekNumber = searchParams.get("weekNumber");
 
-    if (action === "delete_weekly_task" || (classGroup && subject && weekNumber)) {
-      const wk = parseInt(weekNumber!, 10);
+    // Handle weekly task deletion with proper param validation
+    if (action === "delete_weekly_task") {
+      if (!classGroup || !subject || !weekNumber) {
+        return NextResponse.json(
+          { success: false, message: "Missing classGroup, subject, or weekNumber for weekly task deletion." },
+          { status: 400 }
+        );
+      }
+      const wk = parseInt(weekNumber, 10);
+      if (isNaN(wk) || wk < 1) {
+        return NextResponse.json(
+          { success: false, message: "Invalid weekNumber: must be a positive integer." },
+          { status: 400 }
+        );
+      }
       await db.run(
         `DELETE FROM weekly_academic_tasks 
          WHERE LOWER(TRIM(class_group)) = LOWER(TRIM(?)) 
            AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) 
            AND week_number = ?`,
-        [classGroup!, subject!, wk]
+        [classGroup, subject, wk]
       );
-
       await db.run(
         `DELETE FROM student_academic_tracker 
          WHERE LOWER(TRIM(class_group)) = LOWER(TRIM(?)) 
            AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) 
            AND week_number = ?`,
-        [classGroup!, subject!, wk]
+        [classGroup, subject, wk]
       );
+      return NextResponse.json({ success: true, message: "Weekly academic task and associated records deleted." });
+    }
 
+    // Handle bulk deletion by classGroup, subject, weekNumber
+    if (classGroup && subject && weekNumber) {
+      const wk = parseInt(weekNumber, 10);
+      if (isNaN(wk) || wk < 1) {
+        return NextResponse.json(
+          { success: false, message: "Invalid weekNumber: must be a positive integer." },
+          { status: 400 }
+        );
+      }
+      await db.run(
+        `DELETE FROM weekly_academic_tasks 
+         WHERE LOWER(TRIM(class_group)) = LOWER(TRIM(?)) 
+           AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) 
+           AND week_number = ?`,
+        [classGroup, subject, wk]
+      );
+      await db.run(
+        `DELETE FROM student_academic_tracker 
+         WHERE LOWER(TRIM(class_group)) = LOWER(TRIM(?)) 
+           AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) 
+           AND week_number = ?`,
+        [classGroup, subject, wk]
+      );
       return NextResponse.json({ success: true, message: "Weekly academic task and associated records deleted." });
     }
 

@@ -168,7 +168,6 @@ export const FeedbackTab: React.FC<FeedbackTabProps> = ({
       <PageHeader
         icon={MessageSquare}
         title="User Feedback & Issue Reports"
-        subtitle="Review bug reports, feature requests, and feedback submitted by Students, Mentors, and Staff."
         meta={
           counts.pending > 0 && (
             <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[11px] font-black border border-amber-200">
@@ -323,7 +322,7 @@ export const FeedbackTab: React.FC<FeedbackTabProps> = ({
             return (
               <div
                 key={r.id}
-                className="bg-white border border-slate-100 hover:border-indigo-200 rounded-2xl p-4 shadow-card hover:shadow-md transition-all space-y-3"
+                className="bg-white border border-slate-100 hover:border-indigo-200 rounded-2xl p-4 shadow-card hover:shadow-card-lg transition-all space-y-3"
               >
                 {/* Top Row: Meta Badges + Actions */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">

@@ -5,8 +5,6 @@ import { getDb, type QueryFailure } from "@/lib/db";
 import { requireAuth, Role } from "@/lib/authGuard";
 import { checkMentorAvailability, checkSmeAvailability } from "@/lib/availability";
 import { generateId } from "@/lib/id";
-import { sendMailAsync } from "@/lib/mailAsync";
-import { renderEmailShell, renderSwapOfferEmail, BRAND } from "@/lib/mail";
 
 const DEMO_SWAP_ROLES: Role[] = ["mentor", "sme", "cm", "kam", "admin", "L and D"];
 
@@ -154,67 +152,6 @@ export async function POST(request: Request) {
         ]
       );
 
-      // Notify the proposed replacement mentor / SME by email
-      try {
-        if (swapType === "internal" && proposedMentorId) {
-          const proposedMentor = await db.get(
-            "SELECT email, name FROM mentors WHERE id = ? LIMIT 1",
-            [proposedMentorId]
-          );
-          if (proposedMentor?.email) {
-            const swapDate = proposedDateStr || dateStr;
-            const swapTime = proposedTimeSlot || timeSlot;
-            const [dY, dM, dD] = swapDate.split("-").map(Number);
-            const dateFormatted = new Date(dY, dM - 1, dD, 12, 0, 0).toLocaleDateString("en-IN", {
-              weekday: "long", day: "2-digit", month: "short", year: "numeric"
-            });
-            sendMailAsync({
-              to: proposedMentor.email,
-              subject: `${BRAND.emailPrefix} Demo Swap Proposal — ${subject}`,
-              htmlBody: renderSwapOfferEmail({
-                requestorName:    mentorName,
-                targetMentorName: proposedMentor.name || proposedMentorName || "Mentor",
-                dateStr:          dateFormatted,
-                time:             swapTime,
-                course:           subject,
-                classGroup:       stream || "General",
-              }),
-              context: "demo-swap-request",
-            });
-          }
-        } else if (swapType !== "internal" && proposedSmeId) {
-          // External swap: notify proposed SME replacement
-          const proposedSme = await db.get(
-            "SELECT email, name FROM sme_users WHERE id = ? LIMIT 1",
-            [proposedSmeId]
-          );
-          if (proposedSme?.email) {
-            sendMailAsync({
-              to: proposedSme.email,
-              subject: `${BRAND.emailPrefix} L&D Swap Proposal — ${subject}`,
-              htmlBody: renderEmailShell({
-                title: "L&D Session Swap Proposed",
-                badgeText: "SWAP PROPOSAL",
-                badgeColor: "amber",
-                description: `SME <strong>${smeName}</strong> has proposed you as a replacement evaluator for an L&D session.`,
-                details: [
-                  { label: "Subject",         value: subject,                          highlight: true },
-                  { label: "Original Date",   value: dateStr },
-                  { label: "Proposed Date",   value: proposedDateStr || dateStr },
-                  { label: "Time Slot",        value: proposedTimeSlot || timeSlot },
-                  { label: "Stream",           value: stream },
-                  { label: "Requested By",    value: smeName },
-                  { label: "Reason",           value: reason },
-                ],
-                ctaText: "View L&D Dashboard →",
-                ctaUrl: `${BRAND.portalUrl}/sme/demo_list`,
-              }),
-              context: "demo-swap-sme-proposal",
-            });
-          }
-        }
-      } catch (_) {}
-
       return NextResponse.json({ success: true, message: "Swap request submitted successfully!" });
 
     } else if (action === "resolve") {
@@ -268,31 +205,6 @@ export async function POST(request: Request) {
           [auditId, `L&D reallocation request ${requestId} rejected by SME. Session remains in reallocation_required.`, resolvedAt]
         );
 
-        // Notify the original requestor (mentor or SME who raised the swap)
-        try {
-          if (requestorEmail) {
-            sendMailAsync({
-              to: requestorEmail,
-              subject: `${BRAND.emailPrefix} Demo Swap Declined — ${req.subject}`,
-              htmlBody: renderEmailShell({
-                title: "Demo Swap Request Declined",
-                badgeText: "SWAP DECLINED",
-                badgeColor: "rose",
-                description: `Your swap proposal for the L&D session could not be approved at this time. The session has been placed back in reallocation queue.`,
-                details: [
-                  { label: "Subject",         value: req.subject,                     highlight: true },
-                  { label: "Original Date",   value: req.dateStr },
-                  { label: "Proposed Mentor", value: req.proposedMentorName || req.proposedSmeName || "N/A" },
-                  { label: "Status",          value: "Declined — reallocation required", highlight: true },
-                ],
-                ctaText: "View Demo Sessions →",
-                ctaUrl: `${BRAND.portalUrl}/mentor/demo_evaluations`,
-              }),
-              context: "demo-swap-rejected",
-            });
-          }
-        } catch (_) {}
-
         return NextResponse.json({ success: true, message: "Reallocation request rejected. Session remains in reallocation_required." });
       }
 
@@ -345,50 +257,6 @@ export async function POST(request: Request) {
             resolvedAt
           ]
         );
-
-        // Notify BOTH parties — original mentor + proposed replacement
-        try {
-          const finalDate  = req.proposedDateStr  || req.dateStr;
-          const finalTime  = req.proposedTimeSlot || req.timeSlot;
-          const finalMentor = req.proposedMentorName || req.mentorName;
-          const finalSme    = req.proposedSmeName    || req.smeName;
-
-          const [origMentorRow, newMentorRow] = await Promise.all([
-            db.get("SELECT email FROM mentors WHERE id = ? LIMIT 1",   [req.mentorId]),
-            req.proposedMentorId
-              ? db.get("SELECT email FROM mentors WHERE id = ? LIMIT 1", [req.proposedMentorId])
-              : Promise.resolve(null),
-          ]);
-
-          const emailTargets = [origMentorRow?.email, newMentorRow?.email]
-            .filter((e): e is string => Boolean(e) && e.includes("@"));
-
-          const uniqueTargets = Array.from(new Set(emailTargets));
-
-          if (uniqueTargets.length > 0) {
-            sendMailAsync({
-              to: uniqueTargets.join(","),
-              subject: `${BRAND.emailPrefix} Demo Swap Approved — ${req.subject} on ${finalDate}`,
-              htmlBody: renderEmailShell({
-                title: "Demo Swap Approved — Session Confirmed",
-                badgeText: "SWAP APPROVED",
-                badgeColor: "emerald",
-                description: `The L&D session swap has been approved. The session is now confirmed with the updated details below.`,
-                details: [
-                  { label: "Subject",        value: req.subject,    highlight: true },
-                  { label: "Confirmed Date", value: finalDate,      highlight: true },
-                  { label: "Time Slot",      value: finalTime },
-                  { label: "Mentor",         value: finalMentor },
-                  { label: "SME Evaluator",  value: finalSme },
-                  { label: "Status",         value: "Confirmed" },
-                ],
-                ctaText: "View L&D Session →",
-                ctaUrl: `${BRAND.portalUrl}/mentor/demo_evaluations`,
-              }),
-              context: "demo-swap-approved",
-            });
-          }
-        } catch (_) {}
 
         return NextResponse.json({ success: true, message: "Swap request approved and L&D session confirmed!" });
       }

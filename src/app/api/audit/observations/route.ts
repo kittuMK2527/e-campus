@@ -4,8 +4,6 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authGuard";
 import { CLASSROOM_SNAPS, sbRest, sbHeaders, normCollegeName } from "@/lib/audit-sources";
 import { fetchWithTimeout, UPLOAD_FETCH_TIMEOUT_MS } from "@/lib/net";
-import { renderEmailShell } from "@/lib/mail";
-import { sendMailAsync } from "@/lib/mailAsync";
 import { generateId } from "@/lib/id";
 
 // ── Classroom Observation Log — proxied from the legacy classroom_snaps table ──
@@ -216,35 +214,6 @@ export async function POST(request: Request) {
         body: JSON.stringify(legacyRow)
       });
       endPhotoStored = false;
-    }
-
-    // ── Escalation mail when the CM logs a "not satisfied" observation
-    if (payload.satisfaction_status === "not_satisfied") {
-      const recipient = process.env.OBSERVATION_ESCALATION_EMAIL;
-      if (recipient) {
-        const dimScores = RATING_FIELDS.map(f => ({ label: f.replace("rating_", "").replace(/_/g, " "), value: (payload as any)[f] }))
-          .filter(d => d.value != null)
-          .map(d => ({ label: d.label, value: `${d.value}/5` }));
-        const htmlBody = renderEmailShell({
-          title: "Classroom Observation — Not Satisfied",
-          badgeText: "Escalation",
-          badgeColor: "rose",
-          description: `A campus observation logged for ${payload.college} was marked NOT SATISFIED and requires senior review.`,
-          details: [
-            { label: "Campus", value: payload.college, highlight: true },
-            { label: "Mentor / Teacher", value: payload.mentor_name || payload.teacher_name || "—" },
-            { label: "Class / Department", value: payload.department || payload.class_name || "—" },
-            { label: "Subject", value: payload.course_name || payload.subject || "—" },
-            { label: "Observation Date", value: payload.observation_date || "—" },
-            { label: "Overall Rating", value: `${payload.overall_rating}/5`, highlight: true },
-            ...dimScores,
-            { label: "Remarks", value: remarks || "—" }
-          ]
-        });
-        // The CM's save returns as soon as the row is written; the escalation itself
-        // goes out from after(), and a failure lands in audit_logs.
-        sendMailAsync({ to: recipient, subject: `⚠️ Not-Satisfied Observation — ${payload.college}`, htmlBody, context: "observation-escalation" });
-      }
     }
 
     return NextResponse.json({

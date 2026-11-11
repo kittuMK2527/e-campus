@@ -76,6 +76,7 @@ export async function ensureSessionTable(db: any): Promise<void> {
       );
       CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
       CREATE INDEX IF NOT EXISTS idx_user_sessions_validity ON user_sessions(session_id_hash, is_revoked, expires_at);
+      CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked_active ON user_sessions(user_id, is_revoked);
       -- Session timestamps are always written as UTC ISO strings. Plain TIMESTAMP
       -- columns make the pg driver read that wall time in the host's timezone,
       -- which shifts last_activity_at by the local UTC offset (e.g. 5.5h in IST)

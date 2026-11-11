@@ -1,20 +1,25 @@
 export const maxDuration = 60;
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { getDb, type QueryFailure } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
-import { renderHandoverApprovalEmail, renderHandoverRejectionEmail, BRAND } from "@/lib/mail";
-import { dispatchMail, sendMailAsync } from "@/lib/mailAsync";
 import { applyHandoverDateCorrection, correctStaleHandoverDate } from "@/lib/handoverDates";
 import { generateId } from "@/lib/id";
+import { isInCmQueue, isAwaitingCm } from "@/lib/requestStatus";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
+import { dispatchSystemNotification } from "@/lib/notifications";
+import { isTimeSlotOverlap } from "@/lib/utils";
 
 // Approving or rejecting a handover mutates the schedule and notifies the
 // requestor by email, so it cannot stay reachable without a session.
 export async function POST(request: Request) {
-  const { errorResponse } = await requireAuth(request, {
+  const { auth, errorResponse } = await requireAuth(request, {
     allowedRoles: ["cm", "kam", "mentor", "admin"]
   });
   if (errorResponse) return errorResponse;
+
+  const actorRoleFromAuth = (auth?.user?.role || "").toLowerCase();
+  const isRealAdmin = actorRoleFromAuth === "admin" || actorRoleFromAuth === "super admin";
 
   try {
     const db = await getDb();
@@ -54,9 +59,48 @@ export async function POST(request: Request) {
 
     // 1. CM Direct Reassignment / Allocation of a Free Mentor
     if ((action === "cm_reassign" || action === "cam_reassign") && newTargetStaffId) {
+      // BUG-08: Mentors cannot perform CM direct reassignments
+      if (actorRoleFromAuth === "mentor") {
+        return NextResponse.json(
+          { success: false, message: "Unauthorized: Mentors cannot perform Campus Manager reassignments." },
+          { status: 403 }
+        );
+      }
+
+      // If CM, verify request belongs to their assigned campus
+      if (actorRoleFromAuth === "cm" && auth?.user?.college_id && handoverRequest.college_id) {
+        if (handoverRequest.college_id.toLowerCase() !== auth.user.college_id.toLowerCase()) {
+          return NextResponse.json(
+            { success: false, message: "Unauthorized: You can only reassign handovers for your assigned campus." },
+            { status: 403 }
+          );
+        }
+      }
+
       const newCoverStaff = coverStaffRows[0];
       if (!newCoverStaff) {
         return NextResponse.json({ success: false, message: "Selected cover faculty not found" }, { status: 404 });
+      }
+
+      // BUG-07: Prevent assigning a cover mentor who is already scheduled to teach at this time
+      const targetSlot = handoverRequest.slotId
+        ? await db.get("SELECT day, time FROM slots WHERE id = ?", [handoverRequest.slotId])
+        : null;
+      const targetDay = handoverRequest.day || targetSlot?.day;
+      const targetTime = handoverRequest.time || targetSlot?.time;
+
+      if (targetDay && targetTime) {
+        const coverMentorSlots = await db.all(
+          "SELECT course, time FROM slots WHERE mentorId = ? AND day = ?",
+          [newCoverStaff.id, targetDay]
+        );
+        const teachingClash = coverMentorSlots.find((s: any) => isTimeSlotOverlap(s.time, targetTime));
+        if (teachingClash) {
+          return NextResponse.json({
+            success: false,
+            message: `Conflict: ${newCoverStaff.name} is already scheduled to teach "${teachingClash.course}" at [${targetDay}, ${teachingClash.time}].`
+          }, { status: 409 });
+        }
       }
 
       const handoverId = generateId("h");
@@ -102,32 +146,13 @@ export async function POST(request: Request) {
         );
       });
 
-      // Email newly assigned cover faculty. Deferred so a slow relay cannot add
-      // its 12s deadline to the CM's assign click.
-      if (newCoverStaff.email) {
-        sendMailAsync({
-          to: newCoverStaff.email,
-          subject: `[Assigned by CM] Class Cover: ${handoverRequest.course} on ${handoverRequest.dateFormatted}`,
-          htmlBody: renderHandoverApprovalEmail({
-            requestorName: handoverRequest.requestorName,
-            coverStaffName: newCoverStaff.name,
-            dateStr: handoverRequest.dateFormatted,
-            time: `${handoverRequest.time} (${handoverRequest.day})`,
-            course: handoverRequest.course,
-            classGroup: handoverRequest.classGroup || "General",
-            reviewerName: `${cleanApproverName} (Campus Manager)`
-          }),
-          context: "handover-cm-reassign"
-        });
-      }
-
       // DATA_FLOW_AUDIT D3: return the created handover row so the client patches
       // state with the authoritative DB values.
       const createdHandover = await db.get("SELECT * FROM approved_handovers WHERE id = ?", handoverId);
       return NextResponse.json({ success: true, message: `Class successfully assigned to ${newCoverStaff.name}!`, handover: createdHandover || null });
     }
 
-    if (handoverRequest.status !== "pending" && handoverRequest.status !== "pending_cm" && handoverRequest.status !== "pending_cam" && handoverRequest.status !== "needs_cm_allocation" && handoverRequest.status !== "needs_cam_allocation") {
+    if (!isInCmQueue(handoverRequest.status)) {
       return NextResponse.json({ success: false, message: "Request has already been processed" });
     }
 
@@ -196,8 +221,40 @@ export async function POST(request: Request) {
       (handoverRequest.slotId && handoverRequest.slotId.startsWith("mentor_daily_punch_")) ||
       (handoverRequest.slotId && handoverRequest.slotId.startsWith("acad_log_edit_"));
 
+    if (actorRoleFromAuth === "mentor") {
+      const isTarget =
+        auth?.user?.reference_id === handoverRequest.targetStaffId ||
+        auth?.user?.id === handoverRequest.targetStaffId;
+      const isRequestor =
+        auth?.user?.reference_id === handoverRequest.requestorId ||
+        auth?.user?.id === handoverRequest.requestorId;
+
+      if (!isTarget && !isRequestor) {
+        return NextResponse.json(
+          { success: false, message: "Unauthorized: Mentors can only review handovers addressed to them." },
+          { status: 403 }
+        );
+      }
+
+      // WF-P12 / BUG-08: Mentors can NEVER approve their own handover requests
+      if (status === "approved" && isRequestor && !isTarget) {
+        return NextResponse.json(
+          { success: false, message: "Unauthorized: Mentors cannot approve their own handover requests." },
+          { status: 403 }
+        );
+      }
+
+      // Mentors can NEVER approve administrative / meta requests
+      if (isMetaOrCamRequest) {
+        return NextResponse.json(
+          { success: false, message: "Unauthorized: Administrative requests can only be approved by Campus Managers." },
+          { status: 403 }
+        );
+      }
+    }
+
     let targetStatus = status; // e.g. "approved" or "rejected"
-    if (handoverRequest.status === "pending_cm" || handoverRequest.status === "pending_cam") {
+    if (isAwaitingCm(handoverRequest.status)) {
       if (isMetaOrCamRequest) {
         // Direct CM requests (late attendance edit, punch request, acad log edit) are directly approved or rejected by CM
         targetStatus = status === "approved" ? "approved" : "rejected";
@@ -205,6 +262,35 @@ export async function POST(request: Request) {
         targetStatus = "pending"; // Escalate normal emergency peer handover to receiver
       } else {
         targetStatus = "rejected"; // Reject outright
+      }
+    }
+
+    // BUG-07: Prevent approving a handover if the cover mentor has a timetable clash
+    if (status === "approved" && handoverRequest.status === "pending") {
+      const coverStaffId = handoverRequest.request_type === "swap_compensate"
+        ? handoverRequest.requestorId
+        : handoverRequest.targetStaffId;
+      const targetSlot = handoverRequest.slotId
+        ? await db.get("SELECT day, time FROM slots WHERE id = ?", [handoverRequest.slotId])
+        : null;
+      const targetDay = handoverRequest.day || targetSlot?.day;
+      const targetTime = handoverRequest.time || targetSlot?.time;
+
+      if (coverStaffId && targetDay && targetTime) {
+        const coverMentorSlots = await db.all(
+          "SELECT course, time FROM slots WHERE mentorId = ? AND day = ?",
+          [coverStaffId, targetDay]
+        );
+        const teachingClash = coverMentorSlots.find((s: any) => isTimeSlotOverlap(s.time, targetTime));
+        if (teachingClash) {
+          const coverName = handoverRequest.request_type === "swap_compensate"
+            ? handoverRequest.requestorName
+            : handoverRequest.targetStaffName;
+          return NextResponse.json({
+            success: false,
+            message: `Conflict: ${coverName || 'Cover faculty'} is already scheduled to teach "${teachingClash.course}" at [${targetDay}, ${teachingClash.time}]. Cannot double-book.`
+          }, { status: 409 });
+        }
       }
     }
 
@@ -219,6 +305,15 @@ export async function POST(request: Request) {
         "UPDATE handover_requests SET status = ?, headerReason = ?, approvedBy = ? WHERE id = ?",
         [targetStatus, headerReason || null, cleanApproverName, requestId]
       );
+
+      // If this is a late attendance / meta request, also resolve any duplicate pending requests for the same session
+      if (isMetaOrCamRequest && handoverRequest.requestorId && handoverRequest.slotId && (handoverRequest.dateStr || handoverRequest.datestr)) {
+        const dStr = handoverRequest.dateStr || handoverRequest.datestr;
+        await tx.run(
+          "UPDATE handover_requests SET status = ?, headerReason = ?, approvedBy = ? WHERE requestorId = ? AND slotId = ? AND (dateStr = ? OR datestr = ?) AND id != ? AND status IN ('pending', 'pending_cm', 'pending_cam')",
+          [targetStatus, headerReason || null, cleanApproverName, handoverRequest.requestorId, handoverRequest.slotId, dStr, dStr, requestId]
+        );
+      }
 
       // If this is a leave cover linked to faculty_leave_requests, link and update parent leave
       if (handoverRequest.compensates_handover_id) {
@@ -391,65 +486,44 @@ export async function POST(request: Request) {
       );
     });
 
-    // The recipient lookup and the send both move behind the response: a slow
-    // relay would otherwise add its full 12s deadline to the reviewers click.
-    after(async () => {
-      try {
-        const requestor = await db.get("SELECT email FROM mentors WHERE id = ?", handoverRequest.requestorId);
-        // MAIL-C03 Fix: Don't send to fallback email when mentor email is missing
-        const requestorEmail = requestor?.email;
-        if (!requestorEmail) {
-          console.warn(`No email for mentor ${handoverRequest.requestorId} — skipping review notification`);
-        } else {
-          const subject = `${BRAND.emailPrefix} Handover Request ${status === "approved" ? "Approved" : "Rejected"} - ${handoverRequest.course}`;
-        
-          const detailsList = [
-            { label: "Course", value: handoverRequest.course },
-            { label: "Date", value: handoverRequest.dateFormatted },
-            { label: "Time Slot", value: `${handoverRequest.time} (${handoverRequest.day})` },
-            { label: "Original Faculty", value: handoverRequest.requestorName },
-            { label: "Cover Faculty", value: handoverRequest.targetStaffName, highlight: status === "approved" }
-          ];
-          if (headerReason) {
-            detailsList.push({ label: "Remarks/Reason", value: headerReason, highlight: status !== "approved" });
-          }
-  
-          const isSwap = handoverRequest.request_type === "swap_compensate";
-          const requestTypeLabel = isSwap ? "Swap Compensation" : "Class Handover";
-  
-          // MAIL-M06 Fix: Use actual classGroup from handoverRequest instead of hardcoded "General"
-          const htmlBody = status === "approved"
-            ? renderHandoverApprovalEmail({
-                requestorName: handoverRequest.requestorName,
-                coverStaffName: handoverRequest.targetStaffName,
-                dateStr: handoverRequest.dateFormatted,
-                time: `${handoverRequest.time} (${handoverRequest.day})`,
-                course: handoverRequest.course,
-                classGroup: handoverRequest.classGroup || "General",
-                reviewerName: `${cleanApproverName} (${cleanActorRole})`
-              })
-            : renderHandoverRejectionEmail({
-                requestorName: handoverRequest.requestorName,
-                coverStaffName: handoverRequest.targetStaffName,
-                dateStr: handoverRequest.dateFormatted,
-                time: `${handoverRequest.time} (${handoverRequest.day})`,
-                course: handoverRequest.course,
-                classGroup: handoverRequest.classGroup || "General",
-                reviewerName: `${cleanApproverName} (${cleanActorRole})`,
-                rejectionReason: headerReason || "Scheduling conflict"
-              });
-  
-          await dispatchMail({
-            to: requestorEmail,
-            subject,
-            htmlBody,
-            context: "handover-review"
-          });
+    // Realtime notification dispatch to requestor and target cover staff
+    try {
+      const decisionTitle = status === "approved" ? "Handover Request Approved" : "Handover Request Declined";
+      const decisionMessage = `${cleanApproverName} ${status === "approved" ? "approved" : "declined"} the handover request for "${handoverRequest.course}" on ${handoverRequest.dateFormatted}.${headerReason ? ` Reason: ${headerReason}` : ""}`;
+      await dispatchSystemNotification(db, {
+        userIds: [handoverRequest.requestorId, handoverRequest.targetStaffId].filter(Boolean),
+        roles: ["admin"],
+        title: decisionTitle,
+        message: decisionMessage,
+        link: "/mentor/handover",
+        type: status === "approved" ? "success" : "error",
+        domain: "notifications",
+        action: "created",
+        payload: {
+          requestId,
+          status: targetStatus,
+          slotId: handoverRequest.slotId,
+          dateStr: handoverRequest.dateStr || handoverRequest.datestr,
+          headerReason
         }
-      } catch (mailErr) {
-        console.error("Failed to send review request status email:", mailErr);
-      }
-    });
+      });
+    } catch (_) {}
+
+    // Realtime Push: trigger mentor, CM, and cover staff immediately
+    try {
+      notifyRealtimeEvent({
+        domain: "requests",
+        action: status,
+        targetUserIds: [handoverRequest.requestorId, handoverRequest.targetStaffId].filter(Boolean),
+        payload: {
+          requestId,
+          status: targetStatus,
+          slotId: handoverRequest.slotId,
+          dateStr: handoverRequest.dateStr || handoverRequest.datestr,
+          headerReason
+        }
+      });
+    } catch (_) {}
 
     // DATA_FLOW_AUDIT D3: return the created handover row (if any) for client sync.
     const createdHandover = createdHandoverId

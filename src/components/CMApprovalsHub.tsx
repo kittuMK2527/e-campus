@@ -4,6 +4,7 @@ import { useToast } from "@/context/ToastContext";
 import { Clock, CheckCircle2, XCircle, Search, CalendarRange, MapPin, Inbox, ShieldCheck, FileText, ChevronRight, Check, Loader2 } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/Pagination";
+import { isInCmQueue, cmRequestCategory } from "@/lib/requestStatus";
 
 export function CMApprovalsHub() {
   const { requests, mentors, colleges, currentCAM, approvedHandovers, handleRequest } = useApp();
@@ -11,7 +12,7 @@ export function CMApprovalsHub() {
   
   // Filter state
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "Late Attendance" | "Substitution" | "Exam Mark Edit">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "Late Attendance" | "Late Punch" | "Substitution" | "Exam Mark Edit">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Split pane state
@@ -41,7 +42,9 @@ export function CMApprovalsHub() {
   }, [requests, mentors, activeCollegeId]);
 
   const pendingRequests = useMemo(() => {
-    return campusRequests.filter((r: any) => r.status === "pending" || r.status === "pending_cm" || r.status === "pending_cam")
+    return campusRequests.filter((r: any) => isInCmQueue(r.status))
+      // reasonCategory exists only on CAMDashboard's derivation, so chips filter to nothing without it.
+      .map((r: any) => ({ ...r, reasonCategory: r.reasonCategory || cmRequestCategory(r) }))
       .filter((r: any) => categoryFilter === "all" || r.reasonCategory === categoryFilter)
       .filter((r: any) => {
         if (!searchQuery) return true;
@@ -82,6 +85,7 @@ export function CMApprovalsHub() {
     switch (category) {
       case "Substitution": return "bg-indigo-50 text-indigo-700 border-indigo-200";
       case "Late Attendance": return "bg-amber-50 text-amber-700 border-amber-200";
+      case "Late Punch": return "bg-rose-50 text-rose-700 border-rose-200";
       case "Exam Mark Edit": return "bg-emerald-50 text-emerald-700 border-emerald-200";
       default: return "bg-slate-50 text-slate-700 border-slate-200";
     }
@@ -144,7 +148,7 @@ export function CMApprovalsHub() {
   }, [mentors, activeCollegeId, selectedRequest]);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-80px)] overflow-hidden bg-slate-50">
+    <div className="flex flex-col h-[calc(100dvh-80px)] overflow-hidden bg-slate-50">
       
       {/* Header & Tabs */}
       <div className="shrink-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10 shadow-sm">
@@ -184,7 +188,7 @@ export function CMApprovalsHub() {
           <div className="bg-white rounded-2xl shadow-card border border-slate-100 overflow-hidden">
             <Table className="w-full border-collapse text-left text-sm">
               <TableHeader>
-                <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-xs tracking-wider hover:bg-slate-50">
+                <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-xs tracking-wider">
                   <TableHead className="p-4 border-r border-slate-100">Date</TableHead>
                   <TableHead className="p-4 border-r border-slate-100">Class & Time</TableHead>
                   <TableHead className="p-4 border-r border-slate-100">Original Mentor</TableHead>
@@ -255,11 +259,11 @@ export function CMApprovalsHub() {
                   placeholder="Search requests..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  className="w-full pl-9 pr-4 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
-                {["all", "Late Attendance", "Substitution", "Exam Mark Edit"].map(cat => (
+                {["all", "Late Attendance", "Late Punch", "Substitution", "Exam Mark Edit"].map(cat => (
                   <button
                     key={cat}
                     onClick={() => setCategoryFilter(cat as any)}
@@ -400,7 +404,7 @@ export function CMApprovalsHub() {
                       placeholder="Add a note about this decision..."
                       value={reviewReason}
                       onChange={e => setReviewReason(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 min-h-[80px] resize-none"
+                      className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 min-h-[80px] resize-none"
                     />
                   </div>
 

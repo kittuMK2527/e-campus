@@ -1,0 +1,24 @@
+{
+  "name": "FACE Prep E-Campus",
+  "short_name": "E-Campus",
+  "description": "FACE Prep Operations & Timetable System",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4f46e5",
+  "icons": [
+    {
+      "src": "/faceprep-fav.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/faceprep-fav.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
+

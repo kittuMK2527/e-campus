@@ -11,10 +11,11 @@ import {
   Trash2,
   Clock,
   Sparkles,
-  ClipboardPaste,
   BookOpen,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  FileSpreadsheet,
+  Download
 } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -80,13 +81,25 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
   onDynamicSubjectsChange
 }) => {
   const [modalTab, setModalTab] = useState<"bulk" | "single">("bulk");
-  const [bulkText, setBulkText] = useState("");
   const [bulkDefaultType, setBulkDefaultType] = useState("SKILL");
   const [bulkDefaultHours, setBulkDefaultHours] = useState(4);
-  const [showQuickPaste, setShowQuickPaste] = useState(false);
   const [pasteStatus, setPasteStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   const { subjectsList = [] } = useApp();
+
+  const availableGroups = React.useMemo(() => subjectGroups.map(sg => sg.name), [subjectGroups]);
+
+  const availableSubjectNames = React.useMemo(() => {
+    const scoped = form.department
+      ? subjectsList.filter(s => (s.department || "").toLowerCase() === form.department.toLowerCase())
+      : subjectsList;
+    const names = new Set<string>();
+    scoped.forEach(s => {
+      if (s.name && s.name.trim()) names.add(s.name.trim());
+    });
+    return Array.from(names).sort();
+  }, [subjectsList, form.department]);
 
   if (!open) return null;
 
@@ -101,83 +114,156 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
     return names;
   })();
 
-  const handleApplyBulkText = () => {
-    if (!bulkText.trim()) return;
-    const parsed = parseSubjectInput(bulkText, bulkDefaultType, bulkDefaultHours, form.mentor_group);
-    if (parsed.length === 0) {
-      setPasteStatus({
-        type: "error",
-        message: "No valid subjects detected. Please check the text."
-      });
-      return;
-    }
-
-    const hasNonEmpty = dynamicSubjects.some(r => r.name && r.name.trim() !== "");
-    if (!hasNonEmpty) {
-      onDynamicSubjectsChange(parsed);
-    } else {
-      const filtered = dynamicSubjects.filter(r => r.name && r.name.trim() !== "");
-      onDynamicSubjectsChange([...filtered, ...parsed]);
-    }
-
-    setBulkText("");
-    setShowQuickPaste(false);
-    setPasteStatus({
-      type: "success",
-      message: `✓ Added ${parsed.length} subject(s) to the list!`
-    });
-  };
-
-  const handleAutoGetFromClipboard = async () => {
-    setPasteStatus(null);
+  const handleDownloadTemplate = async () => {
     try {
-      if (typeof navigator === "undefined" || !navigator.clipboard?.readText) {
-        setShowQuickPaste(true);
-        setPasteStatus({
-          type: "error",
-          message: "Clipboard access not supported by browser. Please paste into the box below."
-        });
-        return;
+      const XLSX = await import("xlsx");
+      
+      // Use REAL created subject groups from system (no inline fake data)
+      const realGroups = (subjectGroups || []).map(sg => sg.name).filter(Boolean);
+      const group1 = realGroups[0] || "General";
+      const group2 = realGroups[1] || group1;
+      const group3 = realGroups[2] || group1;
+
+      const sampleRows = [
+        {
+          "Subject Name": "Data Structures & Algorithms",
+          "Subject Group": group1,
+          "Domain / Type": "SKILL",
+          "Weekly Hours": 4
+        },
+        {
+          "Subject Name": "Computer Architecture",
+          "Subject Group": group2,
+          "Domain / Type": "ACADEMIC",
+          "Weekly Hours": 4
+        },
+        {
+          "Subject Name": "Database Systems Lab",
+          "Subject Group": group3,
+          "Domain / Type": "LAB",
+          "Weekly Hours": 2
+        },
+        {
+          "Subject Name": "Professional Elective",
+          "Subject Group": group1,
+          "Domain / Type": "GENERAL",
+          "Weekly Hours": 2
+        }
+      ];
+      const ws = XLSX.utils.json_to_sheet(sampleRows);
+      ws["!cols"] = [{ wch: 32 }, { wch: 22 }, { wch: 16 }, { wch: 14 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Subjects");
+
+      // Valid Groups Reference Sheet directly from real created database groups
+      const groupsSheetData = (subjectGroups || []).map(sg => ({
+        "Created Subject Group": sg.name,
+        "Description": (sg as any).description || ""
+      }));
+      if (groupsSheetData.length > 0) {
+        const wsGroups = XLSX.utils.json_to_sheet(groupsSheetData);
+        wsGroups["!cols"] = [{ wch: 28 }, { wch: 35 }];
+        XLSX.utils.book_append_sheet(wb, wsGroups, "Valid_Subject_Groups");
       }
 
-      const text = await navigator.clipboard.readText();
-      if (!text || !text.trim()) {
-        setShowQuickPaste(true);
-        setPasteStatus({
-          type: "error",
-          message: "Clipboard is empty. Copy some subjects (e.g. from Excel or syllabus) first!"
-        });
-        return;
-      }
-
-      const parsed = parseSubjectInput(text, bulkDefaultType, bulkDefaultHours, form.mentor_group);
-      if (parsed.length === 0) {
-        setShowQuickPaste(true);
-        setPasteStatus({
-          type: "error",
-          message: "Could not detect subject names from clipboard. Try pasting into the text box below."
-        });
-        return;
-      }
-
-      const hasNonEmpty = dynamicSubjects.some(r => r.name && r.name.trim() !== "");
-      if (!hasNonEmpty) {
-        onDynamicSubjectsChange(parsed);
-      } else {
-        const filtered = dynamicSubjects.filter(r => r.name && r.name.trim() !== "");
-        onDynamicSubjectsChange([...filtered, ...parsed]);
-      }
-
+      XLSX.writeFile(wb, "Subjects_Import_Template.xlsx");
       setPasteStatus({
         type: "success",
-        message: `✓ Auto-retrieved ${parsed.length} subject(s) from clipboard!`
+        message: "Template downloaded with your real-time subject groups!"
       });
-    } catch {
-      setShowQuickPaste(true);
+    } catch (err: any) {
       setPasteStatus({
         type: "error",
-        message: "Clipboard access was denied by browser. Please paste into the text box below."
+        message: `Failed to download template: ${err?.message || ""}`
       });
+    }
+  };
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const XLSX = await import("xlsx");
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: "array" });
+      const sheetName = wb.SheetNames[0];
+      if (!sheetName) {
+        setPasteStatus({ type: "error", message: "No sheet found in file." });
+        return;
+      }
+      const ws = wb.Sheets[sheetName];
+      const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (!rawRows || rawRows.length === 0) {
+        setPasteStatus({ type: "error", message: "File contains no rows." });
+        return;
+      }
+
+      let headerRowIndex = -1;
+      let colNameIdx = 0;
+      let colGroupIdx = 1;
+      let colTypeIdx = 2;
+      let colHoursIdx = 3;
+
+      for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
+        const row = rawRows[i].map(c => String(c).trim().toLowerCase());
+        const nIdx = row.findIndex(c => c.includes("name") || c.includes("subject"));
+        if (nIdx !== -1) {
+          headerRowIndex = i;
+          colNameIdx = nIdx;
+          const gIdx = row.findIndex(c => c.includes("group"));
+          if (gIdx !== -1) colGroupIdx = gIdx;
+          const tIdx = row.findIndex(c => c.includes("domain") || c.includes("type"));
+          if (tIdx !== -1) colTypeIdx = tIdx;
+          const hIdx = row.findIndex(c => c.includes("hour"));
+          if (hIdx !== -1) colHoursIdx = hIdx;
+          break;
+        }
+      }
+
+      const dataRows = headerRowIndex !== -1 ? rawRows.slice(headerRowIndex + 1) : rawRows;
+      const newItems: DynamicSubjectRow[] = [];
+
+      for (const r of dataRows) {
+        const name = String(r[colNameIdx] || "").trim();
+        if (!name) continue;
+
+        const rawGroup = colGroupIdx !== -1 && r[colGroupIdx] ? String(r[colGroupIdx]).trim() : "";
+        const rawType = colTypeIdx !== -1 && r[colTypeIdx] ? String(r[colTypeIdx]).trim() : "";
+        const rawHours = colHoursIdx !== -1 && r[colHoursIdx] ? parseInt(String(r[colHoursIdx]).replace(/\D/g, "")) : 4;
+
+        let normType = "SKILL";
+        const u = rawType.toUpperCase();
+        if (u.includes("THEORY") || u.includes("ACADEMIC")) normType = "ACADEMIC";
+        else if (u.includes("LAB") || u.includes("PRACTICAL")) normType = "LAB";
+        else if (u.includes("GENERAL") || u.includes("ELECTIVE")) normType = "GENERAL";
+        else if (u.includes("SKILL")) normType = "SKILL";
+
+        newItems.push({
+          id: `row_${Date.now()}_${newItems.length}`,
+          name,
+          type: normType,
+          weekly_hours: isNaN(rawHours) || rawHours <= 0 ? 4 : rawHours,
+          mentor_group: rawGroup || form.mentor_group || "General"
+        });
+      }
+
+      if (newItems.length === 0) {
+        setPasteStatus({ type: "error", message: "No valid subject rows found in file." });
+        return;
+      }
+
+      onDynamicSubjectsChange(newItems);
+      setPasteStatus({
+        type: "success",
+        message: `✓ Imported ${newItems.length} subject(s) from ${file.name}!`
+      });
+    } catch (err: any) {
+      setPasteStatus({
+        type: "error",
+        message: `Failed to read file: ${err?.message || "Invalid format"}`
+      });
+    } finally {
+      e.target.value = "";
     }
   };
 
@@ -186,7 +272,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
     if (!form.department) {
       setPasteStatus({
         type: "error",
-        message: "Please select a Course / Department first to load its curriculum."
+        message: "Please select a Course / Department first."
       });
       return;
     }
@@ -205,7 +291,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
     if (candidates.length === 0) {
       setPasteStatus({
         type: "error",
-        message: `No existing curriculum subjects found in database for "${form.department}".`
+        message: `No existing curriculum subjects found for "${form.department}".`
       });
       return;
     }
@@ -236,47 +322,8 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
 
     setPasteStatus({
       type: "success",
-      message: `✓ Auto-loaded ${imported.length} curriculum subject(s) for ${form.department}${matching.length > 0 ? ` (${form.semester})` : ""}!`
+      message: `✓ Loaded ${imported.length} subject(s) from curriculum!`
     });
-  };
-
-  const handleRowPaste = (e: React.ClipboardEvent<HTMLInputElement>, targetRowId: string) => {
-    const pastedText = e.clipboardData.getData("text");
-    if (!pastedText) return;
-
-    const hasMultiple =
-      pastedText.includes("\n") ||
-      pastedText.includes("\r") ||
-      pastedText.includes("\t") ||
-      pastedText.includes("|") ||
-      pastedText.includes(",");
-
-    if (!hasMultiple) return; // Allow native paste for normal single-word/phrase edit
-
-    const parsed = parseSubjectInput(pastedText, bulkDefaultType, bulkDefaultHours, form.mentor_group);
-    if (parsed.length > 1 || (parsed.length === 1 && (pastedText.includes("\t") || pastedText.includes("|")))) {
-      e.preventDefault();
-
-      const allEmpty = dynamicSubjects.every(r => !r.name || !r.name.trim());
-      if (allEmpty) {
-        onDynamicSubjectsChange(parsed);
-      } else {
-        const targetIndex = dynamicSubjects.findIndex(r => r.id === targetRowId);
-        if (targetIndex !== -1) {
-          const before = dynamicSubjects.slice(0, targetIndex);
-          const after = dynamicSubjects.slice(targetIndex + 1);
-          onDynamicSubjectsChange([...before, ...parsed, ...after]);
-        } else {
-          const filtered = dynamicSubjects.filter(r => r.name && r.name.trim() !== "");
-          onDynamicSubjectsChange([...filtered, ...parsed]);
-        }
-      }
-
-      setPasteStatus({
-        type: "success",
-        message: `✓ Auto-populated ${parsed.length} subject(s) from paste!`
-      });
-    }
   };
 
   const handleAddRow = () => {
@@ -314,7 +361,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
       open={open}
       onOpenChange={onOpenChange}
       ariaLabel="Subject"
-      overlayClassName="bg-gray-900/50 backdrop-blur-sm p-4"
+      overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
       panelClassName={`overflow-hidden animate-slideUp transition-all rounded-2xl ${
         editingSubject ? "max-w-md" : "max-w-4xl"
       } p-0 space-y-0 max-h-[90vh]`}
@@ -326,12 +373,12 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
           </div>
           <div>
             <h3 className="font-extrabold text-gray-900 text-base">
-              {editingSubject ? "Edit Subject Details" : "Add Subjects to Curriculum"}
+              {editingSubject ? "Edit Subject" : "Add Subjects"}
             </h3>
             <p className="text-xs text-gray-500 font-medium mt-0.5">
               {editingSubject
-                ? "Update subject configuration and details"
-                : "Configure and create multiple subjects with structured inputs or auto-paste"}
+                ? "Update subject details."
+                : "Add course subjects to curriculum."}
             </p>
           </div>
         </div>
@@ -356,7 +403,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                 }`}
               >
                 <Grid className="h-3.5 w-3.5" />
-                <span>Structured / Bulk</span>
+                <span>Bulk / List</span>
               </button>
               <button
                 type="button"
@@ -371,14 +418,14 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                 }`}
               >
                 <Edit2 className="h-3.5 w-3.5" />
-                <span>Single Subject</span>
+                <span>Single</span>
               </button>
             </div>
           )}
           <Button
             variant="ghost"
             size="icon"
-            aria-label="Close subject dialog"
+            aria-label="Close dialog"
             onClick={() => onOpenChange(false)}
             className="h-auto w-auto p-2 hover:bg-gray-200 rounded-xl transition-colors cursor-pointer text-gray-400 hover:text-gray-700 ml-1"
           >
@@ -518,53 +565,38 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
               </div>
             </div>
 
-            {/* SIMPLIFIED SMART ACTIONS TOOLBAR */}
-            <div className="p-3 bg-gradient-to-r from-indigo-50/90 via-slate-50 to-indigo-50/60 border border-indigo-100 rounded-xl space-y-2">
+            {/* TEMPLATE & IMPORT TOOLBAR */}
+            <div className="p-3 bg-slate-50 border border-slate-200/80 rounded-xl space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={handleImportFile}
+                className="hidden"
+              />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  {/* 1-Click Clipboard Auto-Get */}
+                  {/* Download Template Button */}
                   <button
                     type="button"
-                    onClick={handleAutoGetFromClipboard}
-                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
-                    title="Read copied subjects directly from your clipboard"
+                    onClick={handleDownloadTemplate}
+                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-indigo-700 border border-indigo-200 active:scale-95 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    title="Download Excel template (.xlsx)"
                   >
-                    <ClipboardPaste className="h-3.5 w-3.5" />
-                    <span>Auto Get from Clipboard</span>
+                    <Download className="h-3.5 w-3.5" />
+                    <span>Download Template</span>
                   </button>
 
-                  {/* 1-Click Existing Curriculum Auto-Get */}
-                  {form.department && (
-                    <button
-                      type="button"
-                      onClick={handleAutoGetFromCurriculum}
-                      className="px-3 py-1.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 active:scale-95 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                      title="Auto-load curriculum subjects mapped for this department"
-                    >
-                      <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
-                      <span>Auto Get from Curriculum</span>
-                    </button>
-                  )}
-
-                  {/* Manual Paste Text Box Toggle */}
+                  {/* File Import Button */}
                   <button
                     type="button"
-                    onClick={() => setShowQuickPaste(!showQuickPaste)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                      showQuickPaste
-                        ? "bg-indigo-100 text-indigo-800 border border-indigo-300"
-                        : "bg-white hover:bg-slate-50 text-slate-700 border border-slate-200"
-                    }`}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    title="Import subjects from Excel (.xlsx) or CSV file"
                   >
-                    <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                    <span>{showQuickPaste ? "Close Paste Box" : "Quick Paste Text"}</span>
+                    <FileSpreadsheet className="h-3.5 w-3.5" />
+                    <span>Import Excel / CSV</span>
                   </button>
-                </div>
-
-                <div className="text-[11px] text-slate-500 font-bold hidden sm:flex items-center gap-1">
-                  <span>Smart Paste: Press</span>
-                  <kbd className="px-1.5 py-0.5 bg-white border border-slate-200 rounded font-mono text-[10px] text-indigo-700 font-black shadow-2xs">Ctrl+V</kbd>
-                  <span>in any Subject Name box</span>
                 </div>
               </div>
 
@@ -592,75 +624,6 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                   >
                     <X className="h-3.5 w-3.5" />
                   </button>
-                </div>
-              )}
-
-              {/* Quick Paste Text Drawer */}
-              {showQuickPaste && (
-                <div className="p-3 bg-white border border-indigo-100 rounded-xl space-y-3 mt-2 shadow-card">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-bold text-slate-800">
-                      Paste Subjects (Excel table, Comma-separated, or Newline-separated):
-                    </label>
-                    {bulkText.trim() && (
-                      <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
-                        {parseSubjectInput(bulkText, bulkDefaultType, bulkDefaultHours, form.mentor_group).length} subject(s) detected
-                      </span>
-                    )}
-                  </div>
-                  <textarea
-                    rows={3}
-                    placeholder="e.g.&#10;Data Structures & Algorithms&#10;Computer Networks&#10;Operating Systems&#10;(or paste copied columns directly from Excel / Google Sheets)"
-                    value={bulkText}
-                    onChange={e => setBulkText(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-indigo-600 focus:bg-white"
-                  />
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold text-slate-500">Default Type:</span>
-                      <Select
-                        value={bulkDefaultType}
-                        onChange={e => setBulkDefaultType(e.target.value)}
-                        className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold"
-                      >
-                        <option value="SKILL">SKILL</option>
-                        <option value="ACADEMIC">THEORY / ACADEMIC</option>
-                        <option value="LAB">LAB</option>
-                        <option value="ELECTIVE">ELECTIVE</option>
-                      </Select>
-                      <span className="text-[11px] font-bold text-slate-500 ml-1">Default Hrs:</span>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={40}
-                        value={bulkDefaultHours}
-                        onChange={e => setBulkDefaultHours(Number(e.target.value) || 4)}
-                        className="w-16 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-center"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setBulkText("");
-                          setShowQuickPaste(false);
-                        }}
-                        className="text-xs font-bold text-slate-500"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={handleApplyBulkText}
-                        disabled={!bulkText.trim()}
-                        className="btn-gradient text-white text-xs px-3.5 py-1.5 rounded-lg font-bold cursor-pointer"
-                      >
-                        Apply to Subject List
-                      </Button>
-                    </div>
-                  </div>
                 </div>
               )}
             </div>
@@ -694,40 +657,38 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                     className="text-xs font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    Add Subject Row
+                    Add Row
                   </Button>
                 </div>
               </div>
 
               {dynamicSubjects.length === 0 ? (
-                <div className="p-8 text-center bg-gray-50 border border-dashed border-gray-200 rounded-xl space-y-3">
-                  <p className="text-xs font-bold text-gray-500">No subject rows added yet.</p>
+                <div className="p-6 text-center bg-gray-50 border border-dashed border-gray-200 rounded-xl space-y-3">
+                  <p className="text-xs font-bold text-gray-500">No subjects added.</p>
                   <div className="flex items-center justify-center gap-2 flex-wrap">
                     <button
                       type="button"
-                      onClick={handleAutoGetFromClipboard}
-                      className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                      onClick={handleDownloadTemplate}
+                      className="px-3.5 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer hover:bg-slate-50"
                     >
-                      <ClipboardPaste className="h-3.5 w-3.5" />
-                      Auto Get from Clipboard
+                      <Download className="h-3.5 w-3.5" />
+                      Download Template
                     </button>
-                    {form.department && (
-                      <button
-                        type="button"
-                        onClick={handleAutoGetFromCurriculum}
-                        className="px-3.5 py-1.5 bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <BookOpen className="h-3.5 w-3.5 text-indigo-600" />
-                        Auto Get from Curriculum
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <FileSpreadsheet className="h-3.5 w-3.5" />
+                      Import Excel / CSV
+                    </button>
                     <button
                       type="button"
                       onClick={handleAddRow}
                       className="px-3.5 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="h-3.5 w-3.5" />
-                      Add Manual Row
+                      Add Row
                     </button>
                   </div>
                 </div>
@@ -744,13 +705,18 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                     >
                       <span className="text-[10px] font-mono text-gray-400 w-6 text-center">{idx + 1}</span>
                       <Input
+                        list={`subject-list-${row.id}`}
                         type="text"
-                        placeholder="Subject Name e.g. Data Science (or paste list)"
+                        placeholder="Subject Name (e.g. Data Structures)"
                         value={row.name}
-                        onPaste={e => handleRowPaste(e, row.id)}
                         onChange={e => handleUpdateRow(row.id, "name", e.target.value)}
-                        className="flex-1 min-w-[130px] bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold focus:border-indigo-500"
+                        className="flex-1 min-w-[140px] bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold focus:border-indigo-500"
                       />
+                      <datalist id={`subject-list-${row.id}`}>
+                        {availableSubjectNames.map(name => (
+                          <option key={name} value={name} />
+                        ))}
+                      </datalist>
                       <Select
                         value={row.type}
                         onChange={e => handleUpdateRow(row.id, "type", e.target.value)}
@@ -765,9 +731,12 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                         value={row.mentor_group ?? ""}
                         onChange={e => handleUpdateRow(row.id, "mentor_group", e.target.value)}
                         className="w-36 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-700"
-                        title="Mentor Group for this row"
+                        title="Mentor Group"
                       >
                         <option value="">{form.mentor_group ? `Default (${form.mentor_group})` : "No Group"}</option>
+                        {row.mentor_group && !subjectGroups.some(sg => sg.name === row.mentor_group) && (
+                          <option value={row.mentor_group}>{row.mentor_group}</option>
+                        )}
                         {subjectGroups.map(sg => (
                           <option key={sg.id} value={sg.name}>
                             {sg.name}
@@ -808,14 +777,20 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
             <div className="space-y-1">
               <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Subject Name *</label>
               <Input
+                list="single-subject-list"
                 aria-label="Subject Name"
                 type="text"
                 required
-                placeholder="e.g. Advanced Java & Spring Boot"
+                placeholder="Subject Name (or select)"
                 value={form.name}
                 onChange={e => onFormChange({ ...form, name: e.target.value })}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
               />
+              <datalist id="single-subject-list">
+                {availableSubjectNames.map(name => (
+                  <option key={name} value={name} />
+                ))}
+              </datalist>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -952,14 +927,14 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
             </div>
 
             <div className="space-y-1">
-              <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Mentor Group</label>
+              <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Subject Group</label>
               <Select
-                aria-label="Mentor Group"
+                aria-label="Subject Group"
                 value={form.mentor_group}
                 onChange={e => onFormChange({ ...form, mentor_group: e.target.value })}
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800"
               >
-                <option value="">— Select Mentor Group —</option>
+                <option value="">— Select Subject Group —</option>
                 {subjectGroups.map(sg => (
                   <option key={sg.id} value={sg.name}>
                     {sg.name}

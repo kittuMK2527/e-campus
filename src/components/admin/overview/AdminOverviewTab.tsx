@@ -125,7 +125,11 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
     queryFn: async () => {
       const data = await apiFetch("/api/announcements");
       return (data?.announcements || []) as Announcement[];
-    }
+    },
+    // 5 minutes — announcements don't change by the second; prevent re-fetch on
+    // every tab focus or re-mount of this component.
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000
   });
 
   const latestAnnouncements = useMemo(
@@ -135,6 +139,25 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         .slice(0, 2),
     [announcementsQuery.data]
   );
+
+  // Pre-compute mentor and slot counts per campus once in O(n) — replaces the
+  // per-college mentors.filter() + slots.filter(...some()) that was O(colleges × mentors + colleges × slots).
+  const campusStats = useMemo(() => {
+    const mentorCountByCollege = new Map<string, number>();
+    const mentorCollegeMap = new Map<string, string>();
+    for (const m of mentors) {
+      if (m.college_id) {
+        mentorCountByCollege.set(m.college_id, (mentorCountByCollege.get(m.college_id) || 0) + 1);
+        mentorCollegeMap.set(m.id, m.college_id);
+      }
+    }
+    const slotCountByCollege = new Map<string, number>();
+    for (const s of slots) {
+      const cid = s.college_id || mentorCollegeMap.get(s.mentorId);
+      if (cid) slotCountByCollege.set(cid, (slotCountByCollege.get(cid) || 0) + 1);
+    }
+    return { mentorCountByCollege, slotCountByCollege };
+  }, [mentors, slots]);
 
   return (
     <div className="space-y-6 animate-fadeIn font-sans text-xs">
@@ -161,7 +184,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
             <button
               type="button"
               onClick={() => onNavigateTab("report_insight")}
-              className="brand-gradient text-white font-bold text-xs px-5 py-2.5 rounded-full shadow-lg shadow-indigo-600/25 hover:opacity-95 transition-all flex items-center gap-2 cursor-pointer"
+              className="brand-gradient text-white font-bold text-xs px-5 py-2.5 rounded-lg shadow-lg shadow-indigo-600/25 hover:opacity-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <span>Go to Reports</span>
               <span>&rarr;</span>
@@ -170,7 +193,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
             <button
               type="button"
               onClick={() => onNavigateTab("schedules")}
-              className="bg-white/90 hover:bg-white text-slate-700 font-bold text-xs px-4 py-2.5 rounded-full border border-slate-200/90 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
+              className="bg-white/90 hover:bg-white text-slate-700 font-bold text-xs px-4 py-2.5 rounded-lg border border-slate-200/90 transition-all flex items-center gap-1.5 cursor-pointer shadow-xs"
             >
               <span>View Timetables</span>
             </button>
@@ -242,7 +265,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         {/* Card 1: Total Students */}
         <div
           onClick={() => onNavigateTab("students")}
-          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
+          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-indigo-200 hover:shadow-card-lg transition-all cursor-pointer group"
         >
           <div className="flex items-start justify-between">
             <div className="h-11 w-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
@@ -269,7 +292,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         {/* Card 2: Total Campuses */}
         <div
           onClick={() => onNavigateTab("campuses")}
-          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-sky-200 hover:shadow-md transition-all cursor-pointer group"
+          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-sky-200 hover:shadow-card-lg transition-all cursor-pointer group"
         >
           <div className="flex items-start justify-between">
             <div className="h-11 w-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center shadow-xs">
@@ -296,7 +319,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         {/* Card 3: Active Mentors */}
         <div
           onClick={() => onNavigateTab("mentors")}
-          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-purple-200 hover:shadow-md transition-all cursor-pointer group"
+          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-purple-200 hover:shadow-card-lg transition-all cursor-pointer group"
         >
           <div className="flex items-start justify-between">
             <div className="h-11 w-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-xs">
@@ -323,7 +346,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         {/* Card 4: Scheduled Slots */}
         <div
           onClick={() => onNavigateTab("schedules")}
-          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-emerald-200 hover:shadow-md transition-all cursor-pointer group"
+          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-emerald-200 hover:shadow-card-lg transition-all cursor-pointer group"
         >
           <div className="flex items-start justify-between">
             <div className="h-11 w-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
@@ -571,8 +594,8 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
           
           <div className="space-y-3 flex-grow overflow-y-auto max-h-[300px] pr-1">
             {colleges.map(col => {
-              const colMentors = mentors.filter(m => m.college_id === col.id);
-              const colSlots = slots.filter(s => colMentors.some(m => m.id === s.mentorId));
+              const mentorCount = campusStats.mentorCountByCollege.get(col.id) || 0;
+              const slotCount = campusStats.slotCountByCollege.get(col.id) || 0;
               return (
                 <div
                   key={col.id}
@@ -588,10 +611,10 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                   </div>
                   <div className="flex gap-2">
                     <span className="bg-teal-50 border border-teal-100 text-teal-700 px-2 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap">
-                      {colMentors.length} Mentors
+                      {mentorCount} Mentors
                     </span>
                     <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap">
-                      {colSlots.length} Slots
+                      {slotCount} Slots
                     </span>
                   </div>
                 </div>

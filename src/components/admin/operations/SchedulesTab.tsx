@@ -102,7 +102,6 @@ export const SchedulesTab: React.FC<SchedulesTabProps> = ({
       <PageHeader
         icon={Grid}
         title="Global Scheduled Slots"
-        subtitle={`Filter and review timetables across the entire university network. ${slots.length.toLocaleString()} scheduled slots loaded.`}
       />
 
       <FilterBar>

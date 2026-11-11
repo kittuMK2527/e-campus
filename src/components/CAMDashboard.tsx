@@ -7,6 +7,15 @@ import { useToast } from "../context/ToastContext";
 import { apiFetch } from "@/lib/apiFetch";
 import { qk } from "@/lib/queryKeys";
 import { getLocalDateStr, shiftDateStr, parseLocalDate } from "@/lib/localDate";
+import {
+  dayOrderCeiling,
+  dayOrderOptions,
+  isCanonicalDayType,
+  normalizeDayType,
+  parseDayOrder
+} from "@/lib/dailyConfigForm";
+import { cmMobileTabs, cmMoreTabIds, cmMoreTabs, cmNavGroups } from "@/lib/cmNav";
+import { isAwaitingCm, isAnyPendingCmRequest, isNeedsCmAllocation, isInCmQueue, isAwaitingCmCapacity, isLateAttendanceRequest } from "@/lib/requestStatus";
 import { getCurrentAcademicYear } from "@/lib/academicYear";
 import { stableDocRef } from "@/lib/report-export";
 import { ALL_SEMESTERS } from "@/lib/semesters";
@@ -22,7 +31,16 @@ import { LoadingButton } from "./ui/LoadingButton";
 import { Pagination } from "./ui/Pagination";
 import { Combobox } from "./ui/combobox";
 import { Dialog } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  ActionDropdownButton
+} from "@/components/ui/dropdown-menu";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -75,14 +93,24 @@ const SkillReportPanel = dynamic(() => import("./SkillReportPanel").then(mod => 
   loading: () => <div className="p-8 text-center text-xs text-slate-400 font-bold">Loading Skill Report...</div>
 });
 
+const SundayScheduleCard = dynamic(() => import("./admin/operations/SundayScheduleCard").then(mod => mod.SundayScheduleCard), {
+  ssr: false,
+  loading: () => <div className="p-8 text-center text-xs text-slate-400 font-bold">Loading Weekend Scheduling...</div>
+});
+
+const StudentNpsTab = dynamic(() => import("./admin/reports/StudentNpsTab").then(mod => mod.StudentNpsTab), {
+  ssr: false,
+  loading: () => <div className="p-8 text-center text-xs text-slate-400 font-bold">Loading Student Feedback...</div>
+});
+
 import {
   Building2, GraduationCap, Users, Calendar, ClipboardList, Sparkles,
   AlertTriangle, BookOpen, Clock, CheckCircle2, XCircle, Search,
-  PlusCircle, Check, ArrowRight, Settings, MessageSquare, ShieldAlert, ShieldCheck,
+  PlusCircle, Check, ArrowRight, Settings, MessageSquare, ShieldAlert, ShieldCheck, Zap,
   Award, Trophy, Medal, TrendingUp, FileText, FileSpreadsheet, RefreshCw, Plus, Trash2, Edit2, Edit, Grid, Download, Upload, ChevronDown, Loader2, Save,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, User, SlidersHorizontal, CalendarCheck2, IndianRupee, BadgePercent, X, Mail, Lock, Menu, Briefcase, Layers, Info, Ticket, CalendarRange, UserCheck, Printer, Star,
   Camera, Image as ImageIcon, Paperclip, Maximize2, ExternalLink, Eye, EyeOff, ArrowUpDown, RotateCcw,
-  ThumbsUp, ThumbsDown, Handshake
+  ThumbsUp, ThumbsDown, Handshake, Smile
 } from "lucide-react";
 import { CourseInfoButton } from "./CourseInfoModal";
 import { CourseModal } from "./CourseModal";
@@ -223,8 +251,8 @@ const CheckmarkSelect: React.FC<CheckmarkSelectProps> = ({
 const fmt = (n: number) => "₹" + n.toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
 const FeeBadge = ({ status }: { status: string }) => {
-  if (status === "paid") return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#D528A2]/10 text-[#D528A2] text-[10px] font-bold">Paid</span>;
-  if (status === "partial") return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#F4A863]/10 text-[#F4A863] text-[10px] font-bold">Partial</span>;
+  if (status === "paid") return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#4F46E5]/10 text-[#4F46E5] text-[10px] font-bold">Paid</span>;
+  if (status === "partial") return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#7C3AED]/10 text-[#7C3AED] text-[10px] font-bold">Partial</span>;
   return <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-slate-500 text-[10px] font-bold">Unpaid</span>;
 };
 
@@ -368,10 +396,10 @@ const CAMFeePanel: React.FC<{ camId: string }> = ({ camId }) => {
                 <div className="h-2.5 rounded-full brand-gradient transition-all duration-700" style={{ width: `${collectedPct}%` }} />
               </div>
 
-              <div className="grid grid-cols-3 gap-2 pt-1">
-                <div className="p-2 rounded-xl bg-[#D528A2]/5 border border-[#D528A2]/20 text-center">
-                  <p className="text-[10px] font-bold text-[#D528A2] uppercase">Fully Paid</p>
-                  <p className="text-base font-black text-[#D528A2] mt-0.5">{paidCount}</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                <div className="p-2 rounded-xl bg-[#4F46E5]/5 border border-[#4F46E5]/20 text-center">
+                  <p className="text-[10px] font-bold text-[#4F46E5] uppercase">Fully Paid</p>
+                  <p className="text-base font-black text-[#4F46E5] mt-0.5">{paidCount}</p>
                 </div>
                 <div className="p-2 rounded-xl bg-amber-50 border border-amber-200 text-center">
                   <p className="text-[10px] font-bold text-amber-600 uppercase">Partial</p>
@@ -403,9 +431,9 @@ const CAMFeePanel: React.FC<{ camId: string }> = ({ camId }) => {
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search student…" className="pl-8 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#D528A2]/50 w-full" />
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search student…" className="pl-8 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/50 w-full" />
         </div>
-        <button onClick={fetchData} className="p-2 rounded-2xl border border-slate-100 bg-white text-slate-400 hover:text-[#D528A2] cursor-pointer transition-colors shadow-card"><RefreshCw className="h-3.5 w-3.5" /></button>
+        <button onClick={fetchData} className="p-2 rounded-2xl border border-slate-100 bg-white text-slate-400 hover:text-[#4F46E5] cursor-pointer transition-colors shadow-card"><RefreshCw className="h-3.5 w-3.5" /></button>
       </div>
 
       {/* Student fee list */}
@@ -571,7 +599,7 @@ AttMonitoringCharts.displayName = "AttMonitoringCharts";
 /* ─── CAM Campus Insight & Downloadable Reports Panel ─── */
 export type InsightSubTab =
   | "attendance" | "placement" | "observations" | "mentor_nps" | "client_nps"
-  | "tickets" | "demos" | "workload" | "syllabus" | "achievements" | "skill_report";
+  | "tickets" | "demos" | "workload" | "syllabus" | "achievements" | "skill_report" | "student_nps";
 
 export const CAMCampusInsightPanel: React.FC<{
   activeCollegeId: string;
@@ -3953,7 +3981,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   placeholder="Search..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/50 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken/50 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 />
               </div>
 
@@ -4144,7 +4172,7 @@ export const CAMCampusInsightPanel: React.FC<{
                     onClick={() => fetchCampusAchievements()}
                     disabled={achievementsLoading}
                     title="Refresh Student Achievements"
-                    className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer disabled:opacity-50"
+                    className="p-2 rounded-xl border border-slate-200 inset-shadow-well bg-sunken hover:bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${achievementsLoading ? "animate-spin text-indigo-600" : ""}`} />
                   </button>
@@ -4182,7 +4210,7 @@ export const CAMCampusInsightPanel: React.FC<{
                     onClick={() => fetchMentorNps()}
                     disabled={mentorNpsLoading}
                     title="Refresh Mentor NPS"
-                    className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer disabled:opacity-50"
+                    className="p-2 rounded-xl border border-slate-200 inset-shadow-well bg-sunken hover:bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${mentorNpsLoading ? "animate-spin text-indigo-600" : ""}`} />
                   </button>
@@ -4196,7 +4224,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   onClick={() => fetchClientNps()}
                   disabled={clientNpsLoading}
                   title="Refresh Client NPS"
-                  className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer disabled:opacity-50"
+                  className="p-2 rounded-xl border border-slate-200 inset-shadow-well bg-sunken hover:bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${clientNpsLoading ? "animate-spin text-indigo-600" : ""}`} />
                 </button>
@@ -4209,7 +4237,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   onClick={() => fetchObservations()}
                   disabled={observationsLoading}
                   title="Refresh Observations"
-                  className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer disabled:opacity-50"
+                  className="p-2 rounded-xl border border-slate-200 inset-shadow-well bg-sunken hover:bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${observationsLoading ? "animate-spin text-indigo-600" : ""}`} />
                 </button>
@@ -4222,7 +4250,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   onClick={fetchCampusTickets}
                   disabled={ticketsLoading}
                   title="Reload live tickets from Supabase DB"
-                  className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer disabled:opacity-50"
+                  className="p-2 rounded-xl border border-slate-200 inset-shadow-well bg-sunken hover:bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${ticketsLoading ? "animate-spin text-indigo-600" : ""}`} />
                 </button>
@@ -4235,7 +4263,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   onClick={() => fetchPlacementData()}
                   disabled={placementLoading}
                   title="Reload live placement data from Supabase DB"
-                  className="p-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 transition-all cursor-pointer disabled:opacity-50"
+                  className="p-2 rounded-xl border border-slate-200 inset-shadow-well bg-sunken hover:bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${placementLoading ? "animate-spin text-indigo-600" : ""}`} />
                 </button>
@@ -4257,7 +4285,8 @@ export const CAMCampusInsightPanel: React.FC<{
                 { id: "demos", label: "Mentor Demo Evaluations", count: demoEvaluationData.length, icon: Sparkles },
                 { id: "syllabus", label: "Syllabus Completion Pace", count: syllabusPaceData.length, icon: BookOpen },
                 { id: "achievements", label: "Student Achievements", count: campusAchievements.length, icon: Award },
-                { id: "skill_report", label: "Monthly Skill Report (PPTX)", count: 0, icon: FileSpreadsheet }
+                { id: "skill_report", label: "Monthly Skill Report (PPTX)", count: 0, icon: FileSpreadsheet },
+                { id: "student_nps", label: "Student NPS & Feedback", count: 0, icon: Smile }
               ].filter(tab => !subTabs || subTabs.includes(tab.id as InsightSubTab)).map(tab => {
                 const Icon = tab.icon;
                 return (
@@ -4585,7 +4614,7 @@ export const CAMCampusInsightPanel: React.FC<{
                     setMentorNpsMonth(e.target.value);
                     fetchMentorNps(e.target.value);
                   }}
-                  className="px-3 py-1.5 text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-hidden cursor-pointer"
+                  className="px-3 py-1.5 text-xs font-bold bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-slate-700 focus:outline-hidden cursor-pointer"
                 >
                   <option value="all">All Months</option>
                   {mentorNps?.availableMonths && mentorNps.availableMonths.length > 0 ? (
@@ -4626,7 +4655,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
                   <div
                     onClick={() => setShowNpsHistoryModal(true)}
-                    className={`p-5 bg-white border-2 rounded-2xl shadow-xs text-center cursor-pointer hover:shadow-md transition-all hover:scale-[1.01] group relative ${mentorNps.summary?.npsIndex == null ? "border-slate-200" : mentorNps.summary.npsIndex >= 50 ? "border-emerald-200 bg-emerald-50/40" : mentorNps.summary.npsIndex >= 0 ? "border-amber-200 bg-amber-50/40" : "border-rose-200 bg-rose-50/40"
+                    className={`p-5 bg-white border-2 rounded-2xl shadow-card text-center cursor-pointer hover:shadow-card-lg transition-all hover:scale-[1.01] group relative ${mentorNps.summary?.npsIndex == null ? "border-slate-100" : mentorNps.summary.npsIndex >= 50 ? "border-emerald-200 bg-emerald-50/40" : mentorNps.summary.npsIndex >= 0 ? "border-amber-200 bg-amber-50/40" : "border-rose-200 bg-rose-50/40"
                       }`}
                     title="Click to view full Census & Month-by-Month History"
                   >
@@ -5792,7 +5821,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <button
                   type="button"
                   onClick={() => exportDemoEvaluations("pdf")}
-                  className="px-3.5 py-1.5 rounded-lg bg-pink-600 hover:bg-pink-700 text-white text-xs font-black shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>Print / PDF Ledger</span>
@@ -6394,6 +6423,10 @@ export const CAMCampusInsightPanel: React.FC<{
           <SkillReportPanel collegeId={activeCollegeId || ""} collegeName={activeCollegeName || ""} />
         )}
 
+        {selectedSubTab === "student_nps" && (
+          <StudentNpsTab overrideCollegeId={activeCollegeId || ""} />
+        )}
+
         {selectedSubTab === "achievements" && (
           <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card space-y-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
@@ -6653,7 +6686,7 @@ export const CAMCampusInsightPanel: React.FC<{
             open={!!selectedAchDetail}
             onOpenChange={(next) => { if (!next) setSelectedAchDetail(null); }}
             ariaLabel={`Achievement details — ${selectedAchDetail.title}`}
-            overlayClassName="bg-black/40 backdrop-blur-xs p-4"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
             panelClassName="bg-white border-slate-200 rounded-2xl max-w-xl p-6 space-y-5 max-h-[90vh] overflow-y-auto custom-scrollbar"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -6752,7 +6785,7 @@ export const CAMCampusInsightPanel: React.FC<{
               return (
                 <div className="space-y-2 pt-2 border-t border-slate-100">
                   <span className="text-xs font-bold text-slate-900 block">Attached Photos ({photos.length}):</span>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     {photos.map((p, pIdx) => (
                       <div
                         key={pIdx}
@@ -6782,27 +6815,32 @@ export const CAMCampusInsightPanel: React.FC<{
           </Dialog>
         )}
 
-        {/* ──────────────────────── MODAL: PHOTO LIGHTBOX PREVIEW ──────────────────────── */}
+        {/* ─── MODAL: PHOTO LIGHTBOX PREVIEW ─── */}
         {selectedPhotoPreview && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200 cursor-pointer"
-            onClick={() => setSelectedPhotoPreview(null)}
+          <Dialog
+            open={true}
+            onOpenChange={(next) => { if (!next) setSelectedPhotoPreview(null); }}
+            ariaLabel="Achievement Photo Preview"
+            overlayClassName="bg-black/85 backdrop-blur-md animate-fadeIn"
+            panelClassName="relative max-w-4xl max-h-[92vh] bg-black/95 border border-white/10 rounded-2xl overflow-hidden shadow-card-lg p-2"
           >
-            <div className="relative max-w-4xl max-h-[90vh] bg-black rounded-2xl overflow-hidden shadow-2xl p-2" onClick={e => e.stopPropagation()}>
+            <div className="relative flex flex-col items-center justify-center">
               <button
                 type="button"
                 onClick={() => setSelectedPhotoPreview(null)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-white hover:bg-black/90 transition-colors z-10 cursor-pointer"
+                aria-label="Close photo preview"
+                className="absolute top-2 right-2 p-2 rounded-full bg-black/60 text-white hover:bg-black/90 transition-colors z-10 cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={selectedPhotoPreview}
                 alt="Achievement Photo Preview"
                 className="max-h-[85vh] max-w-full object-contain rounded-xl mx-auto"
               />
             </div>
-          </div>
+          </Dialog>
         )}
 
         {/* ──────────────────────── MODAL 1: STUDENT ATTENDANCE & PARENT NOTICE ──────────────────────── */}
@@ -6811,8 +6849,8 @@ export const CAMCampusInsightPanel: React.FC<{
             open={true}
             onOpenChange={(next) => { if (!next) setSelectedStudentForModal(null); }}
             ariaLabel="Student Attendance and Parent Notice"
-            overlayClassName="bg-black/40 backdrop-blur-xs animate-in fade-in duration-200"
-            panelClassName="rounded-2xl max-w-lg p-6 space-y-5 animate-in zoom-in-95 duration-200"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="rounded-2xl max-w-lg p-6 space-y-5 animate-scaleUp"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -6834,7 +6872,7 @@ export const CAMCampusInsightPanel: React.FC<{
             </div>
 
             {/* Quick Metrics */}
-            <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
               <div className="text-center">
                 <span className="text-[10px] font-black uppercase text-slate-400">Attendance</span>
                 <p className={`text-xl font-black mt-0.5 ${selectedStudentForModal.percentage >= 75 ? "text-emerald-700" : selectedStudentForModal.percentage >= 65 ? "text-amber-700" : "text-rose-700"}`}>
@@ -6899,8 +6937,8 @@ export const CAMCampusInsightPanel: React.FC<{
             open={true}
             onOpenChange={(next) => { if (!next) setSelectedFacultyForModal(null); }}
             ariaLabel="Faculty Timetable Schedule"
-            overlayClassName="bg-black/40 backdrop-blur-xs animate-in fade-in duration-200"
-            panelClassName="rounded-2xl max-w-2xl p-6 space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="rounded-2xl max-w-2xl p-6 space-y-5 animate-scaleUp max-h-[90vh] flex flex-col"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -6994,8 +7032,8 @@ export const CAMCampusInsightPanel: React.FC<{
             open={true}
             onOpenChange={(next) => { if (!next) setTicketUpdating(null); }}
             ariaLabel={`Update Ticket #${ticketUpdating.id}`}
-            overlayClassName="bg-black/40 backdrop-blur-xs animate-in fade-in duration-200"
-            panelClassName="rounded-2xl max-w-lg p-6 space-y-5 animate-in zoom-in-95 duration-200"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="rounded-2xl max-w-lg p-6 space-y-5 animate-scaleUp"
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -7075,7 +7113,7 @@ export const CAMCampusInsightPanel: React.FC<{
             {/* Status Selector */}
             <div className="space-y-1.5">
               <label className="text-xs font-black text-slate-700 uppercase tracking-wider">Set New Status</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 {[
                   { id: "open", label: "Open", color: "bg-amber-50 text-amber-800 border-amber-200" },
                   { id: "progress", label: "In Progress", color: "bg-blue-50 text-blue-800 border-blue-200" },
@@ -7133,60 +7171,61 @@ export const CAMCampusInsightPanel: React.FC<{
           </Dialog>
         )}
 
-        {/* ──────────────────────── MODAL 4: FULL-SCREEN IMAGE LIGHTBOX PREVIEW ──────────────────────── */}
+        {/* ─── MODAL 4: FULL-SCREEN IMAGE LIGHTBOX PREVIEW ─── */}
         {previewImageUrl && (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200"
-            onClick={() => {
-              setPreviewImageUrl(null);
-              setPreviewImageTitle("");
+          <Dialog
+            open={true}
+            onOpenChange={(next) => {
+              if (!next) {
+                setPreviewImageUrl(null);
+                setPreviewImageTitle("");
+              }
             }}
+            ariaLabel={previewImageTitle || "Ticket Uploaded Attachment Proof"}
+            overlayClassName="bg-black/85 backdrop-blur-md animate-fadeIn"
+            panelClassName="relative max-w-5xl max-h-[92vh] w-full bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-card-lg flex flex-col p-0 space-y-0"
           >
-            <div
-              className="relative max-w-5xl max-h-[92vh] w-full bg-slate-900 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in zoom-in-95 duration-200"
-              onClick={e => e.stopPropagation()}
-            >
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-3.5 bg-slate-800/80 border-b border-slate-700 text-white">
-                <div className="flex items-center gap-2 min-w-0">
-                  <ImageIcon className="w-4 h-4 text-indigo-400 shrink-0" />
-                  <h4 className="text-xs font-bold truncate text-slate-200">
-                    {previewImageTitle || "Ticket Uploaded Attachment Proof"}
-                  </h4>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <a
-                    href={previewImageUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Open Original</span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPreviewImageUrl(null);
-                      setPreviewImageTitle("");
-                    }}
-                    className="p-1.5 rounded-lg bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors cursor-pointer"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 bg-slate-800/80 border-b border-slate-700 text-white">
+              <div className="flex items-center gap-2 min-w-0">
+                <ImageIcon className="w-4 h-4 text-indigo-400 shrink-0" />
+                <h4 className="text-xs font-bold truncate text-slate-200">
+                  {previewImageTitle || "Ticket Uploaded Attachment Proof"}
+                </h4>
               </div>
-
-              {/* Image Viewer */}
-              <div className="p-4 flex items-center justify-center overflow-auto max-h-[calc(92vh-60px)] bg-slate-950/60">
-                <img
-                  src={previewImageUrl}
-                  alt="Enlarged attachment preview"
-                  className="max-w-full max-h-[calc(92vh-100px)] object-contain rounded-lg shadow-lg"
-                />
+              <div className="flex items-center gap-3 shrink-0">
+                <a
+                  href={previewImageUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2.5 py-1 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Open Original</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewImageUrl(null);
+                    setPreviewImageTitle("");
+                  }}
+                  aria-label="Close image preview"
+                  className="p-1.5 rounded-lg bg-slate-700 hover:bg-rose-600 text-slate-300 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
             </div>
-          </div>
+
+            {/* Image Viewer */}
+            <div className="p-4 flex items-center justify-center overflow-auto max-h-[calc(92vh-60px)] bg-slate-950/60">
+              <img
+                src={previewImageUrl}
+                alt="Enlarged attachment preview"
+                className="max-w-full max-h-[calc(92vh-100px)] object-contain rounded-lg shadow-lg"
+              />
+            </div>
+          </Dialog>
         )}
 
 
@@ -7196,8 +7235,8 @@ export const CAMCampusInsightPanel: React.FC<{
             open={true}
             onOpenChange={(next) => { if (!next) setSelectedMentorNpsRow(null); }}
             ariaLabel="Mentor NPS and Student Survey"
-            overlayClassName="bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-            panelClassName="rounded-2xl max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="rounded-2xl max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-scaleUp"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-indigo-50/50">
@@ -7351,8 +7390,8 @@ export const CAMCampusInsightPanel: React.FC<{
             open={true}
             onOpenChange={(next) => { if (!next) setSelectedClientVerbatim(null); }}
             ariaLabel="Partner Leadership Evaluation"
-            overlayClassName="bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-            panelClassName="rounded-2xl max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="rounded-2xl max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-scaleUp"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-teal-50/70">
@@ -7466,8 +7505,8 @@ export const CAMCampusInsightPanel: React.FC<{
             open={true}
             onOpenChange={(next) => { if (!next) setShowNpsHistoryModal(false); }}
             ariaLabel="Student Satisfaction Census and NPS History"
-            overlayClassName="bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-            panelClassName="rounded-2xl max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="rounded-2xl max-w-3xl max-h-[90vh] flex flex-col overflow-hidden animate-scaleUp"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50">
@@ -7648,8 +7687,8 @@ export const CAMCampusInsightPanel: React.FC<{
             open={true}
             onOpenChange={(next) => { if (!next) setSelectedDemoRecord(null); }}
             ariaLabel="Faculty Demo Evaluation"
-            overlayClassName="bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-            panelClassName="rounded-2xl max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="rounded-2xl max-w-2xl max-h-[90vh] flex flex-col overflow-hidden animate-scaleUp"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-purple-50/60">
@@ -7749,9 +7788,9 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
   const [markingMentorId, setMarkingMentorId] = useState<string | null>(null);
 
   // Date Range state for Mentor Attendance
-  const [dateMode, setDateMode] = useState<"single" | "range">("single");
+  const [dateMode, setDateMode] = useState<"single" | "range">("range");
   const [startDate, setStartDate] = useState<string>(() => {
-    return shiftDateStr(getLocalDateStr(), -30);
+    return shiftDateStr(getLocalDateStr(), -7);
   });
   const [endDate, setEndDate] = useState<string>(() => getLocalDateStr());
   const [distinctDates, setDistinctDates] = useState<string[]>([]);
@@ -7976,8 +8015,12 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
 
   const submitReasonModal = async () => {
     if (!activeReasonMentor) return;
-    await handlePunchStatus(activeReasonMentor.mentorId, pendingStatus, reasonText);
-    setShowReasonModal(false);
+    try {
+      await handlePunchStatus(activeReasonMentor.mentorId, pendingStatus, reasonText);
+    } finally {
+      setShowReasonModal(false);
+      setActiveReasonMentor(null);
+    }
   };
 
   // Faculty Leave & Permission Requests State
@@ -8063,143 +8106,51 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
           </div>
 
           <div className="flex flex-wrap items-center gap-3 shrink-0">
-            {/* SubView Selector */}
-            <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-              <button
-                type="button"
-                onClick={() => setSubView("roster")}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${subView === "roster"
-                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200 dark:border-slate-700"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-              >
-                Roster Punching
-              </button>
-              <button
-                type="button"
-                onClick={() => setSubView("leave_approvals")}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${subView === "leave_approvals"
-                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200 dark:border-slate-700"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-              >
-                Leave Approvals
-                {facultyLeaveReqs.filter(r => r.status === "pending").length > 0 && (
-                  <span className="px-1.5 py-0.5 rounded-full text-[9px] font-black bg-rose-500 text-white">
-                    {facultyLeaveReqs.filter(r => r.status === "pending").length}
-                  </span>
-                )}
-              </button>
-            </div>
-
-            {subView === "roster" && (
-              <button
-                type="button"
-                onClick={handleExportMentorAttendance}
-                className="px-4 py-2 rounded-xl text-xs font-extrabold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
-              >
-                <Download className="h-4 w-4" />
-                {dateMode === "range" ? "Export Range Report (Excel)" : "Export Day Excel"}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={handleExportMentorAttendance}
+              className="px-4 py-2 rounded-xl text-xs font-extrabold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <Download className="h-4 w-4" />
+              {dateMode === "range" ? "Export Range Report (Excel)" : "Export Day Excel"}
+            </button>
           </div>
         </div>
 
         {/* Second Row: Date & Range Controls Toolbar (when in roster mode) */}
         {subView === "roster" && (
           <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              {/* Date Mode Toggle */}
-              <div className="flex items-center p-1 bg-slate-100 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setDateMode("single")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${dateMode === "single"
-                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200 dark:border-slate-700"
-                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                >
-                  Single Date
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDateMode("range")}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${dateMode === "range"
-                    ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-xs border border-slate-200 dark:border-slate-700"
-                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                    }`}
-                >
-                  Date Range
-                </button>
-              </div>
-
-              {dateMode === "single" ? (
-                <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                  <span className="text-xs font-bold text-slate-500 pl-2">Select Date:</span>
-                  <input aria-label="Session date"
-                    type="date"
-                    value={dateStr}
-                    onChange={(e) => setDateStr(e.target.value)}
-                    className="bg-white dark:bg-slate-900 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500"
-                  />
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <span className="text-xs font-bold text-slate-500 pl-2">From:</span>
-                    <input aria-label="Start date"
-                      type="date"
-                      value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="bg-white dark:bg-slate-900 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500"
-                    />
-                    <span className="text-xs font-bold text-slate-500">To:</span>
-                    <input aria-label="End date"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="bg-white dark:bg-slate-900 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  {/* Range Presets */}
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const todayStr = getLocalDateStr();
-                        const dow = parseLocalDate(todayStr).getDay();
-                        setStartDate(shiftDateStr(todayStr, -((dow + 6) % 7)));
-                        setEndDate(todayStr);
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer transition-colors"
-                    >
-                      This Week
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const todayStr = getLocalDateStr();
-                        setStartDate(`${todayStr.slice(0, 7)}-01`);
-                        setEndDate(todayStr);
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 cursor-pointer transition-colors"
-                    >
-                      This Month
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStartDate("2026-06-15");
-                        setEndDate(getLocalDateStr());
-                      }}
-                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 cursor-pointer transition-colors"
-                    >
-                      Semester (June - Aug)
-                    </button>
-                  </div>
-                </div>
-              )}
+            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
+              <span className="text-xs font-bold text-slate-500 pl-2">From:</span>
+              <input aria-label="Start date"
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (e.target.value === endDate) {
+                    setDateMode("single");
+                    setDateStr(e.target.value);
+                  } else {
+                    setDateMode("range");
+                  }
+                }}
+                className="bg-white dark:bg-slate-900 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500"
+              />
+              <span className="text-xs font-bold text-slate-500">To:</span>
+              <input aria-label="End date"
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value);
+                  if (startDate === e.target.value) {
+                    setDateMode("single");
+                    setDateStr(e.target.value);
+                  } else {
+                    setDateMode("range");
+                  }
+                }}
+                className="bg-white dark:bg-slate-900 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-white focus:outline-none focus:border-indigo-500"
+              />
             </div>
 
             {dateMode === "single" && (
@@ -8216,100 +8167,8 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
         )}
       </div>
 
-      {subView === "leave_approvals" ? (
-        /* Leave & Permission Approvals Table */
-        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-slate-900">Faculty Leave &amp; Permission Approval Requests</h3>
-            <button
-              onClick={fetchFacultyLeaveRequests}
-              className="p-1.5 rounded-lg border border-slate-200 text-slate-500 hover:text-indigo-600 cursor-pointer"
-            >
-              <RefreshCw className="h-4 w-4" />
-            </button>
-          </div>
-
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
-            <Table className="w-full text-left text-xs">
-              <TableHeader>
-                <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider">
-                  <TableHead className="p-3">Faculty / Mentor</TableHead>
-                  <TableHead className="p-3">Department</TableHead>
-                  <TableHead className="p-3">Request Type</TableHead>
-                  <TableHead className="p-3">From Date</TableHead>
-                  <TableHead className="p-3">To Date</TableHead>
-                  <TableHead className="p-3">Mandatory Reason</TableHead>
-                  <TableHead className="p-3">Status</TableHead>
-                  <TableHead className="p-3 text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody className="divide-y divide-slate-100 bg-white font-medium text-slate-800">
-                {loadingLeaveReqs ? (
-                  <TableRow><TableCell colSpan={7} className="p-8 text-center text-slate-400">Loading leave requests...</TableCell></TableRow>
-                ) : facultyLeaveReqs.length === 0 ? (
-                  <TableRow><TableCell colSpan={7} className="p-8 text-center text-slate-400 italic">No faculty leave or permission requests found.</TableCell></TableRow>
-                ) : (
-                  facultyLeaveReqs.map((req) => (
-                    <TableRow key={req.id} className="hover:bg-slate-50/80 transition-colors">
-                      <TableCell className="p-3">
-                        <div className="font-extrabold text-slate-900">{req.mentorName}</div>
-                        <div className="text-[10px] font-mono text-slate-400">{req.mentorEmail}</div>
-                      </TableCell>
-                      <TableCell className="p-3">
-                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">
-                          {req.mentorDepartment || "General"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="p-3 font-extrabold">
-                        {(req.request_type === "Leave" || req.request_type === "Casual Leave") && <span className="text-amber-700 bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 text-[10px] font-black uppercase">{req.request_type === "Casual Leave" ? "Casual Leave" : "Leave"}</span>}
-                        {req.request_type === "Emergency Leave" && <span className="text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 text-[10px] font-black uppercase">Emergency</span>}
-                        {req.request_type === "Permission" && <span className="text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 text-[10px] font-black uppercase">Permission</span>}
-                        {req.request_type === "OD" && <span className="text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-200 text-[10px] font-black uppercase">OD (On Duty)</span>}
-                      </TableCell>
-                      <TableCell className="p-3 font-mono text-[11px] text-slate-700 font-bold">{req.start_date}</TableCell>
-                      <TableCell className="p-3 font-mono text-[11px] text-slate-700 font-bold">{req.end_date}</TableCell>
-                      <TableCell className="p-3 text-[11px] italic text-slate-700 max-w-[200px] truncate" title={req.reason}>
-                        {req.reason}
-                      </TableCell>
-                      <TableCell className="p-3">
-                        {req.status === "pending" && <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase">Pending CM</span>}
-                        {req.status === "approved" && <span className="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase">Approved</span>}
-                        {req.status === "rejected" && <span className="px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 text-[10px] font-black uppercase">Rejected</span>}
-                      </TableCell>
-                      <TableCell className="p-3 text-right">
-                        {req.status === "pending" ? (
-                          <div className="flex items-center gap-1.5 justify-end">
-                            <button
-                              type="button"
-                              disabled={actionReqId === req.id || readOnly}
-                              onClick={() => handleResolveFacultyLeave(req.id, "approve")}
-                              className={`px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs ${readOnly ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
-                            >
-                              Approve
-                            </button>
-                            <button
-                              type="button"
-                              disabled={actionReqId === req.id || readOnly}
-                              onClick={() => handleResolveFacultyLeave(req.id, "reject")}
-                              className="px-3 py-1.5 rounded-xl text-[10px] font-extrabold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 cursor-pointer"
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 font-bold italic">Resolved by {req.approved_by || "CM"}</span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      ) : (
-        <>
-          {/* Summary KPI Cards + Bar Chart */}
+      <>
+        {/* Summary KPI Cards + Bar Chart */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             {/* KPI Cards */}
             {dateMode === "range" ? (
@@ -8644,7 +8503,7 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
               open={true}
               onOpenChange={(next) => { if (!next) setShowReasonModal(false); }}
               ariaLabel={`Mark ${pendingStatus} Details`}
-              overlayClassName="bg-slate-900/60 backdrop-blur-xs"
+              overlayClassName="bg-slate-950/60 backdrop-blur-sm"
               panelClassName="max-w-md p-6 space-y-4 animate-scaleUp"
             >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -8704,8 +8563,7 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
             </Dialog>
           )}
         </>
-      )}
-    </div>
+      </div>
   );
 };
 
@@ -8937,6 +8795,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   })();
   const [localActiveTab, setLocalActiveTab] = useState<CAMTabId>("overview");
   const [approvalsCategoryFilter, setApprovalsCategoryFilter] = useState<"all" | "late_attendance" | "handovers" | "exam_marks" | "late_punches">("all");
+  const [approvalsStatusFilter, setApprovalsStatusFilter] = useState<"all" | "pending" | "approved" | "rejected">("pending");
+  const [approvalsPage, setApprovalsPage] = useState<number>(1);
+  const [approvalsPageSize, setApprovalsPageSize] = useState<number>(10);
+  const [approvalsSearch, setApprovalsSearch] = useState<string>("");
   const activeTab = resolvedPropTab || localActiveTab;
   const setActiveTab = onTabChange || setLocalActiveTab;
 
@@ -9088,9 +8950,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         attendancePct: attPct,
         openIssues: issues,
         healthScore: Math.min(100, Math.max(50, Math.round(attPct * 0.7 + (issues === 0 ? 30 : 15)))),
-        cam: c.cam_id ? {
-          id: c.cam_id,
-          name: c.cam_name || "Campus Manager",
+        cam: c.manager ? {
+          id: c.id,
+          name: c.manager || "Campus Manager",
           email: c.cam_email || "cam@faceprep.in",
           phone: "+91 98765 43210",
           status: "Active"
@@ -9247,17 +9109,23 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [studentShiftFilter, setStudentShiftFilter] = useState("all");
   const [selectedStudentForDetail, setSelectedStudentForDetail] = useState<any | null>(null);
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [studentListPage, setStudentListPage] = useState(1);
+  const [studentListPageSize, setStudentListPageSize] = useState(25);
+
+  useEffect(() => {
+    setStudentListPage(1);
+  }, [studentDirSearch, studentDirDeptFilter, studentSemFilter, studentShiftFilter, activeCollegeId]);
 
   // Attendance Directory & Date-Wise Monitoring States
   const [attendanceDate, setAttendanceDate] = useState(() => new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split("T")[0]);
-  const [attendanceStartDate, setAttendanceStartDate] = useState<string>("2026-06-15");
-  const [attendanceEndDate, setAttendanceEndDate] = useState(() => new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split("T")[0]);
+  const [attendanceStartDate, setAttendanceStartDate] = useState<string>(() => shiftDateStr(getLocalDateStr(), -7));
+  const [attendanceEndDate, setAttendanceEndDate] = useState(() => getLocalDateStr());
   const [attendanceMonthFilter, setAttendanceMonthFilter] = useState("all");
   const [showAttendanceTemplateModal, setShowAttendanceTemplateModal] = useState(false);
   const [templateModalCollegeId, setTemplateModalCollegeId] = useState<string>(activeCollegeId || "all");
   const [templateModalCohort, setTemplateModalCohort] = useState<string>("all");
-  const [templateModalStartDate, setTemplateModalStartDate] = useState<string>(attendanceStartDate || "2026-06-15");
-  const [templateModalEndDate, setTemplateModalEndDate] = useState<string>(() => new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split("T")[0]);
+  const [templateModalStartDate, setTemplateModalStartDate] = useState<string>(() => shiftDateStr(getLocalDateStr(), -7));
+  const [templateModalEndDate, setTemplateModalEndDate] = useState<string>(() => getLocalDateStr());
   const [showAttendanceImportModal, setShowAttendanceImportModal] = useState(false);
   const [attendanceImportPreview, setAttendanceImportPreview] = useState<{ parsed: any[]; warnings: string[]; targetDate: string } | null>(null);
   const [isAttendanceImportSubmitting, setIsAttendanceImportSubmitting] = useState(false);
@@ -9420,8 +9288,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [camAcadMentorFilter, setCamAcadMentorFilter] = useState<string>("all");
   const [camAcadSubjectFilter, setCamAcadSubjectFilter] = useState<string>("all");
   const [camAcadUnitFilter, setCamAcadUnitFilter] = useState<string>("all");
-  const [camAcadStartDate, setCamAcadStartDate] = useState<string>("");
-  const [camAcadEndDate, setCamAcadEndDate] = useState<string>("");
+  const [camAcadStartDate, setCamAcadStartDate] = useState<string>(() => shiftDateStr(getLocalDateStr(), -7));
+  const [camAcadEndDate, setCamAcadEndDate] = useState<string>(() => getLocalDateStr());
   const [camAcadSearch, setCamAcadSearch] = useState<string>("");
   const [camAcadPage, setCamAcadPage] = useState<number>(1);
   const [camAcadPageSize, setCamAcadPageSize] = useState<number>(20);
@@ -9429,11 +9297,12 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [camAcadWeeklyDept, setCamAcadWeeklyDept] = useState<string>("");
   const [camAcadWeeklySem, setCamAcadWeeklySem] = useState<string>("");
   const [camAcadWeeklySubj, setCamAcadWeeklySubj] = useState<string>("");
-  const [camAcadWeeklyFrom, setCamAcadWeeklyFrom] = useState<string>("");
-  const [camAcadWeeklyTo, setCamAcadWeeklyTo] = useState<string>("");
+  const [camAcadWeeklyFrom, setCamAcadWeeklyFrom] = useState<string>(() => shiftDateStr(getLocalDateStr(), -7));
+  const [camAcadWeeklyTo, setCamAcadWeeklyTo] = useState<string>(() => getLocalDateStr());
   // CM Demo Schedule (View-Only) states
   const [camDemoMentorFilter, setCamDemoMentorFilter] = useState<string>("all");
-  const [camDemoDateFilter, setCamDemoDateFilter] = useState<string>("");
+  const [camDemoFromDate, setCamDemoFromDate] = useState<string>(() => shiftDateStr(getLocalDateStr(), -7));
+  const [camDemoToDate, setCamDemoToDate] = useState<string>(() => getLocalDateStr());
   const [camDemoStatusFilter, setCamDemoStatusFilter] = useState<string>("all");
   const [camDemoSearch, setCamDemoSearch] = useState<string>("");
   const [selectedDemoDetails, setSelectedDemoDetails] = useState<any | null>(null);
@@ -10437,7 +10306,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [camTrackerSubject, setCamTrackerSubject] = useState("");
   const [camTrackerWeek, setCamTrackerWeek] = useState<number | "">("");
   const [camTrackerFromDate, setCamTrackerFromDate] = useState<string>(() => {
-    return shiftDateStr(getLocalDateStr(), -30);
+    return shiftDateStr(getLocalDateStr(), -7);
   });
   const [camTrackerToDate, setCamTrackerToDate] = useState<string>(() => getLocalDateStr());
 
@@ -10672,7 +10541,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         toast(res.message || `Successfully imported ${res.count} faculty members.`, "success");
         setShowFacultyImportModal(false);
         setFacultyImportPreview(null);
-        // bulkImportMentors already surgically updates mentors state — no refreshData needed
+        await refreshData(true);
       } else {
         toast(res.message || "Failed to import faculty.", "error");
       }
@@ -11019,15 +10888,23 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [dailySearchFilter, setDailySearchFilter] = useState<string>("");
 
   useEffect(() => {
+    // Folding the campus limit over the form is only fair while picking a new
+    // range: applied to a loaded record it rewrote every stored Day 6 row back
+    // to Day 1 the instant the pencil was clicked.
+    if (editingDailyId) return;
     const daysLimit = workingDays.length > 0 ? workingDays.length : 5;
-    const match = dailyDayOrder.match(/^Day (\d+)$/);
-    if (match) {
-      const orderNum = parseInt(match[1]);
-      if (orderNum > daysLimit) {
-        setDailyDayOrder("Day 1");
-      }
+    if (parseDayOrder(dailyDayOrder) > daysLimit) {
+      setDailyDayOrder("Day 1");
     }
-  }, [workingDays, dailyDayOrder]);
+  }, [workingDays, dailyDayOrder, editingDailyId]);
+
+  const dailyOrderCeiling = dayOrderCeiling(workingDays.length, dailyDayOrder);
+
+  // One nav model for the desktop sidebar, the phone bottom bar and the More grid.
+  const cmNavModel = useMemo(() => cmNavGroups(!!isKAMView), [isKAMView]);
+  const cmMobileNavTabs = useMemo(() => [...cmMobileTabs(!!isKAMView), { id: "more_menu", label: "More", icon: Menu }], [isKAMView]);
+  const cmMoreList = useMemo(() => cmMoreTabs(!!isKAMView), [isKAMView]);
+  const cmMoreIds = useMemo(() => cmMoreTabIds(!!isKAMView), [isKAMView]);
 
   // Year Editing
   const [editingYearIndex, setEditingYearIndex] = useState<number | null>(null);
@@ -11576,7 +11453,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
   const activeHandovers = useMemo(() => {
     return requests.filter(r =>
-      r.status === "pending" &&
+      isInCmQueue(r.status) &&
       mentors.find(m => m.id === r.requestorId)?.college_id === activeCollegeId
     );
   }, [requests, mentors, activeCollegeId]);
@@ -12584,7 +12461,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       setCurrName("");
       setCurrHours(4);
       setCurrShift("General");
-      toast("Subject created in database successfully.", "success");
+      toast("Subject created successfully.", "success");
     } else {
       toast("Error creating subject: " + res.message, "error");
     }
@@ -12592,14 +12469,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
   const [showSubjectModal, setShowSubjectModal] = useState(false);
   const [subjectModalTab, setSubjectModalTab] = useState<"bulk" | "single">("bulk");
-  const [bulkSubjectsText, setBulkSubjectsText] = useState("");
   const [bulkDefaultType, setBulkDefaultType] = useState("SKILL");
   const [bulkDefaultHours, setBulkDefaultHours] = useState(4);
-  const [showPasteAccordion, setShowPasteAccordion] = useState(true);
-  const [dynamicSubjects, setDynamicSubjects] = useState<Array<{ id: string; name: string; type: string; weekly_hours: number; isEditing?: boolean }>>([
-    { id: "row_1", name: "", type: "SKILL", weekly_hours: 4 },
-    { id: "row_2", name: "", type: "ACADEMIC", weekly_hours: 4 },
-    { id: "row_3", name: "", type: "LAB", weekly_hours: 2 }
+  const [bulkDefaultGroup, setBulkDefaultGroup] = useState("General");
+  const subjectFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [dynamicSubjects, setDynamicSubjects] = useState<Array<{ id: string; name: string; type: string; weekly_hours: number; mentor_group?: string; isEditing?: boolean }>>([
+    { id: "row_1", name: "", type: "SKILL", weekly_hours: 4, mentor_group: "General" },
+    { id: "row_2", name: "", type: "ACADEMIC", weekly_hours: 4, mentor_group: "General" },
+    { id: "row_3", name: "", type: "LAB", weekly_hours: 2, mentor_group: "General" }
   ]);
   const [editingSubject, setEditingSubject] = useState<any>(null);
   const [subjectModalError, setSubjectModalError] = useState<string | null>(null);
@@ -12628,43 +12505,157 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     return u;
   };
 
-  const parseBulkSubjectsList = (text: string, defaultType: string, defaultHours: number) => {
-    return parseSubjectInput(text, defaultType, defaultHours);
-  };
-
-  const handleAutoGetFromClipboard = async () => {
+  const handleDownloadSubjectTemplate = async () => {
     try {
-      if (typeof navigator === "undefined" || !navigator.clipboard?.readText) {
-        toast("Direct clipboard access not supported by your browser.", "error");
-        return;
+      const XLSX = await import("xlsx");
+      const realGroups = (subjectGroups || []).map(sg => sg.name).filter(Boolean);
+      const group1 = realGroups[0] || "General";
+      const group2 = realGroups[1] || group1;
+      const group3 = realGroups[2] || group1;
+
+      const sampleRows = [
+        {
+          "Subject Name": "Data Structures & Algorithms",
+          "Subject Group": group1,
+          "Domain / Type": "SKILL",
+          "Weekly Hours": 4
+        },
+        {
+          "Subject Name": "Computer Architecture",
+          "Subject Group": group2,
+          "Domain / Type": "ACADEMIC",
+          "Weekly Hours": 4
+        },
+        {
+          "Subject Name": "Database Systems Lab",
+          "Subject Group": group3,
+          "Domain / Type": "LAB",
+          "Weekly Hours": 2
+        },
+        {
+          "Subject Name": "Professional Ethics",
+          "Subject Group": group1,
+          "Domain / Type": "GENERAL",
+          "Weekly Hours": 2
+        }
+      ];
+      const ws = XLSX.utils.json_to_sheet(sampleRows);
+      ws["!cols"] = [{ wch: 32 }, { wch: 22 }, { wch: 16 }, { wch: 14 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Subjects");
+
+      // Valid Groups Reference Sheet directly from real created database groups
+      const groupsSheetData = (subjectGroups || []).map(sg => ({
+        "Created Subject Group": sg.name,
+        "Description": (sg as any).description || ""
+      }));
+      if (groupsSheetData.length > 0) {
+        const wsGroups = XLSX.utils.json_to_sheet(groupsSheetData);
+        wsGroups["!cols"] = [{ wch: 28 }, { wch: 35 }];
+        XLSX.utils.book_append_sheet(wb, wsGroups, "Valid_Subject_Groups");
       }
-      const text = await navigator.clipboard.readText();
-      if (!text || !text.trim()) {
-        toast("Clipboard is empty. Copy some subjects first!", "error");
-        return;
-      }
-      const parsed = parseBulkSubjectsList(text, bulkDefaultType, bulkDefaultHours);
-      if (parsed.length === 0) {
-        toast("No subjects detected in clipboard text.", "error");
-        return;
-      }
-      setDynamicSubjects(prev => {
-        const allEmpty = prev.every(r => !r.name || !r.name.trim());
-        const newRows = parsed.map((p, i) => ({
-          id: generateId(`row_${i}`),
-          name: p.name,
-          type: p.type,
-          weekly_hours: p.weekly_hours,
-          isEditing: false
-        }));
-        if (allEmpty) return newRows;
-        return [...prev.filter(r => r.name && r.name.trim()), ...newRows];
-      });
-      toast(`Auto-retrieved ${parsed.length} subject(s) from clipboard!`, "success");
-    } catch {
-      toast("Clipboard permission was denied by browser.", "error");
+
+      XLSX.writeFile(wb, "Subjects_Import_Template.xlsx");
+      toast("Template downloaded with your real-time subject groups.", "success");
+    } catch (e: any) {
+      toast("Failed to download template: " + (e?.message || ""), "error");
     }
   };
+
+  const handleImportSubjectFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const XLSX = await import("xlsx");
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, { type: "array" });
+      const sheetName = wb.SheetNames[0];
+      if (!sheetName) {
+        toast("No sheets found in file.", "error");
+        return;
+      }
+      const ws = wb.Sheets[sheetName];
+      const rawRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+      if (!rawRows || rawRows.length === 0) {
+        toast("File is empty.", "error");
+        return;
+      }
+
+      let headerRowIndex = -1;
+      let colNameIdx = 0;
+      let colGroupIdx = 1;
+      let colTypeIdx = 2;
+      let colHoursIdx = 3;
+
+      for (let i = 0; i < Math.min(rawRows.length, 5); i++) {
+        const row = rawRows[i].map(c => String(c).trim().toLowerCase());
+        const nIdx = row.findIndex(c => c.includes("name") || c.includes("subject"));
+        if (nIdx !== -1) {
+          headerRowIndex = i;
+          colNameIdx = nIdx;
+          const gIdx = row.findIndex(c => c.includes("group"));
+          if (gIdx !== -1) colGroupIdx = gIdx;
+          const tIdx = row.findIndex(c => c.includes("domain") || c.includes("type"));
+          if (tIdx !== -1) colTypeIdx = tIdx;
+          const hIdx = row.findIndex(c => c.includes("hour"));
+          if (hIdx !== -1) colHoursIdx = hIdx;
+          break;
+        }
+      }
+
+      const dataRows = headerRowIndex !== -1 ? rawRows.slice(headerRowIndex + 1) : rawRows;
+      const newItems: any[] = [];
+
+      for (const r of dataRows) {
+        const name = String(r[colNameIdx] || "").trim();
+        if (!name) continue;
+
+        const rawGroup = colGroupIdx !== -1 && r[colGroupIdx] ? String(r[colGroupIdx]).trim() : "";
+        const rawType = colTypeIdx !== -1 && r[colTypeIdx] ? String(r[colTypeIdx]).trim() : "";
+        const rawHours = colHoursIdx !== -1 && r[colHoursIdx] ? parseInt(String(r[colHoursIdx]).replace(/\D/g, "")) : 4;
+
+        let normType = "SKILL";
+        const u = rawType.toUpperCase();
+        if (u.includes("THEORY") || u.includes("ACADEMIC")) normType = "ACADEMIC";
+        else if (u.includes("LAB") || u.includes("PRACTICAL")) normType = "LAB";
+        else if (u.includes("GENERAL") || u.includes("ELECTIVE")) normType = "GENERAL";
+        else if (u.includes("SKILL")) normType = "SKILL";
+
+        newItems.push({
+          id: generateId(`row_${Date.now()}_${newItems.length}`),
+          name,
+          type: normType,
+          weekly_hours: isNaN(rawHours) || rawHours <= 0 ? 4 : rawHours,
+          mentor_group: rawGroup || bulkDefaultGroup || subjectForm.subject_group || "General",
+          isEditing: false
+        });
+      }
+
+      if (newItems.length === 0) {
+        toast("No valid subject rows found in file.", "error");
+        return;
+      }
+
+      setDynamicSubjects(newItems);
+      toast(`Imported ${newItems.length} subject(s) from ${file.name}!`, "success");
+    } catch (err: any) {
+      toast(`Failed to read file: ${err?.message || "Invalid format"}`, "error");
+    } finally {
+      e.target.value = "";
+    }
+  };
+
+  const availableCourseSubjectNames = useMemo(() => {
+    const dept = subjectForm.department;
+    const filtered = dept
+      ? (subjectsList || []).filter(s => (s.department || "").toLowerCase().trim() === dept.toLowerCase().trim())
+      : (subjectsList || []);
+    const names = new Set<string>();
+    filtered.forEach(s => {
+      if (s.name && s.name.trim()) names.add(s.name.trim());
+    });
+    return Array.from(names).sort();
+  }, [subjectsList, subjectForm.department]);
 
   const handleAddDynamicSubjectRow = () => {
     setDynamicSubjects(prev => [
@@ -12674,90 +12665,25 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         name: "",
         type: bulkDefaultType || "SKILL",
         weekly_hours: bulkDefaultHours || 4,
+        mentor_group: bulkDefaultGroup || subjectForm.subject_group || "General",
         isEditing: true
       }
     ]);
   };
 
-  const handleUpdateDynamicSubject = (id: string, field: "name" | "type" | "weekly_hours" | "isEditing", val: any) => {
+  const handleUpdateDynamicSubject = (id: string, field: "name" | "type" | "weekly_hours" | "mentor_group" | "isEditing", val: any) => {
     setDynamicSubjects(prev => prev.map(item => item.id === id ? { ...item, [field]: val } : item));
   };
 
   const handleDeleteDynamicSubject = (id: string) => {
     setDynamicSubjects(prev => {
       const next = prev.filter(item => item.id !== id);
-      return next.length > 0 ? next : [{ id: "row_" + Date.now(), name: "", type: bulkDefaultType || "SKILL", weekly_hours: bulkDefaultHours || 4 }];
+      return next.length > 0 ? next : [{ id: "row_" + Date.now(), name: "", type: bulkDefaultType || "SKILL", weekly_hours: bulkDefaultHours || 4, mentor_group: bulkDefaultGroup || subjectForm.subject_group || "General" }];
     });
-  };
-
-  const handlePasteIntoRow = (e: React.ClipboardEvent<HTMLInputElement>, targetRowId: string) => {
-    const pastedText = e.clipboardData.getData("text");
-    if (!pastedText) return;
-
-    if (
-      pastedText.includes("\n") ||
-      pastedText.includes("\r") ||
-      pastedText.includes("\t") ||
-      pastedText.includes("|") ||
-      pastedText.includes(",") ||
-      pastedText.includes(";")
-    ) {
-      const parsed = parseBulkSubjectsList(pastedText, bulkDefaultType, bulkDefaultHours);
-      if (parsed.length > 1 || (parsed.length === 1 && (pastedText.includes("|") || pastedText.includes("\t")))) {
-        e.preventDefault();
-
-        setDynamicSubjects(prev => {
-          const targetIndex = prev.findIndex(r => r.id === targetRowId);
-          if (targetIndex === -1) return prev;
-
-          const allCurrentEmpty = prev.every(r => !r.name || !r.name.trim());
-
-          if (allCurrentEmpty) {
-            return parsed.map((p, i) => ({
-              id: generateId(`row_${i}`),
-              name: p.name,
-              type: p.type,
-              weekly_hours: p.weekly_hours,
-              isEditing: false
-            }));
-          }
-
-          const before = prev.slice(0, targetIndex);
-          const newRows = parsed.map((p, i) => ({
-            id: generateId(`row_${i}`),
-            name: p.name,
-            type: p.type,
-            weekly_hours: p.weekly_hours,
-            isEditing: false
-          }));
-          const after = prev.slice(targetIndex + 1).filter(r => r.name && r.name.trim());
-
-          return [...before, ...newRows, ...after];
-        });
-
-        toast(`Pasted & auto-populated ${parsed.length} subject(s)!`, "success");
-      }
-    }
-  };
-
-  const handlePopulateFromPaste = (textToParse?: string) => {
-    const text = textToParse !== undefined ? textToParse : bulkSubjectsText;
-    const parsed = parseBulkSubjectsList(text, bulkDefaultType, bulkDefaultHours);
-    if (parsed.length > 0) {
-      setDynamicSubjects(parsed.map((p, i) => ({
-        id: generateId(`row_${i}`),
-        name: p.name,
-        type: p.type,
-        weekly_hours: p.weekly_hours,
-        isEditing: false
-      })));
-    }
   };
 
   const handleOpenSubjectModal = (sub?: any, defaultDept?: string, defaultYear?: string) => {
     setSubjectModalError(null);
-    setBulkSubjectsText("");
-    setShowPasteAccordion(false);
     if (sub) {
       setEditingSubject(sub);
       setSubjectModalTab("single");
@@ -12797,9 +12723,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         mentorIds: []
       });
       setDynamicSubjects([
-        { id: "row_" + Date.now() + "_1", name: "", type: "SKILL", weekly_hours: 4 },
-        { id: "row_" + Date.now() + "_2", name: "", type: "ACADEMIC", weekly_hours: 4 },
-        { id: "row_" + Date.now() + "_3", name: "", type: "LAB", weekly_hours: 2 }
+        { id: "row_" + Date.now() + "_1", name: "", type: "SKILL", weekly_hours: 4, mentor_group: "General" },
+        { id: "row_" + Date.now() + "_2", name: "", type: "ACADEMIC", weekly_hours: 4, mentor_group: "General" },
+        { id: "row_" + Date.now() + "_3", name: "", type: "LAB", weekly_hours: 2, mentor_group: "General" }
       ]);
       setLockDeptAndYear(!!defaultDept);
     }
@@ -12859,15 +12785,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           year: subjectForm.year,
           weekly_hours: Number(p.weekly_hours) || 4,
           shift: derivedShift,
-          subject_group: subjectForm.subject_group,
-          mentor_group: subjectForm.subject_group,
+          subject_group: p.mentor_group || subjectForm.subject_group || "General",
+          mentor_group: p.mentor_group || subjectForm.subject_group || "General",
           college_id: subjectForm.college_id || activeCollegeId
         }));
 
         const res = await createSubject(payload as any);
         if (res.success) {
           setShowSubjectModal(false);
-          setBulkSubjectsText("");
           toast(`Successfully created ${validSubjects.length} subject(s) for ${subjectForm.department} (${subjectForm.semester})!`, "success");
         } else {
           setSubjectModalError("Error creating subjects: " + res.message);
@@ -12934,19 +12859,19 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
     if (res.success) {
       setEditingSubjectId(null);
-      toast("Subject updated in database successfully.", "success");
+      toast("Subject updated successfully.", "success");
     } else {
       toast("Error updating subject: " + res.message, "error");
     }
   };
 
   const handleDeleteSubject = async (id: string) => {
-    if (await showConfirm({ message: "Delete this subject from database?", danger: true, confirmLabel: "Delete" })) {
+    if (await showConfirm({ message: "Delete this subject?", danger: true, confirmLabel: "Delete" })) {
       setActionLoading(`delete_subject_${id}`, true);
       try {
         const res = await deleteSubject(id);
         if (res.success) {
-          toast("Subject deleted from database successfully.", "success");
+          toast("Subject deleted successfully.", "success");
         } else {
           toast("Error deleting subject: " + res.message, "error");
         }
@@ -13225,7 +13150,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   };
 
   const handleDeleteSlot = async (slotId: string) => {
-    if (await showConfirm({ message: "Are you sure you want to delete this schedule slot from database?", danger: true, confirmLabel: "Delete Slot" })) {
+    if (await showConfirm({ message: "Are you sure you want to delete this schedule slot?", danger: true, confirmLabel: "Delete Slot" })) {
       await deleteSlot(slotId);
       // deleteSlot already surgically updates slots state — no refreshData needed
       toast("Timetable slot deleted successfully.", "success");
@@ -13340,11 +13265,23 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     }
   };
 
+  const resetDailyConfigForm = () => {
+    const today = getLocalDateStr();
+    setEditingDailyId(null);
+    setDailyStartDateStr(today);
+    setDailyEndDateStr(today);
+    setDailyDayType("working");
+    setDailyDayOrder("Day 1");
+    setDailySessionMode("Offline");
+    setDailyNotes("");
+    setDailyDeptScope("All Departments");
+  };
+
   const handleStartEditDailyConfig = (cfg: any) => {
     setEditingDailyId(cfg.id || cfg.dateStr);
     setDailyStartDateStr(cfg.dateStr);
     setDailyEndDateStr(cfg.dateStr);
-    setDailyDayType(cfg.day_type || "working");
+    setDailyDayType(normalizeDayType(cfg.day_type));
     setDailyDayOrder(cfg.day_order || "Day 1");
     setDailySessionMode(cfg.session_mode || "Offline");
     const deptMatch = (cfg.notes || "").match(/\[Dept:\s*([^\]]+)\]/i);
@@ -13356,13 +13293,17 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       setDailyNotes(cfg.notes || "");
     }
     setIsDailyConfigModalOpen(true);
+    // The record table sits below the form, so without this the fields the
+    // pencil just filled are off-screen and the click reads as doing nothing.
+    const panel = document.getElementById("daily-config-form")?.closest("[role=dialog]");
+    panel?.scrollTo({ top: 0, behavior: "smooth" });
     toast(`Editing Day Order schedule for ${cfg.dateStr}`, "info");
   };
 
   const handleCancelDailyEdit = () => {
-    setEditingDailyId(null);
-    setDailyNotes("");
-    setDailyDeptScope("All Departments");
+    // Leaving the record's values behind while the button reverts to
+    // "Save Schedule" turned the next create into an overwrite of that date.
+    resetDailyConfigForm();
   };
 
   const handleAutoAdaptNextWeek = async () => {
@@ -14504,7 +14445,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               if (m.id && cid) mentorCollegeMap.set(m.id, cid);
             });
             return requests.filter(r => {
-              const isPending = r.status === "pending" || r.status === "pending_cam" || r.status === "needs_cam_allocation";
+              const isPending = isInCmQueue(r.status);
               if (!isPending) return false;
               if (isAllColleges) return true;
               const mCollege = mentorCollegeMap.get(r.requestorId);
@@ -14517,7 +14458,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             }).length;
           }
           if (tabId === "interviews") {
-            return interviews.filter((i: any) => (i.status === "Pending" || i.status === "pending_cam") && (activeCollegeId === "all" || i.college_id === activeCollegeId || !i.college_id)).length;
+            return interviews.filter((i: any) => (i.status === "Pending" || i.status === "pending_cam" || isAwaitingCmCapacity(i.status)) && (activeCollegeId === "all" || i.college_id === activeCollegeId || !i.college_id)).length;
           }
           return 0;
         };
@@ -14526,100 +14467,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           <aside ref={sidebarRef} className={`hidden md:flex shrink-0 flex-col justify-between sticky top-6 z-30 floating-sidebar transition-all duration-300 ${isCollapsed ? "w-20 p-2.5" : "w-[270px] p-3.5"}`}>
             <div className="flex flex-col flex-1 overflow-hidden">
               {/* Sidebar Link items */}
-              <nav className={`py-1 space-y-1.5 overflow-y-auto max-h-[calc(100vh-11rem)] custom-scrollbar ${isCollapsed ? "px-0.5" : "px-1.5"}`}>
-                {[
-                  {
-                    id: "dashboard",
-                    title: "Dashboard",
-                    icon: Building2,
-                    items: [
-                      { id: "overview", label: "Dashboard", icon: Building2 }
-                    ]
-                  },
-                  {
-                    id: "academics",
-                    title: "Academics",
-                    icon: BookOpen,
-                    items: [
-                      { id: "academic_tracker", label: "Academic Tracker", icon: BookOpen },
-                      { id: "exams_and_marks", label: "Exams & Marks", icon: Award },
-                      { id: "config", label: "Academic Configuration", icon: Settings },
-                      { id: "curriculum", label: "Batch Creation", icon: Layers }
-                    ]
-                  },
-                  {
-                    id: "faculty",
-                    title: "Faculty",
-                    icon: Users,
-                    items: [
-                      { id: "faculty", label: "Mentor Subject Allocation", icon: Users },
-                      { id: "handovers", label: "Requests & Approvals", icon: CalendarCheck2 },
-                      { id: "faculty_weekly_plan", label: "Weekly Plan", icon: CalendarRange },
-                      { id: "mentor_skill_tracker", label: "Mentor Skill Dev Tracker", icon: GraduationCap },
-                      { id: "demo_schedule", label: "Demo Schedule", icon: Award }
-                    ]
-                  },
-                  {
-                    id: "schedules",
-                    title: "Schedules",
-                    icon: Calendar,
-                    items: [
-                      { id: "timetable", label: "Timetable", icon: Calendar },
-                      { id: "monitoring", label: "Attendance Monitoring", icon: Clock },
-                      { id: "interviews", label: "Interview Allocation", icon: Award }
-                    ]
-                  },
-                  {
-                    id: "students",
-                    title: "Students",
-                    icon: GraduationCap,
-                    items: [
-                      { id: "students_list", label: "Students Data", icon: Users },
-                      { id: "tracker", label: "Skill Development Tracker", icon: GraduationCap },
-                      { id: "profile_edits", label: "Student Profile Edit Requests", icon: UserCheck }
-                    ]
-                  },
-                  {
-                    id: "fees",
-                    title: "Fee Collection",
-                    icon: IndianRupee,
-                    items: [
-                      { id: "fees", label: "Fee Collection", icon: IndianRupee }
-                    ]
-                  },
-                  {
-                    id: "reports",
-                    title: isKAMView ? "Portfolio Analytics" : "Campus Insight",
-                    icon: FileText,
-                    items: [
-                      { id: "reports", label: isKAMView ? "Portfolio Analytics" : "Campus Insight", icon: FileText }
-                    ]
-                  },
-                  {
-                    id: "audit",
-                    title: "Campus E-Audit",
-                    icon: ShieldCheck,
-                    items: [
-                      { id: "audit", label: "Campus E-Audit", icon: ShieldCheck }
-                    ]
-                  },
-                  {
-                    id: "events",
-                    title: "Event Creation",
-                    icon: Calendar,
-                    items: [
-                      { id: "events", label: "Event Creation", icon: Calendar }
-                    ]
-                  },
-                  {
-                    id: "profile",
-                    title: "My Profile",
-                    icon: User,
-                    items: [
-                      { id: "profile", label: "My Profile", icon: User }
-                    ]
-                  }
-                ].map((group) => {
+              <nav className={`py-1 space-y-1.5 overflow-y-auto max-h-[calc(100dvh-11rem)] custom-scrollbar ${isCollapsed ? "px-0.5" : "px-1.5"}`}>
+                {cmNavModel.map((group) => {
                   const Icon = group.icon;
                   const isSingleItem = group.items.length === 1;
                   const isAnyChildActive = group.items.some(item => activeTab === item.id);
@@ -14653,26 +14502,38 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         }}
                         className={`sidebar-group-btn w-full flex items-center rounded-xl transition-all duration-200 cursor-pointer ${isCollapsed ? "justify-center px-0 py-3" : "justify-between px-3 py-2.5 text-left"
                           } ${isAnyChildActive
-                            ? "bg-indigo-50/90 text-indigo-700 ring-1 ring-inset ring-indigo-100 font-extrabold"
+                            ? isSingleItem
+                              ? "bg-zinc-900 text-white ring-1 ring-inset ring-zinc-800 font-extrabold shadow-sm dark:bg-zinc-900 dark:text-white"
+                              : "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-950 dark:text-white ring-1 ring-inset ring-zinc-200/90 dark:ring-zinc-700 font-extrabold"
                             : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10 font-bold ring-1 ring-inset ring-transparent"
                           }`}
                       >
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <Icon className={`h-4.5 w-4.5 shrink-0 transition-colors ${isAnyChildActive ? "text-indigo-600" : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
-                            }`} />
+                          <Icon className={`h-4.5 w-4.5 shrink-0 transition-colors ${
+                            isAnyChildActive
+                              ? isSingleItem
+                                ? "text-amber-400"
+                                : "text-amber-500 dark:text-amber-400"
+                              : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
+                          }`} />
                           {!isCollapsed && <span className="text-xs font-extrabold tracking-tight leading-tight">{group.title}</span>}
                         </div>
                         {!isCollapsed && (
                           <div className="flex items-center gap-2 shrink-0 ml-1">
                             {totalPendingInGroup > 0 && (
-                              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-full shadow-xs ${isAnyChildActive ? "bg-indigo-600 text-white" : "bg-rose-500 text-white"
-                                }`}>
+                              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-full shadow-xs ${
+                                isAnyChildActive
+                                  ? isSingleItem
+                                    ? "bg-amber-500 text-zinc-950 font-black"
+                                    : "bg-zinc-900 text-white dark:bg-zinc-700 dark:text-white"
+                                  : "bg-rose-500 text-white"
+                              }`}>
                                 {totalPendingInGroup}
                               </span>
                             )}
                             {!isSingleItem && (
                               <ChevronRight className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""
-                                } ${isAnyChildActive ? "text-indigo-600" : "text-slate-300 dark:text-slate-600"}`} />
+                                } ${isAnyChildActive ? "text-amber-500 dark:text-amber-400" : "text-slate-300 dark:text-slate-600"}`} />
                             )}
                           </div>
                         )}
@@ -14691,14 +14552,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                 type="button"
                                 onClick={() => setActiveTab(child.id as any)}
                                 className={`w-full flex items-center justify-start gap-2.5 px-3 py-2 text-left rounded-xl text-[11px] font-bold tracking-tight transition-all duration-150 cursor-pointer ${isChildActive
-                                  ? "bg-indigo-50 text-indigo-700 ring-1 ring-inset ring-indigo-100 font-black"
-                                  : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/40 dark:text-slate-400 dark:hover:bg-white/5 ring-1 ring-inset ring-transparent"
+                                  ? "bg-zinc-900 text-white dark:bg-zinc-900 dark:text-white ring-1 ring-inset ring-zinc-800 font-black shadow-xs"
+                                  : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5 ring-1 ring-inset ring-transparent"
                                   }`}
                               >
-                                <ChildIcon className={`h-3.5 w-3.5 shrink-0 ${isChildActive ? "text-indigo-600" : "text-slate-400"}`} />
+                                <ChildIcon className={`h-3.5 w-3.5 shrink-0 ${isChildActive ? "text-amber-400" : "text-slate-400"}`} />
                                 <span className="flex-1 text-xs font-semibold leading-snug">{child.label}</span>
                                 {count > 0 && (
-                                  <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isChildActive ? "bg-indigo-600 text-white" : "bg-rose-500 text-white"
+                                  <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isChildActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-rose-500 text-white"
                                     }`}>
                                     {count}
                                   </span>
@@ -14713,9 +14574,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       {(isCollapsed && !isSingleItem) && (
                         <div className={`absolute left-full top-0 pl-2 w-56 z-50 submenu-${group.id} ${hoveredGroupId === group.id ? "block" : "hidden"}`}>
                           <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-100 dark:border-slate-800 shadow-card-lg rounded-2xl p-2.5 animate-fadeIn">
-                            <div className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 mb-1.5 text-indigo-600 dark:text-indigo-400 flex items-center justify-between">
+                            <div className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 mb-1.5 text-zinc-900 dark:text-white flex items-center justify-between">
                               <span>{group.title}</span>
-                              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
                             </div>
                             <div className="space-y-0.5">
                               {group.items.map(child => {
@@ -14732,13 +14593,13 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                     }}
                                     className={`submenu-button w-full flex items-center justify-start gap-3 px-2.5 py-2 text-left rounded-xl text-[11px] font-bold tracking-tight transition-all duration-150 cursor-pointer ${isChildActive
                                       ? "sidebar-active-item shadow-sm translate-x-0.5"
-                                      : "text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/60 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
+                                      : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
                                       }`}
                                   >
-                                    <ChildIcon className={`h-3.5 w-3.5 shrink-0 ${isChildActive ? "text-white" : "text-slate-400"}`} />
+                                    <ChildIcon className={`h-3.5 w-3.5 shrink-0 ${isChildActive ? "text-amber-400" : "text-slate-400"}`} />
                                     <span className="flex-1 text-xs font-semibold leading-snug">{child.label}</span>
                                     {count > 0 && (
-                                      <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isChildActive ? "bg-white text-indigo-600" : "bg-rose-500 text-white"}`}>
+                                      <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isChildActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-rose-500 text-white"}`}>
                                         {count}
                                       </span>
                                     )}
@@ -14758,15 +14619,22 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             {/* Collapse button at bottom & Need Help */}
             <div className="border-t border-slate-100 dark:border-slate-800 pt-2 shrink-0 flex flex-col items-center">
               {!isCollapsed && (
-                <div className="w-full relative overflow-hidden rounded-2xl bg-indigo-50/70 p-3.5 border border-indigo-100/90 mb-2 shrink-0 text-left">
-                  <div className="text-[11px] font-bold text-slate-800">Need Help?</div>
-                  <a
-                    href="mailto:support@faceprep.in"
-                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 mt-0.5"
+                <div
+                  onClick={() => typeof window !== "undefined" && window.dispatchEvent(new CustomEvent("open-feedback-modal"))}
+                  className="w-full relative overflow-hidden rounded-2xl bg-zinc-50 dark:bg-zinc-900/60 p-3.5 border border-zinc-200/80 dark:border-zinc-800 mb-2 shrink-0 text-left cursor-pointer hover:bg-zinc-100/90 dark:hover:bg-zinc-800/80 transition-colors group"
+                >
+                  <div className="text-[11px] font-bold text-zinc-900 dark:text-white">Need Help?</div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("open-feedback-modal"));
+                    }}
+                    className="text-[11px] font-bold text-amber-600 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1 mt-0.5 transition-colors cursor-pointer"
                   >
                     <span>Contact Support</span>
                     <span>&rarr;</span>
-                  </a>
+                  </button>
                 </div>
               )}
               <div className="flex justify-center">
@@ -14789,37 +14657,34 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       })()}
 
       {/* Mobile Bottom Navigation — visible only on small screens */}
-      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav">
-        <div className="flex w-full justify-around items-center py-2 px-0.5">
-          {[
-            { id: "overview", label: "Dashboard", icon: Building2 },
-            { id: "timetable", label: "Timetable", icon: Calendar },
-            { id: "faculty", label: "Faculty", icon: Users },
-            { id: "handovers", label: "Approvals", icon: CalendarCheck2 },
-            { id: "more_menu", label: "More", icon: Menu },
-          ].map(t => {
+      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav" aria-label="Campus sections">
+        <div className="flex w-full items-stretch justify-around px-1">
+          {cmMobileNavTabs.map((t) => {
             const Icon = t.icon;
-            const isActive = activeTab === t.id || (t.id === "more_menu" && ["config", "curriculum", "monitoring", "tracker", "fees", "reports", "profile", "audit"].includes(activeTab));
-            const count = t.id === "handovers" ? requests.filter(r => r.status === "pending_cam" || r.status === "pending" || r.status === "needs_cam_allocation").length : 0;
+            const isActive = t.id === "more_menu" ? cmMoreIds.includes(activeTab) : activeTab === t.id;
+            const count = t.id === "handovers" ? requests.filter((r) => isInCmQueue(r.status)).length : 0;
             return (
               <button
                 key={t.id}
+                type="button"
                 onClick={() => setActiveTab(t.id as any)}
-                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-xl transition-all cursor-pointer ${isActive ? "text-indigo-600" : "text-slate-400"
-                  }`}
+                aria-current={isActive ? "page" : undefined}
+                className={`relative flex min-h-[3.5rem] flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors cursor-pointer ${
+                  isActive ? "text-zinc-950 dark:text-white" : "text-slate-500 dark:text-slate-400"
+                }`}
               >
                 <div className="relative">
-                  <Icon className={`h-4.5 w-4.5 transition-transform ${isActive ? "scale-110" : ""}`} />
+                  <Icon className={`h-5 w-5 transition-transform ${isActive ? "scale-110 text-amber-500 dark:text-amber-400" : ""}`} />
                   {count > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 h-3 w-3 bg-rose-500 text-white text-[7px] font-bold rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1.5 -right-2 min-w-[1rem] h-4 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">
                       {count}
                     </span>
                   )}
                 </div>
-                <span className={`text-[8px] font-semibold tracking-wide leading-none ${isActive ? "text-indigo-600" : "text-slate-400"}`}>
+                <span className={`text-[10px] font-bold leading-none tracking-tight ${isActive ? "text-zinc-950 dark:text-white" : "text-slate-500 dark:text-slate-400"}`}>
                   {t.label}
                 </span>
-                {isActive && <span className="absolute top-0 inset-x-1 h-0.5 bg-indigo-500 rounded-full" />}
+                {isActive && <span className="absolute top-1 inset-x-3 h-1 rounded-full bg-amber-500" />}
               </button>
             );
           })}
@@ -14827,7 +14692,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       </nav>
 
       {/* Main Workspace Area (Right-aligned content) */}
-      <main className="flex-1 min-w-0 flex flex-col overflow-x-hidden overflow-y-auto h-full pb-20 md:pb-12 scroll-touch">
+      <main className="flex-1 min-w-0 flex flex-col overflow-x-hidden overflow-y-auto h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-12 scroll-touch">
 
         {/* Scrollable Work Canvas */}
         <div ref={containerRef} className="p-6 space-y-6 flex-1 min-w-0 max-w-full">
@@ -14836,7 +14701,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           {isKAMView && (
             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-card">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-[#D528A2] to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-xs">
+                <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-[#4F46E5] to-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-xs">
                   <Building2 className="h-5 w-5" />
                 </div>
                 <div>
@@ -14865,7 +14730,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     setInternalSelectedCollegeId(val);
                     if (onCollegeChange) onCollegeChange(val);
                   }}
-                  className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer min-w-[220px]"
+                  className="bg-sunken dark:bg-slate-800 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer min-w-[220px]"
                 >
                   <option value="all">🌐 All Supervised Campuses ({scopedColleges.length})</option>
                   {scopedColleges.map((c) => (
@@ -14878,150 +14743,35 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             </div>
           )}
 
-          {/* Tab More Menu: Grid of remaining tabs */}
+          {/* Tab More Menu: every sidebar tab the bottom bar cannot fit */}
           {activeTab === "more_menu" && (
-            <div className="space-y-6 animate-fadeIn pb-10">
-              <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">More Tools & Portals</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("audit")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center text-blue-600 shrink-0 group-hover:scale-105 transition-transform">
-                    <ShieldCheck className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Campus E-Audit</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Domain audits, peer reviews, ticketing &amp; NPS</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("config")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 shrink-0 group-hover:scale-105 transition-transform">
-                    <Settings className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Academic Configuration</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Departments & subjects configuration</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("events")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-pink-500 hover:ring-2 hover:ring-pink-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-pink-50 dark:bg-pink-900/20 flex items-center justify-center text-[#D528A2] shrink-0 group-hover:scale-105 transition-transform">
-                    <Calendar className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Event Creation</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Campus events, exams &amp; milestone creation</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("curriculum")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-teal-50 dark:bg-teal-900/20 flex items-center justify-center text-teal-500 shrink-0 group-hover:scale-105 transition-transform">
-                    <BookOpen className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Batch Creation</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Syllabus breakdown & metrics</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("monitoring")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-900/20 flex items-center justify-center text-amber-500 shrink-0 group-hover:scale-105 transition-transform">
-                    <Clock className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Attendance Monitoring</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Class attendance tracking</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("academic_tracker")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 shrink-0 group-hover:scale-105 transition-transform">
-                    <BookOpen className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Student Academic Tracker</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Curriculum logs &amp; weekly marks ledger</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("tracker")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center text-purple-600 shrink-0 group-hover:scale-105 transition-transform">
-                    <GraduationCap className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Skill Development Tracker</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Weekly submissions ledger</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("fees")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-105 transition-transform">
-                    <IndianRupee className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Fee Collection</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Track student fee dues</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("reports")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-cyan-50 dark:bg-cyan-900/20 flex items-center justify-center text-cyan-600 shrink-0 group-hover:scale-105 transition-transform">
-                    <FileText className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">Campus Insight</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Generate export metrics</span>
-                  </div>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("profile")}
-                  className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-                >
-                  <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0 group-hover:scale-105 transition-transform">
-                    <User className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <span className="block text-xs font-bold text-slate-800 dark:text-slate-200">My Profile</span>
-                    <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">Faculty lead details</span>
-                  </div>
-                </button>
+            <div className="space-y-4 animate-fadeIn pb-10">
+              <div>
+                <h3 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider">More Tools & Portals</h3>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-1">
+                  Everything in the sidebar that does not fit the bottom bar.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+                {cmMoreList.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setActiveTab(t.id as any)}
+                      className="min-h-[4.5rem] p-3.5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 active:scale-[0.98] transition-all flex flex-col gap-2 shadow-card cursor-pointer group"
+                    >
+                      <div className="h-9 w-9 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center text-indigo-600 shrink-0 group-hover:scale-105 transition-transform">
+                        <Icon className="h-4.5 w-4.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <span className="block text-xs font-bold text-slate-800 dark:text-slate-200 leading-tight">{t.label}</span>
+                        <span className="block text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-snug mt-1">{t.hint}</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -15261,7 +15011,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   {/* Card 1: Total Students */}
                   <div
                     onClick={() => setActiveTab("students_list" as any)}
-                    className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-indigo-200 hover:shadow-md transition-all cursor-pointer group"
+                    className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-indigo-200 hover:shadow-card-lg transition-all cursor-pointer group"
                   >
                     <div className="flex items-start justify-between">
                       <div className="h-11 w-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
@@ -15287,7 +15037,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   {/* Card 2: Assigned Batches */}
                   <div
                     onClick={() => setActiveTab("curriculum" as any)}
-                    className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-sky-200 hover:shadow-md transition-all cursor-pointer group"
+                    className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-sky-200 hover:shadow-card-lg transition-all cursor-pointer group"
                   >
                     <div className="flex items-start justify-between">
                       <div className="h-11 w-11 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center shadow-xs">
@@ -15313,7 +15063,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   {/* Card 3: Faculty Mentors */}
                   <div
                     onClick={() => setActiveTab("faculty" as any)}
-                    className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-purple-200 hover:shadow-md transition-all cursor-pointer group"
+                    className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-purple-200 hover:shadow-card-lg transition-all cursor-pointer group"
                   >
                     <div className="flex items-start justify-between">
                       <div className="h-11 w-11 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center shadow-xs">
@@ -15339,7 +15089,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   {/* Card 4: Attendance Avg */}
                   <div
                     onClick={() => setActiveTab("monitoring" as any)}
-                    className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-emerald-200 hover:shadow-md transition-all cursor-pointer group"
+                    className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-emerald-200 hover:shadow-card-lg transition-all cursor-pointer group"
                   >
                     <div className="flex items-start justify-between">
                       <div className="h-11 w-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
@@ -15435,7 +15185,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     {/* Quick Actions 2x2 */}
                     <div className="bg-white rounded-2xl p-5 shadow-card border border-slate-100 space-y-3">
                       <div className="flex items-center gap-2">
-                        <div className="h-6 w-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <div className="h-6 w-6 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-amber-500 flex items-center justify-center">
                           <Sparkles className="h-3.5 w-3.5" />
                         </div>
                         <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Quick Actions</h3>
@@ -15445,37 +15195,37 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveTab("timetable" as any)}
-                          className="p-3 rounded-xl bg-slate-50/80 hover:bg-indigo-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
+                          className="p-3 rounded-xl bg-slate-50/80 hover:bg-zinc-100/90 border border-slate-100 hover:border-zinc-200 flex items-center gap-2 text-left transition-all cursor-pointer group"
                         >
-                          <Calendar className="h-4.5 w-4.5 text-slate-500 group-hover:text-indigo-600 shrink-0" />
-                          <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 truncate">Timetable</span>
+                          <Calendar className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0 transition-colors" />
+                          <span className="text-xs font-bold text-slate-700 group-hover:text-zinc-950 truncate">Timetable</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setActiveTab("students_list" as any)}
-                          className="p-3 rounded-xl bg-slate-50/80 hover:bg-indigo-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
+                          className="p-3 rounded-xl bg-slate-50/80 hover:bg-zinc-100/90 border border-slate-100 hover:border-zinc-200 flex items-center gap-2 text-left transition-all cursor-pointer group"
                         >
-                          <Users className="h-4.5 w-4.5 text-slate-500 group-hover:text-indigo-600 shrink-0" />
-                          <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 truncate">Students</span>
+                          <Users className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0 transition-colors" />
+                          <span className="text-xs font-bold text-slate-700 group-hover:text-zinc-950 truncate">Students</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setIsDailyConfigModalOpen(true)}
-                          className="p-3 rounded-xl bg-slate-50/80 hover:bg-indigo-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
+                          className="p-3 rounded-xl bg-slate-50/80 hover:bg-zinc-100/90 border border-slate-100 hover:border-zinc-200 flex items-center gap-2 text-left transition-all cursor-pointer group"
                         >
-                          <CalendarCheck2 className="h-4.5 w-4.5 text-slate-500 group-hover:text-indigo-600 shrink-0" />
-                          <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 truncate">Day Orders</span>
+                          <CalendarCheck2 className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0 transition-colors" />
+                          <span className="text-xs font-bold text-slate-700 group-hover:text-zinc-950 truncate">Day Orders</span>
                         </button>
 
                         <button
                           type="button"
                           onClick={() => setActiveTab("reports" as any)}
-                          className="p-3 rounded-xl bg-slate-50/80 hover:bg-indigo-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
+                          className="p-3 rounded-xl bg-slate-50/80 hover:bg-zinc-100/90 border border-slate-100 hover:border-zinc-200 flex items-center gap-2 text-left transition-all cursor-pointer group"
                         >
-                          <FileText className="h-4.5 w-4.5 text-slate-500 group-hover:text-indigo-600 shrink-0" />
-                          <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 truncate">Insight</span>
+                          <FileText className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0 transition-colors" />
+                          <span className="text-xs font-bold text-slate-700 group-hover:text-zinc-950 truncate">Insight</span>
                         </button>
                       </div>
                     </div>
@@ -15617,7 +15367,6 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           {activeTab === "config" && (
             <Panel
               title="Academic Structure Configurations"
-              subtitle="Manage Academic Years, Working Days, and College Operating Hours."
             >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 text-xs font-semibold">
 
@@ -15763,6 +15512,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   </div>
                 </div>
 
+                {/* Saturday & Sunday Schedule Fixing (Weekend Compensatory Classes) */}
+                <div className="col-span-1 lg:col-span-2 pt-2">
+                  <SundayScheduleCard
+                    collegeId={activeCollegeId && activeCollegeId !== "all" ? activeCollegeId : (currentCAM?.college_id || "")}
+                    readOnly={readOnly}
+                  />
+                </div>
+
               </div>
             </Panel>
           )}
@@ -15771,17 +15528,47 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           {activeTab === "curriculum" && (
             <Panel
               title="Curriculum & Subject Mapping"
-              subtitle="View subjects organised by Department → Year → Semester. Register departments and map subjects."
               headerActions={
                 !readOnly ? (
-                  <>
-                    <Button variant="primary" size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => handleOpenSubjectModal()}>
-                      + Subject
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      icon={<Plus className="h-3.5 w-3.5" />}
+                      onClick={() => handleOpenSubjectModal()}
+                      className="h-9 px-3.5 rounded-2xl text-xs font-bold shadow-2xs gap-1.5"
+                    >
+                      Add Subject
                     </Button>
-                    <Button variant="secondary" size="sm" icon={<Plus className="h-3.5 w-3.5" />} onClick={() => handleOpenDeptModal()}>
-                      + Department / Course
-                    </Button>
-                  </>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <ActionDropdownButton />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem
+                          onClick={() => handleOpenDeptModal()}
+                          className="gap-2 cursor-pointer text-xs"
+                        >
+                          <Plus className="h-3.5 w-3.5 text-indigo-600" />
+                          <span>Add Department / Course</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={handleDownloadSubjectTemplate}
+                          className="gap-2 cursor-pointer text-xs"
+                        >
+                          <Download className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Download Template</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => subjectFileInputRef.current?.click()}
+                          className="gap-2 cursor-pointer text-xs"
+                        >
+                          <Upload className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Import Excel / CSV</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 ) : null
               }
             >
@@ -15915,7 +15702,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               {/* ── DEPARTMENT HEADER (Collapsible Card Style) ── */}
                               <div
                                 onClick={() => setExpandedDepts(prev => ({ ...prev, [deptName]: !prev[deptName] }))}
-                                className="flex items-center justify-between px-5 py-4 bg-slate-50 hover:bg-slate-100/70 border-b border-slate-200/50 cursor-pointer select-none transition-all duration-200 group"
+                                className="flex items-center justify-between px-5 py-4 bg-sunken hover:bg-white/70 border-b border-slate-200 inset-shadow-well/50 cursor-pointer select-none transition-all duration-200 group"
                               >
                                 <div className="flex items-center gap-3">
                                   <GraduationCap className="h-4 w-4 text-slate-400 shrink-0" />
@@ -15985,7 +15772,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                               {/* ── COLLAPSIBLE DEPARTMENT CONTENT (ADMIN-STYLE OVERVIEW + YEAR-WISE CARDS) ── */}
                               {isDeptExpanded && (
-                                <div className="p-4 bg-slate-50/40 space-y-4 border-t border-slate-100 animate-fade-in">
+                                <div className="p-4 bg-slate-50/40 space-y-4 border-t border-slate-100 animate-fadeIn">
                                   {/* Course Overview Details Card */}
                                   <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card flex flex-col md:flex-row justify-between gap-4">
                                     <div className="space-y-1.5 flex-1">
@@ -16159,23 +15946,33 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           {activeTab === "faculty" && (
             <Panel
               title="Faculty Deployment & Workloads"
-              subtitle="Manage instructor target workloads, configuration parameters, and emergency replacements."
               headerActions={
                 <>
                   <div className="relative w-full sm:w-auto">
-                    <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-slate-400" />
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                     <input
                       type="text"
                       placeholder="Search faculty..."
                       value={facultySearch}
                       onChange={e => setFacultySearch(e.target.value)}
-                      className="pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl bg-slate-50 text-[11px] focus:ring-1 focus:ring-indigo-500 outline-none font-semibold w-full sm:w-40 shadow-sm"
+                      className="pl-8 pr-7 h-9 border border-slate-200/90 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-2xl bg-sunken text-xs focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none font-bold w-full sm:w-44 shadow-2xs"
                     />
+                    {facultySearch && (
+                      <button
+                        type="button"
+                        onClick={() => setFacultySearch("")}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                        title="Clear search"
+                        aria-label="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                   <select aria-label="Faculty department filter"
                     value={facultyDeptFilter}
                     onChange={e => setFacultyDeptFilter(e.target.value)}
-                    className="p-1.5 border border-slate-200 rounded-xl bg-white text-[10px] cursor-pointer font-bold outline-none shadow-sm flex-grow sm:flex-grow-0"
+                    className="h-9 px-3.5 border border-slate-200/90 rounded-2xl bg-white text-xs cursor-pointer font-bold text-slate-800 outline-none shadow-2xs hover:border-slate-300 transition-all flex-grow sm:flex-grow-0"
                   >
                     <option value="all">All Depts</option>
                     {facultyDepts.map(d => (
@@ -16184,51 +15981,63 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   </select>
                   {!readOnly && (
                     <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => setShowSubstitutionModal(true)}
-                      icon={<Plus className="h-3.5 w-3.5" />}
-                    >
-                      Substitution
-                    </Button>
-                  )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleDownloadFacultyTemplate}
-                    icon={<Download className="h-3.5 w-3.5" />}
-                  >
-                    Template
-                  </Button>
-                  {!readOnly && (
-                    <label className="px-3 py-1 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all flex items-center gap-1.5 cursor-pointer">
-                      <Upload className="h-3.5 w-3.5" />
-                      Bulk Import
-                      <input
-                        type="file"
-                        accept=".xlsx, .xls, .csv"
-                        onChange={handleFacultyFileSelect}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                  {!readOnly && (
-                    <Button
                       variant="success"
                       size="sm"
                       onClick={() => handleOpenMentorModal()}
                       icon={<Plus className="h-3.5 w-3.5" />}
+                      className="h-9 px-3.5 rounded-2xl text-xs font-bold shadow-2xs gap-1.5"
                     >
                       Add Mentor
                     </Button>
                   )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <ActionDropdownButton />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-52">
+                      {!readOnly && (
+                        <DropdownMenuItem
+                          onClick={() => setShowSubstitutionModal(true)}
+                          className="gap-2 cursor-pointer text-xs"
+                        >
+                          <Plus className="h-3.5 w-3.5 text-indigo-600" />
+                          <span>Substitution Request</span>
+                        </DropdownMenuItem>
+                      )}
+                      <DropdownMenuItem
+                        onClick={handleDownloadFacultyTemplate}
+                        className="gap-2 cursor-pointer text-xs"
+                      >
+                        <Download className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Download Template</span>
+                      </DropdownMenuItem>
+                      {!readOnly && (
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const fileInput = document.getElementById("faculty-bulk-input-cam");
+                            if (fileInput) fileInput.click();
+                          }}
+                          className="gap-2 cursor-pointer text-xs"
+                        >
+                          <Upload className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Bulk Import (Excel / CSV)</span>
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <input
+                    id="faculty-bulk-input-cam"
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    onChange={handleFacultyFileSelect}
+                    className="hidden"
+                  />
                 </>
               }
             >
               <div className="space-y-6">
                 <div>
                   <h3 className="text-xs font-black text-indigo-700 uppercase tracking-wider">Faculty Workload Distribution</h3>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Real-time teaching allocation mapped against weekly targets.</p>
                 </div>
 
                 {/* ── FACULTY INFOGRAPHICS ── */}
@@ -16269,7 +16078,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   return (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pb-2">
                       {/* KPI summary cards */}
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div className="bg-indigo-50/80 border border-indigo-100 rounded-2xl p-3 text-center shadow-card">
                           <p className="text-[9px] font-extrabold text-indigo-500 uppercase tracking-wider">Total</p>
                           <p className="text-lg font-black text-indigo-700 mt-0.5">{filtered.length}</p>
@@ -16346,35 +16155,40 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       const isOverloaded = hoursCount > limit;
 
                       return (
-                        <div key={m.id} className="bg-white border border-slate-100 rounded-xl p-5 flex flex-col justify-between space-y-4 shadow-sm hover:shadow-md transition-all duration-300 relative group font-sans">
+                        <div key={m.id} className="bg-white border border-slate-100 rounded-2xl p-5 flex flex-col justify-between space-y-4 shadow-card hover:shadow-card-lg transition-all duration-300 relative group font-sans">
 
-                          {/* Action Buttons */}
+                          {/* Action Dropdown Button */}
                           {!readOnly && (
-                            <div className="absolute right-3 top-3 flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleStartEditFaculty(m)}
-                                title="Configure Workload"
-                                className="p-2 bg-slate-50 hover:bg-amber-50 border border-slate-100 text-slate-500 hover:text-amber-600 rounded-xl transition-all cursor-pointer shadow-xs hover:scale-105"
-                              >
-                                <SlidersHorizontal className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleOpenMentorModal(m)}
-                                title="Edit Info & Map Subjects"
-                                className="p-2 bg-slate-50 hover:bg-indigo-50 hover:bg-indigo-50 border border-slate-100 text-slate-500 hover:text-indigo-600 rounded-xl transition-all cursor-pointer shadow-xs hover:scale-105"
-                              >
-                                <Edit2 className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteMentor(m.id)}
-                                title="Delete Mentor"
-                                className="p-2 bg-slate-50 hover:bg-rose-50 border border-slate-100 text-slate-500 hover:text-rose-600 rounded-xl transition-all cursor-pointer shadow-xs hover:scale-105"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                            <div className="absolute right-3 top-3">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <ActionDropdownButton size="sm" />
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52">
+                                  <DropdownMenuItem
+                                    onClick={() => handleStartEditFaculty(m)}
+                                    className="gap-2 cursor-pointer text-xs"
+                                  >
+                                    <SlidersHorizontal className="h-3.5 w-3.5 text-amber-600" />
+                                    <span>Configure Workload</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenMentorModal(m)}
+                                    className="gap-2 cursor-pointer text-xs"
+                                  >
+                                    <Edit2 className="h-3.5 w-3.5 text-indigo-600" />
+                                    <span>Edit Info & Map Subjects</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteMentor(m.id)}
+                                    className="gap-2 cursor-pointer text-xs text-rose-600 focus:bg-rose-50 focus:text-rose-700"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                    <span>Delete Faculty</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           )}
 
@@ -16384,7 +16198,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               {m.name.substring(0, 2)}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <h4 className="text-xs font-black text-slate-800 truncate pr-6" title={m.name}>{m.name}</h4>
+                              <h4 className="text-xs font-black text-slate-800 truncate pr-24" title={m.name}>{m.name}</h4>
                               <span className="text-[9.5px] text-slate-500 font-bold block truncate mt-0.5">
                                 Department: {m.department && m.department !== "General" ? m.department : (facultyDepts.length === 1 ? facultyDepts[0] : (m.mentor_group || m.department || "General"))}
                               </span>
@@ -16460,10 +16274,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             />
           )}
 
-          {/* Faculty: Mentor Skill Development Tracker (CM view-only) */}
+          {/* Faculty: Mentor Skill Development Tracker */}
           {activeTab === "mentor_skill_tracker" && (
             <SkillTrackerPanel
-              role="cm"
+              role={isKAMView ? "kam" : "cm"}
               collegeId={activeCollegeId}
               collegeName={activeCollegeName}
             />
@@ -16489,7 +16303,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               if (camDemoMentorFilter !== "all" && ds.mentorId !== camDemoMentorFilter && ds.mentorName !== camDemoMentorFilter) {
                 return false;
               }
-              if (camDemoDateFilter && ds.dateStr !== camDemoDateFilter) {
+              if (camDemoFromDate && ds.dateStr < camDemoFromDate) {
+                return false;
+              }
+              if (camDemoToDate && ds.dateStr > camDemoToDate) {
                 return false;
               }
               if (camDemoStatusFilter !== "all") {
@@ -16559,31 +16376,32 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     </div>
                     <div>
                       <h2 className="text-lg font-black text-slate-800 leading-tight">Faculty Demo Schedule</h2>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">
-                        Campus faculty demo sessions, allocated SME evaluators, scheduled time slots, and evaluation progression.
-                      </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      type="button"
-                      onClick={handleExportDemoSchedule}
-                      disabled={filteredDemos.length === 0}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <FileSpreadsheet className="h-4 w-4" />
-                      <span>Export Schedule (.xlsx)</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => window.print()}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-xs font-bold shadow-xs transition-all cursor-pointer"
-                    >
-                      <Printer className="h-3.5 w-3.5 text-slate-600" />
-                      <span>Print / PDF</span>
-                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <ActionDropdownButton />
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          onClick={handleExportDemoSchedule}
+                          disabled={filteredDemos.length === 0}
+                          className="gap-2 cursor-pointer text-xs"
+                        >
+                          <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
+                          <span>Export (.xlsx)</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => window.print()}
+                          className="gap-2 cursor-pointer text-xs"
+                        >
+                          <Printer className="h-3.5 w-3.5 text-slate-500" />
+                          <span>Print / PDF</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
 
@@ -16629,23 +16447,24 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   </div>
 
                   <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Scheduled Date</label>
-                      {camDemoDateFilter && (
-                        <button
-                          type="button"
-                          onClick={() => setCamDemoDateFilter("")}
-                          className="text-[10px] font-bold text-rose-500 hover:text-rose-700 cursor-pointer"
-                        >
-                          Clear
-                        </button>
-                      )}
-                    </div>
+                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">From Date</label>
                     <input
                       type="date"
-                      aria-label="Scheduled Date"
-                      value={camDemoDateFilter}
-                      onChange={(e) => setCamDemoDateFilter(e.target.value)}
+                      aria-label="From Date"
+                      value={camDemoFromDate}
+                      onChange={(e) => setCamDemoFromDate(e.target.value)}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">To Date</label>
+                    <input
+                      type="date"
+                      aria-label="To Date"
+                      value={camDemoToDate}
+                      min={camDemoFromDate || undefined}
+                      onChange={(e) => setCamDemoToDate(e.target.value)}
                       className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-white"
                     />
                   </div>
@@ -16801,7 +16620,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     open={true}
                     onOpenChange={(next) => { if (!next) setSelectedDemoDetails(null); }}
                     ariaLabel="Demo Session Details"
-                    overlayClassName="bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+                    overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
                     panelClassName="rounded-2xl max-w-lg p-6 space-y-5 animate-scaleUp"
                   >
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -16989,16 +16808,18 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   >
                     Weekly Class Grid Viewer
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setTimetableSubTab("generate")}
-                    className={`px-4 py-2 text-xs font-bold transition-all border-b-2 cursor-pointer ${timetableSubTab === "generate"
-                      ? "border-indigo-600 text-indigo-600 font-extrabold border-indigo-600"
-                      : "border-transparent text-slate-500 hover:text-slate-700"
-                      }`}
-                  >
-                    Timetable Generator Engine
-                  </button>
+                  {!isKAMView && (
+                    <button
+                      type="button"
+                      onClick={() => setTimetableSubTab("generate")}
+                      className={`px-4 py-2 text-xs font-bold transition-all border-b-2 cursor-pointer ${timetableSubTab === "generate"
+                        ? "border-indigo-600 text-indigo-600 font-extrabold border-indigo-600"
+                        : "border-transparent text-slate-500 hover:text-slate-700"
+                        }`}
+                    >
+                      Timetable Generator Engine
+                    </button>
+                  )}
                 </div>
 
                 {timetableSubTab === "view" ? (
@@ -17337,7 +17158,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             <span>Download Template</span>
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none min-w-[210px] animate-fadeIn">
-                            <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-700 text-center leading-tight">
+                            <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-card border border-slate-700 text-center leading-tight">
                               Download pre-filled Excel template to edit class schedule offline.
                             </div>
                             <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
@@ -17362,7 +17183,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             )}
                           </label>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none min-w-[210px] animate-fadeIn">
-                            <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-700 text-center leading-tight">
+                            <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-card border border-slate-700 text-center leading-tight">
                               Upload completed Excel spreadsheet to instantly sync scheduled slots.
                             </div>
                             <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
@@ -17386,7 +17207,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             <span>Regenerate</span>
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none min-w-[210px] animate-fadeIn">
-                            <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-700 text-center leading-tight">
+                            <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-card border border-slate-700 text-center leading-tight">
                               ✨ Calculate and place conflict-free faculty and room schedules automatically.
                             </div>
                             <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
@@ -17408,7 +17229,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             <span>Clear Timetable</span>
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none min-w-[210px] animate-fadeIn">
-                            <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-xl border border-slate-700 text-center leading-tight">
+                            <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-card border border-slate-700 text-center leading-tight">
                               Permanently clear all scheduled periods for this cohort to start fresh.
                             </div>
                             <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
@@ -17504,7 +17325,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               <>
                                 <div className="space-y-1">
                                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Target Shift</label>
-                                  <div className="grid grid-cols-3 gap-2">
+                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     {(["shift_1", "shift_2", "general"] as const).map(sh => (
                                       <button
                                         key={sh}
@@ -17754,7 +17575,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-indigo-100 bg-indigo-50/50 text-indigo-700 text-xs font-bold hover:bg-indigo-50 transition-colors cursor-pointer"
                             >
                               <Plus className="h-4 w-4" />
-                              + Quick Add Subject
+                              Quick Add Subject
                             </button>
                           ) : (
                             <div className="bg-slate-50/60 p-4 border border-slate-100 rounded-xl space-y-4 animate-fadeIn">
@@ -18275,39 +18096,6 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
             // Stats for header (derived directly from pre-computed studentStats)
             const actualAttendanceDates = workingDates.length;
-
-            // Preset helpers
-            const setPresetDates = (preset: string) => {
-              const today = new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split("T")[0];
-              if (preset === "all") {
-                setAttendanceStartDate("2026-06-15");
-                setAttendanceEndDate(today);
-              } else if (preset === "this_month") {
-                const now = new Date();
-                const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-                setAttendanceStartDate(firstDay);
-                setAttendanceEndDate(today);
-              } else if (preset === "past_30") {
-                const d = new Date();
-                d.setDate(d.getDate() - 30);
-                setAttendanceStartDate(d.toISOString().split("T")[0]);
-                setAttendanceEndDate(today);
-              } else if (preset === "past_7") {
-                const d = new Date();
-                d.setDate(d.getDate() - 7);
-                setAttendanceStartDate(d.toISOString().split("T")[0]);
-                setAttendanceEndDate(today);
-              } else if (preset === "jun_2026") {
-                setAttendanceStartDate("2026-06-15");
-                setAttendanceEndDate("2026-06-30");
-              } else if (preset === "jul_2026") {
-                setAttendanceStartDate("2026-07-01");
-                setAttendanceEndDate("2026-07-31");
-              } else if (preset === "aug_2026") {
-                setAttendanceStartDate("2026-08-01");
-                setAttendanceEndDate("2026-08-31");
-              }
-            };
             const mentorCollegeMap = new Map<string, string>();
             mentors.forEach(m => {
               const cid = m.college_id || (m as any).collegeId;
@@ -18315,7 +18103,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             });
             const pendingLateAttRequestsForCampus = requests.filter(r => {
               const isLate = r.request_type === "late_attendance" || r.reason?.includes("Late Attendance") || r.targetStaffName?.includes("CAM Approval (Late Attendance") || r.targetStaffId === "cam_approval";
-              const isPending = r.status === "pending_cam" || r.status === "pending";
+              const isPending = isAnyPendingCmRequest(r.status);
               if (!isLate || !isPending) return false;
               if (!activeCollegeId || activeCollegeId === "all") return true;
               const mCollege = mentorCollegeMap.get(r.requestorId);
@@ -18325,7 +18113,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             return (
               <div className="space-y-4 font-sans">
                 {pendingLateAttRequestsForCampus.length > 0 && (
-                  <div className="p-4 bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200 rounded-2xl flex items-center justify-between gap-3 text-rose-900 shadow-sm animate-in fade-in duration-200">
+                  <div className="p-4 bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200 rounded-2xl flex items-center justify-between gap-3 text-rose-900 shadow-sm animate-fadeIn">
                     <div className="flex items-center gap-3 min-w-0">
                       <span className="p-2.5 bg-rose-100/90 border border-rose-200 rounded-xl text-rose-700 text-base font-bold shrink-0">⏰</span>
                       <div className="min-w-0">
@@ -18458,44 +18246,34 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       {workingDates.length} date columns
                     </span>
 
-                    {/* Preset Chips */}
-                    <div className="flex items-center gap-1 flex-wrap text-[11px] font-bold">
-                      {[
-                        { key: "all", label: "All" },
-                        { key: "this_month", label: "This Month" },
-                        { key: "past_30", label: "30D" },
-                        { key: "past_7", label: "7D" },
-                        { key: "jun_2026", label: "Jun" },
-                        { key: "jul_2026", label: "Jul" },
-                        { key: "aug_2026", label: "Aug" },
-                      ].map(p => (
-                        <button key={p.key} type="button" onClick={() => setPresetDates(p.key)}
-                          className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-slate-600 transition-all cursor-pointer active:scale-95 text-[10px]">
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Divider */}
-                    <div className="hidden lg:block w-px h-6 bg-slate-200" />
-
                     {/* Search */}
                     <div className="relative">
-                      <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-slate-400" />
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
                       <input
                         type="text"
                         placeholder="Search name, roll no..."
                         value={studentSearch}
                         onChange={e => setStudentSearch(e.target.value)}
-                        className="pl-8 pr-3 py-1.5 border border-slate-200 bg-slate-50 text-xs rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold w-44"
+                        className="pl-8 pr-7 h-9 border border-slate-200/90 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken text-xs rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-bold w-48 shadow-2xs"
                       />
+                      {studentSearch && (
+                        <button
+                          type="button"
+                          onClick={() => setStudentSearch("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+                          title="Clear search"
+                          aria-label="Clear search"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Department filter */}
                     <select aria-label="Student department filter"
                       value={studentDeptFilter}
                       onChange={e => setStudentDeptFilter(e.target.value)}
-                      className="py-1.5 px-2.5 border border-slate-200 rounded-xl bg-slate-50 text-xs font-bold cursor-pointer outline-none"
+                      className="py-1.5 px-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken text-xs font-bold cursor-pointer outline-none"
                     >
                       <option value="all">All Departments</option>
                       {studentDepts.map(d => (
@@ -18507,7 +18285,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <select aria-label="Student batch filter"
                       value={studentBatchFilter}
                       onChange={e => setStudentBatchFilter(e.target.value)}
-                      className="py-1.5 px-2.5 border border-slate-200 rounded-xl bg-slate-50 text-xs font-bold cursor-pointer outline-none"
+                      className="py-1.5 px-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken text-xs font-bold cursor-pointer outline-none"
                     >
                       <option value="all">All Batches &amp; Cohorts</option>
                       {activeBatches.map(b => {
@@ -18688,11 +18466,11 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                   )}
                                 </div>
                               </TableCell>
-                              <TableCell className="p-2.5 text-center font-bold text-slate-700 border-r border-slate-100">{effectiveTotal}</TableCell>
-                              <TableCell className="p-2.5 text-center font-black text-emerald-700 border-r border-slate-100 bg-emerald-50/20">{presentDays}</TableCell>
-                              <TableCell className="p-2.5 text-center font-black text-rose-700 border-r border-slate-100 bg-rose-50/20">{absentDays}</TableCell>
+                              <TableCell className="p-2.5 text-center font-bold text-slate-700 border-r border-slate-100 font-mono tabular-nums">{effectiveTotal}</TableCell>
+                              <TableCell className="p-2.5 text-center font-black text-emerald-700 border-r border-slate-100 bg-emerald-50/20 font-mono tabular-nums">{presentDays}</TableCell>
+                              <TableCell className="p-2.5 text-center font-black text-rose-700 border-r border-slate-100 bg-rose-50/20 font-mono tabular-nums">{absentDays}</TableCell>
                               <TableCell className="p-2.5 text-center border-r border-slate-100">
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded font-black text-[10.5px] ${pct >= 75
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded font-black text-[11px] font-mono tabular-nums ${pct >= 75
                                   ? "bg-emerald-50 text-emerald-700"
                                   : pct >= 60
                                     ? "bg-amber-50 text-amber-700"
@@ -18707,8 +18485,26 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         })}
                         {filtered.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={8 + workingDates.length} className="p-8 text-center text-slate-400 italic">
-                              No students matched the active filters.
+                            <TableCell colSpan={8 + workingDates.length} className="p-12 text-center">
+                              <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto">
+                                <Users className="h-9 w-9 text-slate-300" />
+                                <p className="text-sm font-bold text-slate-800">No students found</p>
+                                <p className="text-xs text-slate-500 font-medium">Try adjusting your search keywords, department filter, or date range.</p>
+                                {(studentSearch || studentDeptFilter !== "all" || studentBatchFilter !== "all") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setStudentSearch("");
+                                      setStudentDeptFilter("all");
+                                      setStudentBatchFilter("all");
+                                    }}
+                                    className="mt-1 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer transition-all active:scale-95"
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                                    Reset Filters
+                                  </button>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         )}
@@ -18731,7 +18527,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             setAttendancePageSize(Number(e.target.value));
                             setAttendancePage(1);
                           }}
-                          className="px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="px-2 py-1 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         >
                           <option value={25}>25</option>
                           <option value={50}>50</option>
@@ -18912,7 +18708,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         }
                       }}
                       ariaLabel="Attendance Details"
-                      overlayClassName="bg-slate-900/60 backdrop-blur-xs"
+                      overlayClassName="bg-slate-950/60 backdrop-blur-sm"
                       panelClassName="rounded-2xl p-6 max-w-4xl max-h-[90vh] flex flex-col space-y-4 animate-scaleUp"
                     >
                       {/* Modal Header */}
@@ -19445,7 +19241,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                   <div className="space-y-3">
                     {localTasks.map(t => (
-                      <div key={t.id} className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm flex flex-col gap-2 hover:shadow-md transition-all">
+                      <div key={t.id} className="p-4 rounded-2xl border border-slate-100 bg-white shadow-card flex flex-col gap-2 hover:shadow-card-lg transition-all">
                         <div className="flex items-center justify-between">
                           <span className={`px-2 py-0.5 rounded border text-[8px] font-bold uppercase ${t.priority === "high" ? "bg-red-50 border-red-100 text-red-700" : "bg-amber-50 border-amber-100 text-amber-700"
                             }`}>{t.priority}</span>
@@ -19521,7 +19317,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="Search issue..."
                           value={issueSearchQuery}
                           onChange={e => setIssueSearchQuery(e.target.value)}
-                          className="w-full pl-7 pr-2 py-1.5 border border-slate-200 rounded-xl bg-slate-50 text-[10px] focus:outline-none shadow-sm"
+                          className="w-full pl-7 pr-2 py-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken text-[10px] focus:outline-none shadow-sm"
                         />
                       </div>
                       <select aria-label="Issue status filter"
@@ -19558,7 +19354,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       .map(i => {
                         const isEditing = editingIssueId === i.id;
                         return (
-                          <div key={i.id} className="p-4 rounded-xl border border-slate-200 bg-white shadow-sm space-y-2 relative group hover:shadow-md transition-all">
+                          <div key={i.id} className="p-4 rounded-2xl border border-slate-100 bg-white shadow-card space-y-2 relative group hover:shadow-card-lg transition-all">
                             {isEditing ? (
                               <form onSubmit={(ev) => handleSaveInlineIssue(ev, i.id)} className="space-y-2 w-full text-xs font-bold">
                                 <Input label="Issue Title" value={editIssueTitle} onChange={ev => setEditIssueTitle(ev.target.value)} required />
@@ -19678,49 +19474,97 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             );
 
             // Categorization helpers
-            const isLateAttReq = (r: any) =>
-              r.request_type === "late_attendance" ||
-              r.reason?.includes("Late Attendance") ||
-              r.targetStaffName?.includes("CAM Approval (Late Attendance") ||
-              (r.targetStaffId === "cam_approval" && !r.slotId?.startsWith("mentor_daily_punch_") && !r.slotId?.startsWith("acad_log_edit_"));
-
+            const isLateAttReq = (r: any) => isLateAttendanceRequest(r);
             const isExamMarkReq = (r: any) => r.request_type === "exam_marks_edit";
             const isLatePunchReq = (r: any) => r.request_type === "late_punch" || r.reason?.includes("Late Mentor Attendance Punch") || r.slotId?.startsWith("mentor_daily_punch_");
             const isHandoverReq = (r: any) => !isLateAttReq(r) && !isExamMarkReq(r) && !isLatePunchReq(r);
 
-            const pendingOnly = campusRequests.filter(r => r.status === "pending" || r.status === "pending_cam" || r.status === "needs_cam_allocation" || r.status === "rejected");
-            const lateAttCount = pendingOnly.filter(isLateAttReq).length;
-            const handoverCount = pendingOnly.filter(isHandoverReq).length;
-            const examMarkCount = pendingOnly.filter(isExamMarkReq).length;
-            const latePunchCount = pendingOnly.filter(isLatePunchReq).length;
-
-            const filteredByCat = pendingOnly.filter(r => {
-              if (approvalsCategoryFilter === "late_attendance") return isLateAttReq(r);
-              if (approvalsCategoryFilter === "handovers") return isHandoverReq(r);
-              if (approvalsCategoryFilter === "exam_marks") return isExamMarkReq(r);
-              if (approvalsCategoryFilter === "late_punches") return isLatePunchReq(r);
+            // Deduplicate requests: for late attendance requests with the same (requestorId, slotId, dateStr), keep only the latest record
+            const seenLateKeys = new Set<string>();
+            const dedupedRequests = campusRequests.filter(r => {
+              if (isLateAttReq(r)) {
+                const key = `${r.requestorId}|${r.slotId}|${r.dateStr}`;
+                if (seenLateKeys.has(key)) return false;
+                seenLateKeys.add(key);
+              }
               return true;
             });
+
+            // KPI counts for pending items requiring CM attention
+            const allPending = dedupedRequests.filter(r => isAnyPendingCmRequest(r.status) || isNeedsCmAllocation(r.status));
+            const lateAttPendingCount = allPending.filter(isLateAttReq).length;
+            const handoverPendingCount = allPending.filter(isHandoverReq).length;
+            const examMarkPendingCount = allPending.filter(isExamMarkReq).length;
+            const latePunchPendingCount = allPending.filter(isLatePunchReq).length;
+
+            // Full list filtered by Category, Status, and Search
+            const filteredRequests = dedupedRequests.filter(r => {
+              // 1. Category Filter
+              if (approvalsCategoryFilter === "late_attendance" && !isLateAttReq(r)) return false;
+              if (approvalsCategoryFilter === "handovers" && !isHandoverReq(r)) return false;
+              if (approvalsCategoryFilter === "exam_marks" && !isExamMarkReq(r)) return false;
+              if (approvalsCategoryFilter === "late_punches" && !isLatePunchReq(r)) return false;
+
+              // 2. Status Filter
+              if (approvalsStatusFilter === "pending") {
+                if (!isAnyPendingCmRequest(r.status) && !isNeedsCmAllocation(r.status)) return false;
+              } else if (approvalsStatusFilter === "approved") {
+                if (r.status !== "approved") return false;
+              } else if (approvalsStatusFilter === "rejected") {
+                if (r.status !== "rejected") return false;
+              }
+
+              // 3. Search Query
+              if (approvalsSearch.trim()) {
+                const q = approvalsSearch.toLowerCase();
+                const matches =
+                  (r.requestorName || "").toLowerCase().includes(q) ||
+                  (r.targetStaffName || "").toLowerCase().includes(q) ||
+                  (r.course || "").toLowerCase().includes(q) ||
+                  (r.classGroup || "").toLowerCase().includes(q) ||
+                  (r.reason || "").toLowerCase().includes(q) ||
+                  (r.dateStr || "").toLowerCase().includes(q);
+                if (!matches) return false;
+              }
+
+              return true;
+            });
+
+            const totalItems = filteredRequests.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / approvalsPageSize));
+            const safeCurrentPage = Math.min(Math.max(1, approvalsPage), totalPages);
+            const paginatedRequests = filteredRequests.slice(
+              (safeCurrentPage - 1) * approvalsPageSize,
+              safeCurrentPage * approvalsPageSize
+            );
 
             return (
               <div className="space-y-6">
                 {/* Top KPI Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div
-                    onClick={() => setApprovalsCategoryFilter("all")}
-                    className={`p-4 rounded-xl border transition-all cursor-pointer shadow-xs ${approvalsCategoryFilter === "all"
+                    onClick={() => {
+                      setApprovalsCategoryFilter("all");
+                      setApprovalsStatusFilter("pending");
+                      setApprovalsPage(1);
+                    }}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer shadow-xs ${approvalsCategoryFilter === "all" && approvalsStatusFilter === "pending"
                         ? "bg-slate-900 text-white border-slate-900 shadow-md scale-101"
                         : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
                       }`}
                   >
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${approvalsCategoryFilter === "all" ? "text-slate-300" : "text-slate-400"}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider ${approvalsCategoryFilter === "all" && approvalsStatusFilter === "pending" ? "text-slate-300" : "text-slate-400"}`}>
                       All Pending Requests
                     </p>
-                    <p className="text-2xl font-black mt-1">{pendingOnly.length}</p>
+                    <p className="text-2xl font-black mt-1">{allPending.length}</p>
                   </div>
 
                   <div
-                    onClick={() => setApprovalsCategoryFilter("late_attendance")}
+                    onClick={() => {
+                      setApprovalsCategoryFilter("late_attendance");
+                      setApprovalsStatusFilter("pending");
+                      setApprovalsPage(1);
+                    }}
                     className={`p-4 rounded-xl border transition-all cursor-pointer shadow-xs ${approvalsCategoryFilter === "late_attendance"
                         ? "bg-rose-600 text-white border-rose-600 shadow-md scale-101"
                         : "bg-white text-slate-800 border-rose-100 hover:border-rose-300"
@@ -19730,15 +19574,19 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       <p className={`text-[10px] font-bold uppercase tracking-wider ${approvalsCategoryFilter === "late_attendance" ? "text-rose-100" : "text-rose-600"}`}>
                         <Clock className="w-3.5 h-3.5 inline-block mr-1" /> Late Attendance
                       </p>
-                      {lateAttCount > 0 && <span className="h-2 w-2 rounded-full bg-rose-400 animate-ping" />}
+                      {lateAttPendingCount > 0 && <span className="h-2 w-2 rounded-full bg-rose-400 animate-ping" />}
                     </div>
                     <p className={`text-2xl font-black mt-1 ${approvalsCategoryFilter === "late_attendance" ? "text-white" : "text-rose-600"}`}>
-                      {lateAttCount}
+                      {lateAttPendingCount}
                     </p>
                   </div>
 
                   <div
-                    onClick={() => setApprovalsCategoryFilter("handovers")}
+                    onClick={() => {
+                      setApprovalsCategoryFilter("handovers");
+                      setApprovalsStatusFilter("pending");
+                      setApprovalsPage(1);
+                    }}
                     className={`p-4 rounded-xl border transition-all cursor-pointer shadow-xs ${approvalsCategoryFilter === "handovers"
                         ? "bg-indigo-600 text-white border-indigo-600 shadow-md scale-101"
                         : "bg-white text-slate-800 border-indigo-100 hover:border-indigo-300"
@@ -19748,29 +19596,33 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       <Users className="w-3.5 h-3.5 inline-block mr-1" /> Class Substitutions
                     </p>
                     <p className={`text-2xl font-black mt-1 ${approvalsCategoryFilter === "handovers" ? "text-white" : "text-indigo-600"}`}>
-                      {handoverCount}
+                      {handoverPendingCount}
                     </p>
                   </div>
 
                   <div
-                    onClick={() => setApprovalsCategoryFilter("exam_marks")}
+                    onClick={() => {
+                      setApprovalsCategoryFilter("exam_marks");
+                      setApprovalsStatusFilter("pending");
+                      setApprovalsPage(1);
+                    }}
                     className={`p-4 rounded-xl border transition-all cursor-pointer shadow-xs ${approvalsCategoryFilter === "exam_marks"
                         ? "bg-purple-600 text-white border-purple-600 shadow-md scale-101"
                         : "bg-white text-slate-800 border-purple-100 hover:border-purple-300"
                       }`}
                   >
                     <p className={`text-[10px] font-bold uppercase tracking-wider ${approvalsCategoryFilter === "exam_marks" ? "text-purple-100" : "text-purple-600"}`}>
-                      Exam Mark Edits
+                      <FileText className="w-3.5 h-3.5 inline-block mr-1" /> Exam Mark Edits
                     </p>
                     <p className={`text-2xl font-black mt-1 ${approvalsCategoryFilter === "exam_marks" ? "text-white" : "text-purple-600"}`}>
-                      {examMarkCount}
+                      {examMarkPendingCount}
                     </p>
                   </div>
                 </div>
 
                 {/* Main Table Card */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-5">
-                  <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-4">
+                  <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-slate-100">
                     <div>
                       <h2 className="text-base font-black text-slate-900">Requests &amp; Approvals Hub</h2>
                       <p className="text-xs text-slate-400 font-semibold mt-0.5">
@@ -19779,15 +19631,47 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
+                      {/* Status Selector */}
+                      <select
+                        value={approvalsStatusFilter}
+                        onChange={(e) => {
+                          setApprovalsStatusFilter(e.target.value as any);
+                          setApprovalsPage(1);
+                        }}
+                        className="h-8 px-2.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                        aria-label="Filter by request status"
+                      >
+                        <option value="pending">Status: Pending Review ({allPending.length})</option>
+                        <option value="all">Status: All Statuses ({campusRequests.length})</option>
+                        <option value="approved">Status: Approved ({campusRequests.filter(r => r.status === "approved").length})</option>
+                        <option value="rejected">Status: Declined ({campusRequests.filter(r => r.status === "rejected").length})</option>
+                      </select>
+
+                      {/* Quick Search */}
+                      <div className="relative min-w-[200px]">
+                        <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search faculty, subject, class..."
+                          value={approvalsSearch}
+                          onChange={(e) => {
+                            setApprovalsSearch(e.target.value);
+                            setApprovalsPage(1);
+                          }}
+                          className="h-8 w-full pl-8 pr-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-800 placeholder:text-slate-400"
+                        />
+                      </div>
+
+                      {/* Export Excel */}
                       <button
                         type="button"
                         onClick={async () => {
                           try {
                             const XLSX = await import("xlsx");
                             const headers = ["S.No", "Date", "Time", "Class", "Request Type", "Requestor", "Cover / Target", "Reason", "Status", "Submitted At"];
-                            const rows = campusRequests.map((r, idx) => [
+                            const rows = filteredRequests.map((r, idx) => [
                               idx + 1,
-                              r.dateStr || "—",
+                              r.dateFormatted || r.dateStr || "—",
                               r.time || "—",
                               r.course || "—",
                               isLateAttReq(r) ? "Late Attendance" : isExamMarkReq(r) ? "Exam Mark Edit" : "Class Handover",
@@ -19798,7 +19682,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               r.timestamp ? new Date(r.timestamp).toLocaleDateString() : "—"
                             ]);
                             const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-                            ws["!cols"] = [{ wch: 5 }, { wch: 12 }, { wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 35 }, { wch: 14 }, { wch: 14 }];
+                            ws["!cols"] = [{ wch: 5 }, { wch: 14 }, { wch: 12 }, { wch: 20 }, { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 35 }, { wch: 14 }, { wch: 14 }];
                             const wb = XLSX.utils.book_new();
                             XLSX.utils.book_append_sheet(wb, ws, "Requests");
                             XLSX.writeFile(wb, `Requests_Approvals_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -19807,7 +19691,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             toast("Export failed: " + err.message, "error");
                           }
                         }}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
+                        className="px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
                       >
                         <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-600" />
                         Export Excel
@@ -19816,20 +19700,26 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   </div>
 
                   {/* Filter Pills */}
-                  <div className="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-100">
+                  <div className="flex items-center gap-2 overflow-x-auto pb-1">
                     <button
                       type="button"
-                      onClick={() => setApprovalsCategoryFilter("all")}
+                      onClick={() => {
+                        setApprovalsCategoryFilter("all");
+                        setApprovalsPage(1);
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${approvalsCategoryFilter === "all"
                           ? "bg-slate-900 text-white shadow-xs"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                         }`}
                     >
-                      All ({pendingOnly.length})
+                      All ({approvalsStatusFilter === "pending" ? allPending.length : dedupedRequests.length})
                     </button>
                     <button
                       type="button"
-                      onClick={() => setApprovalsCategoryFilter("late_attendance")}
+                      onClick={() => {
+                        setApprovalsCategoryFilter("late_attendance");
+                        setApprovalsPage(1);
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${approvalsCategoryFilter === "late_attendance"
                           ? "bg-rose-600 text-white shadow-xs"
                           : "bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200"
@@ -19837,12 +19727,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     >
                       <span>Late Attendance</span>
                       <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${approvalsCategoryFilter === "late_attendance" ? "bg-white text-rose-600" : "bg-rose-200 text-rose-800"}`}>
-                        {lateAttCount}
+                        {approvalsStatusFilter === "pending" ? lateAttPendingCount : dedupedRequests.filter(isLateAttReq).length}
                       </span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setApprovalsCategoryFilter("handovers")}
+                      onClick={() => {
+                        setApprovalsCategoryFilter("handovers");
+                        setApprovalsPage(1);
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${approvalsCategoryFilter === "handovers"
                           ? "bg-indigo-600 text-white shadow-xs"
                           : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200"
@@ -19850,12 +19743,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     >
                       <span>Substitutions</span>
                       <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${approvalsCategoryFilter === "handovers" ? "bg-white text-indigo-600" : "bg-indigo-200 text-indigo-800"}`}>
-                        {handoverCount}
+                        {approvalsStatusFilter === "pending" ? handoverPendingCount : dedupedRequests.filter(isHandoverReq).length}
                       </span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setApprovalsCategoryFilter("exam_marks")}
+                      onClick={() => {
+                        setApprovalsCategoryFilter("exam_marks");
+                        setApprovalsPage(1);
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${approvalsCategoryFilter === "exam_marks"
                           ? "bg-purple-600 text-white shadow-xs"
                           : "bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200"
@@ -19863,238 +19759,364 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     >
                       <span>Exam Marks</span>
                       <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${approvalsCategoryFilter === "exam_marks" ? "bg-white text-purple-600" : "bg-purple-200 text-purple-800"}`}>
-                        {examMarkCount}
+                        {approvalsStatusFilter === "pending" ? examMarkPendingCount : dedupedRequests.filter(isExamMarkReq).length}
                       </span>
                     </button>
                   </div>
 
-                  {/* Table */}
-                  <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-                    <Table className="w-full border-collapse text-left text-xs font-semibold min-w-[1200px]">
+                  {/* Modern Responsive Table */}
+                  <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-2xs">
+                    <Table className="w-full border-collapse text-left text-xs font-semibold min-w-[1050px]">
                       <TableHeader>
-                        <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px]">
-                          <TableHead className="p-3 border-r border-slate-100">Date &amp; Time</TableHead>
-                          <TableHead className="p-3 border-r border-slate-100">Class / Subject</TableHead>
-                          <TableHead className="p-3 border-r border-slate-100">Faculty Requestor</TableHead>
-                          <TableHead className="p-3 border-r border-slate-100">Type / Target</TableHead>
-                          <TableHead className="p-3 border-r border-slate-100">Reason &amp; Remarks</TableHead>
-                          <TableHead className="p-3 border-r border-slate-100">Status</TableHead>
-                          <TableHead className="p-3 text-right">Actions</TableHead>
+                        <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px] tracking-wider">
+                          <TableHead className="p-3.5 border-r border-slate-100 w-[180px]">Date &amp; Period</TableHead>
+                          <TableHead className="p-3.5 border-r border-slate-100 w-[200px]">Class / Subject</TableHead>
+                          <TableHead className="p-3.5 border-r border-slate-100 w-[170px]">Faculty Requestor</TableHead>
+                          <TableHead className="p-3.5 border-r border-slate-100 w-[210px]">Type / Target</TableHead>
+                          <TableHead className="p-3.5 border-r border-slate-100 min-w-[200px]">Reason &amp; Remarks</TableHead>
+                          <TableHead className="p-3.5 border-r border-slate-100 w-[140px]">Status</TableHead>
+                          <TableHead className="p-3.5 text-right w-[200px]">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody className="divide-y divide-slate-100 bg-white text-slate-700">
-                        {filteredByCat.map(req => {
+                        {paginatedRequests.map(req => {
                           const isLate = isLateAttReq(req);
                           const isExam = isExamMarkReq(req);
                           return (
-                            <TableRow key={req.id} className="hover:bg-slate-50/50 transition-colors">
-                              <TableCell className="p-3 border-r border-slate-100">
-                                <div className="font-bold text-slate-800">{req.dateStr}</div>
-                                <div className="text-[10px] text-slate-400 font-mono mt-0.5">{req.time || "—"}</div>
-                              </TableCell>
-                              <TableCell className="p-3 border-r border-slate-100">
-                                <div className="font-bold text-slate-800">{req.course}</div>
-                                {req.classGroup && <div className="text-[10px] text-slate-400 font-semibold">{req.classGroup}</div>}
-                              </TableCell>
-                              <TableCell className="p-3 font-bold border-r border-slate-100 text-slate-800">
-                                {req.requestorName}
-                              </TableCell>
-                              <TableCell className="p-3 border-r border-slate-100">
-                                {isLate ? (
-                                  <span className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-black inline-flex items-center gap-1">
-                                    Period Attendance Unlock
-                                  </span>
-                                ) : isExam ? (
-                                  <span className="px-2 py-0.5 rounded-md bg-purple-50 border border-purple-200 text-purple-700 text-[10px] font-black inline-flex items-center gap-1">
-                                    Exam Mark Edit
-                                  </span>
-                                ) : (
-                                  <div className="flex flex-col gap-1 mb-1">
-                                    <span className="px-2 py-0.5 w-max rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black inline-flex items-center gap-1">
-                                      Substitution
-                                    </span>
-                                    {req.targetStaffName && <span className="font-semibold text-indigo-900 truncate" title={req.targetStaffName}>{req.targetStaffName}</span>}
+                            <TableRow key={req.id} className="hover:bg-slate-50/60 transition-colors">
+                              {/* Date & Period */}
+                              <TableCell className="p-3.5 border-r border-slate-100">
+                                <div className="space-y-1">
+                                  <div className="font-bold text-slate-900 flex items-center gap-1.5">
+                                    <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                                    <span>{req.dateFormatted || req.dateStr || "—"}</span>
                                   </div>
-                                )}
-                                {req.status === "needs_cam_allocation" ? (
-                                  <span className="text-amber-700 italic font-semibold text-[11px]">
-                                    <div className="flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> <span>Needs Faculty Mapping</span></div>
-                                  </span>
-                                ) : (
-                                  <span className="font-bold text-indigo-700">{req.targetStaffName || "Cover Staff"}</span>
-                                )}
+                                  <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5">
+                                    <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                                    <span>{req.time || "Regular Period"}</span>
+                                  </div>
+                                </div>
                               </TableCell>
-                              <TableCell className="p-3 italic text-slate-600 border-r border-slate-100 text-[11px] max-w-xs truncate" title={req.reason}>
-                                {req.reason}
+
+                              {/* Class & Subject */}
+                              <TableCell className="p-3.5 border-r border-slate-100">
+                                <div className="space-y-1">
+                                  <div className="font-bold text-slate-900 leading-snug">{req.course || "—"}</div>
+                                  {req.classGroup && (
+                                    <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                                      {req.classGroup}
+                                    </span>
+                                  )}
+                                </div>
                               </TableCell>
-                              <TableCell className="p-3 border-r border-slate-100">
-                                {isExam ? (
-                                  <span className="px-2 py-0.5 rounded border text-[9.5px] font-black uppercase bg-purple-50 border-purple-200 text-purple-700 flex items-center gap-1 w-fit">
-                                    <FileText className="w-3 h-3" />
-                                    <span>Exam Mark Edit</span>
-                                  </span>
-                                ) : isLate ? (
-                                  <span className="px-2 py-0.5 rounded border text-[9.5px] font-black uppercase bg-rose-50 border-rose-200 text-rose-700 animate-pulse flex items-center gap-1 w-fit">
-                                    <Clock className="w-3 h-3" />
-                                    <span>Late Attendance</span>
-                                  </span>
-                                ) : req.status === "needs_cam_allocation" ? (
-                                  <span className="px-2 py-0.5 rounded border text-[9.5px] font-black uppercase bg-indigo-50 border-indigo-200 text-indigo-700 flex items-center gap-1 w-fit">
-                                    <ShieldCheck className="w-3 h-3" />
-                                    <span>Needs CM Allocation</span>
+
+                              {/* Faculty Requestor */}
+                              <TableCell className="p-3.5 border-r border-slate-100">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-7 h-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0">
+                                    {(req.requestorName || "F").charAt(0).toUpperCase()}
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="font-bold text-slate-900 text-xs truncate">{req.requestorName || "—"}</p>
+                                    <p className="text-[10px] text-slate-400 font-medium">Faculty</p>
+                                  </div>
+                                </div>
+                              </TableCell>
+
+                              {/* Type / Target */}
+                              <TableCell className="p-3.5 border-r border-slate-100">
+                                <div className="space-y-1">
+                                  {isLate ? (
+                                    <div className="space-y-0.5">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                        <Clock className="w-3 h-3" /> Late Attendance
+                                      </span>
+                                      <p className="text-[11px] text-slate-500 font-medium">Period Attendance Unlock</p>
+                                    </div>
+                                  ) : isExam ? (
+                                    <div className="space-y-0.5">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                        <FileText className="w-3 h-3" /> Exam Mark Edit
+                                      </span>
+                                      <p className="text-[11px] text-slate-500 font-medium">{req.targetStaffName || "Student Mark"}</p>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-0.5">
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                        <Users className="w-3 h-3" /> Substitution
+                                      </span>
+                                      <p className="text-[11px] text-slate-600 font-semibold truncate" title={req.targetStaffName || "Cover Staff"}>
+                                        {req.targetStaffName || "Cover Staff"}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </TableCell>
+
+                              {/* Reason & Remarks */}
+                              <TableCell className="p-3.5 border-r border-slate-100">
+                                <div className="space-y-1">
+                                  <p className="text-xs text-slate-700 line-clamp-2" title={req.reason}>
+                                    {req.reason?.replace(/^Late Attendance Edit Request:\s*/i, "") || "—"}
+                                  </p>
+                                  {req.headerReason && (
+                                    <p className="text-[10px] text-rose-700 italic bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100">
+                                      CM Note: {req.headerReason}
+                                    </p>
+                                  )}
+                                </div>
+                              </TableCell>
+
+                              {/* Status */}
+                              <TableCell className="p-3.5 border-r border-slate-100">
+                                {req.status === "approved" ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                    <CheckCircle className="w-3.5 h-3.5" /> Approved
                                   </span>
                                 ) : req.status === "rejected" ? (
-                                  <span className="px-2 py-0.5 rounded border text-[9.5px] font-black uppercase bg-rose-50 border-rose-200 text-rose-700 flex items-center gap-1 w-fit">
-                                    <XCircle className="w-3 h-3" />
-                                    <span>Cover Declined</span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                                    <XCircle className="w-3.5 h-3.5" /> Declined
                                   </span>
-                                ) : req.status === "pending_cam" ? (
-                                  <span className="px-2 py-0.5 rounded border text-[9.5px] font-bold uppercase bg-indigo-50 border-indigo-100 text-indigo-700 flex items-center gap-1 w-fit animate-pulse">
-                                    <Clock className="w-3 h-3" />
-                                    <span>Awaiting CM Review</span>
+                                ) : isNeedsCmAllocation(req.status) ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                    <AlertTriangle className="w-3.5 h-3.5" /> Needs Mapping
+                                  </span>
+                                ) : isAwaitingCm(req.status) ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                                    <Clock className="w-3.5 h-3.5 animate-pulse" /> Pending CM
                                   </span>
                                 ) : (
-                                  <span className="px-2 py-0.5 rounded border text-[9.5px] font-bold uppercase bg-amber-50 border-amber-100 text-amber-700 flex items-center gap-1 w-fit">
-                                    <Clock className="w-3 h-3" />
-                                    <span>Awaiting Colleague</span>
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                                    <Clock className="w-3.5 h-3.5" /> Awaiting Peer
                                   </span>
                                 )}
                               </TableCell>
-                              <TableCell className="p-3 text-right">
+
+                              {/* Actions */}
+                              <TableCell className="p-3.5 text-right">
                                 {readOnly ? (
                                   <span className="text-[10px] text-slate-400 font-semibold italic">View only</span>
                                 ) : isExam ? (
-                                  <div className="flex gap-2 justify-end">
-                                    <button
-                                      type="button"
-                                      disabled={loadingActions[`approve_req_${req.id}`]}
-                                      onClick={async () => {
-                                        if (await showConfirm({ message: `Approve this Exam Mark Modification Request? New mark will be saved into the official exam record.`, confirmLabel: "Approve Mark", title: "Approve Mark Edit" })) {
-                                          setActionLoading(`approve_req_${req.id}`, true);
-                                          try {
-                                            await handleRequest(req.id, "approved", "Approved by CM", "Campus Manager");
-                                            toast("Exam mark modification approved successfully!", "success");
-                                          } finally {
-                                            setActionLoading(`approve_req_${req.id}`, false);
+                                  isAwaitingCm(req.status) || req.status === "pending" || req.status === "pending_cm" ? (
+                                    <div className="flex gap-1.5 justify-end">
+                                      <button
+                                        type="button"
+                                        disabled={loadingActions[`approve_req_${req.id}`]}
+                                        onClick={async () => {
+                                          if (await showConfirm({ message: `Approve this Exam Mark Modification Request? New mark will be saved into the official exam record.`, confirmLabel: "Approve Mark", title: "Approve Mark Edit" })) {
+                                            setActionLoading(`approve_req_${req.id}`, true);
+                                            try {
+                                              await handleRequest(req.id, "approved", "Approved by CM", "Campus Manager");
+                                              toast("Exam mark modification approved successfully!", "success");
+                                            } finally {
+                                              setActionLoading(`approve_req_${req.id}`, false);
+                                            }
                                           }
-                                        }
-                                      }}
-                                      className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[9.5px] font-bold shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
-                                    >
-                                      {loadingActions[`approve_req_${req.id}`] ? (
-                                        <>
+                                        }}
+                                        className="px-2.5 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[10px] font-bold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                                      >
+                                        {loadingActions[`approve_req_${req.id}`] ? (
                                           <Loader2 className="h-3 w-3 animate-spin" />
-                                          Approving...
-                                        </>
-                                      ) : "Approve Mark"}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={loadingActions[`reject_req_${req.id}`]}
-                                      onClick={async () => {
-                                        if (await showConfirm({ message: "Are you sure you want to reject this mark modification request?", danger: true, confirmLabel: "Reject" })) {
-                                          setActionLoading(`reject_req_${req.id}`, true);
-                                          try {
-                                            await handleRequest(req.id, "rejected", "Rejected by CM", "Campus Manager");
-                                            toast("Exam mark modification request rejected.", "info");
-                                          } finally {
-                                            setActionLoading(`reject_req_${req.id}`, false);
+                                        ) : (
+                                          <Check className="w-3 h-3" />
+                                        )}
+                                        <span>Approve Mark</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={loadingActions[`reject_req_${req.id}`]}
+                                        onClick={async () => {
+                                          if (await showConfirm({ message: "Are you sure you want to reject this mark modification request?", danger: true, confirmLabel: "Reject" })) {
+                                            setActionLoading(`reject_req_${req.id}`, true);
+                                            try {
+                                              await handleRequest(req.id, "rejected", "Rejected by CM", "Campus Manager");
+                                              toast("Exam mark modification request rejected.", "info");
+                                            } finally {
+                                              setActionLoading(`reject_req_${req.id}`, false);
+                                            }
                                           }
-                                        }
-                                      }}
-                                      className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-lg text-[9.5px] font-bold shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
-                                    >
-                                      {loadingActions[`reject_req_${req.id}`] ? (
-                                        <>
+                                        }}
+                                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-lg text-[10px] font-bold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                                      >
+                                        {loadingActions[`reject_req_${req.id}`] ? (
                                           <Loader2 className="h-3 w-3 animate-spin" />
-                                          Rejecting...
-                                        </>
-                                      ) : "Reject"}
-                                    </button>
-                                  </div>
-                                ) : (req.status === "needs_cam_allocation" || req.status === "rejected") ? (
+                                        ) : (
+                                          <X className="w-3 h-3" />
+                                        )}
+                                        <span>Reject</span>
+                                      </button>
+                                    </div>
+                                  ) : req.status === "approved" ? (
+                                    <span className="text-[11px] font-bold text-emerald-600">Mark Updated</span>
+                                  ) : (
+                                    <span className="text-[11px] font-bold text-rose-600">Declined</span>
+                                  )
+                                ) : isLate ? (
+                                  isAwaitingCm(req.status) || req.status === "pending" || req.status === "pending_cm" ? (
+                                    <div className="flex gap-1.5 justify-end">
+                                      <button
+                                        type="button"
+                                        disabled={loadingActions[`approve_req_${req.id}`]}
+                                        onClick={async () => {
+                                          if (await showConfirm({
+                                            message: `Approve Late Attendance Edit Permission for ${req.requestorName}? They will be allowed to mark attendance for ${req.course || "this period"}.`,
+                                            confirmLabel: "Approve Unlock",
+                                            title: "Approve Attendance Unlock"
+                                          })) {
+                                            setActionLoading(`approve_req_${req.id}`, true);
+                                            try {
+                                              await handleRequest(req.id, "approved", "Approved by CM", "Campus Manager");
+                                              toast("Attendance unlock permission approved! Faculty can now mark attendance.", "success");
+                                            } finally {
+                                              setActionLoading(`approve_req_${req.id}`, false);
+                                            }
+                                          }
+                                        }}
+                                        className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                                      >
+                                        {loadingActions[`approve_req_${req.id}`] ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <Check className="w-3 h-3" />
+                                        )}
+                                        <span>Approve Unlock</span>
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={loadingActions[`reject_req_${req.id}`]}
+                                        onClick={async () => {
+                                          if (await showConfirm({
+                                            message: `Are you sure you want to reject the late attendance edit request from ${req.requestorName}?`,
+                                            danger: true,
+                                            confirmLabel: "Decline"
+                                          })) {
+                                            setActionLoading(`reject_req_${req.id}`, true);
+                                            try {
+                                              await handleRequest(req.id, "rejected", "Declined by Campus Manager", "Campus Manager");
+                                              toast("Late attendance request declined.", "info");
+                                            } finally {
+                                              setActionLoading(`reject_req_${req.id}`, false);
+                                            }
+                                          }
+                                        }}
+                                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-lg text-[10px] font-bold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
+                                      >
+                                        {loadingActions[`reject_req_${req.id}`] ? (
+                                          <Loader2 className="h-3 w-3 animate-spin" />
+                                        ) : (
+                                          <X className="w-3 h-3" />
+                                        )}
+                                        <span>Decline</span>
+                                      </button>
+                                    </div>
+                                  ) : req.status === "approved" ? (
+                                    <span className="text-[11px] font-bold text-emerald-600">Unlocked</span>
+                                  ) : (
+                                    <span className="text-[11px] font-bold text-rose-600">Declined</span>
+                                  )
+                                ) : isNeedsCmAllocation(req.status) ? (
                                   <button
                                     type="button"
                                     onClick={() => openCamAssignModal(req)}
-                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-black shadow-xs transition-colors flex items-center gap-1.5 ml-auto cursor-pointer"
+                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold shadow-xs transition-colors flex items-center gap-1.5 ml-auto cursor-pointer"
                                   >
-                                    ⚡ Map Free Faculty
+                                    <Zap className="w-3 h-3" /> Map Free Faculty
                                   </button>
-                                ) : req.status === "pending_cam" ? (
-                                  <div className="flex gap-2 justify-end">
+                                ) : isAwaitingCm(req.status) ? (
+                                  <div className="flex gap-1.5 justify-end">
                                     <button
                                       type="button"
                                       disabled={loadingActions[`approve_req_${req.id}`]}
                                       onClick={async () => {
-                                        const confirmMessage = isLate
-                                          ? `Approve Late Attendance Edit Permission for ${req.requestorName}? They will be allowed to mark attendance for ${req.course || "this period"}.`
-                                          : "Approve this Emergency Handover Request? It will be forwarded to the cover staff.";
-                                        const title = isLate ? "Approve Attendance Unlock" : "Approve Emergency Handover";
-                                        if (await showConfirm({ message: confirmMessage, confirmLabel: "Approve", title })) {
+                                        if (await showConfirm({ message: "Approve this Emergency Handover Request? It will be forwarded to the cover staff.", confirmLabel: "Approve", title: "Approve Emergency Handover" })) {
                                           setActionLoading(`approve_req_${req.id}`, true);
                                           try {
                                             await handleRequest(req.id, "approved", "", "Campus Manager");
-                                            toast(isLate ? "Attendance unlock permission approved! Faculty can now mark attendance." : "Emergency request approved and forwarded to the cover staff.", "success");
+                                            toast("Emergency request approved and forwarded to the cover staff.", "success");
                                           } finally {
                                             setActionLoading(`approve_req_${req.id}`, false);
                                           }
                                         }
                                       }}
-                                      className={`px-2.5 py-1.5 rounded-lg text-[9.5px] font-bold shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer text-white ${isLate ? "bg-rose-600 hover:bg-rose-700" : "bg-indigo-600 hover:bg-indigo-700"
-                                        }`}
+                                      className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[10px] font-bold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
                                     >
                                       {loadingActions[`approve_req_${req.id}`] ? (
-                                        <>
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                          Approving...
-                                        </>
-                                      ) : isLate ? "Approve Unlock" : "Approve Emergency"}
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <Check className="w-3 h-3" />
+                                      )}
+                                      <span>Approve Emergency</span>
                                     </button>
                                     <button
                                       type="button"
                                       disabled={loadingActions[`reject_req_${req.id}`]}
                                       onClick={async () => {
-                                        const confirmMessage = isLate
-                                          ? "Are you sure you want to reject this late attendance edit request?"
-                                          : "Are you sure you want to reject this emergency handover request?";
-                                        if (await showConfirm({ message: confirmMessage, danger: true, confirmLabel: "Reject" })) {
+                                        if (await showConfirm({ message: "Are you sure you want to reject this emergency handover request?", danger: true, confirmLabel: "Reject" })) {
                                           setActionLoading(`reject_req_${req.id}`, true);
                                           try {
-                                            await handleRequest(req.id, "rejected", "", "Campus Manager");
-                                            toast(isLate ? "Late attendance edit request rejected." : "Emergency request rejected.", "info");
+                                            await handleRequest(req.id, "rejected", "Rejected by CM", "Campus Manager");
+                                            toast("Emergency request rejected.", "info");
                                           } finally {
                                             setActionLoading(`reject_req_${req.id}`, false);
                                           }
                                         }
                                       }}
-                                      className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-lg text-[9.5px] font-bold shadow-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
+                                      className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 rounded-lg text-[10px] font-bold shadow-xs transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-1 cursor-pointer"
                                     >
                                       {loadingActions[`reject_req_${req.id}`] ? (
-                                        <>
-                                          <Loader2 className="h-3 w-3 animate-spin" />
-                                          Rejecting...
-                                        </>
-                                      ) : "Reject"}
+                                        <Loader2 className="h-3 w-3 animate-spin" />
+                                      ) : (
+                                        <X className="w-3 h-3" />
+                                      )}
+                                      <span>Reject</span>
                                     </button>
                                   </div>
+                                ) : req.status === "rejected" ? (
+                                  <div className="flex items-center gap-1.5 justify-end">
+                                    <span className="text-[11px] font-bold text-rose-600">Declined</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => openCamAssignModal(req)}
+                                      className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer"
+                                    >
+                                      Reassign
+                                    </button>
+                                  </div>
+                                ) : req.status === "approved" ? (
+                                  <span className="text-[11px] font-bold text-emerald-600">Handed Over</span>
                                 ) : (
                                   <span className="text-[10px] text-slate-400 font-semibold italic">
-                                    Awaiting cover staff ({req.targetStaffName})
+                                    Awaiting cover ({req.targetStaffName || "Peer"})
                                   </span>
                                 )}
                               </TableCell>
                             </TableRow>
                           );
                         })}
-                        {filteredByCat.length === 0 && (
+
+                        {paginatedRequests.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={7} className="p-12 text-center text-slate-400">
                               <div className="flex flex-col items-center justify-center gap-2">
                                 <CheckCircle className="h-8 w-8 text-emerald-400/80" />
-                                <p className="text-xs font-bold text-slate-600">No pending requests in this category.</p>
+                                <p className="text-xs font-bold text-slate-600">No requests match the selected filters.</p>
                                 <p className="text-[11px] text-slate-400">
-                                  {isAllColleges ? "All campus requests have been reviewed." : `All requests for ${colleges.find(c => c.id === activeCollegeId)?.name || "this campus"} have been reviewed.`}
+                                  {approvalsSearch ? "Try adjusting your search keyword or clearing filters." : "All requests in this category have been processed."}
                                 </p>
+                                {(approvalsSearch || approvalsStatusFilter !== "pending" || approvalsCategoryFilter !== "all") && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setApprovalsCategoryFilter("all");
+                                      setApprovalsStatusFilter("pending");
+                                      setApprovalsSearch("");
+                                      setApprovalsPage(1);
+                                    }}
+                                    className="mt-1 px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                                  >
+                                    Reset Filters
+                                  </button>
+                                )}
                               </div>
                             </TableCell>
                           </TableRow>
@@ -20102,6 +20124,23 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       </TableBody>
                     </Table>
                   </div>
+
+                  {/* Pagination Footer */}
+                  {totalItems > 0 && (
+                    <div className="pt-2">
+                      <Pagination
+                        currentPage={safeCurrentPage}
+                        totalItems={totalItems}
+                        pageSize={approvalsPageSize}
+                        onPageChange={(page) => setApprovalsPage(page)}
+                        onPageSizeChange={(newSize) => {
+                          setApprovalsPageSize(newSize);
+                          setApprovalsPage(1);
+                        }}
+                        pageSizeOptions={[5, 10, 20, 50]}
+                      />
+                    </div>
+                  )}
                 </div>
 
                 {/* Modal: CAM Direct Free Faculty Allocation */}
@@ -20110,7 +20149,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     open={true}
                     onOpenChange={(next) => { if (!next) setCamAssigningReq(null); }}
                     ariaLabel="Map Free Faculty for Cover"
-                    overlayClassName="bg-slate-900/60 backdrop-blur-xs"
+                    overlayClassName="bg-slate-950/60 backdrop-blur-sm"
                     panelClassName="max-w-md overflow-hidden animate-scaleUp space-y-0 p-0 max-h-[90vh]"
                   >
                     {/* Header */}
@@ -20230,7 +20269,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       open={true}
                       onOpenChange={(next) => { if (!next) setReviewingRequestId(null); }}
                       ariaLabel="Select Subject for Coverage"
-                      overlayClassName="z-[9999] bg-slate-900/25 backdrop-blur-sm"
+                      overlayClassName="z-[9999] bg-slate-950/60 backdrop-blur-sm"
                       panelClassName="max-w-sm p-5 mx-4 space-y-0"
                     >
                       <div className="flex items-center justify-between mb-4">
@@ -20301,7 +20340,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="Optional note / feedback..."
                           value={reviewReason}
                           onChange={(e) => setReviewReason(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none"
+                          className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 outline-none"
                         />
                       </div>
 
@@ -20396,7 +20435,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 {/*  Swap-to-Compensate Tracker */}
                 {(() => {
                   const swapRequests = campusRequests.filter((r: any) => r.request_type === "swap_compensate");
-                  const pendingSwaps = swapRequests.filter((r: any) => r.status === "pending" || r.status === "pending_cam");
+                  const pendingSwaps = swapRequests.filter((r: any) => isAnyPendingCmRequest(r.status));
                   const approvedSwaps = swapRequests.filter((r: any) => r.status === "approved");
                   const rejectedSwaps = swapRequests.filter((r: any) => r.status === "rejected");
 
@@ -20451,7 +20490,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               {swapRequests.slice().sort((a: any, b: any) => (b.timestamp || "").localeCompare(a.timestamp || "")).map((req: any) => {
                                 const debtorMentor = mentors.find(m => m.id === req.requestorId);
                                 const creditorMentor = mentors.find(m => m.id === req.targetStaffId);
-                                const isPending = req.status === "pending" || req.status === "pending_cam";
+                                const isPending = isAnyPendingCmRequest(req.status);
                                 const isApproved = req.status === "approved";
                                 return (
                                   <TableRow key={req.id} className="hover:bg-indigo-50/20 transition-colors">
@@ -21182,8 +21221,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         </div>
 
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-card space-y-1">
-                          <span className="text-[10px] text-[#D528A2] font-bold uppercase tracking-wider block">Active Faculty Loggers</span>
-                          <div className="text-2xl font-black text-[#D528A2]">{activeFacultyCount} / {collegeMentors.length}</div>
+                          <span className="text-[10px] text-[#4F46E5] font-bold uppercase tracking-wider block">Active Faculty Loggers</span>
+                          <div className="text-2xl font-black text-[#4F46E5]">{activeFacultyCount} / {collegeMentors.length}</div>
                           <span className="text-[9px] text-slate-400 font-semibold block">Mentors recording lessons</span>
                         </div>
 
@@ -21363,7 +21402,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         {/* Table Header Bar with Export in Corner */}
                         <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/60">
                           <div className="flex items-center gap-2.5">
-                            <div className="h-7 w-7 rounded-lg bg-[#D528A2]/10 flex items-center justify-center text-[#D528A2]">
+                            <div className="h-7 w-7 rounded-lg bg-[#4F46E5]/10 flex items-center justify-center text-[#4F46E5]">
                               <BookOpen className="w-3.5 h-3.5" />
                             </div>
                             <div>
@@ -21776,7 +21815,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <button
                       type="button"
                       onClick={exportTrackerData}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
                       title="Export full tracker to Excel spreadsheet"
                     >
                       <FileSpreadsheet className="h-3.5 w-3.5" />
@@ -21787,7 +21826,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <button
                       type="button"
                       onClick={exportTrackerCSV}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs hover:shadow-md transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
                       title="Export tracker as raw CSV data"
                     >
                       <Download className="h-3.5 w-3.5" />
@@ -22570,7 +22609,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     placeholder="Search by Name, Roll No, Email, Phone..."
                     value={studentDirSearch}
                     onChange={(e) => setStudentDirSearch(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-slate-50/50"
+                    className="w-full pl-9 pr-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:border-indigo-500 bg-sunken/50"
                   />
                 </div>
 
@@ -22645,7 +22684,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
               {/* Batch Action Toolbar when students selected */}
               {!readOnly && selectedStudentIds.length > 0 && (
-                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 animate-in fade-in">
+                <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3 animate-fadeIn">
                   <div className="flex items-center gap-2.5 text-xs font-bold text-rose-900">
                     <span className="h-6 px-2.5 rounded-full bg-rose-600 text-white font-extrabold text-[11px] flex items-center justify-center">
                       {selectedStudentIds.length}
@@ -22747,6 +22786,11 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     }
                   };
 
+                  const paginatedStudents = filtered.slice(
+                    (studentListPage - 1) * studentListPageSize,
+                    studentListPage * studentListPageSize
+                  );
+
                   if (filtered.length === 0) {
                     return (
                       <div className="text-center py-12 border border-dashed border-slate-200 rounded-xl bg-slate-50/50">
@@ -22761,7 +22805,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <div className="space-y-3">
                       <div className="flex items-center justify-between text-xs font-semibold text-slate-500 px-1 gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
-                          <span>Showing {filtered.length} student(s)</span>
+                          <span>
+                            Showing {filtered.length === 0 ? 0 : (studentListPage - 1) * studentListPageSize + 1}–
+                            {Math.min(studentListPage * studentListPageSize, filtered.length)} of {filtered.length} student(s)
+                          </span>
                           {!readOnly && filtered.length > 1 && (
                             <button
                               type="button"
@@ -22841,7 +22888,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             </TableRow>
                           </TableHeader>
                           <TableBody className="divide-y divide-slate-100 bg-white text-slate-700">
-                            {filtered.map(st => {
+                            {paginatedStudents.map(st => {
                               const isSelected = selectedStudentIds.includes(st.id);
                               return (
                                 <TableRow key={st.id} className={`transition-colors whitespace-nowrap ${isSelected ? "bg-rose-50/30 hover:bg-rose-50/50" : "hover:bg-indigo-50/20"}`}>
@@ -22954,29 +23001,34 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                     </div>
                                   </TableCell>
                                   <TableCell className="p-3 text-center">
-                                    <div className="flex items-center justify-center gap-1.5">
-                                      <button
-                                        type="button"
-                                        onClick={() => setSelectedStudentForDetail(st)}
-                                        className="px-2 py-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10.5px] font-extrabold transition-colors cursor-pointer"
-                                      >
-                                        View Profile
-                                      </button>
-                                      {!readOnly && (
-                                        <button
-                                          type="button"
-                                          disabled={loadingActions[`delete_student_${st.id}`]}
-                                          onClick={() => handleSingleDeleteStudent(st)}
-                                          className="p-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 text-[10.5px] font-extrabold transition-colors cursor-pointer flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                                          title="Delete student record"
-                                        >
-                                          {loadingActions[`delete_student_${st.id}`] ? (
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                          ) : (
-                                            <Trash2 className="h-3.5 w-3.5" />
+                                    <div className="flex items-center justify-center">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <ActionDropdownButton size="sm" />
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-44">
+                                          <DropdownMenuItem
+                                            onClick={() => setSelectedStudentForDetail(st)}
+                                            className="gap-2 cursor-pointer text-xs"
+                                          >
+                                            <Eye className="h-3.5 w-3.5 text-indigo-600" />
+                                            <span>View Profile</span>
+                                          </DropdownMenuItem>
+                                          {!readOnly && (
+                                            <>
+                                              <DropdownMenuSeparator />
+                                              <DropdownMenuItem
+                                                onClick={() => handleSingleDeleteStudent(st)}
+                                                disabled={loadingActions[`delete_student_${st.id}`]}
+                                                className="gap-2 cursor-pointer text-xs text-rose-600 focus:bg-rose-50 focus:text-rose-700"
+                                              >
+                                                <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                                <span>Delete Student</span>
+                                              </DropdownMenuItem>
+                                            </>
                                           )}
-                                        </button>
-                                      )}
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
                                     </div>
                                   </TableCell>
                                 </TableRow>
@@ -22985,6 +23037,22 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           </TableBody>
                         </Table>
                       </div>
+
+                      {filtered.length > studentListPageSize && (
+                        <div className="pt-2 flex justify-end">
+                          <Pagination
+                            currentPage={studentListPage}
+                            totalItems={filtered.length}
+                            pageSize={studentListPageSize}
+                            onPageChange={setStudentListPage}
+                            onPageSizeChange={(newSize) => {
+                              setStudentListPageSize(newSize);
+                              setStudentListPage(1);
+                            }}
+                            pageSizeOptions={[25, 50, 100]}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })()}
@@ -23204,10 +23272,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <div className="flex items-center gap-2">
                         <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-[#D528A2]" />
+                          <Calendar className="h-4 w-4 text-[#4F46E5]" />
                           Campus Fests, Functions &amp; Event Console
                         </h3>
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-pink-50 text-[#D528A2] border border-pink-100">
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-pink-50 text-[#4F46E5] border border-pink-100">
                           {filteredEvents.length} Events on this Campus
                         </span>
                       </div>
@@ -23245,10 +23313,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           <button
                             type="button"
                             onClick={handleOpenCreateEventModal}
-                            className="px-4 py-1.5 rounded-xl btn-gradient text-xs cursor-pointer flex items-center gap-1.5"
+                            className="px-4 py-1.5 rounded-xl btn-gradient text-xs font-bold cursor-pointer flex items-center gap-2 shadow-sm"
                           >
                             <Plus className="h-4 w-4" />
-                            <span>+ Create Event</span>
+                            <span>Create Event</span>
                           </button>
                         )}
                       </div>
@@ -23264,7 +23332,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="Search fest title, speaker, coordinator or venue..."
                           value={eventSearchQuery}
                           onChange={e => setEventSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-3 py-1.5 border border-slate-200 bg-slate-50/50 text-xs rounded-xl focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2] outline-none font-semibold"
+                          className="w-full pl-9 pr-3 py-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken/50 text-xs rounded-xl focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] outline-none font-semibold"
                         />
                       </div>
 
@@ -23272,7 +23340,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       <select aria-label="Event category filter"
                         value={eventCategoryFilter}
                         onChange={e => setEventCategoryFilter(e.target.value)}
-                        className="p-1.5 border border-slate-200 bg-slate-50/50 text-xs rounded-xl font-bold text-slate-700 outline-none"
+                        className="p-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken/50 text-xs rounded-xl font-bold text-slate-700 outline-none"
                       >
                         <option value="All">All Categories</option>
                         <option value="Coding Fest & Hackathon">Coding Fest &amp; Hackathon</option>
@@ -23289,7 +23357,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       <select aria-label="Event status filter"
                         value={eventStatusFilter}
                         onChange={e => setEventStatusFilter(e.target.value)}
-                        className="p-1.5 border border-slate-200 bg-slate-50/50 text-xs rounded-xl font-bold text-slate-700 outline-none"
+                        className="p-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken/50 text-xs rounded-xl font-bold text-slate-700 outline-none"
                       >
                         <option value="All">All Statuses</option>
                         <option value="Upcoming">Upcoming</option>
@@ -23303,7 +23371,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => setEventViewMode("cards")}
-                          className={`flex-1 py-1 text-[10.5px] font-extrabold rounded-lg transition-all cursor-pointer ${eventViewMode === "cards" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                          className={`flex-1 py-1 text-[10.5px] font-extrabold rounded-lg transition-all cursor-pointer ${eventViewMode === "cards" ? "bg-white text-zinc-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
                             }`}
                         >
                           Cards
@@ -23311,7 +23379,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => setEventViewMode("timeline")}
-                          className={`flex-1 py-1 text-[10.5px] font-extrabold rounded-lg transition-all cursor-pointer ${eventViewMode === "timeline" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                          className={`flex-1 py-1 text-[10.5px] font-extrabold rounded-lg transition-all cursor-pointer ${eventViewMode === "timeline" ? "bg-white text-zinc-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
                             }`}
                         >
                           Timeline
@@ -23319,7 +23387,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => setEventViewMode("table")}
-                          className={`flex-1 py-1 text-[10.5px] font-extrabold rounded-lg transition-all cursor-pointer ${eventViewMode === "table" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-500 hover:text-slate-800"
+                          className={`flex-1 py-1 text-[10.5px] font-extrabold rounded-lg transition-all cursor-pointer ${eventViewMode === "table" ? "bg-white text-zinc-900 shadow-xs" : "text-slate-500 hover:text-slate-800"
                             }`}
                         >
                           Table
@@ -23343,10 +23411,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             type="button"
                             onClick={handleOpenCreateEventModal}
                             disabled={readOnly}
-                            className={`px-4 py-2 rounded-xl btn-gradient text-xs inline-flex items-center gap-1.5 ${readOnly ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
+                            className={`px-4 py-2 rounded-xl btn-gradient text-xs font-bold inline-flex items-center gap-2 shadow-sm ${readOnly ? "opacity-40 cursor-not-allowed" : "cursor-pointer"}`}
                           >
                             <Plus className="h-4 w-4" />
-                            + Create Event
+                            <span>Create Event</span>
                           </button>
                         </div>
                       ) : (
@@ -23509,7 +23577,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                     <button
                                       type="button"
                                       onClick={() => handleOpenCreateAchievementModal(ev.name, ev.date, ev.department)}
-                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 text-[#D528A2] border border-pink-200 text-[11px] font-extrabold transition-all cursor-pointer shadow-2xs hover:shadow-xs"
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-pink-50 hover:bg-pink-100 text-[#4F46E5] border border-pink-200 text-[11px] font-extrabold transition-all cursor-pointer shadow-2xs hover:shadow-xs"
                                       title={`Record student winners, accolades and awards for ${ev.name}`}
                                     >
                                       <Award className="h-3.5 w-3.5 text-amber-500 shrink-0" />
@@ -23609,24 +23677,28 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                 </div>
 
                                 {!readOnly && (
-                                  <div className="flex items-center gap-1">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenEditEventModal(ev)}
-                                      className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 transition-colors cursor-pointer"
-                                      title="Edit Event & Photos"
-                                    >
-                                      <Edit2 className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={() => handleDeleteEvent(ev.id)}
-                                      className="p-1.5 rounded-lg bg-white border border-slate-200 hover:bg-rose-50 text-rose-600 transition-colors cursor-pointer"
-                                      title="Delete Event"
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
-                                  </div>
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <ActionDropdownButton size="sm" />
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-48">
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenEditEventModal(ev)}
+                                        className="gap-2 cursor-pointer text-xs"
+                                      >
+                                        <Edit2 className="h-3.5 w-3.5 text-indigo-600" />
+                                        <span>Edit Event & Photos</span>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => handleDeleteEvent(ev.id)}
+                                        className="gap-2 cursor-pointer text-xs text-rose-600 focus:bg-rose-50 focus:text-rose-700"
+                                      >
+                                        <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                        <span>Delete Event</span>
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 )}
                               </div>
                             </div>
@@ -23645,7 +23717,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       <div className="relative pl-6 border-l-2 border-indigo-200 space-y-8 my-4">
                         {filteredEvents.map(ev => (
                           <div key={ev.id} className="relative group">
-                            <div className="absolute -left-[31px] top-1.5 h-4 w-4 rounded-full bg-[#D528A2] ring-4 ring-[#D528A2]/15 border-2 border-white shadow-xs" />
+                            <div className="absolute -left-[31px] top-1.5 h-4 w-4 rounded-full bg-[#4F46E5] ring-4 ring-[#4F46E5]/15 border-2 border-white shadow-xs" />
                             <div className="bg-slate-50/70 border border-slate-100 p-4 rounded-2xl space-y-2 hover:bg-white transition-all shadow-card">
                               <div className="flex items-center justify-between flex-wrap gap-2">
                                 <span className="text-xs font-mono font-black text-indigo-600">{ev.date}{ev.end_date ? ` → ${ev.end_date}` : ""}</span>
@@ -23695,7 +23767,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                         disabled={statusUpdatingId === ev.id}
                                         value={ev.status || "Upcoming"}
                                         onChange={(e) => handleUpdateEventStatus(ev, e.target.value)}
-                                        className="text-[10.5px] font-bold rounded-lg px-2 py-0.5 border border-slate-200 bg-slate-50 cursor-pointer"
+                                        className="text-[10.5px] font-bold rounded-lg px-2 py-0.5 border border-slate-200 inset-shadow-well bg-sunken cursor-pointer"
                                       >
                                         <option value="Upcoming">Upcoming</option>
                                         <option value="Ongoing">Ongoing</option>
@@ -23712,21 +23784,36 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               <TableCell className="p-3 text-slate-600">{ev.venue || "—"}</TableCell>
                               {!readOnly && (
                                 <TableCell className="p-3 text-center">
-                                  <div className="flex items-center justify-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      onClick={() => handleOpenCreateAchievementModal(ev.name, ev.date, ev.department)}
-                                      className="p-1 rounded bg-pink-50 text-[#D528A2] hover:bg-pink-100 cursor-pointer"
-                                      title="Record Student Achievements"
-                                    >
-                                      <Award className="h-3.5 w-3.5 text-amber-500" />
-                                    </button>
-                                    <button type="button" onClick={() => handleOpenEditEventModal(ev)} className="p-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 cursor-pointer" title="Edit Event">
-                                      <Edit2 className="h-3.5 w-3.5" />
-                                    </button>
-                                    <button type="button" onClick={() => handleDeleteEvent(ev.id)} className="p-1 rounded bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer" title="Delete Event">
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </button>
+                                  <div className="flex items-center justify-center">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <ActionDropdownButton size="sm" />
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-52">
+                                        <DropdownMenuItem
+                                          onClick={() => handleOpenCreateAchievementModal(ev.name, ev.date, ev.department)}
+                                          className="gap-2 cursor-pointer text-xs"
+                                        >
+                                          <Award className="h-3.5 w-3.5 text-amber-500" />
+                                          <span>Record Achievements</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem
+                                          onClick={() => handleOpenEditEventModal(ev)}
+                                          className="gap-2 cursor-pointer text-xs"
+                                        >
+                                          <Edit2 className="h-3.5 w-3.5 text-indigo-600" />
+                                          <span>Edit Event</span>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => handleDeleteEvent(ev.id)}
+                                          className="gap-2 cursor-pointer text-xs text-rose-600 focus:bg-rose-50 focus:text-rose-700"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5 text-rose-600" />
+                                          <span>Delete Event</span>
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                 </TableCell>
                               )}
@@ -23745,7 +23832,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <div className="flex items-center justify-between flex-wrap gap-3">
                       <div>
                         <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                          <Award className="h-4 w-4 text-[#D528A2]" />
+                          <Award className="h-4 w-4 text-[#4F46E5]" />
                           Achievements
                         </h3>
                         <p className="text-xs text-slate-500 mt-0.5">
@@ -23774,14 +23861,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="Search achievements by topic, student name, team, or event..."
                           value={achSearchQuery}
                           onChange={(e) => setAchSearchQuery(e.target.value)}
-                          className="w-full pl-9 pr-3 py-1.5 border border-slate-200 bg-slate-50/50 text-xs rounded-xl focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2] outline-none font-semibold"
+                          className="w-full pl-9 pr-3 py-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken/50 text-xs rounded-xl focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] outline-none font-semibold"
                         />
                       </div>
 
                       <select aria-label="Achievement category filter"
                         value={achCategoryFilter}
                         onChange={(e) => setAchCategoryFilter(e.target.value)}
-                        className="p-1.5 border border-slate-200 bg-slate-50/50 text-xs rounded-xl font-bold text-slate-700 outline-none"
+                        className="p-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken/50 text-xs rounded-xl font-bold text-slate-700 outline-none"
                       >
                         <option value="All">All Categories</option>
                         {allAchCategories.map(c => (
@@ -23984,20 +24071,25 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
               {/* Photo Zoom Lightbox Modal */}
               {selectedPhotoLightbox && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-fadeIn" onClick={() => setSelectedPhotoLightbox(null)}>
-                  <div className="relative max-w-4xl w-full max-h-[90vh] flex flex-col items-center justify-center p-2" onClick={e => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedPhotoLightbox(null)}
-                      className="absolute top-3 right-3 text-white bg-white/20 hover:bg-white/40 h-8 w-8 rounded-full flex items-center justify-center font-bold text-lg cursor-pointer transition-colors"
-                    >
-                      ✕
-                    </button>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={selectedPhotoLightbox.src} alt={selectedPhotoLightbox.title} className="max-h-[80vh] w-auto max-w-full rounded-xl object-contain shadow-2xl border border-white/10" />
-                    <p className="text-white text-xs font-bold mt-3 text-center tracking-wide">{selectedPhotoLightbox.title}</p>
-                  </div>
-                </div>
+                <Dialog
+                  open={true}
+                  onOpenChange={(next) => { if (!next) setSelectedPhotoLightbox(null); }}
+                  ariaLabel={selectedPhotoLightbox.title || "Photo Zoom Preview"}
+                  overlayClassName="bg-black/90 backdrop-blur-md animate-fadeIn"
+                  panelClassName="relative max-w-4xl w-full max-h-[92vh] bg-black/95 border border-white/10 rounded-2xl flex flex-col items-center justify-center p-3"
+                >
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPhotoLightbox(null)}
+                    aria-label="Close photo zoom preview"
+                    className="absolute top-3 right-3 text-white bg-white/20 hover:bg-white/40 h-8 w-8 rounded-full flex items-center justify-center font-bold text-lg cursor-pointer transition-colors z-10"
+                  >
+                    ✕
+                  </button>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={selectedPhotoLightbox.src} alt={selectedPhotoLightbox.title} className="max-h-[80vh] w-auto max-w-full rounded-xl object-contain shadow-card-lg border border-white/10" />
+                  <p className="text-white text-xs font-bold mt-3 text-center tracking-wide">{selectedPhotoLightbox.title}</p>
+                </Dialog>
               )}
 
               {/* Create / Edit Campus Event Modal */}
@@ -24006,7 +24098,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   open={true}
                   onOpenChange={(next) => { if (!next) setShowEventModal(false); }}
                   ariaLabel={editingEventObj ? "Edit Campus Event" : "Create Campus Event"}
-                  overlayClassName="bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+                  overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
                   panelClassName="rounded-2xl max-w-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto custom-scrollbar"
                 >
                   <div className="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -24030,7 +24122,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         placeholder="e.g. CodeCraft 2026 - 24hr Campus Hackathon"
                         value={evFormName}
                         onChange={e => setEvFormName(e.target.value)}
-                        className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2] text-sm"
+                        className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] text-sm"
                       />
                     </div>
 
@@ -24044,7 +24136,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="Start Date"
                           value={evFormDate}
                           onChange={e => setEvFormDate(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         />
                       </div>
                       <div className="space-y-1">
@@ -24054,7 +24146,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="End Date (Optional)"
                           value={evFormEndDate}
                           onChange={e => setEvFormEndDate(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         />
                       </div>
                     </div>
@@ -24067,7 +24159,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="Event Category"
                           value={evFormCategory}
                           onChange={e => setEvFormCategory(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         >
                           <option value="Coding Fest & Hackathon">Coding Fest &amp; Hackathon</option>
                           <option value="Technical Symposium & Project Expo">Technical Symposium &amp; Project Expo</option>
@@ -24086,7 +24178,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="Event Status"
                           value={evFormStatus}
                           onChange={e => setEvFormStatus(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         >
                           <option value="Upcoming">Upcoming</option>
                           <option value="Ongoing">Ongoing</option>
@@ -24105,7 +24197,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="Department Scope"
                           value={evFormDept}
                           onChange={e => setEvFormDept(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         >
                           <option value="All Departments">All Departments</option>
                           {(collegeCourses.length > 0 ? collegeCourses : coursesList).map(d => (
@@ -24120,7 +24212,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="Target Audience"
                           value={evFormAudience}
                           onChange={e => setEvFormAudience(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         >
                           <option value="All Campus">All Campus</option>
                           <option value="Students Only">Students Only</option>
@@ -24141,7 +24233,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="e.g. Innovation Labs / Tech Arena"
                           value={evFormVenue}
                           onChange={e => setEvFormVenue(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         />
                       </div>
 
@@ -24153,7 +24245,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="e.g. Prof. Vignesh (HOD-CSE)"
                           value={evFormCoordinator}
                           onChange={e => setEvFormCoordinator(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         />
                       </div>
                     </div>
@@ -24168,7 +24260,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="e.g. Sundeep G. (Principal Architect)"
                           value={evFormChiefGuest}
                           onChange={e => setEvFormChiefGuest(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         />
                       </div>
 
@@ -24180,7 +24272,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="https://..."
                           value={evFormRegistrationLink}
                           onChange={e => setEvFormRegistrationLink(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none"
                         />
                       </div>
                     </div>
@@ -24194,7 +24286,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         placeholder="Hackathon problem statements, rules, round timings or function highlights..."
                         value={evFormDesc}
                         onChange={e => setEvFormDesc(e.target.value)}
-                        className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-medium text-slate-800 outline-none"
+                        className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-medium text-slate-800 outline-none"
                       />
                     </div>
 
@@ -24216,7 +24308,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       </div>
 
                       {evFormPhotos.length > 0 ? (
-                        <div className="grid grid-cols-4 gap-2.5 pt-1">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-1">
                           {evFormPhotos.map((photoSrc, pIdx) => (
                             <div key={pIdx} className="relative group rounded-xl overflow-hidden border border-slate-100 h-20 bg-slate-100">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -24260,13 +24352,13 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   open={true}
                   onOpenChange={(next) => { if (!next) setShowAchievementModal(false); }}
                   ariaLabel={editingAchievement ? "Edit Achievement" : "Record Achievement"}
-                  overlayClassName="bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto"
+                  overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn overflow-y-auto"
                   panelClassName="rounded-2xl max-w-2xl p-6 space-y-4 my-8 max-h-[90vh] overflow-y-auto"
                 >
                   <div className="flex justify-between items-center border-b border-slate-100 pb-3">
                     <div>
                       <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                        <Award className="h-5 w-5 text-[#D528A2]" />
+                        <Award className="h-5 w-5 text-[#4F46E5]" />
                         {editingAchievement ? "Edit Achievement" : "Record Achievement"}
                       </h3>
                       <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
@@ -24325,7 +24417,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             placeholder="e.g. Team ByteCrafters, RoboKnights, AgriTech Innovators"
                             value={achFormTeamName}
                             onChange={e => setAchFormTeamName(e.target.value)}
-                            className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                            className="w-full p-2.5 border border-slate-200 rounded-xl bg-white font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                           />
                         </div>
                       )}
@@ -24344,7 +24436,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="e.g. 1st Place Winner - AI Track, Gold Medalist, Best Paper Award"
                           value={achFormTitle}
                           onChange={e => setAchFormTitle(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-bold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         />
                       </div>
 
@@ -24358,7 +24450,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="e.g. Autonomous Crop Health Drone with Edge AI, Quantum Encryption Protocol"
                           value={achFormTopic}
                           onChange={e => setAchFormTopic(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         />
                       </div>
                     </div>
@@ -24375,7 +24467,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="e.g. Smart India Hackathon 2026, State Athletics Meet"
                           value={achFormEventName}
                           onChange={e => setAchFormEventName(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         />
                       </div>
 
@@ -24389,7 +24481,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="e.g. Ministry of Education & AICTE, IIT Bombay, IEEE"
                           value={achFormOrganizer}
                           onChange={e => setAchFormOrganizer(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         />
                       </div>
                     </div>
@@ -24402,7 +24494,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="Standing / Position"
                           value={achFormBadge}
                           onChange={e => setAchFormBadge(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         >
                           <option value="1st Place / Winner">1st Place / Winner</option>
                           <option value="1st Runner Up">1st Runner Up (2nd Place)</option>
@@ -24425,7 +24517,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="Achievement Level"
                           value={achFormLevel}
                           onChange={e => setAchFormLevel(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         >
                           <option value="College / Intra-Campus">College / Intra-Campus Level</option>
                           <option value="Zonal / University">Zonal / University Level</option>
@@ -24452,7 +24544,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               setAchFormCategory(e.target.value);
                             }
                           }}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         >
                           {standardAchCategories.map(cat => (
                             <option key={cat} value={cat}>{cat}</option>
@@ -24468,7 +24560,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           aria-label="Date Achieved"
                           value={achFormDateStr}
                           onChange={e => setAchFormDateStr(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         />
                       </div>
                     </div>
@@ -24502,7 +24594,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="e.g. ₹50,000 Cash Prize + Shield + Job Offer"
                           value={achFormRewardPrize}
                           onChange={e => setAchFormRewardPrize(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         />
                       </div>
 
@@ -24516,7 +24608,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="https://drive.google.com/... or verification link"
                           value={achFormProofLink}
                           onChange={e => setAchFormProofLink(e.target.value)}
-                          className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                          className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                         />
                       </div>
                     </div>
@@ -24570,14 +24662,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             placeholder="Search student by name or roll..."
                             value={achStudentPickerSearch}
                             onChange={e => setAchStudentPickerSearch(e.target.value)}
-                            className="w-full pl-7 pr-2.5 py-1.5 border border-slate-200 bg-slate-50/50 text-xs rounded-xl outline-none"
+                            className="w-full pl-7 pr-2.5 py-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken/50 text-xs rounded-xl outline-none"
                           />
                         </div>
 
                         <select aria-label="Department filter"
                           value={achStudentDeptFilter}
                           onChange={e => setAchStudentDeptFilter(e.target.value)}
-                          className="p-1.5 border border-slate-200 bg-slate-50/50 text-xs rounded-xl font-semibold text-slate-700 outline-none"
+                          className="p-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken/50 text-xs rounded-xl font-semibold text-slate-700 outline-none"
                         >
                           <option value="All">All Departments</option>
                           {availableAchDepartments.map(d => (
@@ -24616,7 +24708,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                         setAchFormSelectedStudentIds(prev => [...prev, st.id]);
                                       }
                                     }}
-                                    className="rounded text-[#D528A2] focus:ring-2 focus:ring-[#D528A2]/20"
+                                    className="rounded text-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/20"
                                   />
                                   <span className="text-xs text-slate-800">{st.name}</span>
                                   {(st.register_number || (st as any).roll_number) && (
@@ -24645,7 +24737,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         placeholder="Brief description of how they achieved it, project problem solved, rounds cleared..."
                         value={achFormDescription}
                         onChange={e => setAchFormDescription(e.target.value)}
-                        className="w-full p-2.5 border border-slate-200 rounded-xl bg-slate-50/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2]"
+                        className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken/50 font-semibold text-slate-800 outline-none focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5]"
                       />
                     </div>
 
@@ -24658,7 +24750,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         </label>
                         <label className="px-3 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs cursor-pointer flex items-center gap-1">
                           <Plus className="h-3 w-3" />
-                          <span>+ Add Photo</span>
+                          <span>Add Photo</span>
                           <input
                             type="file"
                             accept="image/*"
@@ -24715,7 +24807,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   open={true}
                   onOpenChange={(next) => { if (!next) setViewingAchievement(null); }}
                   ariaLabel="Achievement Details"
-                  overlayClassName="bg-black/60 backdrop-blur-xs animate-fadeIn overflow-y-auto"
+                  overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn overflow-y-auto"
                   panelClassName="rounded-2xl max-w-2xl p-6 space-y-4 my-8 max-h-[90vh] overflow-y-auto"
                 >
                   <div className="flex justify-between items-start border-b border-slate-100 pb-3">
@@ -24862,7 +24954,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block">
                           Ceremony Photos &amp; Certificates ({photosList.length})
                         </span>
-                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                           {photosList.map((p, pIdx) => (
                             <div
                               key={pIdx}
@@ -24915,9 +25007,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             <div className="space-y-6 font-sans">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Profile Summary Card */}
-                <div className="bg-pastel-cream p-6 rounded-2xl border-transparent shadow-sm flex flex-col items-center justify-between text-center min-h-[300px] group hover:shadow-md transition-all duration-300">
+                <div className="bg-pastel-cream p-6 rounded-2xl border-transparent shadow-card flex flex-col items-center justify-between text-center min-h-[300px] group hover:shadow-card-lg transition-all duration-300">
                   <div className="flex flex-col items-center space-y-4 w-full">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-[#D528A2] to-indigo-600 border-4 border-white text-white flex items-center justify-center text-3xl font-black shadow-md uppercase">
+                    <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-[#4F46E5] to-indigo-600 border-4 border-white text-white flex items-center justify-center text-3xl font-black shadow-md uppercase">
                       {((isKAMView ? currentKAM?.name : currentCAM?.name) || "User").substring(0, 2)}
                     </div>
                     <div>
@@ -24950,7 +25042,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 </div>
 
                 {/* Campus Assignment Details Card */}
-                <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6 flex flex-col justify-between">
+                <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-6 flex flex-col justify-between">
                   <div>
                     <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Campus & Operations Jurisdiction</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -24986,8 +25078,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                   <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex items-center gap-3">
                     <Sparkles className="h-5 w-5 text-indigo-600 shrink-0" />
-                    <div className="text-[11px] text-indigo-800 font-semibold leading-normal">
-                      As Campus Manager (CM), you hold authority over campus-wide class allocations, room management, slot conflict resolutions, and compliance auditing for your assigned campus.
+                    <div className="text-xs text-indigo-800 font-bold leading-normal">
+                      Manage campus schedules, classrooms, class allocations, and scheduling conflicts.
                     </div>
                   </div>
                 </div>
@@ -25037,8 +25129,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             open={true}
             onOpenChange={(next) => { if (!next) setEditingFacultyId(null); }}
             ariaLabel="Configure Faculty Shift"
-            overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-            panelClassName="max-w-md p-6 space-y-4 animate-in fade-in duration-150"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+            panelClassName="max-w-md p-6 space-y-4 animate-fadeIn"
           >
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
@@ -25101,7 +25193,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setShowMentorModal(false); }}
           ariaLabel={editingMentor ? "Edit Faculty Mentor" : "Add Faculty Mentor"}
-          overlayClassName="bg-slate-900/50 backdrop-blur-sm"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
           panelClassName="max-w-lg overflow-hidden animate-slideUp p-0 space-y-0 max-h-[90vh]"
         >
           <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50">
@@ -25133,7 +25225,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   disabled={editingMentor}
                   value={mentorForm.id}
                   onChange={(e) => setMentorForm({ ...mentorForm, id: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-slate-100 disabled:text-slate-400"
+                  className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </div>
 
@@ -25145,7 +25237,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   placeholder="e.g. MS (Leave blank to auto-generate)"
                   value={mentorForm.avatar}
                   onChange={(e) => setMentorForm({ ...mentorForm, avatar: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                  className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
                 />
               </div>
             </div>
@@ -25159,7 +25251,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 placeholder="e.g. Dr. Alice Smith"
                 value={mentorForm.name}
                 onChange={(e) => setMentorForm({ ...mentorForm, name: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
               />
             </div>
 
@@ -25172,7 +25264,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 placeholder="e.g. alice.smith@faceprep.in"
                 value={mentorForm.email}
                 onChange={(e) => setMentorForm({ ...mentorForm, email: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
               />
             </div>
 
@@ -25186,7 +25278,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   const val = e.target.value;
                   setMentorForm({ ...mentorForm, department: val });
                 }}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
               >
                 {facultyDepts.map(d => (
                   <option key={d} value={d}>{d}</option>
@@ -25201,7 +25293,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 required
                 value={mentorForm.subject_group}
                 onChange={(e) => setMentorForm({ ...mentorForm, subject_group: e.target.value })}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
               >
                 {subjectGroups.map(sg => (
                   <option key={sg.id} value={sg.name}>{sg.name}</option>
@@ -25220,7 +25312,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   placeholder="Search subject catalog..."
                   value={mentorSubjectSearch}
                   onChange={(e) => setMentorSubjectSearch(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-600 font-bold"
+                  className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg pl-8 pr-3 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-600 font-bold"
                 />
               </div>
 
@@ -25329,8 +25421,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setShowSubstitutionModal(false); }}
           ariaLabel="Emergency Faculty Substitution"
-          overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-          panelClassName="max-w-md p-6 space-y-4 animate-in fade-in duration-150"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+          panelClassName="max-w-md p-6 space-y-4 animate-fadeIn"
         >
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">
@@ -25397,8 +25489,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setCorrectingStudent(null); }}
           ariaLabel="Correct Attendance Record"
-          overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-          panelClassName="max-w-md p-6 space-y-4 animate-in fade-in duration-150"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+          panelClassName="max-w-md p-6 space-y-4 animate-fadeIn"
         >
           <div className="flex justify-between items-center border-b border-slate-100 pb-3">
             <div className="leading-tight">
@@ -25478,7 +25570,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             </div>
 
             {correctionSlotId && (
-              <div className="space-y-4 pt-1 animate-in fade-in duration-100">
+              <div className="space-y-4 pt-1 animate-fadeIn">
                 {/* New Status Select buttons */}
                 <div className="space-y-1">
                   <label className="text-slate-500 text-[10px] uppercase font-bold block mb-1">Select New Status</label>
@@ -25556,8 +25648,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) { setShowImportModal(false); setImportPreview(null); } }}
           ariaLabel="Excel Timetable Import Preview"
-          overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-          panelClassName="max-w-2xl p-6 space-y-4 animate-in fade-in duration-150 max-h-[90vh] flex flex-col"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+          panelClassName="max-w-2xl p-6 space-y-4 animate-fadeIn max-h-[90vh] flex flex-col"
         >
           <div className="flex justify-between items-center border-b border-slate-100 pb-3 shrink-0">
             <div>
@@ -25702,8 +25794,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             open={true}
             onOpenChange={(next) => { if (!next) setShowTemplateModal(false); }}
             ariaLabel="Download Excel Template"
-            overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-            panelClassName="rounded-2xl max-w-md p-6 space-y-4 animate-in fade-in zoom-in-95"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+            panelClassName="rounded-2xl max-w-md p-6 space-y-4 animate-scaleUp"
           >
             <div className="flex justify-between items-center border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2.5">
@@ -25749,7 +25841,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       setTemplateShift(newShifts[0] || "General");
                     }
                   }}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-800 outline-none cursor-pointer focus:border-indigo-500"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken font-bold text-slate-800 outline-none cursor-pointer focus:border-indigo-500"
                 >
                   {deptOptions.map(d => <option key={d} value={d}>{d}</option>)}
                 </select>
@@ -25763,7 +25855,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     aria-label="Shift Type"
                     value={selectedShift}
                     onChange={(e) => setTemplateShift(e.target.value)}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-800 outline-none cursor-pointer focus:border-indigo-500"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken font-bold text-slate-800 outline-none cursor-pointer focus:border-indigo-500"
                   >
                     {shiftOptions.map((s: string) => (
                       <option key={s} value={s}>
@@ -25792,7 +25884,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   aria-label="Semester"
                   value={templateSem || "Semester 1"}
                   onChange={(e) => setTemplateSem(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-slate-50 font-bold text-slate-800 outline-none cursor-pointer focus:border-indigo-500"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken font-bold text-slate-800 outline-none cursor-pointer focus:border-indigo-500"
                 >
                   {semOptions.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -25834,8 +25926,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) { setShowStudentImportModal(false); setStudentImportPreview(null); } }}
           ariaLabel="Excel Student Import Preview"
-          overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-          panelClassName="max-w-4xl p-6 space-y-4 animate-in fade-in duration-150 max-h-[90vh] flex flex-col"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+          panelClassName="max-w-4xl p-6 space-y-4 animate-fadeIn max-h-[90vh] flex flex-col"
         >
           <div className="flex justify-between items-center border-b border-slate-100 pb-3 shrink-0">
             <div>
@@ -25865,7 +25957,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex flex-col gap-1 shadow-xs">
                 <span className="text-[10px] uppercase font-bold text-indigo-700 tracking-wider">Parsed Students</span>
                 <span className="text-xl font-extrabold text-indigo-800">{studentImportPreview.parsed.length}</span>
-                <span className="text-[10px] text-indigo-600">Ready to save to SQLite database</span>
+                <span className="text-xs font-semibold text-indigo-600">Ready to save student records</span>
               </div>
 
               <div className={`p-3 rounded-xl border flex flex-col gap-1 shadow-xs ${studentImportPreview.warnings.length > 0 ? "bg-amber-50 border-amber-100" : "bg-slate-50 border-slate-100"
@@ -25929,7 +26021,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       <select aria-label="Department"
                         value={currentDept}
                         onChange={(e) => handleDeptChange(e.target.value)}
-                        className="w-full text-[11px] font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 outline-none cursor-pointer"
+                        className="w-full text-[11px] font-bold px-2 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken outline-none cursor-pointer"
                       >
                         {deptOptions.map((d: string) => <option key={d} value={d}>{d}</option>)}
                       </select>
@@ -25938,7 +26030,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           <select aria-label="Shift"
                             value={currentShift}
                             onChange={(e) => updateCohort(currentDept, e.target.value, currentSem)}
-                            className="flex-1 text-[11px] font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 outline-none cursor-pointer"
+                            className="flex-1 text-[11px] font-bold px-2 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken outline-none cursor-pointer"
                           >
                             {shiftOptions.map((s: string) => <option key={s} value={s}>{s}</option>)}
                           </select>
@@ -25950,7 +26042,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <select aria-label="Semester"
                           value={currentSem}
                           onChange={(e) => updateCohort(currentDept, currentShift, e.target.value)}
-                          className="flex-1 text-[11px] font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-slate-50 outline-none cursor-pointer"
+                          className="flex-1 text-[11px] font-bold px-2 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken outline-none cursor-pointer"
                         >
                           {semOptions.map((s: string) => <option key={s} value={s}>{s}</option>)}
                         </select>
@@ -26063,8 +26155,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setSelectedStudentForDetail(null); }}
           ariaLabel="Student Profile Details"
-          overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-          panelClassName="max-w-2xl p-6 space-y-5 animate-in fade-in duration-150 max-h-[90vh] overflow-y-auto"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+          panelClassName="max-w-2xl p-6 space-y-5 animate-fadeIn max-h-[90vh] overflow-y-auto"
         >
           {/* Header */}
           <div className="flex justify-between items-start border-b border-slate-100 pb-4">
@@ -26283,8 +26375,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) { setShowAttendanceImportModal(false); setAttendanceImportPreview(null); } }}
           ariaLabel="Attendance Excel Import Preview"
-          overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-          panelClassName="rounded-2xl max-w-4xl p-6 space-y-4 animate-in fade-in duration-150 max-h-[90vh] flex flex-col"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+          panelClassName="rounded-2xl max-w-4xl p-6 space-y-4 animate-fadeIn max-h-[90vh] flex flex-col"
         >
           <div className="flex justify-between items-center border-b border-slate-100 pb-3 shrink-0">
             <div>
@@ -26519,8 +26611,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             open={true}
             onOpenChange={(next) => { if (!next) { setMarkingStudentForDate(null); setActivePeriodChange(null); } }}
             ariaLabel="Student Attendance Details"
-            overlayClassName="bg-slate-900/60 backdrop-blur-xs"
-            panelClassName="rounded-2xl max-w-xl p-6 space-y-4 animate-in fade-in zoom-in-95 max-h-[90vh] flex flex-col"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+            panelClassName="rounded-2xl max-w-xl p-6 space-y-4 animate-scaleUp max-h-[90vh] flex flex-col"
           >
             {/* Header */}
             <div className="flex justify-between items-start border-b border-slate-100 pb-3 shrink-0">
@@ -26762,7 +26854,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                       {/* Inline Mandatory Reason Input Card */}
                       {isBeingEdited && activePeriodChange && (
-                        <div className="p-3 bg-white rounded-xl border-2 border-indigo-200 shadow-card space-y-2 animate-in fade-in">
+                        <div className="p-3 bg-white rounded-xl border-2 border-indigo-200 shadow-card space-y-2 animate-fadeIn">
                           <div className="flex items-center justify-between">
                             <span className="text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider">
                               Changing to: <strong className="uppercase underline">{activePeriodChange.newStatus}</strong> ({correctionCount}/2 used)
@@ -26776,7 +26868,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             placeholder="e.g. Verified by CM / OD Approved / Medical exemption"
                             value={activePeriodChange.reason}
                             onChange={e => setActivePeriodChange({ ...activePeriodChange, reason: e.target.value })}
-                            className="w-full p-2.5 border border-slate-200 rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50"
+                            className="w-full p-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-sunken"
                           />
                           <div className="flex items-center justify-end gap-2 pt-1">
                             <button
@@ -26865,8 +26957,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             open={true}
             onOpenChange={(next) => { if (!next) setShowClearAttendanceModal(false); }}
             ariaLabel="Clear Attendance Data"
-            overlayClassName="bg-slate-900/60 backdrop-blur-xs animate-in fade-in"
-            panelClassName="rounded-2xl max-w-lg p-6 space-y-5 animate-in zoom-in-95 bg-white dark:bg-slate-900"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="rounded-2xl max-w-lg p-6 space-y-5 animate-scaleUp bg-white dark:bg-slate-900"
           >
             <div className="flex justify-between items-start border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-3">
@@ -26901,7 +26993,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     setClearDeptFilter(e.target.value);
                     setClearBatchFilter("all"); // Reset batch on dept change
                   }}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-rose-500"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-rose-500"
                 >
                   <option value="all">All Departments (Entire Campus)</option>
                   {uniqueStudentDepartments.map(dept => (
@@ -26919,7 +27011,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   aria-label="Target Batch / Class Group"
                   value={clearBatchFilter}
                   onChange={(e) => setClearBatchFilter(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-rose-500"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:border-rose-500"
                 >
                   <option value="all">All Batches in Selected Department</option>
                   {availableBatchesForDept.map(bg => (
@@ -27021,7 +27113,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setShowSubjectModal(false); }}
           ariaLabel={editingSubject ? "Edit Subject Details" : "Add Subjects to Curriculum"}
-          overlayClassName="bg-slate-900/50 backdrop-blur-sm"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
           panelClassName={`rounded-2xl overflow-hidden animate-slideUp transition-all p-0 space-y-0 max-h-[90vh] ${editingSubject ? "max-w-md" : "max-w-4xl"}`}
         >
           {/* Modal Header */}
@@ -27032,10 +27124,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               </div>
               <div>
                 <h3 className="font-extrabold text-slate-900 text-base">
-                  {editingSubject ? "Edit Subject Details" : "Add Subjects to Curriculum"}
+                  {editingSubject ? "Edit Subject" : "Add Subjects"}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium mt-0.5">
-                  {editingSubject ? "Update subject configuration and details" : "Configure and create multiple subjects with structured inputs"}
+                  {editingSubject ? "Update subject details" : "Add course subjects to curriculum"}
                 </p>
               </div>
             </div>
@@ -27183,29 +27275,68 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     </div>
                   </div>
 
-                  {/* Vercel-style Direct Multi-Line Paste Tip Banner */}
-                  <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between gap-3 shrink-0">
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="p-1.5 rounded-lg bg-indigo-100/80 text-indigo-700 shrink-0">
-                        <Sparkles className="h-4 w-4" />
-                      </div>
-                      <div className="text-xs text-indigo-950 font-semibold leading-tight">
-                        <span className="font-bold text-indigo-900">Direct Smart Paste: </span>
-                        Copy multiple subject rows from Excel or syllabus and paste directly (<kbd className="px-1.5 py-0.5 bg-white border border-indigo-200 rounded text-[10px] font-mono text-indigo-800 font-bold shadow-2xs">Ctrl+V</kbd>) into any Subject Name box below.
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-[10px] text-slate-500 font-bold">Default Domain:</span>
-                      <select aria-label="Default domain"
-                        value={bulkDefaultType}
-                        onChange={(e) => setBulkDefaultType(e.target.value)}
-                        className="bg-white border border-indigo-200 rounded-lg px-2 py-1 font-bold text-[11px] text-indigo-900 focus:outline-none cursor-pointer"
+                  {/* Hidden File Input for Excel/CSV Import (client-side only, file is not saved to server) */}
+                  <input
+                    ref={subjectFileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleImportSubjectFile}
+                    className="hidden"
+                  />
+
+                  {/* Template & Import Toolbar */}
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={handleDownloadSubjectTemplate}
+                        className="px-3 py-1.5 bg-white hover:bg-slate-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="Download sample Excel template (.xlsx)"
                       >
-                        <option value="SKILL">SKILL</option>
-                        <option value="ACADEMIC">ACADEMIC</option>
-                        <option value="LAB">LAB</option>
-                        <option value="GENERAL">GENERAL</option>
-                      </select>
+                        <Download className="h-3.5 w-3.5" />
+                        <span>Download Template</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => subjectFileInputRef.current?.click()}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                        title="Import subjects from Excel (.xlsx) or CSV file"
+                      >
+                        <FileSpreadsheet className="h-3.5 w-3.5" />
+                        <span>Import Excel / CSV</span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-500 font-bold uppercase">Default Domain:</span>
+                        <select
+                          aria-label="Default domain"
+                          value={bulkDefaultType}
+                          onChange={(e) => setBulkDefaultType(e.target.value)}
+                          className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-bold text-xs text-slate-800 focus:outline-none cursor-pointer"
+                        >
+                          <option value="SKILL">SKILL</option>
+                          <option value="ACADEMIC">ACADEMIC</option>
+                          <option value="LAB">LAB</option>
+                          <option value="GENERAL">GENERAL</option>
+                        </select>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] text-slate-500 font-bold uppercase">Default Group:</span>
+                        <select
+                          aria-label="Default group"
+                          value={bulkDefaultGroup}
+                          onChange={(e) => setBulkDefaultGroup(e.target.value)}
+                          className="bg-white border border-slate-200 rounded-lg px-2 py-1 font-bold text-xs text-slate-800 focus:outline-none cursor-pointer max-w-[130px] truncate"
+                        >
+                          {subjectGroups.map(sg => (
+                            <option key={sg.id} value={sg.name}>{sg.name}</option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                   </div>
 
@@ -27217,18 +27348,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           Subject Entry Rows
                         </h4>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
-                          {validSubjectsCount} {validSubjectsCount === 1 ? "Subject" : "Subjects"} Configured
+                          {validSubjectsCount} {validSubjectsCount === 1 ? "Subject" : "Subjects"}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleAutoGetFromClipboard}
-                          className="px-3 py-1 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-xs font-extrabold shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
-                          title="Auto-read subjects from clipboard"
-                        >
-                          <span>Auto Get from Clipboard</span>
-                        </button>
                         <button
                           type="button"
                           onClick={() => setDynamicSubjects([])}
@@ -27247,13 +27370,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       </div>
                     </div>
 
-                    {/* Column Header Bar */}
+                    {/* Column Header Bar (12 cols) */}
                     <div className="grid grid-cols-12 gap-2.5 px-3 py-2 bg-slate-100/80 rounded-xl border border-slate-200 text-[10.5px] font-extrabold text-slate-600 uppercase tracking-wider items-center">
                       <div className="col-span-1 text-center font-mono">#</div>
-                      <div className="col-span-5">Subject Name * (Paste Here)</div>
-                      <div className="col-span-3">Domain / Type</div>
-                      <div className="col-span-2 text-center">Weekly Hrs</div>
-                      <div className="col-span-1 text-center">Actions</div>
+                      <div className="col-span-4">Subject Name *</div>
+                      <div className="col-span-3">Subject Group</div>
+                      <div className="col-span-2">Domain / Type</div>
+                      <div className="col-span-1 text-center">Hours</div>
+                      <div className="col-span-1 text-center">Action</div>
                     </div>
 
                     {/* Dynamic Input Rows */}
@@ -27285,55 +27409,71 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                               </span>
                             </div>
 
-                            {/* Subject Name Input Box with Direct Vercel-style Paste */}
-                            <div className="col-span-5">
+                            {/* Subject Name Input with Datalist */}
+                            <div className="col-span-4">
                               <input
+                                list={`cam-sub-opts-${row.id}`}
                                 type="text"
                                 required
-                                placeholder="e.g. Data Structures (or paste Excel list)"
+                                placeholder="Subject Name (e.g. Data Structures)"
                                 value={row.name}
-                                onPaste={(e) => handlePasteIntoRow(e, row.id)}
                                 onChange={(e) => handleUpdateDynamicSubject(row.id, "name", e.target.value)}
-                                className="w-full bg-slate-50/60 focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                className="w-full bg-sunken/60 focus:bg-white border border-slate-200 inset-shadow-well focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                               />
+                              <datalist id={`cam-sub-opts-${row.id}`}>
+                                {availableCourseSubjectNames.map(name => (
+                                  <option key={name} value={name} />
+                                ))}
+                              </datalist>
+                            </div>
+
+                            {/* Subject Group Dropdown */}
+                            <div className="col-span-3">
+                              <select
+                                aria-label="Subject Group"
+                                value={row.mentor_group || bulkDefaultGroup || subjectForm.subject_group || "General"}
+                                onChange={(e) => handleUpdateDynamicSubject(row.id, "mentor_group", e.target.value)}
+                                className="w-full bg-sunken/60 focus:bg-white border border-slate-200 inset-shadow-well focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer truncate"
+                              >
+                                {subjectGroups.map(sg => (
+                                  <option key={sg.id} value={sg.name}>{sg.name}</option>
+                                ))}
+                                {row.mentor_group && !subjectGroups.some(sg => sg.name.toLowerCase() === row.mentor_group?.toLowerCase()) && (
+                                  <option value={row.mentor_group}>{row.mentor_group}</option>
+                                )}
+                              </select>
                             </div>
 
                             {/* Subject Domain / Type Dropdown */}
-                            <div className="col-span-3">
-                              <select aria-label="Subject domain"
+                            <div className="col-span-2">
+                              <select
+                                aria-label="Subject domain"
                                 value={normalizeSubjectType(row.type)}
                                 onChange={(e) => handleUpdateDynamicSubject(row.id, "type", e.target.value)}
-                                className="w-full bg-slate-50/60 focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
+                                className="w-full bg-sunken/60 focus:bg-white border border-slate-200 inset-shadow-well focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                               >
-                                <option value="SKILL">SKILL (Practical)</option>
-                                <option value="ACADEMIC">ACADEMIC (Theory)</option>
-                                <option value="LAB">LAB (Laboratory)</option>
-                                <option value="GENERAL">GENERAL (Elective)</option>
+                                <option value="SKILL">SKILL</option>
+                                <option value="ACADEMIC">ACADEMIC</option>
+                                <option value="LAB">LAB</option>
+                                <option value="GENERAL">GENERAL</option>
                               </select>
                             </div>
 
                             {/* Weekly Hours Stepper Box */}
-                            <div className="col-span-2">
-                              <input aria-label="Weekly hours"
+                            <div className="col-span-1">
+                              <input
+                                aria-label="Weekly hours"
                                 type="number"
                                 min={1}
                                 max={20}
                                 value={row.weekly_hours}
                                 onChange={(e) => handleUpdateDynamicSubject(row.id, "weekly_hours", parseInt(e.target.value) || 4)}
-                                className="w-full bg-slate-50/60 focus:bg-white border border-slate-200 focus:border-indigo-500 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-900 text-center focus:outline-none"
+                                className="w-full bg-sunken/60 focus:bg-white border border-slate-200 inset-shadow-well focus:border-indigo-500 rounded-lg px-1.5 py-1.5 text-xs font-bold text-slate-900 text-center focus:outline-none"
                               />
                             </div>
 
-                            {/* Actions on the Right (Edit & Delete) */}
-                            <div className="col-span-1 flex items-center justify-center gap-1">
-                              <button
-                                type="button"
-                                title="Edit / Select Row"
-                                onClick={() => handleUpdateDynamicSubject(row.id, "isEditing", !row.isEditing)}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
-                              >
-                                <Edit className="h-3.5 w-3.5" />
-                              </button>
+                            {/* Actions on the Right (Delete) */}
+                            <div className="col-span-1 flex items-center justify-center">
                               <button
                                 type="button"
                                 title="Delete this row"
@@ -27376,7 +27516,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       placeholder="e.g. Modern Natural Language Processing"
                       value={subjectForm.name}
                       onChange={(e) => setSubjectForm({ ...subjectForm, name: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800"
+                      className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800"
                     />
                   </div>
 
@@ -27389,7 +27529,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         disabled={lockDeptAndYear}
                         value={subjectForm.department}
                         onChange={(e) => setSubjectForm({ ...subjectForm, department: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <option value="">— Select Course —</option>
                         {collegeCourses.map(dept => (
@@ -27430,7 +27570,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           else if (newYear === "Year 4") newSem = "Semester 7";
                           setSubjectForm({ ...subjectForm, year: newYear, semester: newSem });
                         }}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800 disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         <option value="Year 1">Year 1</option>
                         <option value="Year 2">Year 2</option>
@@ -27446,7 +27586,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         required
                         value={subjectForm.semester}
                         onChange={(e) => setSubjectForm({ ...subjectForm, semester: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
+                        className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
                       >
                         {subjectForm.year === "Year 1" && (
                           <>
@@ -27484,7 +27624,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         required
                         value={normalizeSubjectType(subjectForm.type)}
                         onChange={(e) => setSubjectForm({ ...subjectForm, type: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
+                        className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
                       >
                         <option value="SKILL">SKILL (Practical Training)</option>
                         <option value="ACADEMIC">ACADEMIC (Core Theory)</option>
@@ -27504,7 +27644,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         placeholder="e.g. 4"
                         value={subjectForm.weekly_hours}
                         onChange={(e) => setSubjectForm({ ...subjectForm, weekly_hours: parseInt(e.target.value) || 4 })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-[#D528A2] text-slate-800"
+                        className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-[#4F46E5] text-slate-800"
                       />
                     </div>
                   </div>
@@ -27516,7 +27656,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       required
                       value={subjectForm.subject_group}
                       onChange={(e) => setSubjectForm({ ...subjectForm, subject_group: e.target.value })}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
+                      className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
                     >
                       {subjectGroups.map(sg => (
                         <option key={sg.id} value={sg.name}>{sg.name}</option>
@@ -27560,7 +27700,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           placeholder="Search staff by name or dept..."
                           value={mentorSubjectSearch}
                           onChange={(e) => setMentorSubjectSearch(e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800"
+                          className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl pl-8 pr-3 py-1.5 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800"
                         />
                       </div>
 
@@ -27657,7 +27797,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setShowFacultyImportModal(false); }}
           ariaLabel="Faculty Bulk Import Preview"
-          overlayClassName="bg-slate-900/60 backdrop-blur-sm animate-fadeIn"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
           panelClassName="max-w-4xl p-6 space-y-5 max-h-[90vh] flex flex-col bg-white dark:bg-slate-900"
         >
           <div className="flex items-center justify-between border-b border-gray-100 dark:border-slate-800 pb-4">
@@ -27752,20 +27892,25 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       {isDailyConfigModalOpen && (
         <Dialog
           open={true}
-          onOpenChange={(next) => { if (!next) { setIsDailyConfigModalOpen(false); setEditingDailyId(null); } }}
+          onOpenChange={(next) => { if (!next) { setIsDailyConfigModalOpen(false); resetDailyConfigForm(); } }}
           ariaLabel="Daily Day Order and Schedule Configurator"
-          overlayClassName="z-[9999] bg-slate-900/60 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-200"
+          overlayClassName="z-[9999] bg-slate-950/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
           panelClassName="rounded-2xl max-w-4xl p-6 space-y-6 max-h-[90vh] overflow-y-auto my-auto"
         >
           {/* Modal Header */}
           <div className="flex justify-between items-center pb-4 border-b border-slate-100 sticky top-0 bg-white z-10 pt-1">
             <div className="flex items-center gap-3">
-              <div className="p-2.5 bg-[#D528A2]/10 text-[#D528A2] rounded-2xl border border-[#D528A2]/20">
+              <div className="p-2.5 bg-[#4F46E5]/10 text-[#4F46E5] rounded-2xl border border-[#4F46E5]/20">
                 <Calendar className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
                   Daily Day Order &amp; Schedule Configurator
+                  {editingDailyId && (
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200 normal-case">
+                      Editing {dailyStartDateStr}
+                    </span>
+                  )}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
                   Manage campus schedule, day orders, and working days.
@@ -27776,7 +27921,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               type="button"
               onClick={() => {
                 setIsDailyConfigModalOpen(false);
-                setEditingDailyId(null);
+                resetDailyConfigForm();
               }}
               className="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
             >
@@ -27797,7 +27942,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   value={dailyStartDateStr}
                   onChange={e => handleStartDateChange(e.target.value)}
                   required
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2] outline-none shadow-xs text-slate-800"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] outline-none shadow-xs text-slate-800"
                 />
               </div>
               <div className="space-y-1">
@@ -27810,7 +27955,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   value={dailyEndDateStr}
                   onChange={e => setDailyEndDateStr(e.target.value)}
                   required
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2] outline-none shadow-xs text-slate-800"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-sm font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] outline-none shadow-xs text-slate-800"
                 />
               </div>
             </div>
@@ -27823,7 +27968,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   aria-label="Department"
                   value={dailyDeptScope}
                   onChange={e => setDailyDeptScope(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#D528A2]/20 outline-none shadow-xs cursor-pointer text-slate-800"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-800"
                 >
                   <option value="All Departments">All Departments</option>
                   {(departmentsList || []).map(d => (
@@ -27838,8 +27983,13 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   aria-label="Day Type"
                   value={dailyDayType}
                   onChange={e => setDailyDayType(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#D528A2]/20 outline-none shadow-xs cursor-pointer text-slate-800"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-800"
                 >
+                  {!isCanonicalDayType(dailyDayType) && (
+                    // A stored type the picker never offered has to stay listed,
+                    // or the select shows Working Day and saving renames the row.
+                    <option value={dailyDayType}>{dailyDayType}</option>
+                  )}
                   <option value="working">Working Day</option>
                   <option value="holiday">Holiday</option>
                   <option value="event">Campus Event</option>
@@ -27854,14 +28004,11 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   value={dailyDayType === "holiday" ? "None" : dailyDayOrder}
                   onChange={e => setDailyDayOrder(e.target.value)}
                   disabled={dailyDayType === "holiday"}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#D528A2]/20 outline-none shadow-xs cursor-pointer text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="Day 1">Day 1</option>
-                  <option value="Day 2">Day 2</option>
-                  <option value="Day 3">Day 3</option>
-                  <option value="Day 4">Day 4</option>
-                  <option value="Day 5">Day 5</option>
-                  <option value="Day 6">Day 6</option>
+                  {dayOrderOptions(dailyOrderCeiling).map((order) => (
+                    <option key={order} value={order}>{order}</option>
+                  ))}
                   <option value="None">None</option>
                 </select>
               </div>
@@ -27872,7 +28019,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   aria-label="Session Mode"
                   value={dailySessionMode}
                   onChange={e => setDailySessionMode(e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#D528A2]/20 outline-none shadow-xs cursor-pointer text-slate-800"
+                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-800"
                 >
                   <option value="Offline">Offline (On-Campus)</option>
                   <option value="Online">Online Sessions</option>
@@ -27890,7 +28037,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 placeholder="e.g. CIA Exam Session / Cultural Fest / Regular Timetable..."
                 value={dailyNotes}
                 onChange={e => setDailyNotes(e.target.value)}
-                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#D528A2]/20 focus:border-[#D528A2] outline-none shadow-xs text-slate-800"
+                className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 focus:border-[#4F46E5] outline-none shadow-xs text-slate-800"
               />
             </div>
 
@@ -27903,7 +28050,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     type="checkbox"
                     checked={autoAdvanceDayOrder}
                     onChange={e => setAutoAdvanceDayOrder(e.target.checked)}
-                    className="h-4 w-4 accent-[#D528A2] rounded border-slate-300 cursor-pointer"
+                    className="h-4 w-4 accent-[#4F46E5] rounded border-slate-300 cursor-pointer"
                   />
                   Auto-Advance Continuous Days
                 </label>
@@ -27912,7 +28059,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     type="checkbox"
                     checked={skipSundays}
                     onChange={e => setSkipSundays(e.target.checked)}
-                    className="h-4 w-4 accent-[#D528A2] rounded border-slate-300 cursor-pointer"
+                    className="h-4 w-4 accent-[#4F46E5] rounded border-slate-300 cursor-pointer"
                   />
                   Skip Sundays (Auto-Holiday)
                 </label>
@@ -27952,7 +28099,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 <button
                   type="submit"
                   disabled={isDailySaving}
-                  className="px-6 py-2 rounded-xl text-xs font-extrabold bg-[#D528A2] hover:bg-[#c02090] text-white shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-6 py-2 rounded-xl text-xs font-extrabold bg-[#4F46E5] hover:bg-[#4338CA] text-white shadow-sm transition-all cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {isDailySaving ? (
                     <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</>
@@ -27982,7 +28129,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     placeholder="Search date, day type, order..."
                     value={dailySearchFilter}
                     onChange={e => setDailySearchFilter(e.target.value)}
-                    className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#D528A2] w-48 font-medium"
+                    className="pl-8 pr-3 py-1 text-xs border border-slate-200 rounded-lg bg-white outline-none focus:ring-1 focus:ring-[#4F46E5] w-48 font-medium"
                   />
                 </div>
                 <button
@@ -28039,21 +28186,28 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         );
                       })
                       .map(cfg => (
-                        <TableRow key={cfg.id || cfg.dateStr} className={`transition-colors ${editingDailyId === cfg.id ? "bg-[#D528A2]/10" : "hover:bg-slate-50/50"}`}>
+                        <TableRow key={cfg.id || cfg.dateStr} className={`transition-colors ${editingDailyId === (cfg.id || cfg.dateStr) ? "bg-[#4F46E5]/10" : "hover:bg-slate-50/50"}`}>
                           <TableCell className="p-3 font-extrabold text-slate-800">{cfg.dateStr}</TableCell>
                           <TableCell className="p-3">
-                            <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-extrabold uppercase border ${cfg.day_type === "holiday" ? "bg-rose-50 text-rose-700 border-rose-200" :
-                              cfg.day_type === "event" ? "bg-amber-50 text-amber-700 border-amber-200" :
-                                cfg.day_type === "exam_day" ? "bg-purple-50 text-purple-700 border-purple-200" :
-                                  "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              }`}>
+                            <Badge
+                              variant={
+                                cfg.day_type === "holiday"
+                                  ? "destructive"
+                                  : cfg.day_type === "event"
+                                  ? "warning"
+                                  : cfg.day_type === "exam_day"
+                                  ? "default"
+                                  : "success"
+                              }
+                              className="text-[9.5px] uppercase font-extrabold"
+                            >
                               {cfg.day_type ? cfg.day_type.replace("_", " ") : "Working"}
-                            </span>
+                            </Badge>
                           </TableCell>
                           <TableCell className="p-3 font-bold text-slate-900">{cfg.day_order || "None"}</TableCell>
                           <TableCell className="p-3 font-semibold text-slate-600">{cfg.session_mode || "Offline"}</TableCell>
                           <TableCell className="p-3 text-slate-500 max-w-[200px] truncate" title={cfg.notes}>{cfg.notes || "-"}</TableCell>
-                          <TableCell className="p-3 text-right flex justify-end gap-1">
+                          <TableCell className="p-3 text-right flex justify-end gap-2">
                             <button
                               type="button"
                               onClick={() => handleStartEditDailyConfig(cfg)}
@@ -28087,7 +28241,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setShowAttendanceTemplateModal(false); }}
           ariaLabel="Download Attendance Template"
-          overlayClassName="bg-slate-900/60 backdrop-blur-xs animate-fadeIn"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
           panelClassName="rounded-2xl max-w-lg p-6 space-y-5 animate-scaleUp"
         >
           <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
@@ -28134,7 +28288,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 value={templateModalCohort}
                 aria-label="Target Class Group / Cohort"
                 onChange={(e) => setTemplateModalCohort(e.target.value)}
-                className="w-full text-xs font-semibold px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full text-xs font-semibold px-3 py-2.5 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
                 <option value="all">All Classes / Cohorts in {activeCollegeName || "Campus"}</option>
                 {(() => {
@@ -28165,7 +28319,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   aria-label="Start Date"
                   value={templateModalStartDate}
                   onChange={(e) => setTemplateModalStartDate(e.target.value)}
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full text-xs font-medium px-3 py-2 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
               <div>
@@ -28177,7 +28331,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   aria-label="End Date"
                   value={templateModalEndDate}
                   onChange={(e) => setTemplateModalEndDate(e.target.value)}
-                  className="w-full text-xs font-medium px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  className="w-full text-xs font-medium px-3 py-2 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 />
               </div>
             </div>

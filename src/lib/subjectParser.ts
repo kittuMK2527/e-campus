@@ -114,7 +114,8 @@ export function parseSubjectInput(
   text: string,
   defaultType: string = "SKILL",
   defaultHours: number = 4,
-  defaultGroup: string = ""
+  defaultGroup: string = "",
+  availableGroups: string[] = []
 ): ParsedSubject[] {
   if (!text || typeof text !== "string" || !text.trim()) return [];
 
@@ -122,7 +123,7 @@ export function parseSubjectInput(
   const results: ParsedSubject[] = [];
   const seenNames = new Set<string>();
 
-  const addSubject = (name: string, type: string, hours: number) => {
+  const addSubject = (name: string, type: string, hours: number, group?: string) => {
     const cleaned = cleanSubjectName(name);
     if (!cleaned || cleaned.length < 2) return;
     if (isHeaderLine(cleaned)) return;
@@ -130,12 +131,20 @@ export function parseSubjectInput(
     const key = cleaned.toLowerCase();
     if (!seenNames.has(key)) {
       seenNames.add(key);
+
+      // Match against availableGroups case-insensitively
+      let matchedGroup = group?.trim() || defaultGroup || "";
+      if (group && availableGroups.length > 0) {
+        const found = availableGroups.find(g => g.trim().toLowerCase() === group.trim().toLowerCase());
+        if (found) matchedGroup = found;
+      }
+
       results.push({
         id: `row_${Date.now()}_${results.length}_${Math.random().toString(36).substring(2, 6)}`,
         name: cleaned,
         type: normalizeSubjectType(type, defaultType),
         weekly_hours: parseHoursToken(hours, defaultHours),
-        mentor_group: defaultGroup || ""
+        mentor_group: matchedGroup
       });
     }
   };
@@ -159,6 +168,7 @@ export function parseSubjectInput(
       const name = parts[nameIndex] || "";
       let type = defaultType;
       let hours = defaultHours;
+      let group = defaultGroup;
 
       for (let i = nameIndex + 1; i < parts.length; i++) {
         const col = parts[i];
@@ -166,10 +176,15 @@ export function parseSubjectInput(
           type = col;
         } else if (isHoursToken(col)) {
           hours = parseHoursToken(col, defaultHours);
+        } else if (availableGroups.length > 0 && availableGroups.some(g => g.toLowerCase() === col.toLowerCase())) {
+          const matched = availableGroups.find(g => g.toLowerCase() === col.toLowerCase());
+          if (matched) group = matched;
+        } else if (!group && col.length > 1 && !/^\d+$/.test(col)) {
+          group = col;
         }
       }
 
-      addSubject(name, type, hours);
+      addSubject(name, type, hours, group);
       continue;
     }
 
@@ -177,30 +192,43 @@ export function parseSubjectInput(
     if (line.includes(",") || line.includes(";")) {
       const parts = line.split(/[,;]/).map(p => p.trim()).filter(Boolean);
 
-      // Check if this single line is a CSV row describing 1 subject (e.g. "Data Structures, SKILL, 4")
+      // Check if this single line is a CSV row describing 1 subject (e.g. "Data Structures, SKILL, 4, Full Stack")
       const secondIsType = parts[1] && isTypeToken(parts[1]);
       const secondIsHours = parts[1] && isHoursToken(parts[1]);
       const thirdIsHours = parts[2] && isHoursToken(parts[2]);
+      const hasGroup = parts.slice(1).some(p => availableGroups.some(g => g.toLowerCase() === p.toLowerCase()));
 
-      if (parts.length <= 3 && (secondIsType || secondIsHours || thirdIsHours)) {
+      if (parts.length <= 5 && (secondIsType || secondIsHours || thirdIsHours || hasGroup)) {
         const name = parts[0];
         let type = defaultType;
         let hours = defaultHours;
-        if (secondIsType) type = parts[1];
-        if (secondIsHours) hours = parseHoursToken(parts[1], defaultHours);
-        if (thirdIsHours) hours = parseHoursToken(parts[2], defaultHours);
-        addSubject(name, type, hours);
+        let group = defaultGroup;
+
+        for (let i = 1; i < parts.length; i++) {
+          const col = parts[i];
+          if (isTypeToken(col)) {
+            type = col;
+          } else if (isHoursToken(col)) {
+            hours = parseHoursToken(col, defaultHours);
+          } else if (availableGroups.length > 0 && availableGroups.some(g => g.toLowerCase() === col.toLowerCase())) {
+            const matched = availableGroups.find(g => g.toLowerCase() === col.toLowerCase());
+            if (matched) group = matched;
+          } else if (!group && col.length > 1 && !/^\d+$/.test(col)) {
+            group = col;
+          }
+        }
+        addSubject(name, type, hours, group);
       } else {
         // Otherwise, it's multiple comma-separated subject names (e.g. "Maths, Physics, Chemistry")
         for (const item of parts) {
-          addSubject(item, defaultType, defaultHours);
+          addSubject(item, defaultType, defaultHours, defaultGroup);
         }
       }
       continue;
     }
 
     // 3. Plain single subject on this line
-    addSubject(line, defaultType, defaultHours);
+    addSubject(line, defaultType, defaultHours, defaultGroup);
   }
 
   return results;

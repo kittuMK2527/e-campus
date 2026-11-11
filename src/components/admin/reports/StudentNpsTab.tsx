@@ -27,6 +27,8 @@ interface Summary {
 interface ResponseRow {
   month_key: string | null;
   score: number | null;
+  mentor_score?: number | null;
+  mentor_name?: string | null;
   student_name: string;
   department: string | null;
   class_group: string | null;
@@ -76,8 +78,11 @@ function bandLabel(band: NpsBand): string {
  * Monthly student sentiment for one campus: the survey's NPS split, its month-over-month
  * movement, how much of the roster actually answered, and the written notes behind it.
  */
-export function StudentNpsTab() {
-  const { colleges, collegeId, selectCollege } = useAdminCampusScope();
+export function StudentNpsTab({ overrideCollegeId }: { overrideCollegeId?: string } = {}) {
+  const adminScope = useAdminCampusScope();
+  const collegeId = overrideCollegeId || adminScope.collegeId;
+  const colleges = adminScope.colleges;
+  const selectCollege = adminScope.selectCollege;
   const [month, setMonth] = useState("all");
 
   const activeCollege = colleges.find(c => c.id === collegeId);
@@ -111,7 +116,6 @@ export function StudentNpsTab() {
       <PageHeader
         icon={ThumbsUp}
         title="Student NPS"
-        subtitle="Monthly class feedback — sentiment, movement and the notes behind the score"
       />
 
       <FilterBar
@@ -305,7 +309,8 @@ export function StudentNpsTab() {
             <TableHeader>
               <TableRow>
                 <TableHead className="w-24">Month</TableHead>
-                <TableHead className="w-16">Score</TableHead>
+                <TableHead className="w-16">Class</TableHead>
+                <TableHead className="w-32">Faculty Mentor</TableHead>
                 <TableHead>Student</TableHead>
                 <TableHead className="w-36">Group</TableHead>
                 <TableHead>Going well</TableHead>
@@ -315,7 +320,7 @@ export function StudentNpsTab() {
             <TableBody>
               {pagination.pageItems.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="py-10 text-center text-xs font-bold text-slate-400">
+                  <TableCell colSpan={7} className="py-10 text-center text-xs font-bold text-slate-400">
                     Nothing logged for this filter yet.
                   </TableCell>
                 </TableRow>
@@ -327,28 +332,44 @@ export function StudentNpsTab() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={row.score && row.score >= 4 ? "success" : row.score === 3 ? "warning" : "destructive"}>
-                        {row.score ?? "—"}
+                        {row.score ? `${row.score}/5` : "—"}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {row.mentor_score ? (
+                        <div className="space-y-0.5">
+                          <Badge variant={row.mentor_score >= 4 ? "success" : row.mentor_score === 3 ? "warning" : "destructive"} className="text-[10px]">
+                            {row.mentor_score}/5
+                          </Badge>
+                          {row.mentor_name && (
+                            <span className="block text-[10px] font-semibold text-slate-500 truncate max-w-[140px]" title={row.mentor_name}>
+                              {row.mentor_name}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-slate-400">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs font-bold text-slate-800">{row.student_name}</TableCell>
                     <TableCell className="text-[11px] font-semibold text-slate-500">
                       {[row.department, row.class_group].filter(Boolean).join(" · ") || "—"}
                     </TableCell>
-                    <TableCell className="text-[11px] font-semibold text-slate-600 max-w-[260px]">
+                    <TableCell className="text-[11px] font-semibold text-slate-600 max-w-[240px]">
                       {row.likes ? (
                         <span className="inline-flex items-start gap-1.5">
                           <MessageSquareQuote className="h-3.5 w-3.5 shrink-0 mt-0.5 text-emerald-500" />
-                          {row.likes}
+                          <span>{row.likes}</span>
                         </span>
                       ) : (
                         "—"
                       )}
                     </TableCell>
-                    <TableCell className="text-[11px] font-semibold text-slate-600 max-w-[260px]">
+                    <TableCell className="text-[11px] font-semibold text-slate-600 max-w-[240px]">
                       {row.improve ? (
                         <span className="inline-flex items-start gap-1.5">
                           <MessageSquareQuote className="h-3.5 w-3.5 shrink-0 mt-0.5 text-rose-500" />
-                          {row.improve}
+                          <span>{row.improve}</span>
                         </span>
                       ) : (
                         "—"

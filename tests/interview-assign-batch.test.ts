@@ -6,7 +6,6 @@ const h = vi.hoisted(() => {
   const writes: { sql: string; params: any[] }[] = [];
   const loaded: any[] = [];
   const checked: any[] = [];
-  const mails: any[] = [];
 
   const interview = {
     id: "i1",
@@ -69,7 +68,7 @@ const h = vi.hoisted(() => {
     };
   }
 
-  return { reads, writes, loaded, checked, mails, makeDb };
+  return { reads, writes, loaded, checked, makeDb };
 });
 
 vi.mock("@/lib/db", () => ({
@@ -79,11 +78,6 @@ vi.mock("@/lib/db", () => ({
 
 vi.mock("@/lib/migrations", () => ({ ensureMigration: async () => undefined }));
 vi.mock("@/lib/authGuard", () => ({ requireAuth: async () => ({}) }));
-
-vi.mock("@/lib/mail", () => ({
-  sendMail: async (opts: any) => { h.mails.push(opts); return { success: true }; },
-  renderEmailShell: ({ title }: any) => `<div>${title}</div>`
-}));
 
 vi.mock("@/lib/interview-notifications", () => ({
   dispatchExternalInterviewNotifications: async () => undefined,
@@ -138,7 +132,6 @@ describe("interview assignment writes", () => {
     h.writes.length = 0;
     h.loaded.length = 0;
     h.checked.length = 0;
-    h.mails.length = 0;
     availabilityResult = { available: true };
   });
 
@@ -183,13 +176,10 @@ describe("interview assignment writes", () => {
     expect(insert.params.slice(8, 10)).toEqual(["09:00", "09:15"].map(t => `${t} AM`));
   });
 
-  it("reuses the roster lookup for the assignment email", async () => {
+  it("reuses the roster lookup for the assignment", async () => {
     await run(payload);
     await flushAfter();
 
     expect(h.reads.filter(r => r.includes("FROM mentors"))).toHaveLength(1);
-    expect(h.mails).toHaveLength(1);
-    // Mentors are BCC'd so their addresses stay private from each other.
-    expect(h.mails[0].bcc).toEqual(["asha@example.com", "bala@example.com"]);
   });
 });

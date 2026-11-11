@@ -3,6 +3,7 @@
 import * as React from "react";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
+import { ChevronDown, SlidersHorizontal } from "lucide-react";
 
 interface DropdownMenuContextValue {
   open: boolean;
@@ -181,7 +182,7 @@ export function DropdownMenuContent({
         zIndex: 99999
       }}
       className={cn(
-        "min-w-[10rem] overflow-hidden rounded-xl border border-slate-200 bg-white p-1 text-slate-800 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200",
+        "min-w-[10rem] overflow-hidden rounded-xl border border-slate-200 bg-white p-1 text-slate-800 shadow-card-lg dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200",
         className
       )}
       onClick={(e) => e.stopPropagation()}
@@ -251,3 +252,46 @@ export function DropdownMenuLabel({
     </div>
   );
 }
+
+export interface ActionDropdownButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  label?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  size?: "default" | "sm";
+}
+
+export const ActionDropdownButton = React.forwardRef<
+  HTMLButtonElement,
+  ActionDropdownButtonProps
+>(({
+  label = "Actions",
+  icon: Icon = SlidersHorizontal,
+  size = "default",
+  className,
+  ...props
+}, ref) => {
+  const isSm = size === "sm";
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={cn(
+        "rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 text-slate-800 dark:text-slate-100 font-extrabold inline-flex items-center shadow-2xs cursor-pointer transition-all active:scale-[0.98] select-none whitespace-nowrap",
+        isSm ? "h-8 px-3 text-[11px] gap-2" : "h-9 px-3.5 text-xs gap-2.5",
+        className
+      )}
+      {...props}
+    >
+      <Icon
+        strokeWidth={2.4}
+        className={cn("text-amber-500 dark:text-amber-400 shrink-0", isSm ? "h-3.5 w-3.5" : "h-3.5 w-3.5")}
+      />
+      <span className="font-extrabold tracking-tight text-slate-800 dark:text-slate-100">{label}</span>
+      <ChevronDown
+        strokeWidth={2.4}
+        className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 shrink-0"
+      />
+    </button>
+  );
+});
+ActionDropdownButton.displayName = "ActionDropdownButton";

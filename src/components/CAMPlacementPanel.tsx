@@ -251,7 +251,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="h-9 w-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-100 shrink-0">
+            <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100 shrink-0">
               <Briefcase className="h-5 w-5" />
             </div>
             <div>
@@ -318,9 +318,9 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
           <p className="text-xl font-black text-emerald-800 mt-1">{summary.zeroArrearsCount}</p>
           <span className="text-[10px] text-emerald-700 font-medium">100% Core &amp; IT Eligible</span>
         </div>
-        <div className="p-4 rounded-xl bg-blue-50/50 border border-blue-200">
-          <span className="text-[10px] font-extrabold uppercase text-blue-700 tracking-wider">Highest / Avg CTC</span>
-          <p className="text-xl font-black text-blue-700 mt-1">
+        <div className="p-4 rounded-xl bg-indigo-50/50 border border-indigo-200/80">
+          <span className="text-[10px] font-extrabold uppercase text-indigo-700 tracking-wider">Highest / Avg CTC</span>
+          <p className="text-xl font-black text-indigo-700 mt-1">
             {summary.highestCtcLpa > 0 ? `${summary.highestCtcLpa} LPA` : "—"}
           </p>
           <span className="text-[10px] text-slate-500 font-medium truncate block">
@@ -380,7 +380,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
             <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider">
               <span>Top Recruiting Partners (Offers Released)</span>
             </h4>
-            <span className="text-[10px] text-blue-600 font-bold">Company Hires</span>
+            <span className="text-[10px] text-indigo-600 font-bold">Company Hires</span>
           </div>
           <div className="h-56 w-full">
             {topCompaniesBarData.length > 0 ? (
@@ -423,7 +423,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
             aria-label="Passing Year / Batch"
             value={selectedPassingYear}
             onChange={e => setSelectedPassingYear(e.target.value)}
-            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
           >
             <option value="all">All Passing Years</option>
             {availableYears.map(yr => (
@@ -443,7 +443,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
             aria-label="Degree / Stream"
             value={selectedDegree}
             onChange={e => setSelectedDegree(e.target.value)}
-            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
           >
             <option value="all">All Degrees ({availableDegrees.length})</option>
             {availableDegrees.map(deg => (
@@ -463,7 +463,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
             aria-label="Placement & Arrear Filter"
             value={selectedStatusFilter}
             onChange={e => setSelectedStatusFilter(e.target.value)}
-            className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer"
+            className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
           >
             <option value="all">All Students</option>
             <option value="placed">Placed Only ({summary.uniquePlacedCount})</option>
@@ -486,7 +486,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
               placeholder="Roll no, name, degree..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full pl-9 pr-3 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
         </div>
@@ -496,7 +496,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
       <div className="space-y-3">
         <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-2xs">
           <Table className="w-full text-left text-xs border-collapse">
-            <TableHeader className="bg-slate-50 border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider hover:bg-slate-50">
+            <TableHeader className="bg-sunken border-b border-slate-200 text-[10px] font-black text-slate-500 uppercase tracking-wider">
               <TableRow>
                 <TableHead className="p-3 w-12 text-center">S.No</TableHead>
                 <TableHead className="p-3">Student Name</TableHead>
@@ -595,7 +595,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
                                 ? "bg-purple-100 text-purple-800 border border-purple-200"
                                 : hasArrears
                                 ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                : "bg-blue-100 text-blue-800 border border-blue-200"
+                                : "bg-indigo-50 text-indigo-700 border border-indigo-200/80"
                             }`}
                           >
                             {hasOffers ? "Placed" : hasArrears ? "At Risk" : "Drive Active"}
@@ -649,8 +649,8 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setSelectedStudentForModal(null); }}
           ariaLabel="Student Profile and Placement Record"
-          overlayClassName="bg-black/40 backdrop-blur-xs p-4 animate-in fade-in duration-200"
-          panelClassName="max-w-lg max-h-[90vh] p-6 space-y-5 rounded-2xl animate-in zoom-in-95 duration-200"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4 animate-fadeIn"
+          panelClassName="max-w-lg max-h-[90vh] p-6 space-y-5 rounded-2xl animate-scaleUp"
         >
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -676,10 +676,10 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
             </div>
 
             {/* Quick Metrics */}
-            <div className="grid grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
               <div className="text-center">
                 <span className="text-[10px] font-black uppercase text-slate-400">CGPA</span>
-                <p className="text-xl font-black text-blue-700 mt-0.5">
+                <p className="text-xl font-black text-indigo-700 mt-0.5">
                   {selectedStudentForModal.overall_cgpa != null ? selectedStudentForModal.overall_cgpa : "—"}
                 </p>
               </div>
@@ -801,7 +801,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
                       <span className="text-[10px] font-black uppercase text-slate-400 block">
                         Sem {sm.semester_number}
                       </span>
-                      <span className="text-sm font-black text-blue-700 block mt-0.5">
+                      <span className="text-sm font-black text-indigo-700 block mt-0.5">
                         {sm.cgpa != null ? `${sm.cgpa} CGPA` : "—"}
                       </span>
                       <span className={`text-[9px] font-bold block ${Number(sm.current_arrears || 0) === 0 ? "text-emerald-700" : "text-rose-600"}`}>

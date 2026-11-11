@@ -84,6 +84,8 @@ export function summarize(scores: unknown[]): StudentNpsSummary {
 export interface StudentNpsRow {
   month_key?: string | null;
   score?: number | string | null;
+  mentor_score?: number | string | null;
+  mentor_name?: string | null;
   student_id?: string | null;
   student_name?: string | null;
   college_name?: string | null;

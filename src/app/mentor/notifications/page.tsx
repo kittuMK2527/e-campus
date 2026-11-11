@@ -12,7 +12,7 @@ export default function MentorNotificationsPage() {
 
   return (
     <DashboardLayout requiredRole="mentor">
-      <div className="p-4 md:p-8 min-h-screen bg-gray-50/50">
+      <div className="p-4 md:p-8 min-h-dvh bg-gray-50/50">
         <NotificationsView userId={currentMentor.id} portalType="mentor" />
       </div>
     </DashboardLayout>

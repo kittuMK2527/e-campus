@@ -13,7 +13,6 @@ import {
   UserCheck,
   ShieldCheck,
   ShieldAlert,
-  MoreVertical,
   X
 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -29,7 +28,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -204,7 +204,6 @@ export const KamsTab: React.FC<KamsTabProps> = ({
       <PageHeader
         icon={Briefcase}
         title="Key Account Managers"
-        subtitle="Portfolio owners and the campuses assigned to them."
         actions={
           <Button
             variant="ghost"
@@ -315,14 +314,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 cursor-pointer"
-                          title="KAM Actions"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        <ActionDropdownButton size="sm" title="KAM Actions" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>KAM Options</DropdownMenuLabel>
@@ -539,7 +531,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
             if (!next) setShowModal(false);
           }}
           ariaLabel="Key Account Manager"
-          overlayClassName="bg-gray-900/50 backdrop-blur-sm p-4"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
           panelClassName="max-w-md overflow-hidden animate-slideUp p-0 space-y-0 max-h-[90vh]"
         >
           <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">

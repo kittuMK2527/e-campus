@@ -5,9 +5,6 @@ import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
 import { ensureMigration } from "@/lib/migrations";
-import { sendMailAsync } from "@/lib/mailAsync";
-import { renderEmailShell, BRAND } from "@/lib/mail";
-
 export async function GET(request: Request) {
   try {
     const { errorResponse } = await requireAuth(request);
@@ -67,44 +64,6 @@ export async function POST(request: Request) {
         notes || null
       ]
     );
-
-    // Email KAM when a new issue is high/critical — fire-and-forget
-    if (priority === "high" || priority === "critical") {
-      try {
-        const kamRow = await db.get(
-          `SELECT k.email, k.name
-           FROM kam_users k
-           INNER JOIN colleges c ON c.kam_id = k.id
-           WHERE c.id = ?
-           LIMIT 1`,
-          [collegeId]
-        );
-        if (kamRow?.email) {
-          sendMailAsync({
-            to: kamRow.email,
-            subject: `${BRAND.emailPrefix} [${priority.toUpperCase()} Issue] ${title} — ${collegeName || collegeId}`,
-            htmlBody: renderEmailShell({
-              title: "High Priority Campus Issue Raised",
-              badgeText: `${priority.toUpperCase()} — ACTION NEEDED`,
-              badgeColor: "rose",
-              description: `A <strong>${priority}</strong> priority issue has been logged for your campus cluster and requires your attention.`,
-              details: [
-                { label: "Issue Title",  value: title,                   highlight: true },
-                { label: "Campus",       value: collegeName || collegeId },
-                { label: "Type",         value: type },
-                { label: "Priority",     value: priority.toUpperCase(),  highlight: true },
-                { label: "Description",  value: desc || "No description provided." },
-                { label: "Status",       value: status || "pending" },
-              ],
-              ctaText:  "View Campus Issues →",
-              ctaUrl:   `${BRAND.portalUrl}/kam/faculty-governance`,
-              footerText: "This alert was triggered automatically for high-priority campus issues.",
-            }),
-            context: "high-priority-issue",
-          });
-        }
-      } catch (_) {}
-    }
 
     return NextResponse.json({ success: true, issue: { id: issueId, ...body, status: status || "pending" } });
   } catch (error: any) {

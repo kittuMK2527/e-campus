@@ -385,7 +385,7 @@ export const ClassObservationView: React.FC<{
           "success"
         );
         if (fEndPhoto && data.capture_stage_saved === false) {
-          toast("Session-end photo could not be attached — run scripts/classroom_snaps_capture_stage.sql on the observations database.", "warning");
+          toast("Session photo could not be attached. Please try again.", "warning");
         }
         resetForm();
         setShowForm(false);
@@ -675,7 +675,7 @@ export const ClassObservationView: React.FC<{
             open={true}
             onOpenChange={(next) => { if (!next) setDetail(null); }}
             ariaLabel="Classroom Observation Details"
-            overlayClassName="bg-slate-950/70 backdrop-blur-sm p-4"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
             panelClassName="max-w-lg max-h-[85vh] overflow-y-auto p-6 space-y-4 rounded-2xl"
           >
               <div className="flex items-start justify-between">
@@ -1255,7 +1255,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                       {/* Evidence Snapshot Card */}
                       <div className="p-3.5 bg-slate-50 border border-slate-100 rounded-xl space-y-2">
                         <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Submitted Evidence Snapshot</span>
-                        <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                           <div className="p-2 bg-white rounded-2xl border border-slate-100 shadow-card">
                             <span className="text-[9px] text-slate-400 block font-bold">Skill Score</span>
                             <span className="font-mono font-black text-xs text-indigo-600">{audit.skill_score ?? (audit as any).evidenceSnapshot?.skillScore ?? 0}%</span>
@@ -1470,7 +1470,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                   </div>
 
                   {/* Scores */}
-                  <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                     <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
                       <span className="text-[9px] text-slate-400 block font-bold">Skill Score</span>
                       <span className="font-mono font-black text-xs text-indigo-600">{audit.skill_score}%</span>
@@ -1510,7 +1510,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
         <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card space-y-6 max-w-3xl mx-auto">
           {/* Audit Submitted Success Banner */}
           {auditSubmittedSuccess && (
-            <div className="p-5 bg-emerald-50 border-2 border-emerald-200 rounded-2xl space-y-3 animate-in fade-in duration-200">
+            <div className="p-5 bg-emerald-50 border-2 border-emerald-200 rounded-2xl space-y-3 animate-fadeIn">
               <div className="flex items-center gap-3">
                 <CheckCircle2 className="h-8 w-8 text-emerald-600 shrink-0" />
                 <div>
@@ -1568,7 +1568,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-4 gap-2 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-4">
               {[1, 2, 3, 4].map((step) => (
                 <div
                   key={step}

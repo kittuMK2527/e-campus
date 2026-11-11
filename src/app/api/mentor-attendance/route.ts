@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { getDb, type QueryFailure } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { getInstitutionDateStr } from "@/lib/localDate";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 
 export async function GET(request: Request) {
   try {
@@ -415,6 +416,14 @@ export async function POST(request: Request) {
         markedById || mentorId
       ]
     );
+
+    notifyRealtimeEvent({
+      domain: "attendance",
+      action: "mentor_punched",
+      collegeId: effectiveCollegeId,
+      targetRoles: ["cm", "kam", "admin"],
+      payload: { mentorId, status, effectiveDate }
+    });
 
     return NextResponse.json({
       success: true,

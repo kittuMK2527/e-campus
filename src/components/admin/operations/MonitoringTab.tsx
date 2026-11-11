@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Clock, Download, Loader2, Search, MoreVertical, Copy, Check } from "lucide-react";
+import { Clock, Download, Loader2, Search, Copy, Check, X, RotateCcw } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FilterBar } from "@/components/ui/FilterBar";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 
 export interface MonitoringTabProps {
@@ -38,7 +39,7 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
   const colleges = propColleges ?? app.colleges ?? [];
   const [attStartDate, setAttStartDate] = useState(() => {
     const d = new Date();
-    d.setDate(1);
+    d.setDate(d.getDate() - 7);
     return d.toISOString().split("T")[0];
   });
   const [attEndDate, setAttEndDate] = useState(() => new Date().toISOString().split("T")[0]);
@@ -58,28 +59,6 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const attSetPreset = (preset: string) => {
-    const today = new Date();
-    const end = today.toISOString().split("T")[0];
-    let start = end;
-    if (preset === "this_month") {
-      const d = new Date(today.getFullYear(), today.getMonth(), 1);
-      start = d.toISOString().split("T")[0];
-    } else if (preset === "past_30") {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 30);
-      start = d.toISOString().split("T")[0];
-    } else if (preset === "past_7") {
-      const d = new Date(today);
-      d.setDate(d.getDate() - 7);
-      start = d.toISOString().split("T")[0];
-    } else {
-      start = "2020-01-01";
-    }
-    setAttStartDate(start);
-    setAttEndDate(end);
-  };
-
   const attDeptOptions = useMemo(() => {
     const filteredStudents = attCollegeFilter === "all" ? students : students.filter(s => s.college_id === attCollegeFilter);
     return Array.from(new Set(filteredStudents.map(s => s.department).filter(Boolean))) as string[];
@@ -95,17 +74,23 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
 
   // Aggregate attendance within the chosen date range
   const attRows = useMemo(() => {
-    // 1. Filter attendance records by date
+    // Build a Map of college_id → college name ONCE — not inside the per-student .map()
+    const collegeMap = new Map<string, string>(
+      colleges.map(c => [c.id, c.name])
+    );
+
+    // 1. Filter attendance records by date.
+    //    The compact wire format uses `dateStr`, not `date`.
     const rangeRecords = (studentAttendance || []).filter((rec: any) => {
-      const d = rec.date;
+      const d = rec.dateStr || rec.date;
       if (!d) return false;
       return d >= attStartDate && d <= attEndDate;
     });
 
-    // 2. Count present/total per student_id
+    // 2. Count present/total per studentId (the compact format uses `studentId`)
     const attMap = new Map<string, { present: number; total: number }>();
     for (const rec of rangeRecords) {
-      const sid = rec.student_id;
+      const sid = rec.studentId || rec.student_id;
       if (!sid) continue;
       const cur = attMap.get(sid) || { present: 0, total: 0 };
       cur.total += 1;
@@ -133,10 +118,11 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
         const stats = attMap.get(student.id) || { present: 0, total: 0 };
         const absent = Math.max(0, stats.total - stats.present);
         const pct = stats.total > 0 ? Math.round((stats.present / stats.total) * 100) : 0;
-        const col = colleges.find(c => c.id === student.college_id);
+        // O(1) map lookup instead of O(n) colleges.find() per student
+        const campusName = collegeMap.get(student.college_id || "") || "Unassigned";
         return {
           student,
-          campus: col?.name || "Unassigned",
+          campus: campusName,
           present: stats.present,
           absent,
           total: stats.total,
@@ -218,7 +204,6 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
       <PageHeader
         icon={Clock}
         title="Attendance Monitoring Central"
-        subtitle="Per-student attendance summary across all campuses for the selected date range."
         actions={
           <Button
             variant="outline"
@@ -236,8 +221,8 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3.5">
         {[
-          { label: "Students Tracked", value: attStats.total, cls: "text-indigo-600" },
-          { label: "Average %", value: `${attStats.avg}%`, cls: "text-violet-600" },
+          { label: "Students Tracked", value: attStats.total, cls: "text-zinc-900 dark:text-zinc-100" },
+          { label: "Average %", value: `${attStats.avg}%`, cls: "text-amber-500" },
           { label: "On Track (≥75%)", value: attStats.onTrack, cls: "text-emerald-600" },
           { label: "At Risk (65–74%)", value: attStats.atRisk, cls: "text-amber-600" },
           { label: "Critical (<65%)", value: attStats.critical, cls: "text-rose-600" }
@@ -251,45 +236,71 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
 
       {/* Filter bar */}
       <FilterBar>
-        <div className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">From:</span>
+        <div className="flex h-9 items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 shadow-2xs">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">From:</span>
           <Input
             aria-label="Attendance from date"
             type="date"
             value={attStartDate}
             onChange={(e) => setAttStartDate(e.target.value)}
-            className="w-auto border-0 bg-transparent px-0 text-xs font-bold text-slate-800 focus:ring-0"
+            className="w-auto border-0 bg-transparent px-0 text-xs font-bold text-slate-800 focus:ring-0 cursor-pointer"
           />
         </div>
-        <div className="flex h-9 items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">To:</span>
+        <div className="flex h-9 items-center gap-1.5 rounded-2xl border border-slate-200/90 bg-slate-50 px-3 shadow-2xs">
+          <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">To:</span>
           <Input
             aria-label="Attendance to date"
             type="date"
             value={attEndDate}
             onChange={(e) => setAttEndDate(e.target.value)}
-            className="w-auto border-0 bg-transparent px-0 text-xs font-bold text-slate-800 focus:ring-0"
+            className="w-auto border-0 bg-transparent px-0 text-xs font-bold text-slate-800 focus:ring-0 cursor-pointer"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-1">
-          {[
-            { key: "all", label: "All" },
-            { key: "this_month", label: "This Month" },
-            { key: "past_30", label: "30D" },
-            { key: "past_7", label: "7D" }
-          ].map((p) => (
-            <Button
-              variant="ghost"
-              key={p.key}
-              type="button"
-              onClick={() => attSetPreset(p.key)}
-              className="h-auto px-2 py-1 rounded-lg border border-slate-200 bg-white text-[10px] font-bold text-slate-600 transition-all cursor-pointer hover:bg-slate-100 active:scale-95"
-            >
-              {p.label}
-            </Button>
-          ))}
+
+        {/* Quick Date Chips */}
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => {
+              const now = new Date();
+              const to = now.toISOString().split("T")[0];
+              const d = new Date();
+              d.setDate(d.getDate() - 6);
+              setAttStartDate(d.toISOString().split("T")[0]);
+              setAttEndDate(to);
+            }}
+            className="h-8 px-2.5 rounded-xl text-[11px] font-bold border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs cursor-pointer transition-all active:scale-95"
+          >
+            Last 7 Days
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const now = new Date();
+              const to = now.toISOString().split("T")[0];
+              const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+              setAttStartDate(from);
+              setAttEndDate(to);
+            }}
+            className="h-8 px-2.5 rounded-xl text-[11px] font-bold border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs cursor-pointer transition-all active:scale-95"
+          >
+            This Month
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const now = new Date();
+              const to = now.toISOString().split("T")[0];
+              const d = new Date();
+              d.setDate(d.getDate() - 29);
+              setAttStartDate(d.toISOString().split("T")[0]);
+              setAttEndDate(to);
+            }}
+            className="h-8 px-2.5 rounded-xl text-[11px] font-bold border border-slate-200/90 bg-white hover:bg-slate-50 text-slate-700 shadow-2xs cursor-pointer transition-all active:scale-95"
+          >
+            Last 30 Days
+          </button>
         </div>
-        <div className="hidden lg:block w-px h-6 bg-slate-200" />
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
           <Input
@@ -298,8 +309,19 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
             placeholder="Search name, roll no..."
             value={attSearch}
             onChange={(e) => setAttSearch(e.target.value)}
-            className="w-44 pl-8"
+            className="w-48 pl-8 pr-7"
           />
+          {attSearch && (
+            <button
+              type="button"
+              onClick={() => setAttSearch("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer"
+              title="Clear search"
+              aria-label="Clear search"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <Select
           aria-label="College filter"
@@ -351,9 +373,27 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
 
       {/* Data table */}
       {attRows.length === 0 ? (
-        <div className="text-center py-16 border border-slate-100 rounded-2xl bg-white shadow-card">
-          <Clock className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-          <p className="text-sm text-slate-500 font-semibold">No attendance records found for this filter and date range.</p>
+        <div className="text-center py-16 border border-slate-100 rounded-2xl bg-white shadow-card space-y-3">
+          <Clock className="h-10 w-10 text-slate-300 mx-auto" />
+          <div>
+            <p className="text-sm text-slate-800 font-bold">No attendance records found</p>
+            <p className="text-xs text-slate-500 font-medium mt-0.5">Try adjusting your search query, campus, department, or date range.</p>
+          </div>
+          {(attSearch || attCollegeFilter !== "all" || attDeptFilter !== "all" || attBatchFilter !== "all") && (
+            <button
+              type="button"
+              onClick={() => {
+                setAttSearch("");
+                setAttCollegeFilter("all");
+                setAttDeptFilter("all");
+                setAttBatchFilter("all");
+              }}
+              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-50 shadow-2xs cursor-pointer transition-all active:scale-95"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+              Reset Filters
+            </button>
+          )}
         </div>
       ) : (
         <TableSurface
@@ -437,14 +477,7 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
                 <TableCell className="text-right">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg cursor-pointer"
-                        title="Student Options"
-                      >
-                        <MoreVertical className="h-3.5 w-3.5" />
-                      </Button>
+                      <ActionDropdownButton size="sm" title="Student Options" />
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-48 text-xs">
                       <DropdownMenuLabel>Student Options</DropdownMenuLabel>

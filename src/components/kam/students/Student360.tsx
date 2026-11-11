@@ -195,8 +195,8 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
         open={true}
         onOpenChange={(next) => { if (!next) onClose(); }}
         ariaLabel="Loading student 360 profile"
-        overlayClassName="bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto"
-        panelClassName="max-w-3xl my-auto w-full flex flex-col overflow-hidden rounded-2xl border border-slate-100/80 bg-white/95 backdrop-blur-xl shadow-2xl animate-in zoom-in-95 duration-200 p-0 space-y-0"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto"
+        panelClassName="max-w-3xl my-auto w-full flex flex-col overflow-hidden rounded-2xl border border-slate-100/80 bg-white/95 backdrop-blur-xl shadow-card-lg animate-scaleUp p-0 space-y-0"
       >
         {/* Soft UI Header Skeleton */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white relative shrink-0">
@@ -261,8 +261,8 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
         open={true}
         onOpenChange={(next) => { if (!next) onClose(); }}
         ariaLabel="Error loading student profile"
-        overlayClassName="bg-slate-900/50 backdrop-blur-sm p-4"
-        panelClassName="max-w-md my-auto w-full rounded-2xl p-6 space-y-4 text-center border border-slate-100 bg-white shadow-2xl"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
+        panelClassName="max-w-md my-auto w-full rounded-2xl p-6 space-y-4 text-center border border-slate-100 bg-white shadow-card-lg"
       >
         <div className="h-12 w-12 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 flex items-center justify-center mx-auto">
           <AlertTriangle className="h-6 w-6" />
@@ -311,8 +311,8 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
       open={true}
       onOpenChange={(next) => { if (!next) onClose(); }}
       ariaLabel="Student 360 profile"
-      overlayClassName="bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto"
-      panelClassName="max-w-3xl my-auto max-h-[92vh] w-full flex flex-col overflow-hidden rounded-2xl border border-slate-100/80 bg-white/95 backdrop-blur-xl shadow-2xl animate-in zoom-in-95 duration-200 p-0 space-y-0"
+      overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto"
+      panelClassName="max-w-3xl my-auto max-h-[92vh] w-full flex flex-col overflow-hidden rounded-2xl border border-slate-100/80 bg-white/95 backdrop-blur-xl shadow-card-lg animate-scaleUp p-0 space-y-0"
     >
         {/* Soft UI Executive Header Card */}
         <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-5 text-white relative shrink-0">
@@ -673,7 +673,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
 
                         {ach.event_name && (
                           <div className="p-2 rounded-xl bg-slate-50 border border-slate-100 text-[11px] font-semibold text-slate-700 flex items-center gap-1.5">
-                            <Sparkles className="h-3.5 w-3.5 text-[#D528A2] shrink-0" />
+                            <Sparkles className="h-3.5 w-3.5 text-[#4F46E5] shrink-0" />
                             <span className="truncate">Event: <strong className="text-slate-900">{ach.event_name}</strong></span>
                           </div>
                         )}
@@ -728,7 +728,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                   <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
                     <span>💻 Algorithmic &amp; Contest Performance</span>
                     <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
-                      Live Supabase Sync
+                      Real-time Sync Active
                     </span>
                   </h3>
                   <p className="text-[11px] text-slate-500 font-medium mt-0.5">
@@ -783,7 +783,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-1.5 text-center">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-center">
                       <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-200/70">
                         <span className="text-[9px] font-black uppercase text-emerald-700 block">Easy</span>
                         <span className="text-xs font-black text-emerald-900">{codingStats?.leetcode?.solvedEasy || 0}</span>

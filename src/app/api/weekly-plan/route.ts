@@ -8,6 +8,7 @@ import { deriveSubjectType } from "@/lib/skillTracker";
 import { requireAuth } from "@/lib/authGuard";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 const noCacheHeaders = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
@@ -411,20 +412,15 @@ export async function PATCH(request: Request) {
     const updated = await db.get("SELECT * FROM mentor_weekly_plans WHERE id = ?", id);
 
     if (status === "Verified" && updated && updated.mentor_id) {
-      const notifId = generateId("notif");
-      const title = "Weekly Plan Approved";
-      const message = `Your Weekly Plan for ${updated.subject || 'your subject'} (Week ${updated.week_number || ''}) has been approved by ${effectiveVerifier}.`;
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
-        notifId,
-        updated.mentor_id,
-        title,
-        message,
-        "/mentor/weekly-plan",
-        "weekly_plan_approved",
-        new Date().toISOString()
-      ).catch((e) => console.error("Failed to insert notification:", e));
+      await dispatchSystemNotification(db, {
+        userIds: [updated.mentor_id],
+        title: "Weekly Plan Approved",
+        message: `Your Weekly Plan for ${updated.subject || "your subject"} (Week ${updated.week_number || ""}) has been approved by ${effectiveVerifier}.`,
+        link: "/mentor/weekly-plan",
+        type: "success",
+        domain: "weekly_plan",
+        action: "verified",
+      }).catch((e) => console.error("Failed to insert notification:", e));
     }
 
     return NextResponse.json({

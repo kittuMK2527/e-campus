@@ -38,7 +38,7 @@ export default function LndOverrideModal({
           if (!next) setEditSession(null);
         }}
         ariaLabel={editSession.id ? "Edit L&D session" : "Create L&D session"}
-        overlayClassName="bg-slate-900/60 backdrop-blur-sm"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm"
         panelClassName="max-w-md rounded-2xl p-6 bg-white dark:bg-slate-900 max-h-[90vh]"
       >
   
@@ -51,7 +51,7 @@ export default function LndOverrideModal({
           </button>
   
           <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div className="p-1.5 rounded-lg bg-[#D528A2]/10 text-[#D528A2]">
+            <div className="p-1.5 rounded-lg bg-[#4F46E5]/10 text-[#4F46E5]">
               <Settings className="h-4.5 w-4.5" />
             </div>
             <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white tracking-wider">
@@ -116,7 +116,7 @@ export default function LndOverrideModal({
                 aria-label="Mentor Group"
                 value={editSession.subject}
                 onChange={(e) => setEditSession({ ...editSession, subject: e.target.value })}
-                className="w-full px-3 py-2 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#D528A2]/30 focus:border-[#D528A2]"
+                className="w-full px-3 py-2 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
               />
             </div>
   
@@ -137,7 +137,7 @@ export default function LndOverrideModal({
                   aria-label="Date"
                   value={editSession.dateStr}
                   onChange={(e) => setEditSession({ ...editSession, dateStr: e.target.value })}
-                  className="w-full px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#D528A2]/30 focus:border-[#D528A2] cursor-pointer"
+                  className="w-full px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5] cursor-pointer"
                 />
               </div>
   

@@ -51,10 +51,7 @@ export async function POST(request: Request) {
     const rawList = Array.isArray(body) ? body : Array.isArray(body.subjects) ? body.subjects : null;
 
     if (rawList && rawList.length > 0) {
-      const countRow = await db.get("SELECT COUNT(*) as count FROM subjects");
-      let currentCount = countRow?.count || 0;
-
-      const rows = rawList.map((item: any, i: number) => {
+      const rows = rawList.map((item: any) => {
         const { department, semester, name, type, college_id, year, weekly_hours, subject_group, shift } = item;
         if (!department || !semester || !name) return null;
 
@@ -66,43 +63,49 @@ export async function POST(request: Request) {
           else if (semester.includes("7") || semester.includes("8")) calculatedYear = "Year 4";
         }
 
-        currentCount++;
-        const newId = generateId("sub");
-        const weeklyHoursVal = parseInt(weekly_hours, 10) || 4;
-        const shiftVal = shift || "general";
-        const subjectType = type || "SKILL";
-
         return {
-          id: newId,
+          id: generateId("sub"),
           department,
           semester,
           name: name.trim(),
-          type: subjectType,
+          type: type || "SKILL",
           college_id: college_id || null,
           year: calculatedYear,
-          weekly_hours: weeklyHoursVal,
+          weekly_hours: parseInt(weekly_hours, 10) || 4,
           subject_group: subject_group || "General",
-          shift: shiftVal
+          shift: shift || "general"
         };
       }).filter(Boolean) as any[];
 
-      // One transaction: a row that violates a constraint partway through used to
-      // leave the earlier rows committed and the rest skipped — a silently
-      // half-imported subject list.
-      await db.transaction(async (tx) => {
-        for (const s of rows) {
-          await tx.run(
-            `INSERT INTO subjects (id, department, semester, name, type, college_id, year, weekly_hours, subject_group, shift) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            s.id, s.department, s.semester, s.name, s.type, s.college_id, s.year, s.weekly_hours, s.subject_group, s.shift
-          );
+      if (rows.length === 0) {
+        return NextResponse.json({ success: true, count: 0, subjects: [], message: "No valid subjects to create." });
+      }
+
+      // Single multi-row INSERT — replaces the N+1 loop that did one round-trip
+      // per subject (200 subjects = 200 sequential DB calls).
+      const CHUNK = 200; // 200 rows × 10 params = 2000 params per statement, well under PostgreSQL's 65535 limit
+      const allInserted: any[] = [];
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const chunk = rows.slice(i, i + CHUNK);
+        const placeholders = chunk.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ");
+        const params: any[] = [];
+        for (const s of chunk) {
+          params.push(s.id, s.department, s.semester, s.name, s.type, s.college_id, s.year, s.weekly_hours, s.subject_group, s.shift);
         }
-      });
+        await db.run(
+          `INSERT INTO subjects (id, department, semester, name, type, college_id, year, weekly_hours, subject_group, shift)
+           VALUES ${placeholders}
+           ON CONFLICT (id) DO NOTHING`,
+          params
+        );
+        allInserted.push(...chunk);
+      }
 
       return NextResponse.json({
         success: true,
-        count: rows.length,
-        subjects: rows,
-        message: `Successfully created ${rows.length} subjects.`
+        count: allInserted.length,
+        subjects: allInserted,
+        message: `Successfully created ${allInserted.length} subjects.`
       });
     }
 
@@ -121,14 +124,13 @@ export async function POST(request: Request) {
       else if (semester.includes("7") || semester.includes("8")) calculatedYear = "Year 4";
     }
 
-    const countRow = await db.get("SELECT COUNT(*) as count FROM subjects");
     const newId = generateId("sub");
-
     const weeklyHoursVal = parseInt(weekly_hours, 10) || 4;
     const shiftVal = shift || "general";
 
     await db.run(
-      `INSERT INTO subjects (id, department, semester, name, type, college_id, year, weekly_hours, subject_group, shift) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO subjects (id, department, semester, name, type, college_id, year, weekly_hours, subject_group, shift)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       newId, department, semester, name.trim(), type, college_id || null, calculatedYear, weeklyHoursVal, subject_group || "General", shiftVal
     );
 

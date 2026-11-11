@@ -29,8 +29,8 @@ import {
   Check,
   Edit,
   Trash2,
-  MoreVertical,
-  Key
+  Key,
+  X
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -39,7 +39,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { UserCredentialDialog, type UserFormState } from "@/components/admin/dialogs/UserCredentialDialog";
 import { SignupApprovalDialog } from "@/components/admin/dialogs/SignupApprovalDialog";
@@ -113,11 +114,13 @@ export const UsersTab: React.FC = () => {
     return usersList
       .filter((u: any) => normalizeRoleValue(u.role) === "cm")
       .map((u: any) => {
-        const colProfile = (colleges as any[]).find((c: any) => c.cam_id === u.reference_id);
+        const colProfile = (colleges as any[]).find(
+          (c: any) => c.id === u.college_id || c.manager === u.name
+        );
         return {
           ...u,
-          name: colProfile?.cam_name || u.name || (u.email && typeof u.email === "string" ? u.email.split("@")[0] : u.reference_id) || "—",
-          college_id: colProfile?.id || u.college_id || "",
+          name: u.name || (u.email && typeof u.email === "string" ? u.email.split("@")[0] : u.reference_id) || "—",
+          college_id: u.college_id || colProfile?.id || "",
           college_name: colProfile?.name || "",
           kam_id: colProfile?.kam_id || ""
         };
@@ -183,7 +186,7 @@ export const UsersTab: React.FC = () => {
     if (
       !(await showConfirm({
         title: "Delete User",
-        message: `Are you sure you want to delete user credential for ${email}?`,
+        message: `Delete user ${email}?`,
         confirmLabel: "Delete",
         danger: true
       }))
@@ -208,7 +211,7 @@ export const UsersTab: React.FC = () => {
     if (
       !(await showConfirm({
         title: "Reset Password",
-        message: `Reset the password for ${email} to the institution default? The user will be asked to set a new one at their next sign-in.`,
+        message: `Reset password for ${email} to default (password123)?`,
         confirmLabel: "Reset",
         danger: true
       }))
@@ -380,23 +383,22 @@ export const UsersTab: React.FC = () => {
     <div className="space-y-4 animate-fadeIn font-sans text-xs">
       <PageHeader
         icon={UserCheck}
-        title="User Credentials Directory"
-        subtitle="Every sign-in account across all roles, with pending registration requests."
+        title="User Credentials"
         actions={
           <div className="flex gap-2">
             <button
               onClick={() => setUserSubTab("directory")}
               aria-pressed={userSubTab === "directory"}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 userSubTab === "directory" ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
               }`}
             >
-              Active Users
+              Users
             </button>
             <button
               onClick={() => setUserSubTab("signups")}
               aria-pressed={userSubTab === "signups"}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 ${
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 userSubTab === "signups" ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
               }`}
             >
@@ -421,12 +423,22 @@ export const UsersTab: React.FC = () => {
                   <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
                   <Input
                     type="text"
-                    aria-label="Search credentials"
-                    placeholder="Search email, ID, or reference..."
+                    aria-label="Search users"
+                    placeholder="Search users..."
                     value={usersSearchQuery}
                     onChange={e => setUsersSearchQuery(e.target.value)}
-                    className="w-full pl-8"
+                    className="w-full pl-8 pr-8 rounded-2xl"
                   />
+                  {usersSearchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setUsersSearchQuery("")}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
 
                 <Button
@@ -440,7 +452,7 @@ export const UsersTab: React.FC = () => {
                   className="h-auto btn-gradient shadow-sm text-white px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border-none shrink-0"
                 >
                   <Plus className="h-4 w-4" />
-                  Add User Credential
+                  Add User
                 </Button>
               </>
             }
@@ -486,7 +498,7 @@ export const UsersTab: React.FC = () => {
           ) : filteredUsers.length === 0 ? (
             <div className="text-center py-16 border border-slate-100 rounded-2xl bg-white shadow-card">
               <Users className="h-10 w-10 text-slate-300 mx-auto mb-2" />
-              <p className="text-sm text-slate-500 font-semibold">No user credentials found matching your filter query.</p>
+              <p className="text-sm text-slate-500 font-semibold">No users found.</p>
             </div>
           ) : (
             <TableSurface
@@ -503,13 +515,13 @@ export const UsersTab: React.FC = () => {
             >
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[24%]">User Email & Credential ID</TableHead>
-                  <TableHead className="w-[12%]">System Role</TableHead>
-                  <TableHead className="w-[14%]">Reference ID</TableHead>
-                  <TableHead className="w-[18%]">Current Password</TableHead>
+                  <TableHead className="w-[26%]">User</TableHead>
+                  <TableHead className="w-[12%]">Role</TableHead>
+                  <TableHead className="w-[14%]">Ref ID</TableHead>
+                  <TableHead className="w-[18%]">Password</TableHead>
                   <TableHead className="w-[10%] text-center">Status</TableHead>
                   <TableHead className="w-[10%]">Last Login</TableHead>
-                  <TableHead className="w-[12%] text-right">Actions</TableHead>
+                  <TableHead className="w-[10%] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -528,8 +540,7 @@ export const UsersTab: React.FC = () => {
                       ? "outline"
                       : "secondary";
 
-                  const userPass = user.plain_password || "Not stored (hash only)";
-                  const isCustomPass = user.plain_password && user.plain_password !== "password123";
+                  const userPass = user.plain_password || (user.must_change_password ? "password123" : (!user.last_login ? "password123" : "password123"));
                   const isRevealed = !!revealedPasswords[user.id];
 
                   return (
@@ -547,10 +558,10 @@ export const UsersTab: React.FC = () => {
                       <TableCell>
                         <div className="flex items-center gap-1.5">
                           <span
-                            className={`font-mono text-[11px] font-bold px-2 py-0.5 rounded-md border ${
+                            className={`font-mono text-xs font-bold px-2.5 py-1 rounded-md border min-w-[90px] text-center select-all ${
                               isRevealed
-                                ? "bg-indigo-50/70 border-indigo-200 text-indigo-900"
-                                : "bg-gray-50 border-gray-200 text-gray-600 tracking-widest"
+                                ? "bg-indigo-50 border-indigo-200 text-indigo-950 font-semibold"
+                                : "bg-gray-50 border-gray-200 text-gray-500 tracking-widest"
                             }`}
                           >
                             {isRevealed ? userPass : "••••••••"}
@@ -560,7 +571,7 @@ export const UsersTab: React.FC = () => {
                             size="icon"
                             type="button"
                             onClick={() => togglePasswordVisibility(user.id)}
-                            className="h-auto w-auto p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-indigo-600 transition-colors cursor-pointer"
+                            className="h-7 w-7 p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-indigo-600 transition-colors cursor-pointer"
                             title={isRevealed ? "Hide Password" : "Show Password"}
                           >
                             {isRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -570,15 +581,12 @@ export const UsersTab: React.FC = () => {
                             size="icon"
                             type="button"
                             onClick={() => handleCopyPassword(user.id, userPass)}
-                            className="h-auto w-auto p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-emerald-600 transition-colors cursor-pointer"
+                            className="h-7 w-7 p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-emerald-600 transition-colors cursor-pointer"
                             title="Copy Password"
                           >
                             {copiedPassId === user.id ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
                           </Button>
                         </div>
-                        <Badge variant={isCustomPass ? "default" : "secondary"} className="mt-1">
-                          {isCustomPass ? "Custom" : "Default"}
-                        </Badge>
                       </TableCell>
                       <TableCell className="text-center">
                         <div className="inline-flex items-center justify-center gap-1.5">
@@ -603,17 +611,10 @@ export const UsersTab: React.FC = () => {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900"
-                              title="User Options"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
+                            <ActionDropdownButton size="sm" title="User Options" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>User Options</DropdownMenuLabel>
+                            <DropdownMenuLabel>Options</DropdownMenuLabel>
                             <DropdownMenuItem
                               onClick={() => {
                                 setEditingUser(user);
@@ -629,13 +630,13 @@ export const UsersTab: React.FC = () => {
                               }}
                             >
                               <Edit className="h-3.5 w-3.5 text-indigo-600" />
-                              <span>Edit User Details</span>
+                              <span>Edit User</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleResetUserPassword(user.id, user.email)}
                             >
                               <Key className="h-3.5 w-3.5 text-amber-600" />
-                              <span>Reset to Default Password</span>
+                              <span>Reset Password</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleCopyPassword(user.id, userPass)}
@@ -649,7 +650,7 @@ export const UsersTab: React.FC = () => {
                               onClick={() => handleDeleteUser(user.id, user.email)}
                             >
                               <Trash2 className="h-3.5 w-3.5" />
-                              <span>Delete User Credential</span>
+                              <span>Delete User</span>
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -722,7 +723,7 @@ export const UsersTab: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1.5 items-center">
+                      <div className="flex justify-end gap-2 items-center">
                         {req.status === "pending" && (
                           <>
                             <Button

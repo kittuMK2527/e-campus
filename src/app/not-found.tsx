@@ -34,7 +34,7 @@ export default function NotFound() {
   }, []);
 
   return (
-    <main className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-colors duration-300 select-none">
+    <main className="min-h-dvh w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 p-4 sm:p-6 lg:p-8 relative overflow-hidden transition-colors duration-300 select-none">
       
       {/* Background Ambient Glow */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[550px] bg-gradient-to-tr from-cyan-500/10 via-sky-400/5 to-rose-500/10 rounded-full blur-3xl pointer-events-none" />

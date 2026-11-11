@@ -151,7 +151,7 @@ const CAMDashboard = dynamic(
     loading: () => (
       <div className="flex-1 flex items-center justify-center p-16 text-slate-400 font-bold text-sm">
         <div className="flex items-center gap-2">
-          <span className="h-4 w-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+          <span className="h-4 w-4 rounded-full border-2 border-zinc-900 dark:border-amber-500 border-t-transparent animate-spin" />
           <span>Loading Campus Console…</span>
         </div>
       </div>
@@ -315,7 +315,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           aria-expanded={mobileNavOpen}
           className="flex h-11 min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-white/90 px-3 text-xs font-bold text-slate-700 shadow-xs transition-colors hover:bg-slate-50"
         >
-          <Menu className="h-4 w-4 shrink-0 text-indigo-600" />
+          <Menu className="h-4 w-4 shrink-0 text-amber-500" />
           <span className="truncate">{activeNavLabel}</span>
           <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-400" />
         </button>
@@ -323,7 +323,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Mobile Bottom Navigation Bar */}
       <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav">
-        <div className="flex w-full justify-around items-center py-2 px-0.5 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-lg">
+        <div className="flex w-full justify-around items-center py-2 px-0.5">
           {[
             { id: "overview", label: "Home", icon: LayoutDashboard },
             { id: "campuses", label: "Campuses", icon: Building2 },
@@ -340,24 +340,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <button
                 key={t.id}
                 onClick={() => setActiveTab(t.id as AdminTab)}
-                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-xl transition-all cursor-pointer ${
-                  isActive ? "text-indigo-600" : "text-slate-400"
+                className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[3.5rem] flex-1 rounded-xl transition-all cursor-pointer ${
+                  isActive ? "text-zinc-950 dark:text-white" : "text-slate-400"
                 }`}
               >
                 <Icon
                   className={`h-4.5 w-4.5 transition-transform ${
-                    isActive ? "scale-110" : ""
+                    isActive ? "scale-110 text-amber-500" : ""
                   }`}
                 />
                 <span
                   className={`text-[8px] font-semibold tracking-wide leading-none ${
-                    isActive ? "text-indigo-600" : "text-slate-400"
+                    isActive ? "text-zinc-950 dark:text-white font-bold" : "text-slate-400"
                   }`}
                 >
                   {t.label}
                 </span>
                 {isActive && (
-                  <span className="absolute top-0 inset-x-1 h-0.5 bg-indigo-500 rounded-full" />
+                  <span className="absolute top-0 inset-x-1 h-0.5 bg-amber-500 rounded-full" />
                 )}
               </button>
             );
@@ -390,7 +390,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 { id: "kams", label: "Key Account Managers", subtitle: "KAM portfolio & metrics", icon: Briefcase, bg: "bg-amber-50 text-amber-600" },
                 { id: "cams", label: "Campus Managers", subtitle: "Campus operations team", icon: Users, bg: "bg-emerald-50 text-emerald-600" },
                 { id: "smes", label: "Subject Matter Experts", subtitle: "Curriculum review leads", icon: BookOpen, bg: "bg-sky-50 text-sky-600" },
-                { id: "users", label: "User Access Control", subtitle: "Passwords & role management", icon: ShieldCheck, bg: "bg-violet-50 text-violet-600" },
+                { id: "users", label: "User Credentials", subtitle: "Passwords & role access", icon: ShieldCheck, bg: "bg-violet-50 text-violet-600" },
                 { id: "oversight", label: "Approvals & Oversight", subtitle: "Consolidated requests", icon: Eye, bg: "bg-purple-50 text-purple-600" },
                 { id: "monitoring", label: "Student Attendance", subtitle: "Live attendance records", icon: Clock, bg: "bg-blue-50 text-blue-600" },
                 { id: "examinations", label: "Examinations", subtitle: "Exam timetable & marks registry", icon: CalendarCheck, bg: "bg-orange-50 text-orange-600" },
@@ -408,7 +408,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     key={item.id}
                     type="button"
                     onClick={() => setActiveTab(item.id as AdminTab)}
-                    className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-indigo-400 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
+                    className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
                   >
                     <div className={`h-10 w-10 rounded-xl ${item.bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
                       <Icon className="h-5 w-5" />

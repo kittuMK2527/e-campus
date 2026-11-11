@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { Users, Plus, Edit, Trash2, AlertTriangle, Loader2, ShieldAlert, X, MoreVertical, ExternalLink, Building2 } from "lucide-react";
+import { Users, Plus, Edit, Trash2, AlertTriangle, Loader2, ShieldAlert, X, ExternalLink, Building2 } from "lucide-react";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/button";
 import { TableSurface } from "@/components/dashboard/TableSurface";
@@ -15,7 +15,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -90,12 +91,15 @@ export const CamsTab: React.FC<CamsTabProps> = ({
     return usersList
       .filter((u: any) => normalizeRoleValue(u.role) === "cm")
       .map((u: any) => {
-        const colProfile = (colleges as any[]).find((c: any) => c.cam_id === u.reference_id);
+        // campus_managers.id === users.reference_id; match college by campus_managers.college_id
+        const colProfile = (colleges as any[]).find(
+          (c: any) => c.id === u.college_id || c.manager === u.name
+        );
         return {
-          id: u.id || u.reference_id,
-          name: colProfile?.cam_name || u.name || (u.email && typeof u.email === "string" ? u.email.split("@")[0] : u.reference_id) || "—",
+          id: u.reference_id || u.id,
+          name: u.name || (u.email && typeof u.email === "string" ? u.email.split("@")[0] : u.reference_id) || "—",
           email: u.email || "",
-          college_id: colProfile?.id || u.college_id || "",
+          college_id: u.college_id || colProfile?.id || "",
           college_name: colProfile?.name || "",
           kam_id: colProfile?.kam_id || ""
         } as CAMUserFromDB;
@@ -258,7 +262,6 @@ export const CamsTab: React.FC<CamsTabProps> = ({
       <PageHeader
         icon={Users}
         title="Campus Managers"
-        subtitle="Campus operations team and their reporting lines."
         actions={
           <Button
             variant="ghost"
@@ -361,14 +364,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-slate-900 cursor-pointer"
-                          title="CM Options"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
+                        <ActionDropdownButton size="sm" title="CM Options" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Manager Options</DropdownMenuLabel>
@@ -408,7 +404,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
             if (!next) setShowModal(false);
           }}
           ariaLabel="Campus Manager"
-          overlayClassName="bg-gray-900/50 backdrop-blur-sm p-4"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
           panelClassName="max-w-md overflow-hidden animate-slideUp p-0 space-y-0 max-h-[90vh]"
         >
           <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">

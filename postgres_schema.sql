@@ -250,6 +250,9 @@ CREATE TABLE IF NOT EXISTS slots (
     college_id VARCHAR(255)
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_slots_mentor_day_time_shift ON slots (mentorId, day, time, shift);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_slots_room_day_time_shift ON slots (LOWER(location), day, time, shift);
+
 CREATE TABLE IF NOT EXISTS handover_requests (
     id VARCHAR(255) PRIMARY KEY,
     requestorId VARCHAR(255) NOT NULL REFERENCES mentors(id) ON DELETE CASCADE,
@@ -978,7 +981,10 @@ CREATE INDEX IF NOT EXISTS idx_users_ref           ON users (reference_id);
 CREATE INDEX IF NOT EXISTS idx_users_role          ON users (role);
 
 CREATE INDEX IF NOT EXISTS idx_notifs_user         ON notifications (user_id, is_read);
-CREATE INDEX IF NOT EXISTS idx_audit_ts            ON audit_logs (timestamp);
+CREATE INDEX IF NOT EXISTS idx_audit_ts            ON audit_logs (timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_student_tracker_lookup ON student_academic_tracker (student_id, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_student_tracker_email  ON student_academic_tracker (student_email);
+CREATE INDEX IF NOT EXISTS idx_student_tracker_week   ON student_academic_tracker (class_group, subject, week_number);
 
 CREATE INDEX IF NOT EXISTS idx_at_mentor_date      ON academic_tracker (mentor_id, date);
 CREATE INDEX IF NOT EXISTS idx_at_class            ON academic_tracker (class_group, subject);
@@ -1025,6 +1031,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked_active ON user_sessions(user_id, is_revoked);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_validity ON user_sessions(session_id_hash, is_revoked, expires_at);
 
 CREATE TABLE IF NOT EXISTS login_attempts (

@@ -115,7 +115,7 @@ export default function LndMasterMatrix({
                           : "bg-slate-100/80 text-slate-600 dark:bg-slate-800/70 dark:text-slate-300"
                       }`}
                     >
-                      <span className={info.isHoliday ? "" : "text-[#D528A2] dark:text-[#f45fc6]"}>{info.dayOrder}</span>
+                      <span className={info.isHoliday ? "" : "text-[#4F46E5] dark:text-[#818CF8]"}>{info.dayOrder}</span>
                       <span className="text-slate-400 dark:text-slate-500"> · {date.day.slice(0, 3)} ({date.formatted})</span>
                       <span className="text-slate-400 dark:text-slate-500">
                         {info.isHoliday ? " · campus closed" : ` · ${info.periods} timetable period${info.periods === 1 ? "" : "s"}`}

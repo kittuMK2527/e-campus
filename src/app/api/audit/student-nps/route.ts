@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/authGuard";
 import { getDb } from "@/lib/db";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 import {
   MAX_TEXT_LENGTH,
   bandOfScore,
@@ -50,8 +51,11 @@ export async function POST(request: Request) {
 
   try {
     await ensureMigration("student_nps_responses_table");
+    await ensureMigration("student_nps_mentor_score_column");
     const body = await request.json().catch(() => null);
     const score = clampScore(body?.score);
+    const mentorScore = clampScore(body?.mentor_score);
+    const mentorName = cleanText(body?.mentor_name);
     if (score === null) {
       return NextResponse.json(
         { success: false, message: "score must be a whole number from 1 to 5." },
@@ -83,12 +87,14 @@ export async function POST(request: Request) {
 
     await db.run(
       `INSERT INTO student_nps_responses
-         (id, month_key, student_id, student_name, college_id, college_name, department, class_group, score, likes, improve, submitted_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+         (id, month_key, student_id, student_name, college_id, college_name, department, class_group, score, likes, improve, mentor_score, mentor_name, submitted_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        ON CONFLICT (month_key, student_id) DO UPDATE SET
          score = EXCLUDED.score,
          likes = EXCLUDED.likes,
          improve = EXCLUDED.improve,
+         mentor_score = EXCLUDED.mentor_score,
+         mentor_name = EXCLUDED.mentor_name,
          student_name = EXCLUDED.student_name,
          college_id = EXCLUDED.college_id,
          college_name = EXCLUDED.college_name,
@@ -106,14 +112,25 @@ export async function POST(request: Request) {
         student.classGroup || null,
         score,
         likes,
-        improve
+        improve,
+        mentorScore,
+        mentorName
       ]
     );
+
+    notifyRealtimeEvent({
+      domain: "feedback",
+      action: "student_nps_submitted",
+      collegeId: student.college_id || undefined,
+      targetRoles: ["cm", "kam", "admin"],
+      payload: { monthKey, studentId: student.id, score, mentorScore }
+    });
 
     return NextResponse.json({
       success: true,
       month_key: monthKey,
       score,
+      mentor_score: mentorScore,
       band: bandOfScore(score),
       message: "Thanks — your feedback for this month is saved."
     }, { headers: noCacheHeaders });
@@ -142,7 +159,7 @@ export async function GET(request: Request) {
     // portal collector needs to show "already rated" without exposing anyone else's.
     if (auth.user.role === "student") {
       const mine = await db.get(
-        `SELECT month_key, score, likes, improve, submitted_at, updated_at
+        `SELECT month_key, score, likes, improve, mentor_score, mentor_name, submitted_at, updated_at
          FROM student_nps_responses
          WHERE student_id IN (?, ?) AND month_key = ?
          LIMIT 1`,
@@ -155,6 +172,8 @@ export async function GET(request: Request) {
           ? {
               month_key: mine.month_key,
               score: clampScore(mine.score),
+              mentor_score: clampScore(mine.mentor_score),
+              mentor_name: mine.mentor_name || null,
               likes: mine.likes || null,
               improve: mine.improve || null,
               submitted_at: mine.submitted_at || null
@@ -194,7 +213,7 @@ export async function GET(request: Request) {
 
     const clause = where.length ? `WHERE ${where.join(" AND ")}` : "";
     const rows: StudentNpsRow[] = await db.all(
-      `SELECT month_key, score, student_id, student_name, college_name, department, class_group, likes, improve, submitted_at
+      `SELECT month_key, score, mentor_score, mentor_name, student_id, student_name, college_name, department, class_group, likes, improve, submitted_at
        FROM student_nps_responses ${clause}
        ORDER BY month_key DESC, submitted_at DESC
        LIMIT ${MAX_ROWS}`,
@@ -240,6 +259,8 @@ export async function GET(request: Request) {
       responses: rows.slice(0, 200).map(r => ({
         month_key: r.month_key,
         score: clampScore(r.score),
+        mentor_score: clampScore(r.mentor_score),
+        mentor_name: r.mentor_name || null,
         student_name: r.student_name || "Anonymous",
         department: r.department || null,
         class_group: r.class_group || null,

@@ -874,7 +874,7 @@ export function LndAllocationDashboard() {
           <div className="flex items-center justify-between pb-4 border-b border-slate-200/70 dark:border-slate-800">
             {!isCollapsed && (
               <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-lg bg-[#D528A2]/10 text-[#D528A2]">
+                <div className="p-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-amber-500">
                   <Compass className="h-4.5 w-4.5" />
                 </div>
                 <div>
@@ -900,7 +900,7 @@ export function LndAllocationDashboard() {
               onClick={() => setActiveTab("matrix")}
               className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "matrix"
                 ? "sidebar-active-item font-black border-none"
-                : "text-slate-600 hover:text-[#D528A2] hover:bg-[#D528A2]/5 dark:text-slate-400 dark:hover:bg-white/5"
+                : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
                 }`}
             >
               <Grid className="h-4 w-4 shrink-0" />
@@ -911,7 +911,7 @@ export function LndAllocationDashboard() {
               onClick={() => setActiveTab("rules")}
               className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "rules"
                 ? "sidebar-active-item font-black border-none"
-                : "text-slate-600 hover:text-[#D528A2] hover:bg-[#D528A2]/5 dark:text-slate-400 dark:hover:bg-white/5"
+                : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
                 }`}
             >
               <Settings className="h-4 w-4 shrink-0" />
@@ -922,7 +922,7 @@ export function LndAllocationDashboard() {
               onClick={() => setActiveTab("queue")}
               className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer relative ${activeTab === "queue"
                 ? "sidebar-active-item font-black border-none"
-                : "text-slate-600 hover:text-[#D528A2] hover:bg-[#D528A2]/5 dark:text-slate-400 dark:hover:bg-white/5"
+                : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
                 }`}
             >
               <RefreshCw className="h-4 w-4 shrink-0" />
@@ -956,12 +956,12 @@ export function LndAllocationDashboard() {
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
                 aria-current={isActive ? "page" : undefined}
-                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1.5 transition-colors cursor-pointer ${
-                  isActive ? "text-[#D528A2]" : "text-slate-400"
+                className={`relative flex flex-1 flex-col items-center justify-center gap-0.5 min-h-[3.5rem] rounded-xl transition-colors cursor-pointer ${
+                  isActive ? "text-zinc-950 dark:text-white" : "text-slate-400"
                 }`}
               >
                 <span className="relative">
-                  <Icon className={`h-4.5 w-4.5 transition-transform ${isActive ? "scale-110" : ""}`} aria-hidden="true" />
+                  <Icon className={`h-4.5 w-4.5 transition-transform ${isActive ? "scale-110 text-amber-500" : ""}`} aria-hidden="true" />
                   {tab.id === "queue" && pendingQueueCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 flex h-3 min-w-3 items-center justify-center rounded-full bg-rose-500 px-0.5 text-[7px] font-bold text-white">
                       {pendingQueueCount}
@@ -969,7 +969,7 @@ export function LndAllocationDashboard() {
                   )}
                 </span>
                 <span className="text-[9px] font-bold leading-none">{tab.label}</span>
-                {isActive && <span className="absolute top-0 inset-x-2 h-0.5 rounded-full bg-[#D528A2]" />}
+                {isActive && <span className="absolute top-0 inset-x-2 h-0.5 rounded-full bg-amber-500" />}
               </button>
             );
           })}
@@ -1011,7 +1011,7 @@ export function LndAllocationDashboard() {
               <Button
                 variant="outline"
                 size="default"
-                icon={<FileSpreadsheet className="h-4 w-4 text-[#F4A863]" aria-hidden="true" />}
+                icon={<FileSpreadsheet className="h-4 w-4 text-[#7C3AED]" aria-hidden="true" />}
                 onClick={handleExportDemoSchedule}
               >
                 Export Active
@@ -1199,7 +1199,7 @@ export function LndAllocationDashboard() {
                     onClick={() => setQuotaOpen(open => !open)}
                     aria-expanded={quotaOpen}
                     aria-controls="lnd-quota-panel"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:border-[#D528A2]/50 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:border-[#4F46E5]/50 transition-colors cursor-pointer"
                   >
                     {quotaOpen ? "Hide" : "Show"} {displayedQuotaMentors.length} faculty
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${quotaOpen ? "rotate-180" : ""}`} aria-hidden="true" />

@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* v4 auto-detects sources from this file's directory upward, and it does not
+   know that `archive/` is dead code — every retired class there still ships in
+   the production stylesheet (the old magenta brand survived the accent
+   sweep purely because of this). */
+@source not "../../archive/**";
+
 /* Tailwind v4: `font-sans` must resolve to the brand face or every
    `font-sans` wrapper silently renders in the system stack. */
 @theme {
@@ -51,54 +57,80 @@ html {
 
 :root {
   /* Soft canvas: near-white at the top, a cool grey at the bottom. */
-  --background: linear-gradient(160deg, #f7f8fc 0%, #eef1f7 100%);
+  --background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
   --foreground: #0f172a;
 
-  /* Brand Color Tokens (#4F46E5 & #7C3AED) */
-  --brand-primary: #4F46E5;
-  --brand-secondary: #7C3AED;
-  --color-primary-50: #f5f3ff;
-  --color-primary-100: #ede9fe;
-  --color-primary-200: #ddd6fe;
-  --color-primary-300: #c4b5fd;
-  --color-primary-400: #a78bfa;
-  --color-primary-500: #8b5cf6;
-  --color-primary-600: #7c3aed;
-  --color-primary-700: #6d28d9;
-  --color-primary-800: #5b21b6;
-  --color-primary-900: #4c1d95;
-  --color-primary-950: #2e1065;
+  /* Brand Color Tokens — Obsidian Carbon & Warm Gold */
+  --brand-primary: #18181b;
+  --brand-secondary: #d97706;
+  --brand-accent-gold: #f59e0b;
+  --brand-gold-soft: #fffbeb;
+  --color-primary-50: #f4f4f5;
+  --color-primary-100: #e4e4e7;
+  --color-primary-200: #d4d4d8;
+  --color-primary-300: #a1a1aa;
+  --color-primary-400: #71717a;
+  --color-primary-500: #52525b;
+  --color-primary-600: #3f3f46;
+  --color-primary-700: #27272a;
+  --color-primary-800: #18181b;
+  --color-primary-900: #09090b;
+  --color-primary-950: #040405;
 }
 
 body {
-  background-color: #f4f6fa;
+  background-color: #f8fafc;
   background-image: var(--background);
   background-attachment: fixed;
   color: var(--foreground);
   font-family: var(--font-sans);
 }
 
-/* Brand Button & Text Gradient Utilities */
-.btn-gradient {
-  background-image: linear-gradient(to right, #4F46E5 0%, #7C3AED 51%, #4F46E5 100%) !important;
-  background-size: 200% auto !important;
-  background-position: 0% 50% !important;
+/* Universal Selection Color — Warm Gold on Obsidian Carbon */
+::selection {
+  background-color: #f59e0b !important;
+  color: #18181b !important;
+}
+
+::-moz-selection {
+  background-color: #f59e0b !important;
+  color: #18181b !important;
+}
+
+/* ─── Universal Active / Selected Element Helpers ─── */
+.selection-gold-active,
+[data-active="true"] {
+  background-color: #18181b !important;
   color: #ffffff !important;
-  border: none !important;
-  transition: background-position .4s ease, box-shadow .3s ease, transform .2s ease !important;
-  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.28) !important;
+}
+.selection-gold-active svg,
+[data-active="true"] svg {
+  color: #f59e0b !important;
+}
+
+/* Brand Button & Carbon Utilities — Obsidian Carbon & Warm Gold Theme */
+.btn-gradient {
+  background: #18181b !important;
+  background-image: linear-gradient(180deg, #27272a 0%, #18181b 100%) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  transition: background .2s ease, box-shadow .2s ease, transform .15s ease !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 3px 10px rgba(0, 0, 0, 0.14) !important;
   font-weight: 700;
   cursor: pointer;
 }
 
 .btn-gradient:hover:not(:disabled) {
-  background-position: 100% 50% !important;
-  box-shadow: 0 8px 24px rgba(79, 70, 229, 0.35) !important;
+  background: #27272a !important;
+  background-image: linear-gradient(180deg, #3f3f46 0%, #27272a 100%) !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24) !important;
   transform: translateY(-1px) !important;
 }
 
 .btn-gradient:active:not(:disabled) {
+  background: #09090b !important;
   transform: translateY(0) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2) !important;
 }
 
 .text-gradient {
@@ -110,11 +142,29 @@ body {
 
 /* ─── Brand surfaces ─── */
 .brand-gradient {
-  background: linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%) !important;
+  background: linear-gradient(135deg, #18181b 0%, #27272a 100%) !important;
 }
 
 .brand-hero-banner {
-  background: linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 40%, #E0E7FF 100%);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 60%, #fffbeb 100%);
+}
+
+/* Chart tooltips are floating surfaces too. Recharts puts each chart's
+   contentStyle on this node inline, so the shared hairline/radius/elevation
+   language has to win with !important instead of being repeated in 5 files. */
+.recharts-default-tooltip {
+  border-radius: 0.75rem !important;
+  border: 1px solid var(--line-soft) !important;
+  background: var(--surface-1) !important;
+  color: #0f172a !important;
+  box-shadow: var(--shadow-card-lg) !important;
+  padding: 0.5rem 0.75rem !important;
+  font-family: var(--font-sans) !important;
+}
+
+:where(.dark, .dark *) .recharts-default-tooltip {
+  border-color: var(--line-strong) !important;
+  color: #e2e8f0 !important;
 }
 
 /* Redesigned Premium CSS Animations */
@@ -225,6 +275,16 @@ body {
   }
 }
 
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}
+
 .animate-fadeIn {
   animation: fadeIn 0.18s ease-out both;
 }
@@ -241,27 +301,32 @@ body {
   animation: slideInLeft 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* The sheet panel enters from its own edge, so right and left need separate
+   keyframes; both share the drawer's duration. */
+.animate-slide-in-right {
+  animation: slideInRight 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   .animate-fadeIn,
   .animate-scaleUp,
   .animate-slideDown,
-  .animate-slide-in-left {
+  .animate-slide-in-left,
+  .animate-slide-in-right {
     animation: none;
   }
 }
 
 /* Soft Minimalist UI Canvas (Matched to eCampus Mockup) */
 .bg-warm-canvas {
-  background-color: #f4f6fa !important;
+  background-color: #f8fafc !important;
   background-image: var(--background) !important;
 }
 
 :where(.dark, .dark *) .bg-warm-canvas {
   background-color: #0b0f19 !important;
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px) !important;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.04) 1px, transparent 1px) !important;
   background-size: 24px 24px !important;
   background-position: 0 0 !important;
   background-repeat: repeat !important;
@@ -269,18 +334,14 @@ body {
 
 /* Standalone Modern Subtle Pattern Utility */
 .bg-dotted-grid {
-  background-image:
-    linear-gradient(to right, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(148, 163, 184, 0.16) 1px, transparent 1px) !important;
+  background-image: radial-gradient(circle, rgba(148, 163, 184, 0.22) 1px, transparent 1px) !important;
   background-size: 24px 24px !important;
   background-position: 0 0 !important;
   background-repeat: repeat !important;
 }
 
 :where(.dark, .dark *) .bg-dotted-grid {
-  background-image:
-    linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px) !important;
+  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 1px, transparent 1px) !important;
   background-size: 24px 24px !important;
   background-position: 0 0 !important;
   background-repeat: repeat !important;
@@ -313,21 +374,22 @@ body {
    0.02 alpha, which is why the shell rendered flat. */
 .floating-sidebar {
   height: calc(100vh - 9.5rem) !important;
+  height: calc(100dvh - 9.5rem) !important;
   margin: 1.5rem 0 1.5rem 1.5rem !important;
   border-radius: 1rem !important;
   border: 1px solid var(--line-soft) !important;
   box-shadow: 6px 6px 18px rgba(148, 163, 184, 0.14), -6px -6px 18px rgba(255, 255, 255, 0.7) !important;
-  background-color: rgba(255, 255, 255, 0.82) !important;
+  background-color: var(--surface-veil) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
 }
 
 .floating-header {
-  margin: 1.5rem 1.5rem 0 1.5rem !important;
+  margin: 0 !important;
   border-radius: 1rem !important;
   border: 1px solid var(--line-soft) !important;
   box-shadow: var(--shadow-card) !important;
-  background-color: rgba(255, 255, 255, 0.82) !important;
+  background-color: var(--surface-veil) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
 }
@@ -335,7 +397,6 @@ body {
 /* The dual-tone highlight is a light-canvas trick; on the dark canvas it
    would bloom, so the sidebar takes a plain deep elevation instead. */
 :where(.dark, .dark *) .floating-sidebar {
-  background-color: rgba(19, 19, 23, 0.82) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px rgba(0, 0, 0, 0.35) !important;
 }
 
@@ -347,7 +408,7 @@ body {
 .bg-pastel-blue,
 .bg-pastel-purple,
 .bg-pastel-green {
-  background-color: #f7f9fc !important;
+  background-color: var(--surface-2) !important;
   border: 1px solid var(--line-soft) !important;
 }
 
@@ -370,20 +431,23 @@ body {
   color: white;
 }
 
-/* ── Sidebar Active State = Brand Gradient ──────── */
+/* ── Sidebar Active State = Obsidian Carbon & Warm Gold ──────── */
 .sidebar-active-item {
-  background-image: linear-gradient(to right, #4F46E5 0%, #7C3AED 100%) !important;
-  background-size: 200% auto !important;
-  background-position: 0% 50% !important;
+  background: #18181b !important;
+  background-image: linear-gradient(180deg, #27272a 0%, #18181b 100%) !important;
   color: #ffffff !important;
-  border: none !important;
-  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 3px 10px rgba(0, 0, 0, 0.14) !important;
   transform: none !important;
   transition: all 0.2s ease-in-out;
 }
 
 .sidebar-active-item * {
   color: #ffffff !important;
+}
+
+.sidebar-active-item svg {
+  color: #f59e0b !important;
 }
 
 /* ─── Custom Spin Reverse Animation ──────────────── */
@@ -402,12 +466,18 @@ body {
 }
 
 /* ─── Mobile Bottom Navigation Bar ─────────────────── */
+/* The phone bar is the shell's bottom edge, so it wears the same veil as the
+   floating sidebar rather than a fourth opaque white. */
 .mobile-bottom-nav {
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--surface-veil);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(230, 235, 245, 0.9);
-  box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.07);
+  border-top: 1px solid var(--line-soft);
+  box-shadow: 0 -4px 24px rgba(148, 163, 184, 0.14);
+}
+
+:where(.dark, .dark *) .mobile-bottom-nav {
+  box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.4), 0 -12px 32px rgba(0, 0, 0, 0.35);
 }
 
 /* ─── Premium Styled Scrollbars ──────────────────────── */
@@ -472,8 +542,44 @@ a,
   }
 
   .floating-header {
-    margin: 0.75rem 0.75rem 0 0.75rem !important;
+    margin: 0 !important;
     border-radius: 1rem !important;
+  }
+}
+
+/* ─── Phone legibility and focus floor ─────────────────────────────
+   Roughly 660 utility classes in this app ask for 7-9px ink. On a desktop
+   monitor that reads as a caption; at 390px it reads as noise. Unlayered
+   CSS here beats Tailwind's layered utilities, so no !important is needed
+   for the font floor - the control sizes do need it because a `text-xs`
+   class on the element outranks a bare element selector. iOS zooms the
+   page whenever a focused field computes under 16px, and that zoom then
+   persists across the whole shell. */
+@media (max-width: 767px) {
+
+  /* Counters and status pills are sized by their own square, so raising their
+     ink would push the digit out of the circle. Anything that pins its own
+     height or min-width keeps the author's size. */
+  .text-\[6px\]:not([class*="h-2"]):not([class*="h-3"]):not([class*="min-w-"]),
+  .text-\[7px\]:not([class*="h-2"]):not([class*="h-3"]):not([class*="min-w-"]),
+  .text-\[8px\]:not([class*="h-2"]):not([class*="h-3"]):not([class*="min-w-"]),
+  .text-\[9px\]:not([class*="h-2"]):not([class*="h-3"]):not([class*="min-w-"]) {
+    font-size: 10px;
+  }
+
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* The shared primitives size controls for desktop density (h-9 = 36px),
+     which is a thumb miss on a phone. min-height wins over the height utility,
+     so no component had to be touched. */
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  select,
+  textarea {
+    min-height: 2.75rem;
   }
 }
 
@@ -594,6 +700,8 @@ a:hover .hover-tilt-icon {
   --surface-0: #fbfcfe;
   --surface-1: #ffffff;
   --surface-2: #f5f7fb;
+  /* The shell is a translucent veil over the canvas, not an opaque card. */
+  --surface-veil: rgba(255, 255, 255, 0.82);
   --ink-900: #0f172a;
   --ink-700: #334155;
   --ink-500: #64748b;
@@ -618,6 +726,7 @@ a:hover .hover-tilt-icon {
   --surface-0: #0b0f19;
   --surface-1: #131317;
   --surface-2: #1e293b;
+  --surface-veil: rgba(19, 19, 23, 0.82);
   --ink-900: #f8fafc;
   --ink-700: #cbd5e1;
   --ink-500: #94a3b8;
@@ -648,3 +757,42 @@ a:hover .hover-tilt-icon {
 
 /* `shadow-card-lg` is only used by .brand-hero-banner, whose lavender gradient
    stays light in dark mode, so the light token value is correct in both themes. */
+
+/* ─── Global Clean Modern Select Dropdown Styling ───────────── */
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 0.95rem 0.95rem;
+  padding-right: 2.25rem !important;
+  cursor: pointer;
+  border-radius: 1rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+:where(.dark, .dark *) select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  border-color: rgba(51, 65, 85, 0.8);
+}
+
+select:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.2);
+}
+
+select option {
+  background-color: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  padding: 8px 12px;
+}
+
+:where(.dark, .dark *) select option {
+  background-color: #1e293b;
+  color: #f8fafc;
+}

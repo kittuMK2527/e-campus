@@ -7,7 +7,7 @@
  */
 export function RouteSkeleton() {
   return (
-    <div className="h-screen flex flex-col bg-warm-canvas animate-pulse" aria-busy="true" aria-label="Loading workspace">
+    <div className="h-dvh flex flex-col bg-warm-canvas animate-pulse" aria-busy="true" aria-label="Loading workspace">
       {/* Header pill */}
       <div className="w-[92%] sm:w-[82%] md:w-[74%] lg:w-[66%] max-w-[1040px] mx-auto mt-2.5 md:mt-4 shrink-0">
         <div className="h-14 rounded-xl border border-slate-200/80 bg-white/70 shadow-sm" />

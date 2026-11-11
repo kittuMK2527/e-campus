@@ -103,7 +103,6 @@ export const SettingsTab: React.FC = () => {
       <PageHeader
         icon={Sliders}
         title="System Settings & Global Switches"
-        subtitle="Manage global system switches, transactional mail dispatch, and infrastructure controls."
       />
 
       {/* Grid Layout for Settings Cards */}

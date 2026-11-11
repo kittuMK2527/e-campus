@@ -6,6 +6,7 @@ import { getSessionFromRequest, normalizeRole, apiAuthErrorResponse } from "@/li
 import { requireAuth } from "@/lib/authGuard";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 const FEEDBACK_READ_ALL_ROLES = ["admin", "kam", "superadmin"];
 
@@ -302,19 +303,21 @@ export async function PATCH(request: Request) {
       [status, adminNotes || null, resolvedBy || null, status, nowStr, id]
     );
 
-    // Notify the user who raised the issue
+    // Notify the user who raised the issue via zero-delay notification engine
     if (existing.user_id && (status === "resolved" || status === "closed")) {
-      const notifId = generateId("notif");
       const notifTitle = status === "resolved" ? "Issue / Feedback Resolved" : "Feedback Report Closed";
       const notifMsg = adminNotes
         ? `Your report "${existing.title}" was marked ${status} by ${resolvedBy || "Admin"}: "${adminNotes}"`
         : `Your report "${existing.title}" was marked ${status} by ${resolvedBy || "Admin"}.`;
 
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, type, is_read, created_at)
-         VALUES (?, ?, ?, ?, 'info', 0, ?)`,
-        [notifId, existing.user_id, notifTitle, notifMsg, nowStr]
-      ).catch(() => {});
+      await dispatchSystemNotification(db, {
+        userIds: [existing.user_id],
+        title: notifTitle,
+        message: notifMsg,
+        type: status === "resolved" ? "success" : "info",
+        domain: "feedback",
+        action: "app_feedback_saved",
+      }).catch(() => {});
     }
 
     return NextResponse.json({ success: true, message: "Feedback status updated successfully" });

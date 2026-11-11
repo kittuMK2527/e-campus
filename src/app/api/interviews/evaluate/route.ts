@@ -287,7 +287,7 @@ export async function POST(request: Request) {
       // Transition to pending_verification when all allocated students processed
       if (expectedCount > 0 && actualCount >= expectedCount) {
         await db.run(
-          "UPDATE student_interviews SET status = 'pending_verification', updated_at = ? WHERE id = ? AND status = 'assigned'",
+          "UPDATE student_interviews SET status = 'pending_verification', updated_at = ? WHERE id = ? AND status IN ('assigned', 'capacity_partially_accepted')",
           [now, interview_id]
         );
       }

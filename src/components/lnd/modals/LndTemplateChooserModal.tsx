@@ -57,7 +57,7 @@ export default function LndTemplateChooserModal({
           if (!next) setShowTemplateModal(false);
         }}
         ariaLabel="Download multi-campus timetable template"
-        overlayClassName="bg-slate-900/60 backdrop-blur-xs"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm"
         panelClassName="max-w-xl rounded-2xl p-6 space-y-4 max-h-[90vh] bg-white dark:bg-[#131317]"
       >
   
@@ -72,7 +72,7 @@ export default function LndTemplateChooserModal({
   
           {/* Header */}
           <div className="flex items-center gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
-            <div className="p-2.5 bg-[#D528A2]/10 text-[#D528A2] rounded-xl shrink-0 border border-[#D528A2]/20">
+            <div className="p-2.5 bg-[#4F46E5]/10 text-[#4F46E5] rounded-xl shrink-0 border border-[#4F46E5]/20">
               <FileSpreadsheet className="h-5 w-5" />
             </div>
             <div>
@@ -156,7 +156,7 @@ export default function LndTemplateChooserModal({
                     value={activeGroup}
                     aria-label="Department / Mentor Group Scope"
                     onChange={(e) => setTemplateMentorGroup(e.target.value)}
-                    className="w-full px-3.5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-slate-800 dark:text-white focus:ring-2 focus:ring-[#D528A2] cursor-pointer"
+                    className="w-full px-3.5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken/50 dark:bg-slate-800/50 text-slate-800 dark:text-white focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
                   >
                     <option value="All">All Departments (Comprehensive Multi-College Roster)</option>
                     {mentorGroups.map(group => (
@@ -166,10 +166,10 @@ export default function LndTemplateChooserModal({
                 </div>
   
                 {/* Scope Micro-Pills */}
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div className="p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/80 text-center">
                     <span className="text-[9px] font-black uppercase text-slate-400 block">Colleges Included</span>
-                    <span className="text-xs font-black text-[#D528A2] dark:text-[#f45fc6]">{allCollegesTimetableStatus.applicableColleges.length} Campuses</span>
+                    <span className="text-xs font-black text-[#4F46E5] dark:text-[#818CF8]">{allCollegesTimetableStatus.applicableColleges.length} Campuses</span>
                   </div>
                   <div className="p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/80 text-center">
                     <span className="text-[9px] font-black uppercase text-slate-400 block">Faculty Mentors</span>
@@ -177,7 +177,7 @@ export default function LndTemplateChooserModal({
                   </div>
                   <div className="p-2 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800/80 text-center">
                     <span className="text-[9px] font-black uppercase text-slate-400 block">Assigned SMEs</span>
-                    <span className="text-xs font-black text-[#D528A2] dark:text-[#f45fc6]">{groupSmes.length}</span>
+                    <span className="text-xs font-black text-[#4F46E5] dark:text-[#818CF8]">{groupSmes.length}</span>
                   </div>
                 </div>
               </div>
@@ -216,7 +216,7 @@ export default function LndTemplateChooserModal({
                       type="button"
                       onClick={refreshTimetableView}
                       disabled={isTimetableRefreshing}
-                      className="p-1 text-slate-400 hover:text-[#D528A2] dark:hover:text-[#f45fc6] rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[10px] disabled:opacity-60 disabled:cursor-wait"
+                      className="p-1 text-slate-400 hover:text-[#4F46E5] dark:hover:text-[#818CF8] rounded-lg transition-colors cursor-pointer flex items-center gap-1 text-[10px] disabled:opacity-60 disabled:cursor-wait"
                       title="Reload the generated timetables and day orders"
                     >
                       <RefreshCw className={`h-3 w-3 ${isTimetableRefreshing ? "animate-spin" : ""}`} />
@@ -295,7 +295,7 @@ export default function LndTemplateChooserModal({
           </div>
   
           {/* Template Package Overview Card */}
-          <div className="px-3.5 py-2.5 bg-[#D528A2]/5 dark:bg-[#D528A2]/10 rounded-xl border border-[#D528A2]/20 dark:border-[#D528A2]/30 text-[10.5px] text-slate-600 dark:text-slate-300 flex items-center gap-2">
+          <div className="px-3.5 py-2.5 bg-[#4F46E5]/5 dark:bg-[#4F46E5]/10 rounded-xl border border-[#4F46E5]/20 dark:border-[#4F46E5]/30 text-[10.5px] text-slate-600 dark:text-slate-300 flex items-center gap-2">
             <CheckCircle className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
             <span className="text-[10.5px] text-slate-600 dark:text-slate-300">
               Includes <strong>Master_LnD_Schedule</strong>, <strong>Master_Grid</strong> matrix with live faculty availability dropdowns, and <strong>Mentor_Summary</strong>.
@@ -316,7 +316,7 @@ export default function LndTemplateChooserModal({
               onClick={() => handleDownloadDemoTemplate(templateMentorGroup || "All")}
               disabled={!allCollegesTimetableStatus.canDownload}
               className={`px-5 py-2.5 rounded-xl text-xs font-extrabold flex items-center gap-2 transition-all shadow-md ${allCollegesTimetableStatus.canDownload
-                  ? "bg-gradient-to-r from-[#D528A2] to-[#F4A863] hover:opacity-95 text-white shadow-[#D528A2]/25 cursor-pointer"
+                  ? "bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] hover:opacity-95 text-white shadow-[#4F46E5]/25 cursor-pointer"
                   : "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed border border-slate-300 dark:border-slate-700 shadow-none"
                 }`}
               title={allCollegesTimetableStatus.canDownload

@@ -62,7 +62,7 @@ describe("single-round-trip identity read", () => {
 
     const user = await resolveLiveUser(db, "user_mentor_1");
 
-    expect(db.calls.map(c => c.kind)).toEqual(["all"]);
+    expect(db.calls.map((c: any) => c.kind)).toEqual(["all"]);
     expect(user?.name).toBe("Asha Mentor");
     expect(user?.college_id).toBe("col_9");
     expect(user?.role).toBe("mentor");
@@ -106,8 +106,8 @@ describe("single-round-trip identity read", () => {
 
     const user = await resolveLiveUser(db, "user_mentor_1");
 
-    expect(db.calls.filter(c => c.kind === "all").length).toBe(1);
-    expect(db.calls.filter(c => c.kind === "get").length).toBe(2);
+    expect(db.calls.filter((c: any) => c.kind === "all").length).toBe(1);
+    expect(db.calls.filter((c: any) => c.kind === "get").length).toBe(2);
     expect(user?.name).toBe("Asha Mentor");
     expect(user?.college_id).toBe("col_9");
   });

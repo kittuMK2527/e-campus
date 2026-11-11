@@ -64,7 +64,6 @@ export const SessionsTab: React.FC<SessionsTabProps> = ({
       <PageHeader
         icon={History}
         title="User Login Sessions"
-        subtitle="Centralized audit of every sign-in, device and IP address."
       />
 
       {isLoading && loginHistory.length === 0 ? (

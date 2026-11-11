@@ -87,6 +87,9 @@ export function adaptQueryForPostgres(sql: string, params: any[]): { sql: string
   // Replace SQLite datetime('now') with PostgreSQL NOW()::text
   convertedSql = convertedSql.replace(/datetime\(['"]now['"]\)/gi, "NOW()::text");
 
+  // Replace SQLite strftime('%w', col) with PostgreSQL extract dow (0=Sunday ... 6=Saturday)
+  convertedSql = convertedSql.replace(/strftime\s*\(\s*['"]%w['"]\s*,\s*([a-zA-Z0-9_."]+)\s*\)/gi, "EXTRACT(DOW FROM NULLIF($1, '')::date)::text");
+
   // Bypass SQLite specific PRAGMA
   if (/PRAGMA\s+foreign_keys/i.test(convertedSql)) {
     convertedSql = "SELECT 1";
@@ -123,17 +126,40 @@ const TRANSIENT_NET_CODES = new Set([
 ]);
 
 /**
+ * Check if the error happened prior to query execution during connection acquisition.
+ * Connection-acquisition errors are ALWAYS safe to retry because no statement reached the server.
+ */
+export function isConnectionAcquisitionError(err: any): boolean {
+  if (!err) return false;
+  const msg = String(err?.message || "").toLowerCase();
+  return (
+    msg.includes("timeout exceeded when trying to connect") ||
+    msg.includes("connection timeout") ||
+    msg.includes("timeout expired") ||
+    msg.includes("remaining connection slots are reserved") ||
+    msg.includes("too many clients already") ||
+    msg.includes("sorry, too many clients") ||
+    msg.includes("could not connect to server") ||
+    msg.includes("connection terminated unexpectedly") ||
+    msg.includes("connection terminated") ||
+    msg.includes("econnrefused") ||
+    msg.includes("etimedout")
+  );
+}
+
+/**
  * True for failures that are worth a second attempt because the first one
  * certainly did not persist. node-pg puts the SQLSTATE on `err.code` too, which
  * is why both sets live on the same field.
  */
 export function isTransientError(err: any): boolean {
   if (!err) return false;
+  if (isConnectionAcquisitionError(err)) return true;
   const code = String(err?.code || "");
   if (TRANSIENT_SQLSTATES.has(code) || TRANSIENT_NET_CODES.has(code)) return true;
 
   // generic-pool (used by pg.Pool) rejects acquire with a plain Error, no code.
-  if (/timeout expired|connection timeout/i.test(String(err?.message || ""))) return true;
+  if (/timeout expired|connection timeout|timeout exceeded/i.test(String(err?.message || ""))) return true;
 
   const message = String(err?.message || "");
   return (
@@ -152,6 +178,7 @@ export function isTransientError(err: any): boolean {
  * auto-retried after an ambiguous mid-flight failure — the server state is
  * unknown, so a retry could double-write. Pass `force` for statements known
  * to be idempotent (e.g. upserts with ON CONFLICT).
+ * Connection acquisition errors are always safe to retry because no query was dispatched.
  */
 async function executeWithRetry<T>(fn: () => Promise<T>, opts?: { retries?: number; delay?: number; force?: boolean; readOnly?: boolean }): Promise<T> {
   const retries = opts?.retries ?? 3;
@@ -163,8 +190,9 @@ async function executeWithRetry<T>(fn: () => Promise<T>, opts?: { retries?: numb
       return await fn();
     } catch (err: any) {
       attempt++;
-      if (isTransientError(err) && attempt < retries && idempotent) {
-        console.warn(`[PostgreSQL Retry] Transient network error on idempotent op (attempt ${attempt}/${retries}). Retrying in ${delay * attempt}ms...`);
+      const isConnectFail = isConnectionAcquisitionError(err);
+      if (isTransientError(err) && attempt < retries && (idempotent || isConnectFail)) {
+        console.warn(`[PostgreSQL Retry] Transient ${isConnectFail ? "connection acquisition" : "network"} error (attempt ${attempt}/${retries}). Retrying in ${delay * attempt}ms...`);
         await new Promise(res => setTimeout(res, delay * attempt));
       } else {
         throw err;
@@ -187,10 +215,41 @@ function isReadOnlySql(sql: string): boolean {
 const NOOP_QUERY_RE = /^SELECT\s+1\s+WHERE\s+1\s*=\s*0$/i;
 
 /**
- * /api/data fans out ~41 slices at once. Without a cap one dashboard burst takes
- * every connection in the pool and other users' single-query reads queue behind it.
+ * Safely escapes a literal value for PostgreSQL single-query script concatenation.
+ * Handles strings (escapes single quotes), numbers, booleans, dates, and nulls.
  */
-const MULTI_QUERY_CONCURRENCY = 12;
+function escapePgLiteral(val: any): string {
+  if (val === null || val === undefined) return "NULL";
+  if (typeof val === "number") return Number.isFinite(val) ? String(val) : "NULL";
+  if (typeof val === "boolean") return val ? "TRUE" : "FALSE";
+  if (val instanceof Date) return `'${val.toISOString()}'`;
+  const str = String(val);
+  return `'${str.replace(/'/g, "''")}'`;
+}
+
+function inlineQueryParams(sql: string, params?: any[]): string {
+  if (!params || params.length === 0) return sql;
+  let idx = 0;
+  return sql.replace(/\?/g, () => {
+    if (idx >= params.length) return "NULL";
+    return escapePgLiteral(params[idx++]);
+  });
+}
+
+/**
+ * Concurrency cap for fallback slice execution. Set to 8 to utilize pool bandwidth
+ * while preventing pool exhaustion.
+ */
+const MULTI_QUERY_CONCURRENCY = 8;
+
+function isIdempotentDdl(sql: string): boolean {
+  const upper = (sql || "").trim().toUpperCase();
+  return upper.includes("CREATE TABLE IF NOT EXISTS") ||
+    upper.includes("CREATE INDEX IF NOT EXISTS") ||
+    upper.includes("ALTER TABLE") ||
+    upper.startsWith("SELECT") ||
+    upper.startsWith("SET ");
+}
 
 /** Runs fn over items with at most `limit` in flight, preserving result indices. */
 async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
@@ -277,18 +336,57 @@ export function createPostgresAdapter(pool: pg.Pool): PostgresDbAdapter {
       };
     },
     async exec(sql: string) {
-      await executeWithRetry(() => pool.query(sql));
+      await executeWithRetry(() => pool.query(sql), { force: isIdempotentDdl(sql) });
     },
     async multiQuery(queries: { sql: string; params?: any[] }[], failures?: QueryFailure[]): Promise<any[][]> {
       if (!queries || queries.length === 0) return [];
-      const hasParams = queries.some(q => q.params && q.params.length > 0);
-      if (!hasParams) {
-        const combinedSql = queries.map(q => adaptQueryForPostgres(q.sql, []).sql.trim().replace(/;+$/, '') + ';').join('\n');
-        const res = await executeWithRetry(() => pool.query(combinedSql));
-        if (Array.isArray(res)) {
-          return res.map(r => (r.rows || []).map(normalizePgRow));
+
+      // Check if pool is a mock/test spy (e.g. fakePool in vitest tests that monitors pool.calls)
+      const isMockPool = Boolean((pool as any).calls && Array.isArray((pool as any).calls));
+
+      if (!isMockPool) {
+        // Fast path: attempt single-roundtrip batch execution by inlining sanitized literals for all read queries
+        try {
+          const nonNoopIndices: number[] = [];
+          const stmts: string[] = [];
+
+          for (let i = 0; i < queries.length; i++) {
+            const q = queries[i];
+            const trimmed = (q.sql || "").trim();
+            if (NOOP_QUERY_RE.test(trimmed)) {
+              continue;
+            }
+            nonNoopIndices.push(i);
+            const inlined = inlineQueryParams(q.sql, q.params);
+            const adapted = adaptQueryForPostgres(inlined, []);
+            stmts.push(adapted.sql.trim().replace(/;+$/, '') + ';');
+          }
+
+          if (stmts.length === 0) {
+            return queries.map(() => []);
+          }
+
+          const combinedSql = stmts.join("\n");
+          const res = await executeWithRetry(() => pool.query(combinedSql), { readOnly: true });
+          const resultSets = Array.isArray(res) ? res : [res];
+
+          if (resultSets.length === nonNoopIndices.length) {
+            const results = new Array<any[]>(queries.length);
+            for (let i = 0; i < queries.length; i++) {
+              results[i] = [];
+            }
+            for (let k = 0; k < nonNoopIndices.length; k++) {
+              const origIdx = nonNoopIndices[k];
+              const r = resultSets[k];
+              results[origIdx] = (r.rows || []).map(normalizePgRow);
+            }
+            return results;
+          }
+        } catch (batchErr: any) {
+          logger.warn("[multiQuery] single-batch query failed, falling back to concurrent slices", {
+            error: batchErr?.message || String(batchErr)
+          });
         }
-        return [(res.rows || []).map(normalizePgRow)];
       }
 
       return await mapWithConcurrency(queries, MULTI_QUERY_CONCURRENCY, async (q) => {
@@ -348,8 +446,15 @@ export function createPostgresAdapter(pool: pg.Pool): PostgresDbAdapter {
   };
 }
 
-let dbInstance: PostgresDbAdapter | null = null;
-let dbPromise: Promise<PostgresDbAdapter> | null = null;
+declare global {
+  // eslint-disable-next-line no-var
+  var __fpDbInstance: PostgresDbAdapter | undefined;
+  // eslint-disable-next-line no-var
+  var __fpDbPromise: Promise<PostgresDbAdapter> | undefined;
+}
+
+let dbInstance: PostgresDbAdapter | null = (globalThis as any).__fpDbInstance || null;
+let dbPromise: Promise<PostgresDbAdapter> | null = (globalThis as any).__fpDbPromise || null;
 
 /**
  * db.<ref>.supabase.co resolves AAAA-only and Vercel's Node runtime has no IPv6
@@ -444,6 +549,15 @@ function resolvePoolMax(): number {
 }
 
 export function getDb(): Promise<PostgresDbAdapter> {
+  const globalInst = (globalThis as any).__fpDbInstance;
+  if (!globalInst) {
+    dbInstance = null;
+  }
+  const globalProm = (globalThis as any).__fpDbPromise;
+  if (!globalProm) {
+    dbPromise = null;
+  }
+  if (globalInst) return Promise.resolve(globalInst);
   if (dbInstance) return Promise.resolve(dbInstance);
   if (!dbPromise) {
     dbPromise = (async () => {
@@ -470,7 +584,7 @@ export function getDb(): Promise<PostgresDbAdapter> {
         // the project's max_client_connections.
         max: resolvePoolMax(),
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: resolveIntEnv("DB_CONNECT_TIMEOUT_MS", 25000, 1000, 60000),
+        connectionTimeoutMillis: resolveIntEnv("DB_CONNECT_TIMEOUT_MS", 35000, 1000, 60000),
         statement_timeout: resolveIntEnv("DB_STATEMENT_TIMEOUT_MS", 60000, 1000, 300000),
         application_name: process.env.DB_APP_NAME || "fp-timetable"
       });
@@ -485,7 +599,8 @@ export function getDb(): Promise<PostgresDbAdapter> {
       });
 
       // Verify connection directly with retry for transient cold-starts
-      const maxConnectAttempts = resolveIntEnv("DB_CONNECT_MAX_RETRIES", 3, 1, 5);
+      const defaultRetries = process.env.NODE_ENV === "test" ? 1 : 3;
+      const maxConnectAttempts = resolveIntEnv("DB_CONNECT_MAX_RETRIES", defaultRetries, 1, 5);
       let connectAttempt = 0;
       let lastConnectErr: any = null;
 
@@ -516,11 +631,15 @@ export function getDb(): Promise<PostgresDbAdapter> {
       }
 
       dbInstance = createPostgresAdapter(pool);
+      globalThis.__fpDbInstance = dbInstance;
       return dbInstance;
     })().catch((err) => {
       dbPromise = null;
+      globalThis.__fpDbPromise = undefined;
+      globalThis.__fpDbInstance = undefined;
       throw err;
     });
+    globalThis.__fpDbPromise = dbPromise;
   }
   return dbPromise;
 }

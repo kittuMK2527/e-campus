@@ -33,7 +33,6 @@ export function ExaminationsTab() {
       <PageHeader
         icon={CalendarCheck}
         title="Examinations"
-        subtitle="Exam timetable and marks registry, campus by campus."
       />
 
       <FilterBar

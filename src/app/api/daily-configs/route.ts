@@ -2,13 +2,14 @@ export const maxDuration = 60;
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { renderEmailShell, BRAND } from "@/lib/mail";
-import { dispatchMail } from "@/lib/mailAsync";
 import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
+import { sendWebPushNotification } from "@/lib/webPush";
+import crypto from "crypto";
 
 const noCacheHeaders = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
@@ -52,7 +53,7 @@ async function bulkUpsertDailyConfigs(db: any, rows: any[][]) {
 }
 
 /** rows: [id, user_id, title, message, type, link] */
-async function bulkInsertNotifications(db: any, rows: any[][], nowStr: string) {
+async function bulkInsertNotifications(db: any, rows: any[][], nowStr: string, collegeId?: string) {
   for (const chunk of chunkBy(rows, NOTIFY_CHUNK)) {
     const values = chunk.map(() => "(?, ?, ?, ?, ?, ?, 0, ?)").join(", ");
     const params = chunk.flatMap(r => [...r, nowStr]);
@@ -61,6 +62,56 @@ async function bulkInsertNotifications(db: any, rows: any[][], nowStr: string) {
        VALUES ${values}`,
       params
     );
+  }
+
+  if (rows.length > 0) {
+    const firstRow = rows[0];
+    const eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    const targetUserIds = Array.from(new Set(rows.map(r => String(r[1]))));
+    const payload = {
+      title: firstRow[2],
+      message: firstRow[3],
+      link: firstRow[5],
+      type: firstRow[4],
+      count: rows.length
+    };
+
+    try {
+      await db.run(
+        `INSERT INTO event_outbox (event_id, domain, action, college_id, target_user_ids, origin_tab_id, payload, created_at)
+         VALUES (?, 'daily_configs', 'updated', ?, ?::jsonb, NULL, ?::jsonb, NOW())`,
+        [eventId, collegeId || null, JSON.stringify(targetUserIds), JSON.stringify(payload)]
+      );
+      await db.run(`SELECT pg_notify('fp_realtime_channel', ?)`, [
+        JSON.stringify({ eventId, domain: "daily_configs", action: "updated", collegeId: collegeId || null })
+      ]);
+    } catch (_) {}
+
+    notifyRealtimeEvent({
+      domain: "daily_configs",
+      action: "updated",
+      collegeId: collegeId || undefined,
+      targetUserIds,
+      payload
+    });
+
+    notifyRealtimeEvent({
+      domain: "notifications",
+      action: "created",
+      collegeId: collegeId || undefined,
+      targetUserIds,
+      payload
+    });
+
+    // Device Web Push to lock screens and desktop action center
+    sendWebPushNotification(db, {
+      userIds: targetUserIds,
+      collegeId: collegeId || undefined,
+      title: firstRow[2],
+      message: firstRow[3],
+      link: firstRow[5] || "/schedule",
+      data: payload
+    }).catch(() => {});
   }
 }
 
@@ -185,51 +236,10 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
       u.role === "mentor" ? `/mentor/schedule?week=${nextDates[0]}` : `/student/schedule?week=${nextDates[0]}`
     ]);
 
-    await bulkInsertNotifications(db, notifRows, nowStr);
+    await bulkInsertNotifications(db, notifRows, nowStr, college_id);
   } catch (errNotif) {
     console.error("Failed to write auto-adapt notifications:", errNotif);
   }
-
-  // MAIL-C05 & MAIL-M08 Fix: Send batch email instead of per-mentor sequential emails
-  // The roster read and the send both move behind the response: configuring a week
-  // is not something the caller should wait on a relay leg for.
-  after(async () => {
-    try {
-      const collegeMentors = await db.all("SELECT id, name, email FROM mentors WHERE college_id = ?", college_id);
-      
-      const validMentorEmails = collegeMentors
-        .filter((m: any) => m.email && m.email.includes("@"))
-        .map((m: any) => m.email);
-      
-      // Remove duplicates
-      const uniqueEmails = Array.from(new Set(validMentorEmails as string[]));
-  
-      if (uniqueEmails.length > 0) {
-        const emailHtml = renderEmailShell({
-          title: "Next Week Schedule Auto-Configured",
-          badgeText: "AUTO-ADAPT",
-          badgeColor: "indigo",
-          description: `The campus schedule for next week has been automatically configured based on the current week's pattern.`,
-          details: [
-            { label: "Week Start", value: nextDates[0] },
-            { label: "Week End", value: nextDates[6] },
-            { label: "Total Days", value: insertedConfigs.length.toString() },
-            { label: "Configuration", value: "Auto-adapted from reference week" }
-          ]
-        });
-  
-        // One send for the whole campus, audience hidden (MAIL-C05)
-        await dispatchMail({
-          bcc: uniqueEmails,
-          subject: `${BRAND.emailPrefix} Next Week Schedule Auto-Configured`,
-          htmlBody: emailHtml,
-          context: "auto-adapt-week"
-        });
-      }
-    } catch (errEmail) {
-      console.error("Failed to send auto-adapt email notifications:", errEmail);
-    }
-  });
 
   return NextResponse.json({ 
     success: true, 
@@ -391,51 +401,10 @@ export async function POST(request: Request) {
         }
       }
 
-      await bulkInsertNotifications(db, notifRows, nowStr);
+      await bulkInsertNotifications(db, notifRows, nowStr, college_id);
     } catch (errNotif) {
       console.error("Failed to write daily-config db notifications:", errNotif);
     }
-
-    // 2. Dispatch Email Notifications to all Mentors of this college
-    // MAIL-C05 & MAIL-M08 Fix: Send batch email instead of per-mentor sequential emails
-    after(async () => {
-      try {
-        const collegeMentors = await db.all("SELECT id, name, email FROM mentors WHERE college_id = ?", college_id);
-        
-        const validMentorEmails = collegeMentors
-          .filter((m: any) => m.email && m.email.includes("@"))
-          .map((m: any) => m.email);
-        
-        // Remove duplicates
-        const uniqueEmails = Array.from(new Set(validMentorEmails as string[]));
-  
-        if (uniqueEmails.length > 0) {
-          const emailHtml = renderEmailShell({
-            title: "Campus Schedule Update",
-            badgeText: day_type.replace("_", " ").toUpperCase(),
-            badgeColor: day_type === "holiday" ? "rose" : day_type === "event" ? "amber" : "indigo",
-            description: `This is an official campus update regarding the daily schedule configuration.`,
-            details: [
-              { label: "Date Range", value: datesToProcess.length > 1 ? `${startDate} to ${endDate}` : (dateStr || startDate) },
-              { label: "Day Type", value: day_type.replace("_", " ").toUpperCase() },
-              { label: "Day Order", value: effectiveDayOrder },
-              { label: "Session Mode", value: session_mode || "Offline" },
-              { label: "Campus Notes", value: notes || "No operational notes provided." }
-            ]
-          });
-  
-          // Send once for the whole campus with the roster hidden (MAIL-C05)
-          await dispatchMail({
-            bcc: uniqueEmails,
-            subject: `${BRAND.emailPrefix} Campus Schedule Update - ${startDate || dateStr}`,
-            htmlBody: emailHtml,
-            context: "daily-config-update"
-          });
-        }
-      } catch (errEmail) {
-        console.error("Failed to send daily-config email notifications:", errEmail);
-      }
-    });
 
     return NextResponse.json({ success: true, message: "Daily configuration saved successfully" });
   } catch (error: any) {

@@ -114,7 +114,7 @@ export const TabsContent = React.forwardRef<HTMLDivElement, TabsContentProps>(
         ref={ref}
         role="tabpanel"
         tabIndex={0}
-        className={cn("mt-3 outline-none animate-in fade-in duration-150", className)}
+        className={cn("mt-3 outline-none animate-fadeIn", className)}
         {...props}
       >
         {children}

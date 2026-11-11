@@ -53,11 +53,14 @@ export const HierarchyTab: React.FC<HierarchyTabProps> = ({
     return usersList
       .filter((u: any) => normalizeRoleValue(u.role) === "cm")
       .map((u: any) => {
-        const colProfile = (colleges as any[]).find((c: any) => c.cam_id === u.reference_id);
+        // Match college via college_id stored on user or by manager name
+        const colProfile = (colleges as any[]).find(
+          (c: any) => c.id === u.college_id || c.manager === u.name
+        );
         return {
-          id: u.id || u.reference_id,
-          name: colProfile?.cam_name || u.name || (u.email && typeof u.email === "string" ? u.email.split("@")[0] : u.reference_id) || "—",
-          college_id: colProfile?.id || u.college_id || ""
+          id: u.reference_id || u.id,
+          name: u.name || (u.email && typeof u.email === "string" ? u.email.split("@")[0] : u.reference_id) || "—",
+          college_id: u.college_id || colProfile?.id || ""
         };
       });
   }, [usersList, colleges]);
@@ -79,7 +82,6 @@ export const HierarchyTab: React.FC<HierarchyTabProps> = ({
       <PageHeader
         icon={Network}
         title="Interactive Reporting Hierarchy"
-        subtitle="Explore the chain of command, from Super Admin down to Faculty Mentors. Click a caret to expand or collapse a node."
       />
 
       <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card space-y-4 text-xs select-none">

@@ -577,7 +577,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
                 <select
                   value={sortBy}
                   onChange={e => setSortBy(e.target.value as any)}
-                  className="bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 outline-none"
+                  className="bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg px-2.5 py-1 text-xs font-bold text-slate-700 outline-none"
                 >
                   <option value="attendance">Avg Attendance</option>
                   <option value="health">Health Score</option>
@@ -599,7 +599,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
-                  <TableRow className="bg-slate-50/80 hover:bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider">
+                  <TableRow className="bg-sunken/80 border-b border-slate-200 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider">
                     <TableHead className="py-3.5 px-4">Campus Name</TableHead>
                     <TableHead className="py-3.5 px-3">Code</TableHead>
                     <TableHead className="py-3.5 px-3 text-center">Students</TableHead>

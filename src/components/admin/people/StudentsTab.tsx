@@ -11,7 +11,6 @@ export const StudentsTab: React.FC = () => {
       <PageHeader
         icon={GraduationCap}
         title="Student Directory"
-        subtitle="Universal student database across all campuses — view enrollment, academic risk tiers, and 360 profile analytics."
       />
 
       <StudentDirectory />

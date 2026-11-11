@@ -103,6 +103,26 @@ export async function PUT(request: Request) {
     const currentShift = body.shift || currentStudent.shift || (classGroup?.includes("Shift 2") ? "Shift 2" : classGroup?.includes("Shift 1") ? "Shift 1" : "General");
     const currentSem = body.semester || currentStudent.semester || "Semester 1";
 
+    // WF-P22: Security lockdown on student self-edits. Institutional and sensitive
+    // identity fields (department, class group, section, college, register number,
+    // semester, shift, hire/efset scores, and government IDs Aadhaar/PAN) can ONLY
+    // be modified by CAM or Admin, never by the student during self-edit.
+    const effectiveDepartment = isStudentEdit ? currentStudent.department : (department ? department.trim() : "");
+    const effectiveClassGroup = isStudentEdit ? currentStudent.classGroup : (classGroup ? classGroup.trim() : (currentStudent.classGroup || ""));
+    const effectiveSection = isStudentEdit ? currentStudent.section : (section ? section.trim() : null);
+    const effectiveCollegeId = isStudentEdit ? currentStudent.college_id : (college_id || currentStudent.college_id || null);
+    const effectiveRegisterNumber = isStudentEdit ? currentStudent.register_number : (register_number || null);
+    const effectiveSem = isStudentEdit ? currentStudent.semester : currentSem;
+    const effectiveShift = isStudentEdit ? currentStudent.shift : currentShift;
+    const effectiveHireScore = isStudentEdit ? currentStudent.hire_score : (hire_score ?? null);
+    const effectiveEfsetScore = isStudentEdit ? currentStudent.efset_score : (efset_score ?? null);
+    const effectivePan = isStudentEdit
+      ? (currentStudent.pan_number || null)
+      : ((pan_number !== undefined && pan_number !== null && pan_number !== "") ? pan_number : (currentStudent.pan_number || null));
+    const effectiveAadhar = isStudentEdit
+      ? (currentStudent.aadhar_number || null)
+      : ((aadhar_number !== undefined && aadhar_number !== null && aadhar_number !== "") ? aadhar_number : (currentStudent.aadhar_number || null));
+
     // Update students table
     await db.run(
       `UPDATE students SET 
@@ -141,19 +161,19 @@ export async function PUT(request: Request) {
       WHERE id = ?`,
       name.trim(),
       email ? email.trim() : "",
-      department ? department.trim() : "",
-      classGroup ? classGroup.trim() : "",
-      section ? section.trim() : null,
-      college_id || currentStudent.college_id || null,
-      register_number || null,
+      effectiveDepartment,
+      effectiveClassGroup,
+      effectiveSection,
+      effectiveCollegeId,
+      effectiveRegisterNumber,
       roll_number || null,
-      currentSem,
-      currentShift,
-      hire_score ?? null,
-      efset_score ?? null,
+      effectiveSem,
+      effectiveShift,
+      effectiveHireScore,
+      effectiveEfsetScore,
       mother_name || null,
       father_name || null,
-      (pan_number !== undefined && pan_number !== null && pan_number !== "") ? pan_number : (currentStudent.pan_number || null),
+      effectivePan,
       tenth_mark ?? null,
       eleventh_mark ?? null,
       twelfth_mark ?? null,
@@ -163,10 +183,7 @@ export async function PUT(request: Request) {
       dob || null,
       phone || null,
       parent_phone || null,
-      // ROLE_UI_AUDIT S1 (P0): aadhar/pan are sensitive PII — only update when the
-      // request explicitly carries a value; a student self-edit that omits them
-      // keeps the stored value instead of nulling it out.
-      (aadhar_number !== undefined && aadhar_number !== null && aadhar_number !== "") ? aadhar_number : (currentStudent.aadhar_number || null),
+      effectiveAadhar,
       linkedin_link || null,
       github_id || null,
       project_drive_link || null,
@@ -194,7 +211,36 @@ export async function POST(request: Request) {
     const students = Array.isArray(body) ? body : [body];
     const nowStr = new Date().toISOString();
 
-    // Normalize all student records first
+    // Normalize all student records first (BUG-22: strictly validate Class Group)
+    const invalidRows: { index: number; name: string; reason: string }[] = [];
+    students.forEach((s: any, idx: number) => {
+      const name = (s.name || "").toString().trim();
+      if (!name) return; // ignore completely blank rows
+      const cg = (s.classGroup || s.class_group || "").toString().trim();
+      if (!cg) {
+        invalidRows.push({
+          index: idx + 1,
+          name: name || `Student #${idx + 1}`,
+          reason: "Class Group is required"
+        });
+      }
+    });
+
+    if (invalidRows.length > 0) {
+      const preview = invalidRows
+        .slice(0, 5)
+        .map(r => `Row ${r.index} ("${r.name}")`)
+        .join(", ");
+      const more = invalidRows.length > 5 ? ` and ${invalidRows.length - 5} more` : "";
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Import rejected (BUG-22 Guard): ${invalidRows.length} student row(s) are missing a Class Group (${preview}${more}). Every student must have a valid Class Group to prevent timetable scheduling corruption.`
+        },
+        { status: 400 }
+      );
+    }
+
     const normalizedStudents: any[] = [];
     for (const student of students) {
       const {
@@ -208,6 +254,9 @@ export async function POST(request: Request) {
 
       const stName = (name || "").toString().trim();
       if (!stName) continue;
+
+      const rawClassGroup = (classGroup || student.class_group || "").toString().trim();
+      if (!rawClassGroup) continue;
 
       let stId = (rawId || roll_number || register_number || (email ? email.split("@")[0] : "")).toString().trim();
       if (!stId) stId = generateId("STU");
@@ -223,7 +272,7 @@ export async function POST(request: Request) {
 
       normalizedStudents.push({
         stId, stName, stEmail, stReg, stRoll,
-        classGroup: classGroup || "General Class",
+        classGroup: rawClassGroup,
         section: section || null,
         department: department || "General",
         college_id: college_id || null,

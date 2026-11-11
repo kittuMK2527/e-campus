@@ -63,11 +63,6 @@ vi.mock("@/lib/authGuard", () => ({
 vi.mock("@/lib/availability", () => ({
   checkMentorAvailability: async () => ({ available: h.state.available, reason: "On approved leave" })
 }));
-vi.mock("@/lib/mail", () => ({
-  renderSwapOfferEmail: () => "<html>offer</html>",
-  BRAND: { emailPrefix: "[FACE Prep]", portalUrl: "http://localhost" }
-}));
-vi.mock("@/lib/mailAsync", () => ({ sendMailAsync: async () => {} }));
 vi.mock("@/lib/localDate", () => ({ getInstitutionDateStr: () => "2026-10-20" }));
 
 const { POST } = await import("@/app/api/requests/swap/route");

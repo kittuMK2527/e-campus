@@ -199,7 +199,7 @@ export const KAMAssessmentsOversight: React.FC<{
                 setSearch(e.target.value);
                 setCurrentPage(1);
               }}
-              className="pl-8 pr-3 py-1.5 border border-slate-200 bg-slate-50 text-xs rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D528A2] font-semibold w-48"
+              className="pl-8 pr-3 py-1.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken text-xs rounded-xl focus:outline-none focus:ring-1 focus:ring-[#D528A2] font-semibold w-48"
             />
           </div>
         </div>
@@ -207,7 +207,7 @@ export const KAMAssessmentsOversight: React.FC<{
         <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-2xs">
           <Table>
             <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 font-extrabold text-[9px] uppercase tracking-wider text-slate-600">
+              <TableRow className="bg-sunken border-b border-slate-200 font-extrabold text-[9px] uppercase tracking-wider text-slate-600">
                 <TableHead onClick={() => handleSort("department")} className="cursor-pointer hover:text-slate-800">
                   <div className="flex items-center gap-1">Department <ArrowUpDown className="h-3 w-3" /></div>
                 </TableHead>

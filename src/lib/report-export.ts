@@ -100,7 +100,17 @@ export function exportToPrintablePDF(
 ) {
   const printWindow = window.open("", "_blank");
   if (!printWindow) {
-    alert("Pop-up blocked. Please allow pop-ups to print the PDF report.");
+    // WF-P05: Non-blocking toast notification instead of native window.alert()
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("fp_toast", {
+          detail: {
+            message: "Pop-up blocked. Please allow pop-ups in your browser to print the PDF report.",
+            type: "warning"
+          }
+        })
+      );
+    }
     return;
   }
 

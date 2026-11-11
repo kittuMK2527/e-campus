@@ -1,4 +1,7 @@
 import crypto from "crypto";
+import util from "util";
+
+const pbkdf2Async = util.promisify(crypto.pbkdf2);
 
 /**
  * Password hashing (API_OPTIMIZATION_PLAN item 10).
@@ -25,6 +28,15 @@ export function hashPassword(password: string): string {
   if (!password) return "";
   const salt = crypto.randomBytes(16).toString("hex");
   const hash = crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, DIGEST).toString("hex");
+  return `pbkdf2$${PBKDF2_ITERATIONS}$${salt}$${hash}`;
+}
+
+/** Non-blocking async password hashing offloaded to libuv threadpool (PERF-01). */
+export async function hashPasswordAsync(password: string): Promise<string> {
+  if (!password) return "";
+  const salt = crypto.randomBytes(16).toString("hex");
+  const derivedKey = await pbkdf2Async(password, salt, PBKDF2_ITERATIONS, KEY_LENGTH, DIGEST);
+  const hash = derivedKey.toString("hex");
   return `pbkdf2$${PBKDF2_ITERATIONS}$${salt}$${hash}`;
 }
 
@@ -62,6 +74,25 @@ export function verifyPassword(password: string, storedHash: string): boolean {
   return false;
 }
 
+/** Non-blocking async password verification offloaded to libuv threadpool (PERF-01). */
+export async function verifyPasswordAsync(password: string, storedHash: string): Promise<boolean> {
+  if (!password || !storedHash) return false;
+
+  const v2 = storedHash.match(/^pbkdf2\$(\d+)\$([^$]+)\$([a-f0-9]+)$/i);
+  if (v2) {
+    const iterations = Math.min(parseInt(v2[1], 10) || PBKDF2_ITERATIONS, 1_000_000);
+    return pbkdf2EqualAsync(password, v2[2], v2[3], iterations, KEY_LENGTH);
+  }
+
+  if (storedHash.includes(":")) {
+    const [salt, originalHash] = storedHash.split(":");
+    if (!salt || !originalHash) return false;
+    return pbkdf2EqualAsync(password, salt, originalHash, LEGACY_PBKDF2_ITERATIONS, KEY_LENGTH);
+  }
+
+  return false;
+}
+
 /** True when a value stored on a row really is a credential we can verify against. */
 export function looksLikeStoredCredential(stored: unknown): boolean {
   const value = String(stored ?? "");
@@ -74,6 +105,16 @@ export function looksLikeStoredCredential(stored: unknown): boolean {
 
 function pbkdf2Equal(password: string, salt: string, originalHash: string, iterations: number, keyLength: number): boolean {
   const hash = crypto.pbkdf2Sync(password, salt, iterations, keyLength, DIGEST).toString("hex");
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(originalHash, "hex"));
+  } catch {
+    return false;
+  }
+}
+
+async function pbkdf2EqualAsync(password: string, salt: string, originalHash: string, iterations: number, keyLength: number): Promise<boolean> {
+  const derivedKey = await pbkdf2Async(password, salt, iterations, keyLength, DIGEST);
+  const hash = derivedKey.toString("hex");
   try {
     return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(originalHash, "hex"));
   } catch {

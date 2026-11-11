@@ -10,12 +10,23 @@ import { useToast } from "@/context/ToastContext";
 import { apiFetch, setClientCsrfToken } from "@/lib/apiFetch";
 import { describeCappedSections } from "@/lib/dataLoadStatus";
 import { qk } from "@/lib/queryKeys";
+import { subscribeToRealtimeSync } from "@/lib/dataSync";
+import {
+  sendDeviceSystemNotification,
+  requestDeviceNotificationPermission,
+  getDeviceNotificationStatus,
+  registerPushSubscription,
+  type DeviceNotificationPermission,
+} from "@/lib/deviceNotifications";
+import { toast as sonnerToast } from "sonner";
 import { UserProfileBar } from "./UserProfileBar";
 import { Dialog } from "./ui/dialog";
 import { QueryPrefetcher } from "./QueryPrefetcher";
 import {
   LogOut,
   ChevronDown,
+  ChevronRight,
+  ArrowLeft,
   KeyRound,
   Eye,
   EyeOff,
@@ -47,6 +58,38 @@ import {
   Tag
 } from "lucide-react";
 
+function playNotificationChime() {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(659.25, now);
+    gain1.gain.setValueAtTime(0.08, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.18);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(880, now + 0.12);
+    gain2.gain.setValueAtTime(0.1, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.35);
+  } catch (_) {}
+}
+
 interface DashboardLayoutProps {
   children: React.ReactNode;
   requiredRole: Role;
@@ -74,6 +117,8 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
     cappedSections: rawCappedSections,
     retryDataLoad,
     refreshData,
+    refreshRequests,
+    refreshAttendance,
     lastSyncTime,
     logout
   } = useApp();
@@ -114,6 +159,8 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   };
 
   const isAuthorized = isAuthenticated && normalizeRoleValue(currentRole) === normalizeRoleValue(requiredRole);
+  const isFirstLoginRequired = Boolean(currentUser?.mustChangePassword);
+  const canLoadWorkspace = isAuthorized && !isLoading && !isFirstLoginRequired;
 
   /* ─── Notifications Bell ─── */
   const queryClient = useQueryClient();
@@ -127,10 +174,95 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   };
 
   const notificationsUserId = resolveCurrentUserId();
+
+  const effectiveCollegeId =
+    currentCAM?.college_id ||
+    currentMentor?.college_id ||
+    currentStudent?.college_id ||
+    currentUser?.college_id ||
+    undefined;
+
+  const [devicePermission, setDevicePermission] = useState<DeviceNotificationPermission>("unsupported");
+  const [showPromptBanner, setShowPromptBanner] = useState(false);
+  const [isActivatingPush, setIsActivatingPush] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const status = getDeviceNotificationStatus();
+    setDevicePermission(status);
+
+    if (status === "granted") {
+      registerPushSubscription({
+        userId: notificationsUserId || undefined,
+        role: currentRole || undefined,
+        collegeId: effectiveCollegeId,
+      }).catch(() => {});
+    } else {
+      const dismissedUntil = localStorage.getItem("fp_notif_prompt_dismissed_until");
+      const isDismissed = dismissedUntil && Number(dismissedUntil) > Date.now();
+      if (status === "default" && !isDismissed && canLoadWorkspace) {
+        const timer = setTimeout(() => setShowPromptBanner(true), 1200);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [canLoadWorkspace, notificationsUserId, currentRole, effectiveCollegeId]);
+
+  const handleEnableNotifications = async () => {
+    setIsActivatingPush(true);
+    try {
+      const res = await requestDeviceNotificationPermission();
+      setDevicePermission(res.permission);
+      if (res.permission === "granted") {
+        setShowPromptBanner(false);
+        await registerPushSubscription({
+          userId: notificationsUserId || undefined,
+          role: currentRole || undefined,
+          collegeId: effectiveCollegeId,
+        });
+
+        await sendDeviceSystemNotification({
+          title: "🎉 Notifications Active!",
+          message: "You will now receive instant alerts from FACE Prep E-Campus on this device.",
+          link: "/schedule",
+          tag: "fp_welcome_device_push",
+        });
+
+        showToast("Desktop & mobile notifications enabled!", "success");
+      } else if (res.instructions) {
+        showToast(res.instructions, res.permission === "denied" ? "error" : "info");
+      } else if (res.permission === "denied") {
+        showToast("Notification permission was denied in your browser settings.", "error");
+      }
+    } finally {
+      setIsActivatingPush(false);
+    }
+  };
+
+  const handleDismissPrompt = () => {
+    setShowPromptBanner(false);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("fp_notif_prompt_dismissed_until", String(Date.now() + 24 * 60 * 60 * 1000));
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    const success = await sendDeviceSystemNotification({
+      title: "🔔 FACE Prep Website Alert Test",
+      message: `Website notifications are active on this device at ${new Date().toLocaleTimeString()}!`,
+      link: "/notifications",
+      tag: `test_push_${Date.now()}`,
+    });
+    if (success) {
+      showToast("Test notification sent to your device tray!", "success");
+    } else {
+      showToast("Could not trigger system notification. Check browser permissions or access via HTTPS on mobile.", "error");
+    }
+  };
+
   const notificationsQueryKey = qk.notifications(notificationsUserId || "anonymous");
   const notificationsQuery = useQuery({
     queryKey: notificationsQueryKey,
-    enabled: !!notificationsUserId,
+    enabled: canLoadWorkspace && !!notificationsUserId,
     queryFn: async () => {
       const data = await apiFetch(`/api/notifications?user_id=${encodeURIComponent(notificationsUserId!)}&limit=25`);
       return data?.success && Array.isArray(data.notifications) ? (data.notifications as any[]) : [];
@@ -149,6 +281,15 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   const [feedbackModalTab, setFeedbackModalTab] = useState<"submit" | "history">("submit");
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
 
+  useEffect(() => {
+    const handleOpenFeedback = () => {
+      setShowFeedbackModal(true);
+      setFeedbackModalTab("submit");
+    };
+    window.addEventListener("open-feedback-modal", handleOpenFeedback);
+    return () => window.removeEventListener("open-feedback-modal", handleOpenFeedback);
+  }, []);
+
   const getReporterDetails = () => {
     let name = currentUser?.name || "";
     let email = currentUser?.email || "";
@@ -163,7 +304,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
       email = currentStudent.email || email;
       collegeId = currentStudent.college_id || collegeId;
       department = currentStudent.department || "";
-      registerNumber = currentStudent.register_number || (currentStudent as any).roll_no || "";
+      registerNumber = currentStudent.register_number || (currentStudent as any).roll_number || "";
       contactInfo = (currentStudent as any).contact_number || (currentStudent as any).phone || "";
     } else if (currentRole === "mentor" && currentMentor) {
       name = currentMentor.name || name;
@@ -211,7 +352,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   const feedbackReporterId = getReporterDetails().userId;
   const myFeedbackQuery = useQuery({
     queryKey: qk.myFeedback(feedbackReporterId),
-    enabled: showFeedbackModal && feedbackModalTab === "history",
+    enabled: canLoadWorkspace && showFeedbackModal && feedbackModalTab === "history",
     queryFn: async () => {
       const data = await apiFetch(`/api/feedback?userId=${encodeURIComponent(feedbackReporterId)}`);
       return data?.success && Array.isArray(data.reports) ? (data.reports as any[]) : [];
@@ -330,9 +471,9 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   /* Notifications poll through React Query (refetchInterval above); opening the
      dropdown just asks for a fresh snapshot. */
   useEffect(() => {
-    if (showNotifications) notificationsQuery.refetch();
+    if (canLoadWorkspace && showNotifications) notificationsQuery.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showNotifications]);
+  }, [canLoadWorkspace, showNotifications]);
 
   /* Close dropdowns when clicking outside */
   useEffect(() => {
@@ -346,12 +487,13 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
     return () => document.removeEventListener("mousedown", onClickOut);
   }, []);
 
-  const isFirstLoginRequired = typeof window !== "undefined" && localStorage.getItem("fp_must_change_pass") === "true";
-
-  // Change Password Modal State
-  const [showPasswordModal, setShowPasswordModal] = useState(() => {
-    return typeof window !== "undefined" && localStorage.getItem("fp_must_change_pass") === "true";
-  });
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const passwordSuccessTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const passwordOperation = useRef(0);
+  useEffect(() => () => {
+    passwordOperation.current += 1;
+    if (passwordSuccessTimer.current) clearTimeout(passwordSuccessTimer.current);
+  }, [currentUser]);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -382,6 +524,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingPass || passSuccess) return;
     setPassError("");
     setPassSuccess("");
 
@@ -402,6 +545,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
       return;
     }
 
+    const operation = ++passwordOperation.current;
     try {
       setIsSavingPass(true);
       const data = await apiFetch("/api/change-password", {
@@ -411,6 +555,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
           newPassword,
         },
       });
+      if (passwordOperation.current !== operation) return;
 
       // The server rotates the session (and CSRF secret) on password change;
       // keep the in-memory token in sync or every later mutation will 403.
@@ -419,8 +564,13 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
       }
 
       setPassSuccess("Password updated successfully!");
-      localStorage.removeItem("fp_must_change_pass");
-      setTimeout(() => {
+      passwordSuccessTimer.current = setTimeout(() => {
+        setRole(data.user.role, data.user.reference_id || data.user.id, {
+          collegeId: data.user.college_id || "",
+          userEmail: data.user.email,
+          userName: data.user.name,
+          mustChangePassword: data.user.mustChangePassword
+        });
         setShowPasswordModal(false);
         setCurrentPassword("");
         setNewPassword("");
@@ -428,46 +578,125 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
         setPassSuccess("");
       }, 1500);
     } catch (err: any) {
-      setPassError(err?.message || "An unexpected error occurred.");
+      if (passwordOperation.current === operation) {
+        setPassError(err?.message || "An unexpected error occurred.");
+      }
     } finally {
-      setIsSavingPass(false);
+      if (passwordOperation.current === operation) setIsSavingPass(false);
     }
   };
 
   // Ensure dark mode class is removed on mount
   useEffect(() => {
-    if (localStorage.getItem("fp_must_change_pass") === "true") {
-      setShowPasswordModal(true);
-    }
     localStorage.removeItem("fp_dark_mode");
     if (typeof document !== "undefined") {
       document.documentElement.classList.remove("dark");
     }
   }, []);
 
-  // DATA_FLOW_AUDIT D4: listen for data-change broadcasts (in-page CustomEvents and
-  // cross-tab "storage" events) and refresh the affected data so all open tabs and
-  // roles stay in sync without a manual reload.
+  // DATA_FLOW_AUDIT D4: listen for data-change broadcasts (in-page CustomEvents,
+  // cross-tab BroadcastChannel / storage events, and Server-Sent Events SSE) and
+  // refresh the affected data in real-time so all open tabs and roles stay in sync.
   useEffect(() => {
+    if (!canLoadWorkspace) return;
     let debounce: ReturnType<typeof setTimeout> | null = null;
     let lastFocusRefresh = Date.now();
 
     const scheduleRefresh = () => {
       if (debounce) clearTimeout(debounce);
       // Debounce bursts of mutations (imports, bulk ops) into a single refresh.
-      debounce = setTimeout(() => { refreshData(true); }, 500);
+      debounce = setTimeout(() => { refreshData(true); }, 300);
     };
 
     const handleWindowFocus = () => {
-      // Throttle window focus revalidation to once every 5 minutes (300s) to avoid freezing on tab-switching
+      // Throttle window focus revalidation to once every 10s to stay snappy when switching tabs
       const now = Date.now();
-      if (now - lastFocusRefresh > 300000) {
+      if (now - lastFocusRefresh > 10000) {
         lastFocusRefresh = now;
         scheduleRefresh();
+        refreshRequests().catch(() => {});
       }
     };
 
-    window.addEventListener("fp_data_changed", scheduleRefresh);
+    const effectiveCollegeId =
+      currentCAM?.college_id ||
+      currentMentor?.college_id ||
+      currentStudent?.college_id ||
+      currentUser?.college_id ||
+      undefined;
+
+    // Real-time synchronization bus: SSE push from server + 0ms local cross-tab BroadcastChannel
+    const unsubscribeRealtime = subscribeToRealtimeSync(
+      (event) => {
+        if (event.domain === "requests") {
+          refreshRequests().catch(() => {});
+        } else if (event.domain === "attendance") {
+          // Surgical attendance refresh — updates student & CAM attendance instantly without full-app reload
+          refreshAttendance(event.collegeId || effectiveCollegeId).catch(() => {});
+        } else if (event.domain === "feedback") {
+          // Invalidate student NPS & feedback queries so CAM/Student feedback views update live
+          queryClient.invalidateQueries({
+            predicate: (query) => {
+              const root = String(query.queryKey[0] || "");
+              return root === "feedback" || root === "student-nps" || root === "mentor-nps" || root === "admin-feedback";
+            }
+          });
+        } else if (event.domain === "notifications") {
+          // Invalidate notifications query so bell badge updates immediately
+          queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+          setBellShake(true);
+          setTimeout(() => setBellShake(false), 1200);
+
+          // Audio chime
+          playNotificationChime();
+
+          const payload = event.payload || {};
+          const title = payload.title || "FACE Prep Alert";
+          const message = payload.message || payload.body || "You have a new update.";
+          const link = payload.link || payload.url || undefined;
+
+          // Sonner toast
+          try {
+            sonnerToast(title, {
+              description: message,
+              action: link ? { label: "View", onClick: () => router.push(link) } : undefined,
+            });
+          } catch (_) {}
+
+          // Native OS / Mobile system notification
+          sendDeviceSystemNotification({
+            title,
+            message,
+            link,
+            tag: payload.id || `notif_${Date.now()}`,
+          }).catch(() => {});
+        } else if (event.domain === "tracker" || event.domain === "exams") {
+          queryClient.invalidateQueries({
+            predicate: (query) => {
+              const root = String(query.queryKey[0] || "");
+              return root === "skill-tracker" || root === "student-exams" || root === "exams" || root === "weekly-plan";
+            }
+          });
+          scheduleRefresh();
+        } else {
+          scheduleRefresh();
+        }
+      },
+      {
+        userId: notificationsUserId || undefined,
+        role: currentRole || undefined,
+        collegeId: effectiveCollegeId
+      }
+    );
+
+    const handleDataChanged = (e: Event) => {
+      if ((e as CustomEvent)?.detail?.domain === "requests") {
+        refreshRequests().catch(() => {});
+      } else {
+        scheduleRefresh();
+      }
+    };
+    window.addEventListener("fp_data_changed", handleDataChanged);
     window.addEventListener("fp_attendance_updated", scheduleRefresh);
     window.addEventListener("fp_interviews_updated", scheduleRefresh);
     window.addEventListener("fp_audits_updated", scheduleRefresh);
@@ -480,23 +709,18 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
     };
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === "fp_data_changed" && e.newValue) scheduleRefresh();
-    };
-    window.addEventListener("storage", onStorage);
-
     return () => {
       if (debounce) clearTimeout(debounce);
-      window.removeEventListener("fp_data_changed", scheduleRefresh);
+      unsubscribeRealtime();
+      window.removeEventListener("fp_data_changed", handleDataChanged);
       window.removeEventListener("fp_attendance_updated", scheduleRefresh);
       window.removeEventListener("fp_interviews_updated", scheduleRefresh);
       window.removeEventListener("fp_audits_updated", scheduleRefresh);
       window.removeEventListener("fp_weekly_plan_updated", scheduleRefresh);
       window.removeEventListener("focus", handleWindowFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("storage", onStorage);
     };
-  }, [refreshData]);
+  }, [canLoadWorkspace, refreshData, refreshRequests, refreshAttendance, notificationsUserId, currentRole, currentCAM?.college_id, currentMentor?.college_id, currentStudent?.college_id, currentUser?.college_id]);
 
   // Handle route protection cleanly without premature logouts
   const hasCompletedInitialLoad = useRef(false);
@@ -544,6 +768,8 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   const handleLogout = () => {
     if (isLoggingOut) return; // prevent double-fire
     setIsLoggingOut(true);
+    passwordOperation.current += 1;
+    if (passwordSuccessTimer.current) clearTimeout(passwordSuccessTimer.current);
     logout();
     router.replace("/");
   };
@@ -554,7 +780,8 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   }
 
   return (
-    <div className="h-screen flex flex-col font-sans bg-warm-canvas text-gray-800 transition-colors duration-200 overflow-hidden relative">
+    <div className="h-dvh flex flex-col font-sans bg-warm-canvas text-gray-800 transition-colors duration-200 overflow-hidden relative">
+      {!isFirstLoginRequired && <>
       <QueryPrefetcher />
       {/* Data-load failure retry banner — names the actual cause. The blanket
           "couldn't reach the database" wording used to cover capped lists and an
@@ -563,7 +790,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
         <div className="sticky top-0 z-[60] w-full bg-rose-50 border-b border-rose-200 px-4 py-2 flex items-center justify-center gap-3">
           <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
           <span className="text-xs font-bold text-rose-700" role="alert">
-            {dataLoadMessage || "Couldn't reach the database — showing possibly stale data."}
+            {dataLoadMessage || "Working offline — showing cached data. Couldn't reach the database."}
           </span>
           <button
             type="button"
@@ -574,6 +801,37 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
             {isDataLoading ? <RefreshCw className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
             {isDataLoading ? "Retrying…" : "Retry"}
           </button>
+        </div>
+      )}
+
+      {/* Floating Application-Style Notification Permission Banner */}
+      {showPromptBanner && devicePermission === "default" && (
+        <div className="sticky top-0 z-[65] w-full bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 border-b border-indigo-500/20 animate-fadeIn">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="h-7 w-7 rounded-lg bg-indigo-500/30 border border-indigo-400/40 flex items-center justify-center shrink-0">
+              <Bell className="h-4 w-4 text-indigo-200 animate-bounce" />
+            </div>
+            <p className="text-xs font-semibold text-indigo-100 truncate">
+              Enable website notifications for real-time day order changes, approvals, and emergency alerts.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={handleEnableNotifications}
+              disabled={isActivatingPush}
+              className="px-3 py-1 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {isActivatingPush ? "Activating..." : "Turn On Notifications"}
+            </button>
+            <button
+              type="button"
+              onClick={handleDismissPrompt}
+              className="px-2.5 py-1 text-indigo-300 hover:text-white text-xs font-medium rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              Later
+            </button>
+          </div>
         </div>
       )}
 
@@ -597,20 +855,20 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
       {/* Top indeterminate sync progress line */}
       {isDataLoading && (
-        <div className="absolute top-0 left-0 right-0 h-0.5 z-50 overflow-hidden bg-indigo-100">
-          <div className="h-full bg-gradient-to-r from-indigo-500 via-violet-500 to-indigo-500 animate-pulse w-full" />
+        <div className="absolute top-0 left-0 right-0 h-0.5 z-50 overflow-hidden bg-slate-200 dark:bg-slate-800">
+          <div className="h-full bg-slate-900 dark:bg-slate-100 animate-pulse w-full" />
         </div>
       )}
 
       {/* Global Header — one width and one surface for every role */}
-      <div className="relative w-[92%] sm:w-[82%] md:w-[74%] lg:w-[66%] max-w-[1040px] mx-auto self-center mt-3 md:mt-4 z-30 shrink-0">
-        <header className="floating-header w-full px-3 sm:px-6 py-2.5 md:py-3.5 flex items-center justify-between transition-all rounded-2xl border border-slate-100 shadow-card bg-white/95 backdrop-blur-md">
+      <div className="relative w-[96%] sm:w-[94%] md:w-[92%] lg:w-[88%] xl:w-[85%] max-w-7xl mx-auto self-center mt-2.5 sm:mt-3 md:mt-3.5 z-30 shrink-0">
+        <header className="floating-header w-full px-3.5 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between transition-all rounded-2xl border border-slate-200/80 shadow-xs bg-white/95 backdrop-blur-md">
         {/* Left: Brand + Role Badge */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
           <img src="/E-Campus.png" alt="FACE Prep E-Campus Logo" className="h-7 sm:h-9 md:h-10 w-auto object-contain shrink-0 max-h-10" />
           {normalizeRoleValue(currentRole) !== "admin" && (
             <div className="hidden sm:flex items-center gap-2 border-l border-slate-200 pl-3">
-              <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block truncate">
+              <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] text-slate-700 dark:text-slate-300 font-bold uppercase tracking-wider block truncate border border-slate-200/60 dark:border-slate-700">
                 {normalizeRoleValue(currentRole) === "mentor" && "Faculty Workspace"}
                 {normalizeRoleValue(currentRole) === "hr" && "HR Audit Portal"}
                 {normalizeRoleValue(currentRole) === "cm" && "CM Dashboard"}
@@ -621,6 +879,23 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                 {normalizeRoleValue(currentRole) === "L and D" && "Learning & Development (L&D)"}
               </span>
             </div>
+          )}
+
+          {/* Admin Return Link (WF-P03) */}
+          {(currentUser?.role === "admin" || Boolean(currentAdmin)) && normalizeRoleValue(currentRole) !== "admin" && (
+            <button
+              type="button"
+              onClick={() => {
+                setRole("admin");
+                router.push("/admin/overview");
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-bold transition-all shadow-2xs cursor-pointer ml-1 animate-fadeIn shrink-0"
+              title="Return to Super Admin Central Console"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Back to Admin Console</span>
+              <span className="sm:hidden">Admin</span>
+            </button>
           )}
         </div>
 
@@ -633,12 +908,12 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
             onClick={handleManualRefresh}
             disabled={isManualRefreshing || isDataLoading}
             aria-label={isManualRefreshing || isDataLoading ? "Syncing data" : `Reload latest data — last synced ${lastSyncTime || "just now"}`}
-            className="relative flex items-center justify-center h-9 w-9 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer shadow-xs disabled:opacity-70"
+            className="relative flex items-center justify-center h-8.5 w-8.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs disabled:opacity-70"
             title={`Last synced ${lastSyncTime || "just now"} — click to reload latest data from server`}
           >
-            <RefreshCw className={`h-4 w-4 ${isManualRefreshing || isDataLoading ? "text-indigo-600 animate-spin" : "text-slate-600 dark:text-slate-300"}`} />
+            <RefreshCw className={`h-4 w-4 ${isManualRefreshing || isDataLoading ? "text-slate-900 dark:text-slate-100 animate-spin" : "text-slate-600 dark:text-slate-300"}`} />
             {!isManualRefreshing && !isDataLoading && (
-              <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" aria-hidden="true" />
+              <span className="absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-500 border border-white dark:border-slate-900" aria-hidden="true" />
             )}
           </button>
 
@@ -649,14 +924,14 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
               onClick={() => {
                 setShowNotifications((p) => !p);
               }}
-              className={`relative flex items-center justify-center h-9 w-9 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer ${
+              className={`relative flex items-center justify-center h-8.5 w-8.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-700 transition-all cursor-pointer shadow-2xs ${
                 hasUnread ? "ring-1 ring-amber-400/60 ring-offset-1 dark:ring-offset-slate-900 bg-amber-50 dark:bg-amber-950/30" : ""
               } ${bellShake ? "animate-[wiggle_0.5s_ease-in-out]" : ""}`}
               title="Notifications"
             >
               <Bell className={`h-4 w-4 ${hasUnread ? "text-amber-600 dark:text-amber-400" : "text-slate-600 dark:text-slate-300"} ${hasUnread ? "animate-pulse" : ""}`} />
               {hasUnread && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center border-2 border-white dark:border-slate-900 shadow-[0_0_0_1px_rgba(244,63,94,0.3)]">
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-500 text-white text-[8.5px] font-black flex items-center justify-center border border-white dark:border-slate-900 shadow-xs">
                   {unreadCount > 99 ? "99+" : unreadCount}
                 </span>
               )}
@@ -664,11 +939,11 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
             {/* Dropdown Panel */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2.5 w-[380px] sm:w-[420px] max-w-[92vw] max-h-[70vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-2xl z-[60] overflow-hidden flex flex-col animate-fadeIn">
+              <div className="absolute right-0 mt-2.5 w-[380px] sm:w-[420px] max-w-[92vw] max-h-[70vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-card-lg z-[60] overflow-hidden flex flex-col animate-fadeIn">
               {/* Header */}
-              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-gradient-to-r from-indigo-50 to-slate-50 dark:from-indigo-950/40 dark:to-slate-900 flex items-center justify-between">
+              <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className="h-8 w-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-xs">
+                  <div className="h-8 w-8 rounded-xl bg-slate-900 dark:bg-slate-800 flex items-center justify-center shadow-xs">
                     <MessageSquare className="h-4 w-4 text-white" />
                   </div>
                   <div>
@@ -697,7 +972,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                     <button
                       type="button"
                       onClick={clearAllNotifs}
-                      className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-300 text-[9px] font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                      className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-[9px] font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
                     >
                       Mark all read
                     </button>
@@ -705,11 +980,48 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                 </div>
               </div>
 
+              {/* Device Notification Status & Test Alert Bar */}
+              <div className="px-3.5 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2 text-[11px]">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className={`h-2 w-2 rounded-full shrink-0 ${
+                      devicePermission === "granted" ? "bg-emerald-500" : "bg-amber-400"
+                    }`}
+                  />
+                  <span className="font-semibold text-slate-700 dark:text-slate-200 truncate">
+                    {devicePermission === "granted"
+                      ? "Device Alerts Active"
+                      : devicePermission === "denied"
+                      ? "Alerts Blocked in Browser"
+                      : "Device Alerts Not Enabled"}
+                  </span>
+                </div>
+                {devicePermission === "granted" ? (
+                  <button
+                    type="button"
+                    onClick={handleSendTestNotification}
+                    className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
+                    title="Send a sample notification to your OS lock screen / notification center"
+                  >
+                    Test Alert
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleEnableNotifications}
+                    disabled={isActivatingPush}
+                    className="px-2 py-0.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+                  >
+                    {isActivatingPush ? "Enabling..." : "Enable"}
+                  </button>
+                )}
+              </div>
+
               {/* List */}
               <div className="overflow-y-auto flex-1 max-h-[58vh]">
                 {notificationsLoading && notifications.length === 0 ? (
                   <div className="px-4 py-10 flex flex-col items-center justify-center text-slate-400">
-                    <Loader2 className="h-6 w-6 animate-spin mb-2 text-indigo-500" />
+                    <Loader2 className="h-6 w-6 animate-spin mb-2 text-slate-700 dark:text-slate-300" />
                     <p className="text-[11px] font-semibold">Loading notifications…</p>
                   </div>
                 ) : notifications.length === 0 ? (
@@ -737,7 +1049,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                             ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/60"
                             : t === "warning" || t === "alert"
                             ? "bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900/60"
-                            : "bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/60";
+                            : "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border-slate-200 dark:border-slate-700";
                         const target = resolveNotificationTarget(n);
                         const Icon =
                           t === "reminder" ? Bell : t === "success" ? CheckCircle2 : t === "warning" ? AlertCircle : MessageSquare;
@@ -749,7 +1061,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                             className={`group relative px-3.5 py-3 transition-all cursor-pointer ${
                               isRead
                                 ? "bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/60"
-                                : "bg-indigo-50/40 dark:bg-indigo-950/10 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/20"
+                                : "bg-slate-50/80 dark:bg-slate-800/40 hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
                             } ${isActive ? "opacity-60" : ""}`}
                           >
                             {!isRead && (
@@ -761,7 +1073,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between gap-2">
-                                  <p className={`text-[11px] font-black text-slate-800 dark:text-slate-100 leading-snug group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors ${!isRead ? "text-slate-900 dark:text-white" : ""}`}>
+                                  <p className={`text-[11px] font-black text-slate-800 dark:text-slate-100 leading-snug group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors ${!isRead ? "text-slate-900 dark:text-white" : ""}`}>
                                     {n.title || "Notification"}
                                   </p>
                                   <span className="shrink-0 text-[9px] font-mono font-semibold text-slate-400">
@@ -789,7 +1101,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                                 </p>
                                 <div className="mt-2.5 flex items-center justify-between gap-2 flex-wrap">
                                   {target && (
-                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-600 group-hover:bg-indigo-700 active:bg-indigo-800 text-white text-[9.5px] font-bold shadow-xs transition-all">
+                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-900 group-hover:bg-slate-800 active:bg-slate-950 text-white text-[9.5px] font-bold shadow-xs transition-all">
                                       {target.isExternal ? <ExternalLink className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
                                       <span>{target.actionLabel}</span>
                                     </span>
@@ -835,6 +1147,22 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
           )}
           </div>
 
+          {currentRole === "cm" && (
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined") {
+                  window.dispatchEvent(new CustomEvent("fp_navigate_tab", { detail: "mentor_attendance" }));
+                }
+              }}
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs shadow-xs hover:scale-102 active:scale-98 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              title="Team Attendance Management"
+            >
+              <CalendarCheck2 className="h-3.5 w-3.5 text-white shrink-0" />
+              <span>Team Attendance</span>
+            </button>
+          )}
+
           <UserProfileBar
             onOpenChangePassword={() => {
               setShowPasswordModal(true);
@@ -849,32 +1177,44 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
         </div>
       </header>
 
-      {/* Compact Separate Floating Pill Card placed to the right of the main header */}
-      {currentRole === "cm" && (
-        <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2.5 flex items-center">
-          <div className="floating-header px-2 py-1 flex items-center justify-center transition-all rounded-xl border border-slate-200/80 shadow-sm bg-white/90 backdrop-blur-md animate-fadeIn">
-            <button
-              type="button"
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(new CustomEvent("fp_navigate_tab", { detail: "mentor_attendance" }));
-                }
-              }}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-[#D528A2] via-pink-600 to-rose-500 text-white font-extrabold text-[11px] tracking-tight shadow-xs hover:shadow-md hover:scale-102 active:scale-98 transition-all cursor-pointer whitespace-nowrap shrink-0"
-              title="Team Attendance Management"
-            >
-              <CalendarCheck2 className="h-3.5 w-3.5 text-white shrink-0" />
-              <span className="font-extrabold">Team Attendance</span>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
+
+      {/* Global Interactive Breadcrumb Bar (WF-P02) */}
+      <div className="w-[96%] sm:w-[94%] md:w-[92%] lg:w-[88%] xl:w-[85%] max-w-7xl mx-auto self-center px-3.5 sm:px-6 py-1.5 flex items-center justify-between text-[11px] font-semibold text-slate-500 z-20 shrink-0">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <button
+            type="button"
+            onClick={() => router.push(getRoleHomePath(currentRole))}
+            className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1"
+          >
+            <span>Home</span>
+          </button>
+          <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
+          <span className="text-slate-800 dark:text-slate-200 font-extrabold uppercase tracking-wider text-[10px] px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
+            {normalizeRoleValue(currentRole) === "admin" && "Super Admin Central"}
+            {normalizeRoleValue(currentRole) === "cm" && "Campus Operations"}
+            {normalizeRoleValue(currentRole) === "kam" && "Institutional Portfolio"}
+            {normalizeRoleValue(currentRole) === "mentor" && (currentMentor?.name ? `Faculty · ${currentMentor.name}` : "Faculty Workspace")}
+            {normalizeRoleValue(currentRole) === "student" && (currentStudent?.name ? `Student · ${currentStudent.name}` : "Student Portal")}
+            {normalizeRoleValue(currentRole) === "fee_manager" && "Fee Collections"}
+            {normalizeRoleValue(currentRole) === "sme" && "SME Evaluation Hub"}
+            {normalizeRoleValue(currentRole) === "L and D" && "Learning & Development"}
+          </span>
+          {Boolean(currentCAM?.college_name || (currentUser?.college_id && colleges?.find(c => c.id === currentUser?.college_id)?.name)) && (
+            <>
+              <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
+              <span className="text-slate-700 dark:text-slate-300 font-bold truncate max-w-[200px]">
+                {currentCAM?.college_name || colleges?.find(c => c.id === currentUser?.college_id)?.name}
+              </span>
+            </>
+          )}
+        </div>
+      </div>
 
       {/* Main Workspace Dashboard Content */}
       <main className="flex-grow flex flex-col relative overflow-hidden min-h-0">
         {/* Modern Dot Grid Background Pattern Overlay */}
-        <div className="absolute inset-0 bg-dotted-grid pointer-events-none opacity-75 dark:opacity-40 z-0" />
+        <div className="absolute inset-0 bg-dotted-grid pointer-events-none opacity-25 dark:opacity-15 z-0" />
         {children}
 
         {/* Global Floating Feedback Button — clears the mobile bottom navigation */}
@@ -885,33 +1225,34 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
               setShowFeedbackModal(true);
               setFeedbackModalTab("submit");
             }}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-full bg-slate-900 dark:bg-indigo-600 text-white font-bold text-xs shadow-lg hover:shadow-xl hover:scale-105 transition-all cursor-pointer border border-slate-700/50"
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-bold text-xs shadow-md hover:bg-slate-800 dark:hover:bg-slate-700 transition-all cursor-pointer border border-slate-700/50"
             title="Report an Issue or Feedback"
           >
-            <AlertCircle className="h-4 w-4 text-indigo-400 dark:text-white" />
+            <AlertCircle className="h-4 w-4 text-slate-300 dark:text-slate-300" />
             <span className="hidden sm:inline">Report Issue / Feedback</span>
           </button>
         </div>
       </main>
+      </>}
 
       {/* Change Password Glassmorphic Modal */}
-      {showPasswordModal && (
+      {(isFirstLoginRequired || showPasswordModal) && (
         <Dialog
-          open={showPasswordModal}
+          open={isFirstLoginRequired || showPasswordModal}
           onOpenChange={(next) => {
-            if (!next) setShowPasswordModal(false);
+            if (!next && !isFirstLoginRequired && !isSavingPass && !passSuccess) setShowPasswordModal(false);
           }}
           ariaLabel={isFirstLoginRequired ? "Password change required" : "Change password"}
-          overlayClassName="bg-slate-950/60 backdrop-blur-md"
-          panelClassName="max-w-md bg-white dark:bg-slate-900 p-6 sm:p-7 space-y-0 max-h-[90vh] overflow-y-auto"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+          panelClassName="max-w-md bg-white dark:bg-slate-900 p-6 space-y-0 max-h-[90vh] overflow-y-auto"
         >
             {/* Ambient Top Glow */}
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 dark:bg-slate-100" />
 
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-4 mb-5 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-100 dark:border-indigo-800/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm">
+                <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-800 dark:text-slate-200 shadow-sm">
                   <ShieldCheck className="h-5 w-5" />
                 </div>
                 <div>
@@ -927,6 +1268,8 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                 <button
                   type="button"
                   onClick={() => setShowPasswordModal(false)}
+                  disabled={isSavingPass || Boolean(passSuccess)}
+                  aria-label="Close password dialog"
                   className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
                 >
                   <X className="h-4 w-4" />
@@ -956,7 +1299,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
             )}
 
             {passSuccess && (
-              <div className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 flex items-start gap-2.5 text-xs text-emerald-600 dark:text-emerald-400">
+              <div role="status" className="mb-4 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/50 flex items-start gap-2.5 text-xs text-emerald-600 dark:text-emerald-400">
                 <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
                 <span>{passSuccess}</span>
               </div>
@@ -993,7 +1336,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                     value={currentPassword}
                     onChange={(e) => setCurrentPassword(e.target.value)}
                     placeholder="Enter current password"
-                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-700 transition-all"
                     aria-label="Current Password"
                   />
                   <button
@@ -1022,7 +1365,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     placeholder="Enter new password (min. 6 chars)"
-                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-700 transition-all"
                     aria-label="New Password"
                   />
                   <button
@@ -1051,7 +1394,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Confirm new password"
-                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400 focus:border-slate-700 transition-all"
                     aria-label="Confirm New Password"
                   />
                   <button
@@ -1083,6 +1426,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                   <button
                     type="button"
                     onClick={() => setShowPasswordModal(false)}
+                    disabled={isSavingPass || Boolean(passSuccess)}
                     className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
                   >
                     Cancel
@@ -1090,8 +1434,8 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                 )}
                 <button
                   type="submit"
-                  disabled={isSavingPass}
-                  className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-xs font-bold text-white shadow-md shadow-indigo-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+                  disabled={isSavingPass || Boolean(passSuccess)}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-xs font-bold text-white shadow-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {isSavingPass ? (
                     <>
@@ -1109,18 +1453,18 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
       {/* Global Feedback & Issue Modal */}
       <Dialog
-        open={showFeedbackModal}
+        open={canLoadWorkspace && showFeedbackModal}
         onOpenChange={(next) => {
           if (!next) setShowFeedbackModal(false);
         }}
         ariaLabel="Support and feedback center"
-        overlayClassName="bg-slate-950/60 backdrop-blur-md"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm"
         panelClassName="max-w-xl bg-white dark:bg-slate-900 rounded-2xl p-0 space-y-0 overflow-hidden flex flex-col max-h-[90vh]"
       >
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-slate-50 to-indigo-50/40 dark:from-slate-900 dark:to-indigo-950/30">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-sm font-bold">
+                <div className="h-10 w-10 rounded-xl bg-slate-900 dark:bg-slate-800 flex items-center justify-center text-white shadow-xs font-bold">
                   <AlertCircle className="h-5 w-5" />
                 </div>
                 <div>
@@ -1144,7 +1488,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                 onClick={() => setFeedbackModalTab("submit")}
                 className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
                   feedbackModalTab === "submit"
-                    ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                    ? "border-slate-900 text-slate-900 dark:border-white dark:text-white font-extrabold"
                     : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 }`}
               >
@@ -1158,14 +1502,14 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                 }}
                 className={`flex items-center gap-2 py-2.5 px-4 text-xs font-bold border-b-2 transition-all cursor-pointer ${
                   feedbackModalTab === "history"
-                    ? "border-indigo-600 text-indigo-600 dark:text-indigo-400"
+                    ? "border-slate-900 text-slate-900 dark:border-white dark:text-white font-extrabold"
                     : "border-transparent text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
                 }`}
               >
                 <ClipboardList className="h-3.5 w-3.5" />
                 <span>My Submitted Issues</span>
                 {myFeedbackList.length > 0 && (
-                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300">
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-black bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200">
                     {myFeedbackList.length}
                   </span>
                 )}
@@ -1228,9 +1572,9 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                     return (
                       <div className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 p-3 text-[11px] flex items-center justify-between gap-2 flex-wrap">
                         <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-indigo-500" />
+                          <User className="h-4 w-4 text-slate-500" />
                           <span className="font-bold text-slate-800 dark:text-slate-200">
-                            Submitting as: <span className="text-indigo-600 dark:text-indigo-400">{rep.userName || rep.userId}</span>
+                            Submitting as: <span className="text-slate-900 dark:text-white font-bold">{rep.userName || rep.userId}</span>
                           </span>
                           <span className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-[10px] font-black uppercase text-slate-600 dark:text-slate-300">
                             {rep.userRole}
@@ -1250,7 +1594,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                       <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Issue Category</label>
                       <select
                         name="type"
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-bold focus:outline-none focus:border-indigo-500"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs font-bold focus:outline-none focus:border-slate-700"
                         aria-label="Issue Category"
                       >
                         <option value="bug">🐞 Bug / Error Report</option>
@@ -1267,7 +1611,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                         type="text"
                         defaultValue={getReporterDetails().contactInfo}
                         placeholder="e.g. +91 9876543210"
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs outline-none focus:border-indigo-500 font-medium"
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs outline-none focus:border-slate-700 font-medium"
                         aria-label="Contact Phone (Optional)"
                       />
                     </div>
@@ -1280,7 +1624,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                       name="title"
                       type="text"
                       placeholder="e.g. Date of birth is incorrect in my profile"
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs outline-none focus:border-indigo-500 font-bold"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs outline-none focus:border-slate-700 font-bold"
                       aria-label="Title / Summary"
                     />
                   </div>
@@ -1292,7 +1636,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                       name="description"
                       rows={4}
                       placeholder="Describe what happened, what needs correction, and any error message you encountered..."
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs outline-none focus:border-indigo-500 font-medium resize-none"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs outline-none focus:border-slate-700 font-medium resize-none"
                       aria-label="Detailed Description"
                     />
                   </div>
@@ -1308,7 +1652,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                     <button
                       type="submit"
                       disabled={isSubmittingFeedback}
-                      className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {isSubmittingFeedback ? (
                         <>
@@ -1334,7 +1678,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                     <button
                       type="button"
                       onClick={() => myFeedbackQuery.refetch()}
-                      className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-700 transition-colors cursor-pointer"
+                      className="flex items-center gap-1 text-[11px] font-semibold text-slate-700 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white transition-colors cursor-pointer underline"
                     >
                       <RefreshCw className={`h-3 w-3 ${myFeedbackLoading ? "animate-spin" : ""}`} />
                       <span>Refresh</span>
@@ -1343,7 +1687,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
                   {myFeedbackLoading ? (
                     <div className="py-12 flex flex-col items-center justify-center text-slate-400">
-                      <Loader2 className="h-6 w-6 animate-spin text-indigo-600 mb-2" />
+                      <Loader2 className="h-6 w-6 animate-spin text-slate-700 dark:text-slate-300 mb-2" />
                       <p className="text-xs font-semibold">Loading your issues...</p>
                     </div>
                   ) : myFeedbackList.length === 0 ? (
@@ -1356,7 +1700,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                       <button
                         type="button"
                         onClick={() => setFeedbackModalTab("submit")}
-                        className="mt-3 px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700 transition-all cursor-pointer"
+                        className="mt-3 px-3.5 py-1.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition-all cursor-pointer"
                       >
                         Create New Report
                       </button>
@@ -1380,7 +1724,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                                       ? "bg-rose-50 text-rose-700 border-rose-200"
                                       : item.type === "feature"
                                       ? "bg-purple-50 text-purple-700 border-purple-200"
-                                      : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                      : "bg-slate-100 text-slate-800 border-slate-200"
                                   }`}
                                 >
                                   {item.type || "issue"}
@@ -1510,11 +1854,11 @@ export function ProfessionalLoader({ message }: { message?: string }) {
   }, [message]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-warm-canvas">
+    <div className="min-h-dvh flex items-center justify-center bg-warm-canvas">
       <div className="flex flex-col items-center gap-3">
         <img src="/E-Campus.png" alt="FACE Prep E-Campus" className="h-9 w-auto object-contain" />
         <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 text-indigo-600 animate-spin shrink-0" />
+          <Loader2 className="h-4 w-4 text-slate-700 dark:text-slate-300 animate-spin shrink-0" />
           <span
             className={`text-xs font-bold text-slate-500 transition-opacity duration-300 ${
               fade ? "opacity-0" : "opacity-100"

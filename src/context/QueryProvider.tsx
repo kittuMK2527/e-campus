@@ -35,10 +35,10 @@ function makeQueryClient() {
     queryCache: new QueryCache({ onError: onQueryError }),
     defaultOptions: {
       queries: {
-        staleTime: 45_000,
-        gcTime: 10 * 60_000,
+        staleTime: 60_000,
+        gcTime: 15 * 60_000,
         retry: shouldRetry,
-        refetchOnWindowFocus: true,
+        refetchOnWindowFocus: false,
         refetchOnReconnect: true,
       },
     },

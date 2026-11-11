@@ -26,7 +26,6 @@ import {
   RotateCw,
   Wallet,
   Copy,
-  MoreVertical,
   Check,
   ExternalLink
 } from "lucide-react";
@@ -36,7 +35,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  DropdownMenuLabel
+  DropdownMenuLabel,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 
 interface StudentFee {
@@ -230,7 +230,6 @@ export const FeesOversightTab: React.FC = () => {
       <PageHeader
         icon={DollarSign}
         title="Fee Collections Oversight"
-        subtitle="Portfolio-wide student fee balances, institution collections, and real-time transaction ledger."
         actions={
           <div className="flex items-center gap-2">
             <Button
@@ -462,14 +461,7 @@ export const FeesOversightTab: React.FC = () => {
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg cursor-pointer"
-                              title="Fee Options"
-                            >
-                              <MoreVertical className="h-3.5 w-3.5" />
-                            </Button>
+                            <ActionDropdownButton size="sm" title="Fee Options" />
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-48 text-xs">
                             <DropdownMenuLabel>Fee Actions</DropdownMenuLabel>
@@ -598,14 +590,7 @@ export const FeesOversightTab: React.FC = () => {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg cursor-pointer"
-                            title="Receipt Options"
-                          >
-                            <MoreVertical className="h-3.5 w-3.5" />
-                          </Button>
+                          <ActionDropdownButton size="sm" title="Receipt Options" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 text-xs">
                           <DropdownMenuLabel>Receipt Actions</DropdownMenuLabel>

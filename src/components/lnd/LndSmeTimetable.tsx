@@ -36,13 +36,13 @@ export default function LndSmeTimetable({
       {/* Evaluator Header */}
       <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900/90 dark:to-[#131317] border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-pink-500/10 text-[#D528A2] dark:text-[#f45fc6] flex items-center justify-center font-black text-xs border border-pink-200/50 dark:border-pink-800/50">
+          <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-[#4F46E5] dark:text-[#818CF8] flex items-center justify-center font-black text-xs border border-pink-200/50 dark:border-pink-800/50">
             {sme.name?.charAt(0) || "S"}
           </div>
           <div>
             <div className="flex items-center gap-2">
               <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-wider">{sme.name}</span>
-              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-pink-100 dark:bg-pink-950/40 text-[#D528A2] dark:text-[#f45fc6]">
+              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-pink-100 dark:bg-pink-950/40 text-[#4F46E5] dark:text-[#818CF8]">
                 {sme.subject || "Evaluator"}
               </span>
             </div>
@@ -66,7 +66,7 @@ export default function LndSmeTimetable({
                 const dayInfo = getEffectiveDayOrderInfo(date.dateStr, date.day, idx, selectedCollegeId !== "all" ? selectedCollegeId : undefined);
                 return (
                   <th key={date.dateStr} className="p-3 text-[10.5px] font-black text-slate-700 dark:text-slate-300 border-l border-slate-100 dark:border-slate-800 w-[14%] text-center">
-                    <div className={`font-black text-[11px] tracking-tight ${dayInfo.isHoliday ? "text-rose-600 dark:text-rose-400" : "text-[#D528A2] dark:text-[#f45fc6]"}`}>
+                    <div className={`font-black text-[11px] tracking-tight ${dayInfo.isHoliday ? "text-rose-600 dark:text-rose-400" : "text-[#4F46E5] dark:text-[#818CF8]"}`}>
                       {dayInfo.isHoliday ? "Holiday" : dayInfo.dayOrder}
                     </div>
                     <div className="text-[9px] text-slate-400 font-bold tracking-tight mt-0.5">{date.day.slice(0, 3)} ({date.formatted})</div>

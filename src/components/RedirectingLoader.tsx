@@ -9,7 +9,7 @@ import { Loader2 } from "lucide-react";
  */
 export function RedirectingLoader({ label = "Loading workspace…" }: { label?: string }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-warm-canvas">
+    <div className="min-h-dvh flex items-center justify-center bg-warm-canvas">
       <div className="flex flex-col items-center gap-3">
         <img src="/E-Campus.png" alt="FACE Prep E-Campus" className="h-9 w-auto object-contain" />
         <div className="flex items-center gap-2">

@@ -34,7 +34,7 @@ export default function LndSwapRequestsModal({
           if (!next) setShowSwapRequestsModal(false);
         }}
         ariaLabel="SME swap requests"
-        overlayClassName="bg-slate-900/60 backdrop-blur-sm"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm"
         panelClassName="max-w-2xl rounded-2xl p-6 space-y-5 overflow-hidden flex flex-col max-h-[85vh] bg-white dark:bg-slate-900"
       >
   
@@ -47,7 +47,7 @@ export default function LndSwapRequestsModal({
           </button>
   
           <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3 shrink-0">
-            <div className="p-1.5 rounded-lg bg-[#D528A2]/10 text-[#D528A2]">
+            <div className="p-1.5 rounded-lg bg-[#4F46E5]/10 text-[#4F46E5]">
               <RefreshCw className="h-4.5 w-4.5 animate-spin-slow" />
             </div>
             <div>
@@ -65,14 +65,14 @@ export default function LndSwapRequestsModal({
             <button
               type="button"
               onClick={() => setSwapRequestsTab("pending")}
-              className={`flex-1 pb-2.5 text-xs font-black uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer ${swapRequestsTab === "pending" ? "border-[#D528A2] text-[#D528A2]" : "border-transparent text-slate-400"}`}
+              className={`flex-1 pb-2.5 text-xs font-black uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer ${swapRequestsTab === "pending" ? "border-[#4F46E5] text-[#4F46E5]" : "border-transparent text-slate-400"}`}
             >
               Pending Review ({demoSwapRequests.filter((r: any) => r.status === "pending").length})
             </button>
             <button
               type="button"
               onClick={() => setSwapRequestsTab("resolved")}
-              className={`flex-1 pb-2.5 text-xs font-black uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer ${swapRequestsTab === "resolved" ? "border-[#D528A2] text-[#D528A2]" : "border-transparent text-slate-400"}`}
+              className={`flex-1 pb-2.5 text-xs font-black uppercase tracking-wider text-center border-b-2 transition-all cursor-pointer ${swapRequestsTab === "resolved" ? "border-[#4F46E5] text-[#4F46E5]" : "border-transparent text-slate-400"}`}
             >
               Resolution Logs ({demoSwapRequests.filter((r: any) => r.status !== "pending").length})
             </button>
@@ -96,7 +96,7 @@ export default function LndSwapRequestsModal({
                         </div>
                         <div className="text-right">
                           <span className="text-[9px] font-black uppercase text-slate-400 block">Proposed Action</span>
-                          <span className="px-2 py-0.5 bg-[#D528A2]/10 text-[#D528A2] dark:text-[#f45fc6] rounded-lg text-[9px] font-black uppercase">
+                          <span className="px-2 py-0.5 bg-[#4F46E5]/10 text-[#4F46E5] dark:text-[#818CF8] rounded-lg text-[9px] font-black uppercase">
                             {(req.swapType === "mentor" || req.swapType === "internal") ? "Change Mentor" : "Change Slot"}
                           </span>
                         </div>
@@ -112,17 +112,17 @@ export default function LndSwapRequestsModal({
                         </div>
   
                         <div className="p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl space-y-1 shadow-card">
-                          <span className="text-[8.5px] font-black uppercase text-[#D528A2] block mb-1">Proposed Match</span>
+                          <span className="text-[8.5px] font-black uppercase text-[#4F46E5] block mb-1">Proposed Match</span>
                           {(req.swapType === "mentor" || req.swapType === "internal") ? (
                             <>
-                              <p className="font-bold text-[#D528A2] dark:text-[#f45fc6]">{req.proposedMentorName || req.targetMentorName}</p>
+                              <p className="font-bold text-[#4F46E5] dark:text-[#818CF8]">{req.proposedMentorName || req.targetMentorName}</p>
                               <p className="text-[10px] text-slate-500">{req.dateStr} • {req.timeSlot}</p>
                               <p className="text-[9px] text-slate-400">Replacing candidate faculty</p>
                             </>
                           ) : (
                             <>
-                              <p className="font-bold text-[#D528A2] dark:text-[#f45fc6]">{req.mentorName}</p>
-                              <p className="text-[10px] text-[#D528A2] dark:text-[#f45fc6] font-bold">{req.proposedDateStr} • {req.proposedTimeSlot}</p>
+                              <p className="font-bold text-[#4F46E5] dark:text-[#818CF8]">{req.mentorName}</p>
+                              <p className="text-[10px] text-[#4F46E5] dark:text-[#818CF8] font-bold">{req.proposedDateStr} • {req.proposedTimeSlot}</p>
                               <p className="text-[9px] text-slate-400">Rescheduling date/time</p>
                             </>
                           )}
@@ -232,7 +232,7 @@ export default function LndSwapRequestsModal({
                                 Mentor Swap: {req.proposedMentorName}
                               </span>
                             ) : (
-                              <span className="font-medium text-[#D528A2] dark:text-[#f45fc6]">
+                              <span className="font-medium text-[#4F46E5] dark:text-[#818CF8]">
                                 Time Swap: {req.proposedDateStr} • {req.proposedTimeSlot}
                               </span>
                             )}

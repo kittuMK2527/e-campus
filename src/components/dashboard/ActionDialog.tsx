@@ -62,7 +62,7 @@ export function ActionDialog({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-150 font-sans"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn font-sans"
     >
       {/* Backdrop click to dismiss */}
       <div
@@ -74,7 +74,7 @@ export function ActionDialog({
 
       <div
         className={cn(
-          "relative z-10 w-full bg-white dark:bg-[#131317] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col",
+          "relative z-10 w-full bg-white dark:bg-[#131317] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-card-lg p-6 space-y-5 animate-scaleUp max-h-[90vh] flex flex-col",
           maxWidthClasses[maxWidth],
           className
         )}

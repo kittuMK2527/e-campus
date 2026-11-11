@@ -18,7 +18,7 @@ export default function AuditRedirectPage() {
   }, [router]);
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-slate-50 text-slate-400 font-bold text-sm">
+    <div className="flex h-dvh w-full items-center justify-center bg-slate-50 text-slate-400 font-bold text-sm">
       <div className="flex items-center gap-2">
         <span className="h-4 w-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
         <span>Loading Campus E-Audit Portal...</span>

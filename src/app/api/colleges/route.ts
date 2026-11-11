@@ -15,29 +15,55 @@ export async function GET(request: Request) {
     // returning an empty campus list.
     const [colleges, campusManagers, kamUsers] = await db.multiQuery([
       {
+        // Aggregate counts via GROUP BY instead of 4×N correlated subqueries.
+        // The LEFT JOIN + GROUP BY produces the same four counts in a single scan
+        // of each table rather than one subquery per college row.
         sql: `
-      SELECT 
+      SELECT
         c.id, c.name, c.address, c.kam_id, c.has_shifts, c.shift_configs, c.rooms,
         c.code, c.academic_year, c.manager, c.working_days,
-        k.name as kam_name, k.email as kam_email,
-        (SELECT COUNT(*) FROM campus_managers cm WHERE cm.college_id = c.id) as cam_count,
-        (SELECT COUNT(*) FROM departments d WHERE d.college_id = c.id) as dept_count,
-        (SELECT COUNT(*) FROM mentors m WHERE m.college_id = c.id) as mentor_count,
-        (SELECT COUNT(*) FROM slots s JOIN mentors m ON s.mentorId = m.id WHERE m.college_id = c.id) as slot_count
+        k.name  AS kam_name,
+        j.email AS kam_email,
+        COALESCE(cmc.cam_count,    0) AS cam_count,
+        COALESCE(dc.dept_count,    0) AS dept_count,
+        COALESCE(mc.mentor_count,  0) AS mentor_count,
+        COALESCE(sc.slot_count,    0) AS slot_count
       FROM colleges c
+      LEFT JOIN kam_users j ON c.kam_id = j.id
       LEFT JOIN kam_users k ON c.kam_id = k.id
+      LEFT JOIN (
+        SELECT college_id, COUNT(*) AS cam_count
+        FROM campus_managers GROUP BY college_id
+      ) cmc ON cmc.college_id = c.id
+      LEFT JOIN (
+        SELECT college_id, COUNT(*) AS dept_count
+        FROM departments GROUP BY college_id
+      ) dc  ON dc.college_id  = c.id
+      LEFT JOIN (
+        SELECT college_id, COUNT(*) AS mentor_count
+        FROM mentors GROUP BY college_id
+      ) mc  ON mc.college_id  = c.id
+      LEFT JOIN (
+        SELECT m.college_id, COUNT(*) AS slot_count
+        FROM slots s
+        JOIN mentors m ON s.mentorId = m.id
+        GROUP BY m.college_id
+      ) sc  ON sc.college_id  = c.id
       ORDER BY c.name
     `
       },
       {
+        // Only the columns the admin UI actually needs; avoids shipping any
+        // sensitive credential columns that might end up in campus_managers.
         sql: `
-      SELECT cm.*, c.name as college_name
+      SELECT cm.id, cm.name, cm.email, cm.college_id, cm.kam_id,
+             c.name AS college_name
       FROM campus_managers cm
       LEFT JOIN colleges c ON cm.college_id = c.id
       ORDER BY cm.name
     `
       },
-      { sql: "SELECT * FROM kam_users ORDER BY name" }
+      { sql: "SELECT id, name, email, title FROM kam_users ORDER BY name" }
     ]);
 
     return NextResponse.json({ success: true, colleges, campusManagers, kamUsers });

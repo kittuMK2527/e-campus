@@ -5,7 +5,6 @@ import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { hashPassword } from "@/lib/auth";
 import { DEFAULT_PASSWORD } from "@/lib/authConfig";
-import { sendAccountWelcomeEmail } from "@/lib/mail";
 
 // GET /api/cam?id=cam_1  — returns CAM profile + their college's data
 export async function GET(request: Request) {
@@ -105,8 +104,6 @@ export async function POST(request: Request) {
         [cleanId, cleanEmail, defaultHashed, "cam", cleanId, "Active", 1, now, now]
       );
     });
-
-    await sendAccountWelcomeEmail({ to: cleanEmail, recipientName: name.trim(), roleLabel: "Campus Manager" });
 
     return NextResponse.json({ success: true, message: "Campus Manager created successfully" });
   } catch (error: any) {

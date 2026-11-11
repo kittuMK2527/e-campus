@@ -20,14 +20,15 @@ import {
   Edit,
   Trash2,
   Copy,
-  MoreVertical
+  X
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { CourseInfoButton } from "@/components/CourseInfoModal";
 import { CourseModal } from "@/components/CourseModal";
@@ -344,14 +345,13 @@ export const CoursesTab: React.FC = () => {
       <PageHeader
         icon={Layers}
         title="Courses & Curriculum"
-        subtitle="Manage courses and their academic year curricula grouped by campus."
         actions={
           <div className="flex items-center gap-2">
             <Select
               aria-label="Campus filter"
               value={campusFilter}
               onChange={e => setCampusFilter(e.target.value)}
-              className="w-auto min-w-[150px] h-8 text-xs cursor-pointer font-semibold"
+              className="w-auto min-w-[150px] h-9 text-xs cursor-pointer font-semibold rounded-2xl"
             >
               <option value="all">🏢 All Campuses</option>
               {colleges.map(c => (
@@ -369,15 +369,25 @@ export const CoursesTab: React.FC = () => {
                 placeholder="Search courses, subjects..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-48 pl-8 h-8 text-xs font-semibold"
+                className="w-48 pl-8 pr-7 h-9 text-xs font-semibold rounded-2xl"
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
 
             <Button
               variant="outline"
               size="sm"
               onClick={toggleExpandAll}
-              className="h-8 text-xs font-bold whitespace-nowrap"
+              className="h-9 text-xs font-bold whitespace-nowrap rounded-2xl"
             >
               {colleges.every(c => expandedColleges[c.id] !== false) ? "Collapse All" : "Expand All"}
             </Button>
@@ -555,14 +565,7 @@ export const CoursesTab: React.FC = () => {
                                 <div className="flex items-center ml-2 border-l border-gray-200 pl-3">
                                   <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg cursor-pointer"
-                                        title="Course Actions"
-                                      >
-                                        <MoreVertical className="h-4 w-4" />
-                                      </Button>
+                                      <ActionDropdownButton size="sm" />
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-44">
                                       <DropdownMenuItem onClick={() => handleOpenCourseModal(dept, col.id)}>

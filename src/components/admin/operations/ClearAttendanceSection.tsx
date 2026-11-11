@@ -20,8 +20,12 @@ export const ClearAttendanceSection: React.FC<ClearAttendanceSectionProps> = ({
   onAttendanceCleared
 }) => {
   const { toast, confirm: showConfirm } = useToast();
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().split("T")[0];
+  });
+  const [endDate, setEndDate] = useState(() => new Date().toISOString().split("T")[0]);
   const [collegeId, setCollegeId] = useState("all");
   const [dept, setDept] = useState("all");
   const [classGroup, setClassGroup] = useState("all");

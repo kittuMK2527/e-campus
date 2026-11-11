@@ -39,7 +39,7 @@ export default function LndCellDetailsModal({
           if (!next) setCellPopover(null);
         }}
         ariaLabel={cellPopover ? `${cellPopover.day} ${cellPopover.timeSlot} mentors` : "Mentor availability"}
-        overlayClassName="bg-slate-900/60 backdrop-blur-sm"
+        overlayClassName="bg-slate-950/60 backdrop-blur-sm"
         panelClassName="max-w-md rounded-2xl p-6 space-y-4 bg-white dark:bg-slate-900 max-h-[90vh]"
       >
   
@@ -52,7 +52,7 @@ export default function LndCellDetailsModal({
           </button>
   
           <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-            <div className="p-1.5 rounded-lg bg-[#D528A2]/10 text-[#D528A2]">
+            <div className="p-1.5 rounded-lg bg-[#4F46E5]/10 text-[#4F46E5]">
               <Calendar className="h-4.5 w-4.5" />
             </div>
             <div>
@@ -119,7 +119,7 @@ export default function LndCellDetailsModal({
                     className={`flex items-center justify-between p-3 rounded-xl border text-xs font-bold cursor-pointer transition-all hover:bg-slate-50 dark:hover:bg-slate-800 ${isFree
                       ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300"
                       : isDemo
-                        ? "bg-[#D528A2]/10 dark:bg-[#D528A2]/20 border-[#D528A2]/30 text-[#D528A2] dark:text-[#f45fc6]"
+                        ? "bg-[#4F46E5]/10 dark:bg-[#4F46E5]/20 border-[#4F46E5]/30 text-[#4F46E5] dark:text-[#818CF8]"
                         : isPreview
                           ? "bg-amber-50/30 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
                           : isBlocked
@@ -138,7 +138,7 @@ export default function LndCellDetailsModal({
                     <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black uppercase shrink-0 ${isFree
                       ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300"
                       : isDemo
-                        ? "bg-[#D528A2]/20 text-[#D528A2] dark:text-[#f45fc6]"
+                        ? "bg-[#4F46E5]/20 text-[#4F46E5] dark:text-[#818CF8]"
                         : isPreview
                           ? "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300"
                           : isBlocked

@@ -30,6 +30,7 @@ import { useToast } from "@/context/ToastContext";
 import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/Pagination";
+import { isAnyPendingCmRequest } from "@/lib/requestStatus";
 
 interface ExamItem {
   id: string;
@@ -213,7 +214,7 @@ export const MentorExamMarksStudio: React.FC = () => {
       const pendingMap: Record<string, string> = {};
       if (data?.success && Array.isArray(data.requests)) {
         data.requests.forEach((r: any) => {
-          if (r.slotId === selectedExamId && (r.status === "pending" || r.status === "pending_cam")) {
+          if (r.slotId === selectedExamId && isAnyPendingCmRequest(r.status)) {
             const markMatch = (r.reason || "").match(/Proposed Mark:\s*([\d.]+)/i);
             if (markMatch) pendingMap[r.targetStaffId] = markMatch[1];
           }
@@ -530,7 +531,7 @@ export const MentorExamMarksStudio: React.FC = () => {
   return (
     <div className="space-y-6 font-sans">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-950 p-6 rounded-2xl text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4 border border-indigo-800/40">
+      <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-950 p-6 rounded-2xl text-white shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4 border border-indigo-800/40">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <div className="h-8 w-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
@@ -1112,7 +1113,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                                       }
                                     }));
                                   }}
-                                  className="w-full text-center font-black text-sm text-slate-900 bg-slate-50 border border-slate-200 rounded-xl py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                                  className="w-full text-center font-black text-sm text-slate-900 bg-sunken border border-slate-200 inset-shadow-well rounded-xl py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
                                 />
                               </div>
                             )}
@@ -1142,7 +1143,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                                   }
                                 }));
                               }}
-                              className="w-full px-2.5 py-1 text-xs border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:outline-none focus:border-indigo-500 disabled:bg-slate-100"
+                              className="w-full px-2.5 py-1 text-xs border border-slate-200 inset-shadow-well rounded-lg bg-sunken focus:bg-white focus:outline-none focus:border-indigo-500 disabled:bg-slate-100"
                             />
                           </TableCell>
                         </TableRow>
@@ -1199,7 +1200,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                 }
               }}
               ariaLabel="Request Marks Modification"
-              overlayClassName="p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200"
+              overlayClassName="p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
               panelClassName="max-w-md max-h-[90vh] p-6 space-y-4 rounded-2xl"
             >
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">

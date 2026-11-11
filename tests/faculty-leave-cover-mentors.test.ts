@@ -62,8 +62,6 @@ vi.mock("@/lib/db", async (importOriginal) => {
 vi.mock("@/lib/authGuard", () => ({
   requireAuth: async () => ({ auth: { id: "cm1", role: "cm", email: "cm@example.com" }, errorResponse: null })
 }));
-vi.mock("@/lib/mail", () => ({ sendMail: async () => ({ success: true }), renderEmailShell: () => "" }));
-
 const { GET } = await import("@/app/api/requests/faculty-leave/route");
 
 beforeEach(() => {

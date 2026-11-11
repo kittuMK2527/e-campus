@@ -5556,7 +5556,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         return (
                                             <div
                                                 key={r.id}
-                                                className="bg-white border border-slate-100 hover:border-indigo-300 rounded-2xl p-3 shadow-card hover:shadow-md transition-all space-y-2"
+                                                className="bg-white border border-slate-100 hover:border-indigo-300 rounded-2xl p-3 shadow-card hover:shadow-card-lg transition-all space-y-2"
                                             >
                                                 {/* Top Row: Meta Badges + Actions */}
                                                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 pb-2">
@@ -9979,7 +9979,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                                         placeholder="Provide a brief description for this mentor group domain..."
                                         value={groupForm.description}
                                         onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                                        className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+                                        className="w-full text-xs font-medium p-2.5 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-slate-900 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                                     />
                                 </div>
 

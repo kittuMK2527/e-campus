@@ -47,6 +47,13 @@ import {
   SlidersHorizontal,
   CalendarDays
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  ActionDropdownButton
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/context/ToastContext";
 import { useApp } from "@/context/AppContext";
 import { getCollegePeriodTimeSlots, isSubjectNameMatch, isCohortMatching, isSkillSubject } from "@/lib/utils";
@@ -1466,7 +1473,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               aria-label="Class / Cohort"
               value={selectedClass}
               onChange={e => handleClassChange(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               {assignedClasses.length > 0 ? (
                 assignedClasses.map(c => (
@@ -1489,7 +1496,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               aria-label="Subject"
               value={selectedSubject}
               onChange={e => handleSubjectChange(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               {assignedSubjects.length > 0 ? (
                 assignedSubjects.map(s => (
@@ -1511,7 +1518,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
             <button
               type="button"
               onClick={() => setShowDateModal(true)}
-              className="w-full p-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 transition-colors flex items-center justify-between gap-2 cursor-pointer"
+              className="w-full p-2 bg-sunken hover:bg-white border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-800 transition-colors flex items-center justify-between gap-2 cursor-pointer"
               title="Click to view or edit teaching dates for this week"
             >
               <div className="flex items-center gap-1.5 truncate">
@@ -1533,8 +1540,8 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
             open={true}
             onOpenChange={(next) => { if (!next) setShowDateModal(false); }}
             ariaLabel="Teaching Schedule Dates"
-            overlayClassName="bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150"
-            panelClassName="max-w-md max-h-[90vh] p-5 space-y-4 rounded-2xl animate-in zoom-in-95 duration-150"
+            overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+            panelClassName="max-w-md max-h-[90vh] p-5 space-y-4 rounded-2xl animate-scaleUp"
           >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
@@ -1585,7 +1592,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                     aria-label="End Date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                   />
                 </div>
               </div>
@@ -1680,7 +1687,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               >
                 <div className="flex items-center gap-1.5 text-xs font-black text-indigo-700">
                   <Plus className="h-3.5 w-3.5" />
-                  <span>+ Week {nextSequentialWeek}</span>
+                  <span>Week {nextSequentialWeek}</span>
                 </div>
                 <div className="text-[10px] text-indigo-500 font-semibold mt-1">
                   New Sequence Plan
@@ -1874,7 +1881,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                           placeholder="Description"
                           value={task.objectives}
                           onChange={e => updateDailyTask(idx, "objectives", e.target.value)}
-                          className="w-full p-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full p-1.5 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-[11px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       )}
                     </TableCell>
@@ -1945,7 +1952,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                 value={archiveSearch}
                 onChange={e => setArchiveSearch(e.target.value)}
                 placeholder="Search archive..."
-                className="pl-8 pr-3 py-1 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 w-36"
+                className="pl-8 pr-3 py-1 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 w-36"
               />
             </div>
           </div>
@@ -2344,55 +2351,38 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                     ? "KAM Academic Plan Oversight"
                     : "Campus Weekly Plan Monitor"}
                 </h2>
-                <span
-                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                    isSME
-                      ? "bg-purple-50 text-purple-700 border-purple-200"
-                      : role === "kam"
-                      ? "bg-sky-50 text-sky-700 border-sky-200"
-                      : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                  }`}
-                >
-                  {isSME
-                    ? "SME Verification Privileges"
-                    : role === "kam"
-                    ? "KAM View-Only Access"
-                    : "CM View-Only Access"}
-                </span>
                 {collegeName && (
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700">
                     {collegeName}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                {isSME
-                  ? "Review mentor weekly plans, cross-check planned topics against conducted periods and L&D completions, and verify."
-                  : role === "kam"
-                  ? "Monitor weekly plans, planned vs completed topics, L&D completion, and SME verification status across your assigned colleges."
-                  : "View mentor weekly teaching plans, topic completion progress, and SME verification status for your campus."}
-              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => plansQuery.refetch()}
-              disabled={loading}
-              className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-              <span>Refresh</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <Download className="h-3.5 w-3.5" />
-              <span>Export (.xlsx)</span>
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <ActionDropdownButton />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem
+                  onClick={() => plansQuery.refetch()}
+                  disabled={loading}
+                  className="gap-2 cursor-pointer text-xs"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+                  <span>Refresh Data</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleExportExcel}
+                  className="gap-2 cursor-pointer text-xs"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Export (.xlsx)</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -2480,7 +2470,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                 aria-label="Campus / College"
                 value={selectedCollege}
                 onChange={e => setSelectedCollege(e.target.value)}
-                className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
               >
                 <option value="all">All Campuses</option>
                 {allColleges.map(c => (
@@ -2500,7 +2490,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
               aria-label="Academic Week"
               value={selectedWeek}
               onChange={e => setSelectedWeek(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               <option value="all">All Academic Weeks</option>
               {Array.from({ length: 16 }, (_, i) => i + 1).map(w => (
@@ -2519,7 +2509,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
               aria-label="SME Status"
               value={selectedStatus}
               onChange={e => setSelectedStatus(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="Submitted">Submitted (Pending SME Review)</option>
@@ -2541,7 +2531,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                 placeholder="Search mentor, subject, cohort..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -2719,8 +2709,8 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setInspectingPlan(null); }}
           ariaLabel="Weekly Plan Details"
-          overlayClassName="bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-          panelClassName="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl p-0 space-y-0 animate-in zoom-in-95 duration-200"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+          panelClassName="max-w-5xl max-h-[90vh] flex flex-col overflow-hidden rounded-2xl p-0 space-y-0 animate-scaleUp"
         >
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
@@ -2933,8 +2923,8 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
           open={true}
           onOpenChange={(next) => { if (!next) setSelectedPlanForReview(null); }}
           ariaLabel="SME Weekly Plan Verification"
-          overlayClassName="bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200"
-          panelClassName="max-w-lg max-h-[90vh] rounded-2xl p-0 space-y-0 animate-in zoom-in-95 duration-200"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
+          panelClassName="max-w-lg max-h-[90vh] rounded-2xl p-0 space-y-0 animate-scaleUp"
         >
             <div className="p-6 space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -2986,7 +2976,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                   placeholder="Write your remarks, feedback, or approval note..."
                   value={feedbackInput}
                   onChange={e => setFeedbackInput(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 outline-none focus:ring-1 focus:ring-purple-500"
+                  className="w-full p-3 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs text-slate-800 outline-none focus:ring-1 focus:ring-purple-500"
                 />
               </div>
 

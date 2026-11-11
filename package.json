@@ -4,9 +4,12 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/generate-pg-column-case.mjs",
-    "dev": "next dev -H 0.0.0.0 --webpack",
+    "dev": "next dev -H 0.0.0.0",
+    "dev:https": "next dev -H 0.0.0.0 --experimental-https",
+    "dev:webpack": "next dev -H 0.0.0.0 --webpack",
     "dev:turbo": "next dev -H 0.0.0.0",
-    "build": "next build --webpack",
+    "build": "next build --turbo",
+    "build:webpack": "next build --webpack",
     "start": "next start",
     "lint": "eslint",
     "db:sync": "node scripts/sync_db.mjs",
@@ -30,7 +33,9 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.10.1",
+    "sonner": "^2.0.8",
     "tailwind-merge": "^3.6.0",
+    "web-push": "^4.0.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
@@ -40,6 +45,7 @@
     "@types/pg": "^8.23.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/web-push": "^3.6.4",
     "eslint": "^9",
     "eslint-config-next": "16.2.7",
     "tailwindcss": "^4",

@@ -260,8 +260,8 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
         if (!next) onClose();
       }}
       ariaLabel={`Mentor profile — ${mentor.name}`}
-      overlayClassName="bg-slate-900/40 backdrop-blur-xs p-2 sm:p-4"
-      panelClassName="max-w-4xl h-[90vh] max-h-[90vh] md:h-auto md:max-h-[90vh] p-0 space-y-0 overflow-y-auto md:overflow-hidden flex flex-col md:flex-row border-gray-100 shadow-xl scroll-touch"
+      overlayClassName="bg-slate-950/60 backdrop-blur-sm p-2 sm:p-4"
+      panelClassName="max-w-4xl h-[90vh] max-h-[90vh] md:h-auto md:max-h-[90vh] p-0 space-y-0 overflow-y-auto md:overflow-hidden flex flex-col md:flex-row border-gray-100 shadow-card-lg scroll-touch"
     >
       {/* Close Button */}
       <button
@@ -515,7 +515,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
                 <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-xs">
                   <Table className="w-full border-collapse text-left text-xs min-w-[650px] table-fixed">
                     <TableHeader>
-                      <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200">
+                      <TableRow className="bg-sunken border-b border-slate-200">
                         <TableHead className="p-3 font-bold text-slate-500 uppercase text-[10px] w-[18%]">Hour / Time</TableHead>
                         {daysOfWeek.map((day) => (
                           <TableHead key={day} className="p-3 font-bold text-slate-700 w-[16.4%]">{day}</TableHead>
@@ -722,7 +722,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
                       <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-xs">
                         <Table className="w-full border-collapse text-left text-xs">
                           <TableHeader>
-                            <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px]">
+                            <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px]">
                               <TableHead className="p-3">Date</TableHead>
                               <TableHead className="p-3">Course / Time</TableHead>
                               <TableHead className="p-3">Covering Staff</TableHead>
@@ -766,7 +766,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
                       <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-xs">
                         <Table className="w-full border-collapse text-left text-xs">
                           <TableHeader>
-                            <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px]">
+                            <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px]">
                               <TableHead className="p-3">Date</TableHead>
                               <TableHead className="p-3">Class slot info</TableHead>
                               <TableHead className="p-3">Original Mentor</TableHead>
@@ -814,7 +814,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
                       <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-xs">
                         <Table className="w-full border-collapse text-left text-xs">
                           <TableHeader>
-                            <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px]">
+                            <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px]">
                               <TableHead className="p-3">Month</TableHead>
                               <TableHead className="p-3">Subject</TableHead>
                               <TableHead className="p-3">Faculty Member</TableHead>

@@ -603,7 +603,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   if (!currentStudent) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-        <div className="h-12 w-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 mb-4 animate-pulse">
+        <div className="h-12 w-12 rounded-2xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-amber-500 mb-4 animate-pulse">
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
         <h3 className="text-base font-bold text-slate-900 mb-1">Loading Student Portal…</h3>
@@ -1013,14 +1013,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       }
     }
 
-    // If Saturday, check if explicit Saturday slots exist. If not, map to Friday for 6-day schedules
-    if (defaultDay === "Saturday") {
-      const hasDirectSatSlots = myClassSlots.some(s => s.day === "Saturday");
-      if (!hasDirectSatSlots) {
-        return "Friday";
-      }
-    }
-
     return defaultDay;
   };
 
@@ -1366,21 +1358,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         }
                         setActiveTab(tab.id as typeof activeTab);
                       }}
-                      className={`w-full flex items-center rounded-md text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer ${isCollapsed ? "justify-center px-0 py-3" : "justify-start gap-3 px-4 py-3 text-left"
+                      className={`w-full flex items-center rounded-xl text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer group ${isCollapsed ? "justify-center px-0 py-3" : "justify-start gap-3 px-3.5 py-2.5 text-left"
                         } ${isActive
-                          ? "sidebar-active-item"
-                          : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                          ? "bg-zinc-900 text-white ring-1 ring-inset ring-zinc-800 font-extrabold shadow-sm dark:bg-zinc-900 dark:text-white"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10"
                         }`}
                     >
                       <div className="relative flex items-center justify-center">
-                        <Icon className={`h-4.5 w-4.5 shrink-0 ${isActive ? "text-[#4F46E5]" : "text-slate-400 group-hover:text-slate-600"}`} />
+                        <Icon className={`h-4.5 w-4.5 shrink-0 transition-colors ${isActive ? "text-amber-400" : "text-slate-400 group-hover:text-amber-500"}`} />
                         {isCollapsed && count > 0 && (
                           <span className="absolute -top-1.5 -right-1.5 block h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
                         )}
                       </div>
                       {!isCollapsed && <span>{tab.label}</span>}
                       {!isCollapsed && count > 0 && (
-                        <span className="ml-auto bg-rose-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                        <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-rose-500 text-white"}`}>
                           {count}
                         </span>
                       )}
@@ -1443,21 +1435,21 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   }
                   setActiveTab(t.id as typeof activeTab);
                 }}
-                className={`relative flex flex-col items-center justify-center gap-0.5 flex-1 py-1.5 rounded-xl transition-all cursor-pointer ${isActive ? "text-indigo-600" : "text-slate-400"
+                className={`relative flex flex-col items-center justify-center gap-0.5 min-h-[3.5rem] flex-1 rounded-xl transition-all cursor-pointer ${isActive ? "text-zinc-950 dark:text-white" : "text-slate-400"
                   }`}
               >
                 <div className="relative">
-                  <Icon className={`h-4.5 w-4.5 transition-transform ${isActive ? "scale-110" : ""}`} />
+                  <Icon className={`h-4.5 w-4.5 transition-transform ${isActive ? "scale-110 text-amber-500" : ""}`} />
                   {pendingCount > 0 && (
                     <span className="absolute -top-1.5 -right-1.5 h-3 w-3 bg-rose-500 text-white text-[7px] font-bold rounded-full flex items-center justify-center">
                       {pendingCount}
                     </span>
                   )}
                 </div>
-                <span className={`text-[8px] font-semibold tracking-wide leading-none ${isActive ? "text-indigo-600" : "text-slate-400"}`}>
+                <span className={`text-[8px] font-semibold tracking-wide leading-none ${isActive ? "text-zinc-950 dark:text-white" : "text-slate-400"}`}>
                   {t.label}
                 </span>
-                {isActive && <span className="absolute top-0 inset-x-1 h-0.5 bg-indigo-500 rounded-full" />}
+                {isActive && <span className="absolute top-0 inset-x-1 h-0.5 bg-amber-500 rounded-full" />}
               </a>
             );
           })}
@@ -1479,14 +1471,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               {activeTab === "profile" && "My Profile"}
               {activeTab === "more_menu" && "More Options"}
             </h1>
-            <div className="h-1.5 w-1.5 rounded-full bg-indigo-600" />
+            <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
             {(() => {
               const details = getStudentClassDetails(currentStudent.classGroup);
               return (
                 <span className="text-xs text-slate-500 font-bold flex items-center gap-2 flex-wrap">
                   <span>{details.course}</span>
                   <span className="text-slate-300">•</span>
-                  <span className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-[10px] font-black text-indigo-700">{details.year}</span>
+                  <span className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-[10px] font-black text-amber-800">{details.year}</span>
                   <span className="text-slate-300">•</span>
                   <span className="px-2 py-0.5 rounded bg-teal-50 border border-teal-100 text-[10px] font-black text-teal-700">{details.sem}</span>
                   <span className="text-slate-300">•</span>
@@ -1523,7 +1515,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </a>
             )}
 
-            <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 px-3 py-1 rounded-full text-indigo-700">
+            <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 px-3 py-1 rounded-full text-amber-800">
               <Sparkles className="h-3.5 w-3.5" />
               <span className="text-[9px] font-extrabold uppercase tracking-widest">
                 Academic Session
@@ -1544,7 +1536,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   e.preventDefault();
                   setActiveTab("interviews");
                 }}
-                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
+                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
               >
                 <div className="h-10 w-10 rounded-xl bg-purple-50 dark:bg-purple-900/25 flex items-center justify-center text-purple-600 shrink-0 group-hover:scale-105 transition-transform">
                   <Award className="h-5 w-5" />
@@ -1562,7 +1554,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   e.preventDefault();
                   setActiveTab("exams");
                 }}
-                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
+                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
               >
                 <div className="h-10 w-10 rounded-xl bg-rose-50 dark:bg-rose-900/25 flex items-center justify-center text-rose-500 shrink-0 group-hover:scale-105 transition-transform">
                   <BookOpen className="h-5 w-5" />
@@ -1580,7 +1572,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   e.preventDefault();
                   setActiveTab("materials");
                 }}
-                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
+                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
               >
                 <div className="h-10 w-10 rounded-xl bg-teal-50 dark:bg-teal-900/25 flex items-center justify-center text-teal-500 shrink-0 group-hover:scale-105 transition-transform">
                   <Book className="h-5 w-5" />
@@ -1598,7 +1590,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   e.preventDefault();
                   setActiveTab("fees");
                 }}
-                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
+                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
               >
                 <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/25 flex items-center justify-center text-emerald-600 shrink-0 group-hover:scale-105 transition-transform">
                   <CreditCard className="h-5 w-5" />
@@ -1620,7 +1612,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   e.preventDefault();
                   setActiveTab("profile");
                 }}
-                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-indigo-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group sm:col-span-2"
+                className="p-5 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center gap-4 shadow-card cursor-pointer group sm:col-span-2"
               >
                 <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800/80 flex items-center justify-center text-slate-600 dark:text-slate-300 shrink-0 group-hover:scale-105 transition-transform">
                   <User className="h-5 w-5" />
@@ -1660,7 +1652,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveTab("interviews")}
-                          className="p-2 bg-slate-50 border border-slate-200 text-slate-700 rounded-full shrink-0 shadow-2xs hover:bg-slate-100 cursor-pointer"
+                          className="p-2 bg-sunken border border-slate-200 inset-shadow-well text-slate-700 rounded-full shrink-0 shadow-2xs hover:bg-white cursor-pointer"
                           title="Open Interviews"
                         >
                           <ArrowUpRight className="h-3.5 w-3.5 text-slate-600" />
@@ -1670,7 +1662,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <span className="text-[10.5px] font-bold text-slate-500">
                           {upcomingInterview?.target_date ? `Date: ${upcomingInterview.target_date}` : `${evaluatedCount} Evaluated`}
                         </span>
-                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-zinc-100 text-zinc-900 border border-zinc-200">
                           {upcomingInterview ? upcomingInterview.status || "Scheduled" : "Active"}
                         </span>
                       </div>
@@ -1695,7 +1687,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => setActiveTab("fees")}
-                          className="p-2 bg-slate-50 border border-slate-200 text-slate-700 rounded-full shrink-0 shadow-2xs hover:bg-slate-100 cursor-pointer"
+                          className="p-2 bg-sunken border border-slate-200 inset-shadow-well text-slate-700 rounded-full shrink-0 shadow-2xs hover:bg-white cursor-pointer"
                           title="Open Fees"
                         >
                           <ArrowUpRight className="h-3.5 w-3.5 text-slate-600" />
@@ -1762,7 +1754,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-black uppercase ${isGraded
                                 ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
                                 : isSubmitted
-                                  ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                                  ? "bg-zinc-100 text-zinc-900 border border-zinc-200"
                                   : "bg-amber-100 text-amber-800 border border-amber-200"
                               }`}>
                               W{task.week_number}
@@ -1788,7 +1780,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             <span className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider select-none ${isGraded
                                 ? "bg-emerald-100 text-emerald-800 border border-emerald-200/50"
                                 : isSubmitted
-                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200/50"
+                                  ? "bg-amber-50 text-amber-800 border border-amber-200/50"
                                   : "bg-amber-50 text-amber-700 border border-amber-200/50"
                               }`}>
                               {isGraded ? `Score: ${studentSub.marks}/10` : isSubmitted ? "Submitted" : "Pending"}
@@ -1837,7 +1829,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <div className="lg:col-span-1 space-y-6">
 
               {/* Class Attendance Calendar Card with Dates & Ticks */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-5">
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Class attendance</h2>
@@ -1849,7 +1841,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => setAttendanceMonthOffset(prev => prev - 1)}
-                      className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 cursor-pointer shadow-2xs transition-colors"
+                      className="p-1.5 rounded-lg bg-sunken hover:bg-white border border-slate-200 inset-shadow-well/80 text-slate-600 cursor-pointer shadow-2xs transition-colors"
                       title="Previous Month"
                     >
                       <ChevronLeft className="h-3.5 w-3.5" />
@@ -1867,7 +1859,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => setAttendanceMonthOffset(prev => prev + 1)}
-                      className="p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-slate-600 cursor-pointer shadow-2xs transition-colors"
+                      className="p-1.5 rounded-lg bg-sunken hover:bg-white border border-slate-200 inset-shadow-well/80 text-slate-600 cursor-pointer shadow-2xs transition-colors"
                       title="Next Month"
                     >
                       <ChevronRight className="h-3.5 w-3.5" />
@@ -1988,7 +1980,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <span>Absent: <strong className="text-slate-800">{attendanceCalendarData.monthAbsentDays}</strong></span>
                     </div>
                     <div className="flex items-center gap-1">
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200/60">
+                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200/60">
                         {attendanceCalendarData.monthPercentage}%
                       </span>
                     </div>
@@ -1997,7 +1989,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </div>
 
               {/* My Schedule Card */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-xs space-y-5">
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-base font-extrabold text-slate-900 tracking-tight">My schedule</h2>
                   <span className="px-2 py-0.5 bg-slate-50 border border-slate-100 rounded-lg text-[9px] font-black text-slate-500 uppercase tracking-widest">
@@ -2039,7 +2031,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               href={meetLink}
                               target="_blank"
                               rel="noreferrer"
-                              className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-[9.5px] font-black inline-flex items-center gap-1 shadow-2xs"
+                              className="px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 rounded-lg text-[9.5px] font-black inline-flex items-center gap-1 shadow-2xs"
                             >
                               <Video className="w-3 h-3" /> Join Room
                             </a>
@@ -2065,7 +2057,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     return (
                       <div key={slot.id || index} className="p-4 bg-slate-50/50 border border-slate-100 rounded-xl flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-8.5 w-8.5 rounded-full bg-indigo-50 border border-slate-100 flex items-center justify-center font-bold text-indigo-600 text-xs shrink-0 select-none">
+                          <div className="h-8.5 w-8.5 rounded-full bg-indigo-50 border border-slate-100 flex items-center justify-center font-bold text-amber-600 text-xs shrink-0 select-none">
                             {initial}
                           </div>
                           <div className="min-w-0">
@@ -2109,7 +2101,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setWeekOffset(weekOffset - 1)}
-                  className="p-1 hover:bg-white rounded-lg text-slate-600 hover:text-indigo-600 transition-all cursor-pointer"
+                  className="p-1 hover:bg-white rounded-lg text-slate-600 hover:text-amber-600 transition-all cursor-pointer"
                   title="Previous Week"
                 >
                   <ChevronLeft className="h-3.5 w-3.5" />
@@ -2120,7 +2112,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setWeekOffset(weekOffset + 1)}
-                  className="p-1 hover:bg-white rounded-lg text-slate-600 hover:text-indigo-600 transition-all cursor-pointer"
+                  className="p-1 hover:bg-white rounded-lg text-slate-600 hover:text-amber-600 transition-all cursor-pointer"
                   title="Next Week"
                 >
                   <ChevronRight className="h-3.5 w-3.5" />
@@ -2168,7 +2160,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         key={date.day}
                         id={`date-row-${date.dateStr}`}
                         className={`h-24 transition-all duration-500 ${isHighlighted
-                            ? "bg-indigo-50/80 dark:bg-indigo-950/40 ring-2 ring-indigo-500 ring-inset shadow-md"
+                            ? "bg-amber-500/10 dark:bg-amber-950/30 ring-2 ring-amber-500 ring-inset shadow-md"
                             : "hover:bg-slate-50/10 dark:hover:bg-white/[0.02]"
                           }`}
                       >
@@ -2193,13 +2185,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               </span>
                             )}
                             {dayConfig?.day_order && dayConfig.day_order !== "None" && dayConfig.day_type !== "holiday" && (
-                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-200 shrink-0">
+                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
                                 {dayConfig.day_order}
                               </span>
                             )}
-                            {date.day === "Saturday" && (!dayConfig?.day_order || dayConfig?.day_order === "None") && dayConfig?.day_type !== "holiday" && (
-                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-teal-50 text-teal-700 border border-teal-200 shrink-0" title="Mapped to Friday Timetable">
-                                Fri Mapping
+                            {(!dayConfig?.day_order || dayConfig?.day_order === "None") && dayConfig?.day_type !== "holiday" && (
+                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 shrink-0" title="Day order not configured">
+                                No Order
                               </span>
                             )}
                             {studentInterviews.some((inv: any) => inv.target_date === date.dateStr) && (
@@ -2288,7 +2280,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                         href={meetLink}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-indigo-600 hover:underline inline-flex items-center gap-0.5 font-bold"
+                                        className="text-amber-600 hover:underline inline-flex items-center gap-0.5 font-bold"
                                       >
                                         <Video className="w-2.5 h-2.5" /> GMeet
                                       </a>
@@ -2397,7 +2389,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               ) : (
                                 <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-slate-100 dark:border-white/8 bg-slate-50/20 dark:bg-[#1c1c26] shadow-sm relative overflow-hidden">
                                   <div className="space-y-1">
-                                    <div className="text-[9px] font-extrabold text-indigo-600 truncate" title={cellData.handover?.course || cellData.slot.course}>
+                                    <div className="text-[9px] font-extrabold text-amber-600 truncate" title={cellData.handover?.course || cellData.slot.course}>
                                       {cellData.handover?.course || cellData.slot.course}
                                     </div>
                                     <div className="text-[8px] text-slate-400 dark:text-slate-300 font-bold truncate">
@@ -2496,7 +2488,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       return (
                         <div key={inv.id} className="p-5 rounded-xl border border-slate-100 bg-slate-50/30 space-y-3.5 shadow-xs">
                           <div className="flex items-center justify-between flex-wrap gap-2">
-                            <span className="text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            <span className="text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
                               {(inv.type || "internal").toUpperCase()} INTERVIEW
                             </span>
                             <span className="text-[10px] font-bold text-slate-500 bg-white px-2.5 py-0.5 rounded-lg border border-slate-200">
@@ -2513,7 +2505,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           {isAllocated ? (
                             <div className="bg-white p-3.5 rounded-2xl border border-slate-100 space-y-2 shadow-card">
                               <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                                <span className="flex items-center gap-1.5 text-indigo-700">
+                                <span className="flex items-center gap-1.5 text-amber-700">
                                   <Clock className="w-3.5 h-3.5" /> Assigned Time: {assignedTime}
                                 </span>
                                 <span className="text-[10px] text-slate-500">
@@ -2528,7 +2520,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                     href={meetLink}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="inline-flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-black px-3 py-1.5 rounded-lg transition-all shadow-2xs"
+                                    className="inline-flex items-center gap-1 bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 text-[11px] font-black px-3 py-1.5 rounded-lg transition-all shadow-2xs"
                                   >
                                     <Sparkles className="w-3.5 h-3.5" /> Join Live Google Meet
                                   </a>
@@ -2537,7 +2529,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 <div className="pt-1 flex items-center justify-between">
                                   <span className="text-[10px] font-semibold text-slate-500">Evaluation Mode:</span>
                                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-[10px] font-bold border border-slate-200">
-                                    <User className="w-3 h-3 text-indigo-600" /> In-Person Evaluation (Faculty Cabin)
+                                    <User className="w-3 h-3 text-amber-600" /> In-Person Evaluation (Faculty Cabin)
                                   </span>
                                 </div>
                               ) : (
@@ -2563,10 +2555,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   }`}>
                                   {isVerified ? `✓ Conducted & Verified — ${myEval.status}` : `Conducted — Pending CM Verification`}
                                 </span>
-                                <span className="text-xs font-black text-indigo-700">Total Score: {myEval.total_score || 0}/10 ({Math.round((Number(myEval.total_score) || 0) * 10)}%)</span>
+                                <span className="text-xs font-black text-amber-700">Total Score: {myEval.total_score || 0}/10 ({Math.round((Number(myEval.total_score) || 0) * 10)}%)</span>
                               </div>
 
-                              <div className="grid grid-cols-4 gap-2 text-center text-[10px] bg-slate-50 p-2 rounded-lg font-bold border border-slate-100">
+                              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-center text-[10px] bg-slate-50 p-2 rounded-lg font-bold border border-slate-100">
                                 <div><span className="text-slate-400 block text-[8px]">COMM.</span>{myEval.communication_score}/10</div>
                                 <div><span className="text-slate-400 block text-[8px]">CONTENT</span>{myEval.content_score}/10</div>
                                 <div><span className="text-slate-400 block text-[8px]">TECH</span>{myEval.technical_score}/10</div>
@@ -2588,9 +2580,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                         {qList.map((q: any, qi: number) => (
                                           <div key={q.id || qi} className="text-[10.5px] bg-slate-50 p-2 rounded-lg border border-slate-200/80 flex items-center justify-between gap-2">
                                             <span className="text-slate-700 font-semibold truncate">
-                                              <strong className="text-indigo-600 font-mono">Q{qi + 1}:</strong> {q.question || "Technical Question"}
+                                              <strong className="text-amber-600 font-mono">Q{qi + 1}:</strong> {q.question || "Technical Question"}
                                             </span>
-                                            <span className="text-[10px] font-black text-indigo-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                                            <span className="text-[10px] font-black text-amber-700 bg-white px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
                                               {q.score ?? 7}/10
                                             </span>
                                           </div>
@@ -2607,13 +2599,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 );
                               })()}
                               {myEval.remarks && (
-                                <div className="text-[10.5px] text-indigo-700 italic">
+                                <div className="text-[10.5px] text-amber-700 italic">
                                   <strong>Evaluator Remarks:</strong> &ldquo;{myEval.remarks}&rdquo;
                                 </div>
                               )}
                             </div>
                           ) : isAllocated ? (
-                            <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl text-center text-[11px] font-bold text-indigo-800">
+                            <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-center text-[11px] font-bold text-amber-800">
                               ⏳ Scheduled & Ready — Awaiting Evaluation by {assignedMentor}
                             </div>
                           ) : null}
@@ -2756,13 +2748,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3.5">
                   <div className="flex items-center gap-2.5">
-                    <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                    <div className="h-9 w-9 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-amber-500">
                       <BookOpen className="h-5 w-5" />
                     </div>
                     <div>
                       <h2 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-2">
                         Examinations & Test Marks Hub
-                        <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase inline-flex items-center gap-1">
+                        <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-[9px] font-black uppercase inline-flex items-center gap-1">
                           <span>{currentStudent?.department || "Department"}</span>
                           {currentStudent?.department && (
                             <CourseInfoButton course={currentStudent.department} collegeId={currentStudent.college_id} size="xs" />
@@ -2782,7 +2774,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         type="button"
                         onClick={() => setExamSubTab("results")}
                         className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${examSubTab === "results"
-                            ? "bg-white text-indigo-700 shadow-xs"
+                            ? "bg-zinc-900 text-white shadow-xs"
                             : "text-slate-500 hover:text-slate-800"
                           }`}
                       >
@@ -2792,7 +2784,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         type="button"
                         onClick={() => setExamSubTab("schedule")}
                         className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${examSubTab === "schedule"
-                            ? "bg-white text-indigo-700 shadow-xs"
+                            ? "bg-zinc-900 text-white shadow-xs"
                             : "text-slate-500 hover:text-slate-800"
                           }`}
                       >
@@ -2805,13 +2797,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 {/* Scorecard Quick KPIs (When on results view) */}
                 {examSubTab === "results" && displayMarks.length > 0 && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-                    <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-xl">
+                    <div className="p-3.5 bg-amber-50/70 border border-amber-200 rounded-xl">
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] font-black uppercase tracking-wider text-indigo-800">Evaluated Tests</span>
-                        <Award className="h-4 w-4 text-indigo-500" />
+                        <span className="text-[9px] font-black uppercase tracking-wider text-amber-800">Evaluated Tests</span>
+                        <Award className="h-4 w-4 text-amber-500" />
                       </div>
-                      <span className="text-xl font-black text-indigo-950 mt-1 block">{displayMarks.length}</span>
-                      <span className="text-[10px] text-indigo-600 font-medium">Recorded scorecards</span>
+                      <span className="text-xl font-black text-zinc-950 mt-1 block">{displayMarks.length}</span>
+                      <span className="text-[10px] text-amber-600 font-medium">Recorded scorecards</span>
                     </div>
                     <div className="p-3.5 bg-emerald-50/80 border border-emerald-200 rounded-xl">
                       <div className="flex items-center justify-between">
@@ -2866,7 +2858,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           onClick={() => setMarksTypeFilter("all")}
                           className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                             marksTypeFilter === "all"
-                              ? "bg-indigo-600 text-white shadow-2xs"
+                              ? "bg-zinc-900 text-white shadow-2xs ring-1 ring-zinc-800"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                         >
@@ -2881,7 +2873,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               onClick={() => setMarksTypeFilter(t)}
                               className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                                 marksTypeFilter === t
-                                  ? "bg-indigo-600 text-white shadow-2xs"
+                                  ? "bg-zinc-900 text-white shadow-2xs ring-1 ring-zinc-800"
                                   : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                               }`}
                             >
@@ -2898,7 +2890,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           placeholder="Search subject or test..."
                           value={marksSearchTerm}
                           onChange={(e) => setMarksSearchTerm(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 focus:bg-white transition-all"
+                          className="w-full pl-8 pr-3 py-1.5 text-xs bg-sunken border border-slate-200 inset-shadow-well rounded-lg text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-amber-500 focus:bg-white transition-all"
                         />
                       </div>
                     </div>
@@ -2928,7 +2920,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           setMarksTypeFilter("all");
                           setMarksSearchTerm("");
                         }}
-                        className="text-indigo-600 underline font-bold cursor-pointer"
+                        className="text-amber-600 underline font-bold cursor-pointer"
                       >
                         Reset filters
                       </button>
@@ -2941,15 +2933,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden transition-all hover:border-slate-300"
                         >
                           {/* Group Header */}
-                          <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-50 via-indigo-50/20 to-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
+                          <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-50 via-amber-50/20 to-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
                             <div className="flex items-center gap-3">
-                              <div className="h-10 w-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-xs uppercase">
+                              <div className="h-10 w-10 rounded-xl bg-zinc-900 text-amber-400 flex items-center justify-center font-black text-xs shadow-xs uppercase">
                                 {group.type.slice(0, 4)}
                               </div>
                               <div>
                                 <div className="flex items-center gap-2 flex-wrap">
                                   <h3 className="text-sm font-black text-slate-900 tracking-tight">{group.type}</h3>
-                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-zinc-100 text-zinc-900 border border-zinc-200">
                                     {group.evalCount} / {group.totalSubjects} Evaluated
                                   </span>
                                   {group.pct !== null && (
@@ -2958,7 +2950,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                         parseFloat(group.pct) >= 75
                                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                           : parseFloat(group.pct) >= 40
-                                          ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                          ? "bg-amber-50 text-amber-800 border border-amber-200"
                                           : "bg-rose-50 text-rose-700 border border-rose-200"
                                       }`}
                                     >
@@ -3006,7 +2998,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           <div className="overflow-x-auto scroll-touch">
                             <Table className="w-full border-collapse text-left text-xs min-w-[700px]">
                               <TableHeader>
-                                <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
+                                <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
                                   <TableHead className="p-3">Subject Details</TableHead>
                                   <TableHead className="p-3">Test Date</TableHead>
                                   <TableHead className="p-3 text-center">Marks Scored</TableHead>
@@ -3089,7 +3081,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                               : m.grade === "O" || m.grade === "A+" || m.grade === "A"
                                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                               : m.grade === "B+" || m.grade === "B"
-                                              ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                              ? "bg-amber-50 text-amber-800 border border-amber-200"
                                               : isPass
                                               ? "bg-amber-50 text-amber-700 border border-amber-200"
                                               : "bg-rose-50 text-rose-700 border border-rose-200"
@@ -3184,7 +3176,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <tr key={ex.id || idx} className={`hover:bg-slate-50/60 transition-colors ${isPast ? "opacity-60" : ""}`}>
                         <td className="p-3">
                           <div className="flex flex-col gap-1">
-                            <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10.5px] font-extrabold w-max">
+                            <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-amber-700 text-[10.5px] font-extrabold w-max">
                               {ex.exam_type}
                             </span>
                             {isPast && (
@@ -3203,7 +3195,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <td className="p-3 text-slate-700 font-bold whitespace-nowrap">
                           <div className="flex flex-col gap-1">
                             <div className="flex items-center gap-1.5">
-                              <Calendar className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                              <Calendar className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                               <span>{ex.exam_date}</span>
                             </div>
                             {ex.day_order && ex.day_order !== "None" ? (
@@ -3247,15 +3239,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <div className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden">
                       <div className="px-4 py-2.5 bg-indigo-50/60 border-b border-indigo-100 flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-black uppercase text-indigo-700 tracking-wider">Upcoming Scheduled Tests</span>
-                          <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700 text-[9px] font-black">{upcomingExams.length}</span>
+                          <span className="text-[10px] font-black uppercase text-amber-700 tracking-wider">Upcoming Scheduled Tests</span>
+                          <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-amber-700 text-[9px] font-black">{upcomingExams.length}</span>
                         </div>
-                        <span className="text-[11px] text-indigo-600 font-bold">Prepare well for your assessments!</span>
+                        <span className="text-[11px] text-amber-600 font-bold">Prepare well for your assessments!</span>
                       </div>
                       <div className="overflow-x-auto scroll-touch">
                         <Table className="w-full border-collapse text-left text-xs min-w-[650px]">
                           <TableHeader>
-                            <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
+                            <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
                               <TableHead className="p-3">Exam / Assessment</TableHead>
                               <TableHead className="p-3">Subject Details</TableHead>
                               <TableHead className="p-3">Exam Date & Day Order</TableHead>
@@ -3293,7 +3285,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <div className="overflow-x-auto scroll-touch">
                           <Table className="w-full border-collapse text-left text-xs min-w-[650px]">
                             <TableHeader>
-                              <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
+                              <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
                                 <TableHead className="p-3">Exam / Assessment</TableHead>
                                 <TableHead className="p-3">Subject Details</TableHead>
                                 <TableHead className="p-3">Exam Date & Day Order</TableHead>
@@ -3324,13 +3316,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                    <div className="h-8 w-8 rounded-xl bg-zinc-100 border border-zinc-200 flex items-center justify-center text-amber-500 shrink-0">
                       <BookOpen className="h-4 w-4" />
                     </div>
                     <h2 className="text-base font-black text-slate-900 tracking-tight">
                       Subject Materials & Unit-wise Study Hub
                     </h2>
-                    <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/60 text-[9px] font-black uppercase">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200/60 text-[9px] font-black uppercase">
                       Curriculum Notes & PPTs
                     </span>
                   </div>
@@ -3343,10 +3335,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => materialsQuery.refetch()}
-                    className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 cursor-pointer shadow-2xs transition-colors"
+                    className="p-2 rounded-xl bg-sunken hover:bg-white border border-slate-200 inset-shadow-well text-slate-600 cursor-pointer shadow-2xs transition-colors"
                     title="Refresh Materials"
                   >
-                    <RefreshCw className={`h-4 w-4 ${materialsLoading ? "animate-spin text-indigo-600" : ""}`} />
+                    <RefreshCw className={`h-4 w-4 ${materialsLoading ? "animate-spin text-amber-600" : ""}`} />
                   </button>
                 </div>
               </div>
@@ -3370,11 +3362,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         type="button"
                         onClick={() => setSelectedMaterialSubject(subj.name)}
                         className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border shadow-xs ${isSelected
-                            ? "bg-slate-900 border-slate-900 text-white ring-2 ring-indigo-200 scale-105"
+                            ? "bg-slate-900 border-slate-900 text-white ring-2 ring-amber-500/40 scale-105"
                             : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                           }`}
                       >
-                        <GraduationCap className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-indigo-300" : "text-slate-400"}`} />
+                        <GraduationCap className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-amber-400" : "text-slate-400"}`} />
                         <span>{subj.name}</span>
                       </button>
                     );
@@ -3404,7 +3396,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       type="button"
                       onClick={() => setSelectedMaterialUnit(unitNum)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${selectedMaterialUnit === unitNum
-                          ? "bg-white text-indigo-600 shadow-xs"
+                          ? "bg-zinc-900 text-white shadow-xs"
                           : "text-slate-500 hover:text-slate-900"
                         }`}
                     >
@@ -3421,7 +3413,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     placeholder="Search topics, unit notes..."
                     value={materialSearchQuery}
                     onChange={(e) => setMaterialSearchQuery(e.target.value)}
-                    className="w-full pl-8.5 pr-4 py-2 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white text-xs outline-none focus:ring-1 focus:ring-indigo-500 font-bold placeholder-slate-400"
+                    className="w-full pl-8.5 pr-4 py-2 border border-slate-200 inset-shadow-well rounded-xl bg-sunken focus:bg-white text-xs outline-none focus:ring-1 focus:ring-amber-500 font-bold placeholder-slate-400"
                   />
                 </div>
               </div>
@@ -3440,7 +3432,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     type="button"
                     onClick={() => setMaterialTypeFilter(t.id)}
                     className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${materialTypeFilter === t.id
-                        ? "bg-indigo-50 border-indigo-200 text-indigo-700"
+                        ? "bg-indigo-50 border-indigo-200 text-amber-700"
                         : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
                       }`}
                   >
@@ -3468,7 +3460,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               if (materialsLoading) {
                 return (
                   <div className="py-20 text-center text-sm font-bold text-slate-400 flex flex-col items-center justify-center gap-3">
-                    <Loader2 className="h-7 w-7 text-indigo-600 animate-spin" />
+                    <Loader2 className="h-7 w-7 text-amber-600 animate-spin" />
                     <span>Loading subject study materials...</span>
                   </div>
                 );
@@ -3477,7 +3469,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               if (filteredList.length === 0) {
                 return (
                   <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-12 text-center space-y-3">
-                    <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto">
+                    <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-amber-600 flex items-center justify-center mx-auto">
                       <BookOpen className="h-6 w-6" />
                     </div>
                     <h3 className="text-sm font-black text-slate-800">No Study Materials Found</h3>
@@ -3500,7 +3492,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     return (
                       <div
                         key={mat.id}
-                        className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card hover:shadow-card-lg hover:border-indigo-200 transition-all flex flex-col justify-between space-y-4 group"
+                        className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card hover:shadow-card-lg hover:border-amber-400/40 transition-all flex flex-col justify-between space-y-4 group"
                       >
                         <div className="space-y-3">
                           <div className="flex items-start justify-between gap-3">
@@ -3512,7 +3504,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   ? "bg-amber-50 text-amber-800 border-amber-200"
                                   : isQuestionBank
                                     ? "bg-purple-50 text-purple-800 border-purple-200"
-                                    : "bg-indigo-50 text-indigo-800 border-indigo-200"
+                                    : "bg-indigo-50 text-amber-800 border-indigo-200"
                                 }`}>
                                 {isPPT ? "Lecture PPT" : isQuestionBank ? "Question Bank" : "PDF Notes"}
                               </span>
@@ -3524,7 +3516,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           </div>
 
                           <div>
-                            <h3 className="text-sm font-black text-slate-900 group-hover:text-indigo-600 transition-colors leading-snug">
+                            <h3 className="text-sm font-black text-slate-900 group-hover:text-amber-500 transition-colors leading-snug">
                               {mat.title}
                             </h3>
                             {mat.description && (
@@ -3555,7 +3547,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   toast(`Downloading "${mat.title}" (${mat.file_size || "PDF"})`, "success");
                                 }
                               }}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs cursor-pointer transition-all hover:scale-105"
+                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 text-xs font-bold shadow-xs cursor-pointer transition-all hover:scale-105"
                             >
                               <Download className="h-3.5 w-3.5" />
                               <span>Download</span>
@@ -3592,9 +3584,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
                   { label: "Total Fees", value: fmtR(stats.totalFees), color: "text-slate-800", bg: "bg-slate-50" },
-                  { label: "Paid", value: fmtR(stats.totalPaid), color: "text-[#D528A2]", bg: "bg-slate-50" },
+                  { label: "Paid", value: fmtR(stats.totalPaid), color: "text-[#4F46E5]", bg: "bg-slate-50" },
                   { label: "Due", value: fmtR(stats.totalOutstanding), color: "text-slate-500", bg: "bg-slate-50" },
-                  { label: "Status", value: stats.unpaidCount > 0 ? `${stats.unpaidCount} Unpaid` : "All Clear", color: stats.unpaidCount > 0 ? "text-[#D528A2]" : "text-[#F4A863]", bg: "bg-slate-50" },
+                  { label: "Status", value: stats.unpaidCount > 0 ? `${stats.unpaidCount} Unpaid` : "All Clear", color: stats.unpaidCount > 0 ? "text-[#4F46E5]" : "text-[#7C3AED]", bg: "bg-slate-50" },
                 ].map(({ label, value, color, bg }) => (
                   <div key={label} className={`rounded-xl p-3.5 border border-slate-100 ${bg}`}>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
@@ -3606,7 +3598,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="bg-white border border-slate-100 rounded-2xl p-5 space-y-3 shadow-card">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Fee Breakdown</h3>
-                  <button onClick={() => feeQuery.refetch()} className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-[#D528A2] cursor-pointer transition-colors"><RefreshCw className="h-3 w-3" /></button>
+                  <button onClick={() => feeQuery.refetch()} className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-[#4F46E5] cursor-pointer transition-colors"><RefreshCw className="h-3 w-3" /></button>
                 </div>
                 {fees.map((fee: any) => (
                   <div key={fee.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/50 gap-3">
@@ -3621,10 +3613,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     </div>
                     <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
                       {fee.status === "paid" ? (
-                        <span className="px-3 py-1 rounded-xl bg-[#D528A2]/10 text-[#D528A2] text-[10px] font-extrabold flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Paid</span>
+                        <span className="px-3 py-1 rounded-xl bg-[#4F46E5]/10 text-[#4F46E5] text-[10px] font-extrabold flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Paid</span>
                       ) : (
                         <>
-                          {fee.status === "partial" && <span className="px-2 py-0.5 rounded-full bg-[#F4A863]/10 text-[#F4A863] text-[10px] font-bold">Partial</span>}
+                          {fee.status === "partial" && <span className="px-2 py-0.5 rounded-full bg-[#7C3AED]/10 text-[#7C3AED] text-[10px] font-bold">Partial</span>}
                           {fee.pay_link ? (
                             <a
                               href={fee.pay_link}
@@ -3665,7 +3657,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           <p className="font-bold text-slate-700">{p.receipt_no}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">{p.reference_no}</p>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full bg-[#D528A2]/10 text-[#D528A2] text-[9px] font-bold capitalize">{p.payment_method}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-[#4F46E5]/10 text-[#4F46E5] text-[9px] font-bold capitalize">{p.payment_method}</span>
                         <div className="text-right">
                           <p className="font-extrabold text-slate-800">{fmtR(p.amount)}</p>
                           <p className="text-[10px] text-slate-400">{new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
@@ -3681,16 +3673,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   open={true}
                   onOpenChange={(next) => { if (!next) setFeePayModal(null); }}
                   ariaLabel="Pay fee online"
-                  overlayClassName="bg-black/40 backdrop-blur-sm"
-                  panelClassName="max-w-md max-h-[90vh] p-7 space-y-0"
+                  overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+                  panelClassName="max-w-md max-h-[90vh] p-6 space-y-0"
                 >
                     {feePaySuccess ? (
                       <div className="text-center space-y-4">
                         <div className="h-14 w-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto">
-                          <CheckCircle2 className="h-8 w-8 text-[#D528A2]" />
+                          <CheckCircle2 className="h-8 w-8 text-[#4F46E5]" />
                         </div>
                         <h3 className="text-lg font-extrabold text-slate-800">Payment Successful!</h3>
-                        <p className="text-sm text-slate-500">Receipt No: <span className="font-bold text-[#D528A2]">{feePaySuccess}</span></p>
+                        <p className="text-sm text-slate-500">Receipt No: <span className="font-bold text-[#4F46E5]">{feePaySuccess}</span></p>
                         <button onClick={() => setFeePayModal(null)} className="w-full py-3 rounded-xl btn-gradient text-white font-bold cursor-pointer transition-colors">Close</button>
                       </div>
                     ) : (
@@ -3705,17 +3697,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <div className="space-y-4">
                           <div className="flex justify-between text-sm p-3 rounded-xl bg-slate-50 border border-slate-100">
                             <span className="font-semibold text-slate-600">Outstanding Balance</span>
-                            <span className="font-extrabold text-[#D528A2]">{"₹" + (feePayModal.amount - feePayModal.paid_amount).toLocaleString("en-IN")}</span>
+                            <span className="font-extrabold text-[#4F46E5]">{"₹" + (feePayModal.amount - feePayModal.paid_amount).toLocaleString("en-IN")}</span>
                           </div>
                           <div>
                             <label className="text-[11px] font-bold text-slate-600 block mb-1">Amount (₹)</label>
-                            <input aria-label="Amount (₹)" type="number" value={feePayAmount} onChange={e => setFeePayAmount(e.target.value)} max={feePayModal.amount - feePayModal.paid_amount} placeholder="Enter amount" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#D528A2]/50" />
+                            <input aria-label="Amount (₹)" type="number" value={feePayAmount} onChange={e => setFeePayAmount(e.target.value)} max={feePayModal.amount - feePayModal.paid_amount} placeholder="Enter amount" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-sunken dark:bg-[#181820] inset-shadow-well text-sm font-medium focus:outline-none focus:bg-white dark:focus:bg-[#131317] focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
                           </div>
                           <div>
                             <label className="text-[11px] font-bold text-slate-600 block mb-1">Payment Method</label>
                             <div className="grid grid-cols-2 gap-2">
                               {["online", "card"].map(m => (
-                                <button key={m} type="button" onClick={() => setFeePayMethod(m)} className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border capitalize ${feePayMethod === m ? "btn-gradient text-white border-transparent" : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"}`}>{m === "online" ? "UPI / Net Banking" : "Card Payment"}</button>
+                                <button key={m} type="button" onClick={() => setFeePayMethod(m)} className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border capitalize ${feePayMethod === m ? "btn-gradient text-white border-transparent" : "bg-sunken text-slate-600 border-slate-200 inset-shadow-well hover:bg-white dark:hover:bg-[#131317]"}`}>{m === "online" ? "UPI / Net Banking" : "Card Payment"}</button>
                               ))}
                             </div>
                           </div>
@@ -3840,11 +3832,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     type="button"
                     onClick={() => setStudentTrackerCategory("academic")}
                     className={`px-4 py-2 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${studentTrackerCategory === "academic"
-                        ? "bg-white text-indigo-600 shadow-xs"
+                        ? "bg-zinc-900 text-white shadow-xs"
                         : "text-slate-500 hover:text-slate-800"
                       }`}
                   >
-                    <BookOpen className="h-4 w-4 text-indigo-600" />
+                    <BookOpen className="h-4 w-4 text-amber-600" />
                     <span>Academic Subjects (Quiz, Assessment, Assignment)</span>
                   </button>
 
@@ -3856,7 +3848,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         : "text-slate-500 hover:text-slate-800"
                       }`}
                   >
-                    <GraduationCap className="h-4 w-4 text-indigo-600" />
+                    <GraduationCap className="h-4 w-4 text-amber-600" />
                     <span>Skill Development Tasks</span>
                   </button>
                 </div>
@@ -3893,7 +3885,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             type="button"
                             onClick={() => setStudentAcadSubject(sub.name)}
                             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 border ${isSelected
-                                ? "bg-indigo-600 border-indigo-600 text-white shadow-xs"
+                                ? "bg-zinc-900 border-zinc-900 text-white shadow-xs"
                                 : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                               }`}
                           >
@@ -3947,14 +3939,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           key={`acad_wk_${wk}`}
                           id={`acad-task-week-${wk}`}
                           className={`bg-white border rounded-xl p-5 shadow-card space-y-4 hover:shadow-card transition-all duration-300 scroll-mt-24 ${highlightedWeek === wk
-                              ? "border-indigo-500 ring-4 ring-indigo-100 shadow-md scale-[1.01]"
+                              ? "border-amber-500 ring-4 ring-amber-500/20 shadow-md scale-[1.01]"
                               : "border-slate-200"
                             }`}
                         >
                           {/* Week Card Header */}
                           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3">
                             <div className="flex items-center gap-3">
-                              <span className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 font-black text-xs flex items-center justify-center shrink-0 font-mono">
+                              <span className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 text-amber-700 font-black text-xs flex items-center justify-center shrink-0 font-mono">
                                 W{wk}
                               </span>
                               <div>
@@ -4011,7 +4003,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   </span>
                                 </div>
                               ) : isSubmitted ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-bold">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-amber-700 text-xs font-bold">
                                   <CheckCircle className="h-3.5 w-3.5" />
                                   <span>Work Submitted (Awaiting Marks)</span>
                                 </span>
@@ -4046,13 +4038,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                                     {task.quiz_topic && (
                                       <div className="p-2.5 bg-indigo-50/80 border border-indigo-200 rounded-xl space-y-1.5 shadow-2xs">
-                                        <span className="text-[9.5px] font-black text-indigo-800 uppercase block">Quiz Component</span>
+                                        <span className="text-[9.5px] font-black text-amber-800 uppercase block">Quiz Component</span>
                                         {task.quiz_topic.startsWith("http") ? (
                                           <a
                                             href={task.quiz_topic}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-900 bg-indigo-100/90 px-2 py-0.5 rounded hover:bg-indigo-200 transition-colors"
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-900 bg-indigo-100/90 px-2 py-0.5 rounded hover:bg-indigo-200 transition-colors"
                                           >
                                             <span>Open Quiz</span>
                                             <ExternalLink className="h-3 w-3" />
@@ -4105,9 +4097,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                       href={task.task_pdf_url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-xs font-bold text-indigo-600 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
+                                      className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
                                     >
-                                      <FileText className="h-3.5 w-3.5 text-indigo-600" />
+                                      <FileText className="h-3.5 w-3.5 text-amber-600" />
                                       <span>View Task Material / PDF</span>
                                     </a>
                                   )}
@@ -4125,7 +4117,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 Your Evaluated Component Marks (Scoped to {currentStudent?.email})
                               </span>
 
-                              <div className="grid grid-cols-3 gap-2 text-center">
+                              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                                 {/* Quiz Box */}
                                 <div className="p-3 bg-amber-50/40 border border-amber-200 rounded-xl space-y-1">
                                   <span className="text-[9px] font-extrabold text-amber-800 uppercase block">Quiz</span>
@@ -4190,7 +4182,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           )}
                         </div>
                         <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-2">
-                          <div className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                          <div className="h-7 w-7 rounded-lg bg-zinc-100 border border-zinc-200 flex items-center justify-center text-amber-500 shrink-0">
                             <GraduationCap className="h-4 w-4" />
                           </div>
                           <span>{assignedMentorSubjects[0]}</span>
@@ -4225,11 +4217,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 setStudentTrackerSubject(subName);
                               }}
                               className={`relative px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border shadow-xs ${isSelected
-                                  ? "bg-slate-900 border-slate-900 text-white ring-2 ring-indigo-200 scale-105"
+                                  ? "bg-slate-900 border-slate-900 text-white ring-2 ring-amber-500/40 scale-105"
                                   : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                                 }`}
                             >
-                              <GraduationCap className={`h-4 w-4 shrink-0 ${isSelected ? "text-indigo-300" : "text-slate-400"}`} />
+                              <GraduationCap className={`h-4 w-4 shrink-0 ${isSelected ? "text-amber-400" : "text-slate-400"}`} />
                               <span>{subName}</span>
 
                               {subStats.hasNew && (
@@ -4258,7 +4250,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           aria-label="Select Skill Subject"
                           value={studentTrackerSubject}
                           onChange={(e) => setStudentTrackerSubject(e.target.value)}
-                          className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 bg-white text-slate-800"
+                          className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 bg-white text-slate-800"
                         >
                           {studentSubjects.filter(s => isSkillSubject(s)).map(s => (
                             <option key={s.id} value={s.name}>{s.name}</option>
@@ -4302,7 +4294,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           key={wk}
                           id={`skill-task-week-${wk}`}
                           className={`bg-white border rounded-xl p-5 shadow-card space-y-4 transition-all duration-300 scroll-mt-24 ${highlightedWeek === wk
-                              ? "border-indigo-500 ring-4 ring-indigo-100 shadow-md scale-[1.01]"
+                              ? "border-amber-500 ring-4 ring-amber-500/20 shadow-md scale-[1.01]"
                               : isNewTask
                                 ? "border-rose-300 ring-1 ring-rose-100"
                                 : "border-slate-200"
@@ -4311,7 +4303,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           {/* Task Card Header */}
                           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3">
                             <div className="flex items-center gap-3">
-                              <span className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-xs flex items-center justify-center shrink-0">
+                              <span className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 text-amber-700 font-bold text-xs flex items-center justify-center shrink-0">
                                 W{wk}
                               </span>
                               <div>
@@ -4387,7 +4379,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                       </div>
                                       <div className="space-y-0.5">
                                         <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Due Date</span>
-                                        <span className={`font-semibold ${isPastDeadline ? "text-rose-600" : "text-indigo-600"}`}>
+                                        <span className={`font-semibold ${isPastDeadline ? "text-rose-600" : "text-amber-600"}`}>
                                           {deadlineDate.toLocaleDateString()}
                                         </span>
                                       </div>
@@ -4399,9 +4391,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                           href={task.task_pdf_url}
                                           target="_blank"
                                           rel="noreferrer"
-                                          className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold tracking-wider transition-all duration-200 cursor-pointer"
+                                          className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-amber-700 border border-indigo-200 rounded-lg text-xs font-bold tracking-wider transition-all duration-200 cursor-pointer"
                                         >
-                                          <FileText className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+                                          <FileText className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                                           <span>Reference Document / PDF</span>
                                         </a>
                                       </div>
@@ -4420,14 +4412,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                               <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider block">Submitted Link / File</span>
                                               {currentUrl.startsWith("data:") ? (
                                                 <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
-                                                  <FileText className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                                                  <FileText className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                                                   <a
                                                     href={currentUrl}
                                                     download={`Week_${wk}_Submission`}
-                                                    className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline truncate"
+                                                    className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:underline truncate"
                                                   >
                                                     <span>Download Attached Document</span>
-                                                    <Download className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+                                                    <Download className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                                                   </a>
                                                 </div>
                                               ) : (
@@ -4435,10 +4427,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                   href={currentUrl}
                                                   target="_blank"
                                                   rel="noreferrer"
-                                                  className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:underline truncate max-w-full"
+                                                  className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:underline truncate max-w-full"
                                                 >
                                                   <span className="truncate">{currentUrl}</span>
-                                                  <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-indigo-600" />
+                                                  <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                                                 </a>
                                               )}
                                             </div>
@@ -4468,7 +4460,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                               disabled={isSubmitting}
                                               onClick={() => setStudentUploadType(prev => ({ ...prev, [wk]: "url" }))}
                                               className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${(studentUploadType[wk] || "url") === "url"
-                                                  ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                                                  ? "bg-indigo-50 border-indigo-300 text-amber-700"
                                                   : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                                                 }`}
                                             >
@@ -4479,7 +4471,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                               disabled={isSubmitting}
                                               onClick={() => setStudentUploadType(prev => ({ ...prev, [wk]: "file" }))}
                                               className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${studentUploadType[wk] === "file"
-                                                  ? "bg-indigo-50 border-indigo-300 text-indigo-700"
+                                                  ? "bg-indigo-50 border-indigo-300 text-amber-700"
                                                   : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                                                 }`}
                                             >
@@ -4521,12 +4513,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                 placeholder="https://github.com/..."
                                                 required
                                                 disabled={isSubmitting}
-                                                className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                                                className="flex-1 px-3 py-2 text-xs border border-slate-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white"
                                               />
                                               <button
                                                 type="submit"
                                                 disabled={isSubmitting}
-                                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
+                                                className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 text-xs font-bold rounded-lg cursor-pointer transition-colors shadow-2xs disabled:opacity-50"
                                               >
                                                 {isSubmitting ? "Saving..." : "Submit"}
                                               </button>
@@ -4648,7 +4640,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <button
                     type="button"
                     onClick={startEditingProfile}
-                    className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all hover:scale-[1.01] cursor-pointer"
+                    className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white border border-white/10 rounded-xl text-xs font-extrabold shadow-sm transition-all hover:scale-[1.01] cursor-pointer"
                   >
                     Edit Profile Data
                   </button>
@@ -4658,8 +4650,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               {/* Editing Action Row */}
               {isEditingProfile && (
                 <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-100 p-4.5 rounded-xl justify-end flex-wrap">
-                  <span className="text-xs font-bold text-indigo-800 mr-auto">
-                    You are in editing mode. Save your changes to persist them to the database.
+                  <span className="text-xs font-bold text-amber-800 mr-auto">
+                    Editing mode active. Click Save to apply your changes.
                   </span>
                   <button
                     type="button"
@@ -4681,9 +4673,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                 {/* Section 1: Personal & Primary Identity */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                    <User className="h-5 w-5 text-indigo-600" />
+                    <User className="h-5 w-5 text-amber-600" />
                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Personal & Identity Credentials</h3>
                   </div>
 
@@ -4695,7 +4687,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           type="text"
                           value={editName}
                           onChange={e => setEditName(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                           required
                         />
                       ) : (
@@ -4716,7 +4708,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editRollNumber}
                           onChange={e => setEditRollNumber(e.target.value)}
                           placeholder="e.g. 21CS01"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         <span className="text-xs font-extrabold text-slate-800 block">{currentStudent.roll_number || <span className="text-slate-400 italic">Not Added</span>}</span>
@@ -4742,7 +4734,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           type="date"
                           value={editDob}
                           onChange={e => setEditDob(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         <span className="text-xs font-extrabold text-slate-900 block">{currentStudent.dob || <span className="text-slate-400 italic">Not Added</span>}</span>
@@ -4755,7 +4747,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <select aria-label="Blood Group"
                           value={editBloodGroup}
                           onChange={e => setEditBloodGroup(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800 cursor-pointer"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800 cursor-pointer"
                         >
                           <option value="">Select Group</option>
                           {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => (
@@ -4770,9 +4762,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
 
                 {/* Section 2: Contact Details */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-5">
                   <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                    <Clock className="h-5 w-5 text-indigo-700" />
+                    <Clock className="h-5 w-5 text-amber-700" />
                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Contact & Communications</h3>
                   </div>
 
@@ -4784,11 +4776,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           type="email"
                           value={editEmail}
                           onChange={e => setEditEmail(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                           required
                         />
                       ) : (
-                        <span className="text-xs font-extrabold text-indigo-600 block break-all">{currentStudent.email}</span>
+                        <span className="text-xs font-extrabold text-amber-600 block break-all">{currentStudent.email}</span>
                       )}
                     </div>
 
@@ -4800,7 +4792,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editPhone}
                           onChange={e => setEditPhone(e.target.value)}
                           placeholder="e.g. 9876543210"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         <span className="text-xs font-extrabold text-slate-900 block">{currentStudent.phone || <span className="text-slate-400 italic">Not Added</span>}</span>
@@ -4815,7 +4807,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editParentPhone}
                           onChange={e => setEditParentPhone(e.target.value)}
                           placeholder="e.g. 8765432109"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         <span className="text-xs font-extrabold text-slate-900 block">{currentStudent.parent_phone || <span className="text-slate-400 italic">Not Added</span>}</span>
@@ -4825,9 +4817,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
 
                 {/* Section 3: Academic History & Medium */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 lg:col-span-2">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-5 lg:col-span-2">
                   <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                    <BookOpen className="h-5 w-5 text-indigo-600" />
+                    <BookOpen className="h-5 w-5 text-amber-600" />
                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Academic Background & Marks</h3>
                   </div>
 
@@ -4839,7 +4831,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           type="text"
                           value={editDepartment}
                           onChange={e => setEditDepartment(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                           required
                         />
                       ) : (
@@ -4858,7 +4850,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editTenthMark}
                           onChange={e => setEditTenthMark(e.target.value)}
                           placeholder="e.g. 92.4"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         <span className="text-xs font-extrabold text-slate-800 block">{currentStudent.tenth_mark ? `${currentStudent.tenth_mark}%` : <span className="text-slate-400 italic">Not Added</span>}</span>
@@ -4873,7 +4865,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editEleventhMark}
                           onChange={e => setEditEleventhMark(e.target.value)}
                           placeholder="e.g. 88.5"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         <span className="text-xs font-extrabold text-slate-800 block">{currentStudent.eleventh_mark ? `${currentStudent.eleventh_mark}%` : <span className="text-slate-400 italic">Not Added</span>}</span>
@@ -4888,7 +4880,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editTwelfthMark}
                           onChange={e => setEditTwelfthMark(e.target.value)}
                           placeholder="e.g. 94.0"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         <span className="text-xs font-extrabold text-slate-800 block">{currentStudent.twelfth_mark ? `${currentStudent.twelfth_mark}%` : <span className="text-slate-400 italic">Not Added</span>}</span>
@@ -4903,7 +4895,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editAcademicGroup}
                           onChange={e => setEditAcademicGroup(e.target.value)}
                           placeholder="e.g. Computer Science"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         <span className="text-xs font-extrabold text-slate-900 block">{currentStudent.academic_group || <span className="text-slate-400 italic">Not Added</span>}</span>
@@ -4916,7 +4908,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <select aria-label="Medium of Study"
                           value={editMedium}
                           onChange={e => setEditMedium(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800 cursor-pointer"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800 cursor-pointer"
                         >
                           <option value="">Select Medium</option>
                           <option value="English">English</option>
@@ -4931,9 +4923,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
 
                 {/* Section 4: Professional Portfolios & Practice Hubs */}
-                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5 lg:col-span-2">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-5 lg:col-span-2">
                   <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                    <Sparkles className="h-5 w-5 text-indigo-600" />
+                    <Sparkles className="h-5 w-5 text-amber-600" />
                     <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider">Professional Portfolios & Coding Profiles</h3>
                   </div>
 
@@ -4947,14 +4939,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editLinkedinLink}
                           onChange={e => setEditLinkedinLink(e.target.value)}
                           placeholder="linkedin.com/in/username"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         (() => {
                           const val = currentStudent.linkedin_link;
                           if (!val) return <span className="text-xs text-slate-400 italic">Not Added</span>;
                           const href = val.startsWith("http") ? val : `https://${val}`;
-                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-indigo-600 hover:underline break-all">{val}</a>;
+                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-amber-600 hover:underline break-all">{val}</a>;
                         })()
                       )}
                     </div>
@@ -4973,14 +4965,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editGithubId}
                           onChange={e => setEditGithubId(e.target.value)}
                           placeholder="e.g. githubusername"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         (() => {
                           const val = currentStudent.github_id;
                           if (!val) return <span className="text-xs text-slate-400 italic">Not Added</span>;
                           const href = `https://github.com/${val.replace(/@/, "")}`;
-                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-indigo-600 hover:underline break-all">{val}</a>;
+                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-amber-600 hover:underline break-all">{val}</a>;
                         })()
                       )}
                     </div>
@@ -4994,14 +4986,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editProjectDriveLink}
                           onChange={e => setEditProjectDriveLink(e.target.value)}
                           placeholder="drive.google.com/..."
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         (() => {
                           const val = currentStudent.project_drive_link;
                           if (!val) return <span className="text-xs text-slate-400 italic">Not Added</span>;
                           const href = val.startsWith("http") ? val : `https://${val}`;
-                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-indigo-600 hover:underline break-all">Google Drive Folder Link</a>;
+                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-amber-600 hover:underline break-all">Google Drive Folder Link</a>;
                         })()
                       )}
                     </div>
@@ -5015,14 +5007,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editHackerrankLink}
                           onChange={e => setEditHackerrankLink(e.target.value)}
                           placeholder="hackerrank.com/username"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         (() => {
                           const val = currentStudent.hackerrank_link;
                           if (!val) return <span className="text-xs text-slate-400 italic">Not Added</span>;
                           const href = val.startsWith("http") ? val : `https://${val}`;
-                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-indigo-600 hover:underline break-all">{val}</a>;
+                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-amber-600 hover:underline break-all">{val}</a>;
                         })()
                       )}
                     </div>
@@ -5036,14 +5028,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editLeetcodeLink}
                           onChange={e => setEditLeetcodeLink(e.target.value)}
                           placeholder="leetcode.com/username"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         (() => {
                           const val = currentStudent.leetcode_link;
                           if (!val) return <span className="text-xs text-slate-400 italic">Not Added</span>;
                           const href = val.startsWith("http") ? val : `https://${val}`;
-                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-indigo-600 hover:underline break-all">{val}</a>;
+                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-amber-600 hover:underline break-all">{val}</a>;
                         })()
                       )}
                     </div>
@@ -5057,14 +5049,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           value={editFigmaLink}
                           onChange={e => setEditFigmaLink(e.target.value)}
                           placeholder="figma.com/@username"
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none text-slate-800"
+                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800"
                         />
                       ) : (
                         (() => {
                           const val = currentStudent.figma_link;
                           if (!val) return <span className="text-xs text-slate-400 italic">Not Added</span>;
                           const href = val.startsWith("http") ? val : `https://${val}`;
-                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-indigo-600 hover:underline break-all">{val}</a>;
+                          return <a href={href} target="_blank" rel="noopener noreferrer" className="text-xs font-bold text-amber-600 hover:underline break-all">{val}</a>;
                         })()
                       )}
                     </div>
@@ -5073,7 +5065,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </div>
 
               {/* Live Coding & Competitive Programming Performance Section */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-6">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
                   <div className="flex items-center gap-2.5">
                     <div className="h-9 w-9 rounded-xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-amber-500 text-slate-950 flex items-center justify-center font-black text-sm shadow-xs">
@@ -5101,7 +5093,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                 {loadingCodingStats ? (
                   <div className="p-8 text-center text-xs font-bold text-slate-400 animate-pulse flex items-center justify-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-indigo-500" />
+                    <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
                     <span>Syncing latest LeetCode &amp; HackerRank metrics...</span>
                   </div>
                 ) : (
@@ -5143,7 +5135,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       </div>
 
                       {/* Solved Difficulty Distribution Pills */}
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                         <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200/70 text-center">
                           <span className="text-[9.5px] font-black uppercase text-emerald-700 tracking-wider block">Easy</span>
                           <span className="text-sm font-black text-emerald-900">{codingStatsData?.leetcode?.solvedEasy || 0}</span>
@@ -5251,7 +5243,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               </div>
 
               {/* Honors & Student Achievements Section */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-5">
+              <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-5">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100 flex-wrap gap-2">
                   <div className="flex items-center gap-2.5">
                     <div className="h-9 w-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
@@ -5260,7 +5252,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <div>
                       <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <span>🏆 Honors, Accolades &amp; Achievements</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-50 text-[#D528A2] border border-pink-100">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-50 text-[#4F46E5] border border-pink-100">
                           {studentAchievements.length} Verified
                         </span>
                       </h3>
@@ -5299,7 +5291,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       return (
                         <div
                           key={ach.id}
-                          className="p-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-3 relative overflow-hidden group"
+                          className="p-5 rounded-2xl border border-slate-200 bg-gradient-to-br from-white to-slate-50/50 shadow-card hover:shadow-card-lg transition-all flex flex-col justify-between space-y-3 relative overflow-hidden group"
                         >
                           <div className="space-y-2.5">
                             <div className="flex items-start justify-between gap-2">
@@ -5311,7 +5303,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                       ? "bg-slate-100 text-slate-800 border-slate-300"
                                       : ach.badge === "Paper Published" || ach.badge === "Certification"
                                         ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                        : "bg-indigo-100 text-indigo-800 border-indigo-300"
+                                        : "bg-indigo-100 text-amber-800 border-indigo-300"
                                 }`}
                               >
                                 {ach.badge || "Accolade"}
@@ -5323,14 +5315,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             </div>
 
                             <div>
-                              <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-indigo-600 block">
+                              <span className="text-[9.5px] font-extrabold uppercase tracking-wider text-amber-600 block">
                                 {ach.category || "Accolade"}
                               </span>
                               <h4 className="text-sm font-black text-slate-900 leading-snug mt-0.5">
                                 {ach.title}
                               </h4>
                               {ach.topic && (
-                                <p className="text-xs font-bold text-indigo-900 mt-1 flex items-center gap-1">
+                                <p className="text-xs font-bold text-zinc-900 mt-1 flex items-center gap-1">
                                   <span className="text-[10px] uppercase font-black text-slate-400">Topic:</span>
                                   <span>{ach.topic}</span>
                                 </p>
@@ -5339,7 +5331,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                             {ach.event_name && (
                               <div className="p-2 rounded-xl bg-slate-100/70 border border-slate-200/60 text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                                <Sparkles className="h-3.5 w-3.5 text-[#D528A2] shrink-0" />
+                                <Sparkles className="h-3.5 w-3.5 text-[#4F46E5] shrink-0" />
                                 <span className="truncate">Event: <strong className="text-slate-900">{ach.event_name}</strong></span>
                               </div>
                             )}
@@ -5364,7 +5356,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 href={ach.proof_link.startsWith("http") ? ach.proof_link : `https://${ach.proof_link}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                                className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-800 hover:underline"
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />
                                 <span>Certificate Proof</span>
@@ -5460,13 +5452,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               {/* Header Card */}
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-[#D528A2] text-white flex items-center justify-center shadow-sm shrink-0">
+                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-[#4F46E5] text-white flex items-center justify-center shadow-sm shrink-0">
                     <Award className="h-6 w-6" />
                   </div>
                   <div>
                     <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
                       1-on-1 Structured Technical Interviews
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/80">
+                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-800 border border-amber-200/80">
                         Live Portal
                       </span>
                     </h1>
@@ -5512,12 +5504,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-card flex items-center gap-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-indigo-50 text-amber-600 flex items-center justify-center shrink-0">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider block">Avg Rubric Score</span>
-                    <span className="text-xl font-black text-indigo-700">{avgScore} {avgScore !== "—" ? "/ 10" : ""}</span>
+                    <span className="text-xl font-black text-amber-700">{avgScore} {avgScore !== "—" ? "/ 10" : ""}</span>
                   </div>
                 </div>
 
@@ -5540,7 +5532,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Video className="h-4 w-4 text-indigo-600" />
+                      <Video className="h-4 w-4 text-amber-600" />
                       Scheduled 15-Minute Interview Sessions
                     </h2>
                     <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
@@ -5576,7 +5568,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           key={slot.id || `${slot.interview_id}_${slot.slot_start_time}`}
                           className="bg-white rounded-2xl border border-slate-100 shadow-card hover:shadow-card-lg transition-all duration-200 p-5 space-y-4 flex flex-col justify-between relative overflow-hidden group"
                         >
-                          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 via-[#D528A2] to-teal-400" />
+                          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 via-[#4F46E5] to-teal-400" />
 
                           <div className="space-y-3">
                             <div className="flex items-start justify-between gap-2">
@@ -5584,7 +5576,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mb-1.5 border ${
                                   isInternal
                                     ? "bg-teal-50 text-teal-700 border-teal-200/80"
-                                    : "bg-indigo-50 text-indigo-700 border-indigo-200/80"
+                                    : "bg-amber-50 text-amber-800 border-indigo-200/80"
                                 }`}>
                                   {isInternal ? "Internal Campus Evaluation (In-Person)" : "External Zone Panel (Virtual)"}
                                 </span>
@@ -5597,7 +5589,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                             <div className="grid grid-cols-2 gap-3 pt-1 text-xs">
                               <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                                <Calendar className="h-4 w-4 text-indigo-500 shrink-0" />
+                                <Calendar className="h-4 w-4 text-amber-500 shrink-0" />
                                 <div>
                                   <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Date</span>
                                   <span className="font-bold text-slate-800">{slot.target_date || "Upcoming"}</span>
@@ -5605,7 +5597,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               </div>
 
                               <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                                <Clock className="h-4 w-4 text-[#D528A2] shrink-0" />
+                                <Clock className="h-4 w-4 text-[#4F46E5] shrink-0" />
                                 <div>
                                   <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Allocated Slot</span>
                                   <span className="font-bold text-slate-800 truncate block">
@@ -5655,7 +5647,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                     className="flex items-center gap-1 px-3 py-2 rounded-xl border border-slate-200 text-slate-700 hover:bg-slate-100 text-xs font-bold transition-all"
                                     title="Add to Google Calendar"
                                   >
-                                    <Calendar className="h-3.5 w-3.5 text-indigo-600" />
+                                    <Calendar className="h-3.5 w-3.5 text-amber-600" />
                                     <span className="hidden sm:inline">Add to Cal</span>
                                   </a>
                                 )}
@@ -5690,7 +5682,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-[#D528A2]" />
+                      <Sparkles className="h-4 w-4 text-[#4F46E5]" />
                       Interview Performance & Rubric Evaluations
                     </h2>
                     <p className="text-[11px] text-slate-400 font-semibold mt-0.5">

@@ -170,7 +170,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
         if (!next) onClose();
       }}
       ariaLabel={`Course details — ${resolvedCourse.name}`}
-      overlayClassName="z-[100] p-4 bg-slate-900/60 backdrop-blur-xs"
+      overlayClassName="z-[100] p-4 bg-slate-950/60 backdrop-blur-sm"
       panelClassName="max-w-xl max-h-[90vh] p-6 space-y-5 flex flex-col overflow-hidden rounded-2xl"
     >
         {/* Close button */}
@@ -337,7 +337,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
                 <span className="text-[10px] font-extrabold text-indigo-800 uppercase tracking-wider block">
                   Campus Live Snapshot
                 </span>
-                <div className="grid grid-cols-3 gap-2 text-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                   <div className="p-2 bg-white rounded-lg border border-indigo-100 shadow-2xs">
                     <div className="text-lg font-black text-slate-900">{enrolledStudents.length}</div>
                     <div className="text-[10px] text-slate-500 font-bold">Enrolled Students</div>

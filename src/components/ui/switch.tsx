@@ -67,16 +67,17 @@ const Switch = React.forwardRef<HTMLButtonElement, SwitchProps>(
         disabled={disabled}
         onClick={handleClick}
         className={cn(
-          "relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-600 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          "relative inline-flex shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           sizeClasses.container,
-          isChecked ? "bg-indigo-600 dark:bg-indigo-500" : "bg-slate-200 dark:bg-slate-700",
+          isChecked ? "bg-zinc-900 dark:bg-zinc-800 ring-1 ring-amber-500/30" : "bg-slate-200 dark:bg-slate-700",
           className
         )}
         {...props}
       >
         <span
           className={cn(
-            "pointer-events-none inline-block rounded-full bg-white shadow-md transform ring-0 transition duration-200 ease-in-out my-auto",
+            "pointer-events-none inline-block rounded-full shadow-md transform ring-0 transition duration-200 ease-in-out my-auto",
+            isChecked ? "bg-amber-400" : "bg-white",
             sizeClasses.thumb,
             isChecked ? sizeClasses.translateChecked : sizeClasses.translateUnchecked
           )}

@@ -12,7 +12,7 @@ export default function StudentNotificationsPage() {
 
   return (
     <DashboardLayout requiredRole="student">
-      <div className="p-4 md:p-8 min-h-screen bg-gray-50/50">
+      <div className="p-4 md:p-8 min-h-dvh bg-gray-50/50">
         <NotificationsView userId={currentStudent.id} portalType="student" />
       </div>
     </DashboardLayout>

@@ -38,9 +38,10 @@ export interface StructuredPeriodSlot {
 export function getStructuredCollegePeriodSlots(
   collegeId?: string,
   colleges: any[] = [],
-  slots: any[] = []
+  slots: any[] = [],
+  shiftFilter?: string
 ): StructuredPeriodSlot[] {
-  const rawSlots = getCollegePeriodTimeSlots(collegeId, colleges, slots);
+  const rawSlots = getCollegePeriodTimeSlots(collegeId, colleges, slots, shiftFilter);
   const sorted = Array.from(new Set(rawSlots)).sort((a, b) => {
     const startA = parseTimeToMinutes((a.split("-")[0] || "").trim());
     const startB = parseTimeToMinutes((b.split("-")[0] || "").trim());
@@ -218,43 +219,46 @@ const CapacityMetricsBar = ({
   remEval: number;
   type?: string;
 }) => (
-  <div className="bg-slate-50 border-t border-slate-200/80 px-4 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs">
-    <div className="flex items-center gap-2.5 flex-wrap font-semibold text-slate-600">
-      <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-800 font-extrabold text-[11px] shadow-2xs">
-        Required: <strong className="text-indigo-700 font-black">{reqCount}</strong>
-      </span>
+  <div className="bg-slate-50/60 border-t border-slate-200/80 px-4 py-2 flex flex-wrap items-center justify-between gap-3 text-xs">
+    <div className="flex items-center gap-2.5 flex-wrap font-medium text-slate-600 text-[11px]">
+      <span className="text-slate-900 font-bold">{reqCount} Students</span>
+      <span className="text-slate-300">•</span>
       {type === "external" && (
-        <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-800 font-extrabold text-[11px] shadow-2xs">
-          Accepted Cap: <strong className="text-purple-700 font-black">{accCap || 0}</strong>
-        </span>
+        <>
+          <span>Zone Cap: <strong className="text-slate-900 font-semibold">{accCap || 0}/{reqCount}</strong></span>
+          <span className="text-slate-300">•</span>
+        </>
       )}
-      <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-800 font-extrabold text-[11px] shadow-2xs">
-        Allocated: <strong className="text-blue-700 font-black">{allocCount}</strong>
-      </span>
-      <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-800 font-extrabold text-[11px] shadow-2xs">
-        Evaluated: <strong className="text-emerald-700 font-black">{evalCount}</strong>
-      </span>
-      <span className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-md border border-slate-200 text-slate-800 font-extrabold text-[11px] shadow-2xs">
-        Verified: <strong className="text-teal-700 font-black">{verCount}</strong>
-      </span>
-      {remAlloc > 0 && (
-        <span className="text-[10px] text-amber-700 font-black bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200">
-          Remaining to Allocate: {remAlloc}
-        </span>
-      )}
-      {remEval > 0 && allocCount > 0 && (
-        <span className="text-[10px] text-purple-700 font-black bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200">
-          ⏳ Pending Evaluation: {remEval}
-        </span>
+      <span>Allocated: <strong className="text-slate-900 font-semibold">{allocCount}/{reqCount}</strong></span>
+      <span className="text-slate-300">•</span>
+      <span>Evaluated: <strong className="text-slate-900 font-semibold">{evalCount}/{reqCount}</strong></span>
+      {verCount > 0 && (
+        <>
+          <span className="text-slate-300">•</span>
+          <span>Verified: <strong className="text-emerald-700 font-semibold">{verCount}</strong></span>
+        </>
       )}
     </div>
+    {remAlloc > 0 ? (
+      <span className="text-[11px] text-amber-700 font-semibold">
+        {remAlloc} to allocate
+      </span>
+    ) : remEval > 0 ? (
+      <span className="text-[11px] text-slate-500 font-medium">
+        {remEval} pending evaluation
+      </span>
+    ) : (
+      <span className="text-[11px] text-emerald-700 font-semibold">
+        All allocated
+      </span>
+    )}
   </div>
 );
 
 // ─── Score Slider ─────────────────────────────────────────────────────────────
 
 const ScoreSlider = ({
-  label, value, onChange, color = "#D528A2"
+  label, value, onChange, color = "#4F46E5"
 }: { label: string; value: number; onChange: (v: number) => void; color?: string }) => (
   <div className="bg-slate-50/70 border border-slate-100 rounded-xl p-3.5 space-y-2 shadow-xs">
     <div className="flex justify-between items-center">
@@ -280,8 +284,8 @@ const isCandidatePlaceholder = (name?: string) =>
 
 // ─── Mentor Free-Time Timeline ─────────────────────────────────────────────
 
-const BRAND_PINK = "#D528A2";
-const BRAND_PEACH = "#F4A863";
+const BRAND_PINK = "#4F46E5";
+const BRAND_PEACH = "#7C3AED";
 
 /** Converts "9.00 AM" style to total minutes from midnight */
 function slotToMinutes(t: string): number {
@@ -386,7 +390,7 @@ const MentorFreeTimeTimeline = ({
 
   const kindStyle: Record<string, string> = {
     busy:   "bg-rose-400/80",
-    booked: "bg-[#D528A2]",
+    booked: "bg-[#4F46E5]",
     free:   "bg-emerald-400/70",
   };
 
@@ -825,7 +829,7 @@ const StudentConductedRosterDrawer = ({
                     placeholder="Search name or roll number…"
                     value={studentSearch}
                     onChange={(e) => setStudentSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none font-semibold"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-sunken border border-slate-200 inset-shadow-well rounded-xl focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none font-semibold"
                   />
                 </div>
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[10px] font-bold self-start">
@@ -1150,8 +1154,8 @@ const PrioritySplitPreviewDialog: React.FC<PrioritySplitPreviewDialogProps> = ({
         if (!open) onClose();
       }}
       ariaLabel="Priority Split Allocation Preview"
-      overlayClassName="bg-slate-900/60 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto animate-fadeIn"
-      panelClassName="max-w-3xl w-full max-h-[85vh] p-0 space-y-0 overflow-hidden flex flex-col rounded-2xl bg-white shadow-2xl"
+      overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto animate-fadeIn"
+      panelClassName="max-w-3xl w-full max-h-[85vh] p-0 space-y-0 overflow-hidden flex flex-col rounded-2xl bg-white shadow-card-lg"
     >
       {/* Header */}
       <div className="flex justify-between items-center px-6 py-4 border-b border-slate-100 bg-slate-50/90 shrink-0">
@@ -1182,7 +1186,7 @@ const PrioritySplitPreviewDialog: React.FC<PrioritySplitPreviewDialogProps> = ({
       </div>
 
       {/* KPI Metrics Strip */}
-      <div className="grid grid-cols-4 border-b border-slate-200 bg-white shrink-0 divide-x divide-slate-100">
+      <div className="grid grid-cols-1 sm:grid-cols-4 border-b border-slate-200 bg-white shrink-0 divide-x divide-slate-100">
         <div className="p-3 text-center">
           <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Requested</span>
           <span className="text-lg font-black text-slate-800">{totalRequested}</span>
@@ -1320,26 +1324,8 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   const { toast, confirm: showConfirm } = useToast();
   const queryClient = useQueryClient();
 
-  const [dbColleges, setDbColleges] = useState<any[]>([]);
   const [deletingInterviewId, setDeletingInterviewId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (colleges && colleges.length > 0) {
-      setDbColleges(colleges);
-    } else {
-      apiFetch("/api/data/reference")
-        .then(data => {
-          if (data.success && data.colleges) {
-            setDbColleges(data.colleges);
-          }
-        })
-        .catch(err => console.error("Error fetching colleges in InterviewModule:", err));
-    }
-  }, [colleges]);
-
-  const activeCollegesList = useMemo(() => {
-    return (dbColleges && dbColleges.length > 0) ? dbColleges : (colleges || []);
-  }, [dbColleges, colleges]);
+  const activeCollegesList = colleges;
 
   const isMentor = currentUserRole === "mentor";
   const isCM = currentUserRole === "cm" || currentUserRole === "cam";
@@ -1407,6 +1393,16 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   const [camTimeSlot, setCamTimeSlot] = useState("8.20 AM - 9.10 AM");
   const [cmGmeetLink, setCmGmeetLink] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
+
+  const generateGMeetLink = () => {
+    const chars = "abcdefghijklmnopqrstuvwxyz";
+    const randStr = (len: number) => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
+    const code = randStr(3) + "-" + randStr(4) + "-" + randStr(3);
+    const link = "https://meet.google.com/" + code;
+    setCmGmeetLink(link);
+    toast("Google Meet link generated!", "success");
+    return link;
+  };
   const [isMarkingComplete, setIsMarkingComplete] = useState<string | null>(null);
   const [viewingStudentRosterModal, setViewingStudentRosterModal] = useState<any | null>(null);
   const [rosterInitialTab, setRosterInitialTab] = useState<"mentors" | "students" | "logs">("students");
@@ -1575,6 +1571,47 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   const evaluationsList = interviewsQuery.data?.evaluations || [];
   const isLoading = interviewsQuery.isFetching;
 
+  // Campus daily configs and exam schedules for detecting Exam Days
+  const effectiveCollegeId = defaultCollegeId || currentMentor?.college_id || (colleges.length > 0 ? colleges[0]?.id : "") || "";
+
+  const dailyConfigsQuery = useQuery({
+    queryKey: ["daily-configs", effectiveCollegeId],
+    queryFn: async () => {
+      if (!effectiveCollegeId) return [];
+      const res = await apiFetch<any>(`/api/daily-configs?college_id=${encodeURIComponent(effectiveCollegeId)}`);
+      return (res?.data || res?.configs || (Array.isArray(res) ? res : [])) as any[];
+    },
+    staleTime: 60_000,
+    enabled: !!effectiveCollegeId
+  });
+  const dailyConfigsList = Array.isArray(dailyConfigsQuery.data) ? dailyConfigsQuery.data : [];
+
+  const examsQuery = useQuery({
+    queryKey: ["exams", effectiveCollegeId],
+    queryFn: async () => {
+      if (!effectiveCollegeId) return [];
+      const res = await apiFetch<any>(`/api/exams?college_id=${encodeURIComponent(effectiveCollegeId)}`);
+      return (res?.data || res?.exams || (Array.isArray(res) ? res : [])) as any[];
+    },
+    staleTime: 60_000,
+    enabled: !!effectiveCollegeId
+  });
+  const examsList = Array.isArray(examsQuery.data) ? examsQuery.data : [];
+
+  const getExamDayInfo = useCallback((dateStr: string) => {
+    if (!dateStr) return null;
+    const cleanDate = dateStr.split("T")[0].trim();
+    const cfg = dailyConfigsList.find(c => (c.dateStr || c.date) === cleanDate);
+    if (cfg && (cfg.day_type === "exam_day" || cfg.day_type === "exam" || (cfg.notes && /exam/i.test(cfg.notes)))) {
+      return cfg.notes || "Campus Exam Day";
+    }
+    const ex = examsList.find(e => (e.exam_date || e.date) === cleanDate);
+    if (ex) {
+      return `${ex.exam_type || "Exam"}${ex.subject_name ? ` (${ex.subject_name})` : ""}`;
+    }
+    return null;
+  }, [dailyConfigsList, examsList]);
+
   // Real-time synchronization: invalidate when interviews change elsewhere.
   useEffect(() => {
     const handleSync = () => {
@@ -1724,6 +1761,11 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
     if (!selectedClassGroup) { toast("Please select a class group.", "warning"); return; }
     if (!targetDate) { toast("Please select a target date.", "warning"); return; }
     if (targetDate < minTargetDate) { toast(`Date must be on or after ${minTargetDate}.`, "error"); return; }
+    const examInfo = getExamDayInfo(targetDate);
+    if (examInfo) {
+      toast(`Cannot schedule interview on ${targetDate}: this date is configured as an Exam Day (${examInfo}). Please select a regular working day.`, "error");
+      return;
+    }
     if (!topics.trim()) { toast("Please enter interview topics.", "warning"); return; }
 
     // Dynamic enrolled student count from classGroup
@@ -1903,6 +1945,15 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
     const selectedIds = cohortStudents.slice(0, effectiveStudentCount).map(s => s.id);
 
     setIsAssigning(true);
+    let effectiveMeet = targetReq?.type === "internal" ? "" : cmGmeetLink.trim();
+    if (targetReq?.type === "external" && !effectiveMeet) {
+      if (targetReq.gmeet_link?.trim()) {
+        effectiveMeet = targetReq.gmeet_link.trim();
+      } else {
+        effectiveMeet = generateGMeetLink();
+      }
+    }
+
     try {
       const data = await apiFetch("/api/interviews/assign", {
         method: "POST",
@@ -1913,7 +1964,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
           time_slot: camTimeSlot,
           mentor_schedule: mentorSchedulePayload,
           cm_name: currentUserName,
-          gmeet_link: targetReq?.type === "internal" ? "" : cmGmeetLink.trim(),
+          gmeet_link: targetReq?.type === "internal" ? "" : effectiveMeet,
           selected_student_ids: selectedIds,
         },
       });
@@ -2015,8 +2066,28 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
       } else {
         toast(data.message || "Failed to send capacity request", "error");
       }
-    } catch {
-      toast("Error sending capacity request", "error");
+    } catch (err: any) {
+      toast(err?.message || "Error sending capacity request", "error");
+    }
+  };
+
+  const handleConvertToInternal = async (interviewId: string) => {
+    try {
+      const data = await apiFetch("/api/interviews", {
+        method: "PATCH",
+        body: { interview_id: interviewId, status: "pending_cm", type: "internal" }
+      });
+      if (data.success) {
+        toast("Converted to Internal interview. You can now allocate campus mentors.", "success");
+        await queryClient.invalidateQueries({ queryKey: ["interviews"] });
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("fp_interviews_updated"));
+        }
+      } else {
+        toast(data.message || "Failed to update interview", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Failed to convert interview", "error");
     }
   };
 
@@ -2302,7 +2373,6 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
           if (slotStudentId && (
             st.id === slotStudentId ||
             st.register_number === slotStudentId ||
-            (st as any).roll_no === slotStudentId ||
             st.roll_number === slotStudentId
           )) return true;
           // Only match by name if slot has a real (non-placeholder) name
@@ -2324,7 +2394,6 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
         const resolvedRegNo =
           enrolled?.register_number ||
           enrolled?.roll_number ||
-          (enrolled as any)?.roll_no ||
           slot.register_number ||
           slot.roll_number ||
           slotStudentId ||
@@ -2458,7 +2527,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
       <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#D528A2] mb-1">
+            <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-[#4F46E5] mb-1">
               <Award className="w-3.5 h-3.5" />
               FACE PREP E-CAMPUS • INTERVIEW MODULE
             </div>
@@ -2469,10 +2538,10 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             </h1>
             <p className="text-xs text-slate-500 mt-0.5 font-medium">
               {isMentor
-                ? "Schedule interview dates, track session calendars, and evaluate students with structured question ratings."
+                ? "Schedule interview dates, track session calendars, and evaluate students."
                 : isCM
-                ? "Review pending requests, allocate student counts, map faculty, and verify completed interview sessions."
-                : "Monitor all campus interview schedules and regional performance metrics."}
+                ? "Manage requests, allocate faculty mentors, and verify completed sessions."
+                : "Monitor campus interview schedules and regional performance metrics."}
             </p>
           </div>
 
@@ -2490,7 +2559,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     onClick={() => setActiveTab(tab.key)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       activeTab === tab.key
-                        ? "bg-white shadow-2xs border border-slate-200/80 text-[#D528A2]"
+                        ? "bg-white shadow-2xs border border-slate-200/80 text-[#4F46E5]"
                         : "text-slate-500 hover:text-slate-700"
                     }`}
                   >
@@ -2512,13 +2581,13 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     onClick={() => setActiveTab(tab.key)}
                     className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                       activeTab === tab.key
-                        ? "bg-white shadow-2xs border border-slate-200/80 text-[#D528A2]"
+                        ? "bg-white shadow-2xs border border-slate-200/80 text-[#4F46E5]"
                         : "text-slate-500 hover:text-slate-700"
                     }`}
                   >
                     {tab.icon}{tab.label}
                     {tab.count != null && tab.count > 0 && (
-                      <span className="bg-[#D528A2] text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
+                      <span className="bg-[#4F46E5] text-white text-[9px] font-black px-1.5 py-0.5 rounded-full">
                         {tab.count}
                       </span>
                     )}
@@ -2532,7 +2601,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                 <button
                   onClick={() => setActiveTab("overview")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === "overview" ? "bg-white shadow-2xs border border-slate-200/80 text-[#D528A2]" : "text-slate-500"
+                    activeTab === "overview" ? "bg-white shadow-2xs border border-slate-200/80 text-[#4F46E5]" : "text-slate-500"
                   }`}
                 >
                   <ShieldCheck className="w-3 h-3" />Overview
@@ -2540,7 +2609,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                 <button
                   onClick={() => setActiveTab("calendar")}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    activeTab === "calendar" ? "bg-white shadow-2xs border border-slate-200/80 text-[#D528A2]" : "text-slate-500"
+                    activeTab === "calendar" ? "bg-white shadow-2xs border border-slate-200/80 text-[#4F46E5]" : "text-slate-500"
                   }`}
                 >
                   <Calendar className="w-3 h-3" />Calendar
@@ -2559,7 +2628,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
               <span>Export (.xlsx)</span>
             </button>
 
-            <button onClick={() => interviewsQuery.refetch()} className="p-1.5 rounded-lg text-slate-400 hover:text-[#D528A2] hover:bg-white transition-all border border-transparent hover:border-slate-200 cursor-pointer" title="Refresh">
+            <button onClick={() => interviewsQuery.refetch()} className="p-1.5 rounded-lg text-slate-400 hover:text-[#4F46E5] hover:bg-white transition-all border border-transparent hover:border-slate-200 cursor-pointer" title="Refresh">
               <RefreshCw className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -2570,7 +2639,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
       {isMentor && activeTab === "raise" && (
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card">
           <div className="flex items-center gap-2 mb-5">
-            <BookOpen className="w-4 h-4 text-[#D528A2]" />
+            <BookOpen className="w-4 h-4 text-[#4F46E5]" />
             <h2 className="text-sm font-black text-slate-800">Raise New Interview Request</h2>
           </div>
 
@@ -2595,7 +2664,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     onClick={() => setActiveMode(mode)}
                     className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-extrabold transition-all ${
                       activeMode === mode
-                        ? "bg-white shadow-2xs border border-slate-200/80 text-[#D528A2]"
+                        ? "bg-white shadow-2xs border border-slate-200/80 text-[#4F46E5]"
                         : "text-slate-500 hover:text-slate-700"
                     }`}
                   >
@@ -2609,7 +2678,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                 {/* Subject */}
                 <div className="space-y-1">
                   <label className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                    Subject <span className="text-[#D528A2]">(Assigned Only)</span>
+                    Subject <span className="text-[#4F46E5]">(Assigned Only)</span>
                   </label>
                   <select
                     aria-label="Subject (Assigned Only)"
@@ -2643,15 +2712,25 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                 {/* Target Date */}
                 <div className="space-y-1">
                   <label className="text-[10px] text-slate-400 uppercase font-bold tracking-wider block">
-                    Target Date <span className="text-[#D528A2]">(Min +2 Days)</span>
+                    Target Date <span className="text-[#4F46E5]">(Min +2 Days)</span>
                   </label>
                   <input
                     type="date" min={minTargetDate} value={targetDate}
                     aria-label="Target Date (Min +2 Days)"
                     onChange={e => setTargetDate(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                    className={`w-full p-2.5 border rounded-xl bg-white text-xs font-semibold focus:ring-1 outline-none cursor-pointer ${
+                      targetDate && getExamDayInfo(targetDate)
+                        ? "border-rose-400 focus:ring-rose-500 bg-rose-50/40 text-rose-900"
+                        : "border-slate-200 focus:ring-indigo-500 text-slate-800"
+                    }`}
                     required
                   />
+                  {targetDate && getExamDayInfo(targetDate) && (
+                    <div className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-[11px] font-bold flex items-center gap-1.5 mt-1 animate-fadeIn">
+                      <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                      <span>Exam Day: {getExamDayInfo(targetDate)}. Interviews cannot be scheduled during exams.</span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2721,7 +2800,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <div className="flex items-center gap-3">
                 <h2 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-[#D528A2]" />
+                  <Calendar className="w-4 h-4 text-[#4F46E5]" />
                   {calendarViewFilter === "today" 
                     ? `Today's Schedule & Marking — ${getTodayLocalStr()}`
                     : `Interview Schedule Calendar & Marking — ${calendarMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}`}
@@ -2734,7 +2813,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                   <button
                     onClick={() => setCalendarViewFilter("all")}
                     className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                      calendarViewFilter === "all" ? "bg-white text-[#D528A2] shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"
+                      calendarViewFilter === "all" ? "bg-white text-[#4F46E5] shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     Full Month Grid
@@ -2745,7 +2824,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                       setSelectedCalendarDate(getTodayLocalStr());
                     }}
                     className={`px-3 py-1 rounded-md transition-all cursor-pointer ${
-                      calendarViewFilter === "today" ? "bg-[#D528A2] text-white shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"
+                      calendarViewFilter === "today" ? "bg-[#4F46E5] text-white shadow-2xs font-extrabold" : "text-slate-600 hover:text-slate-900"
                     }`}
                   >
                     Today Only ({scheduledInterviewsByDate[getTodayLocalStr()]?.length || 0})
@@ -2770,7 +2849,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                         setCalendarMonth(today);
                         setSelectedCalendarDate(getTodayLocalStr());
                       }}
-                      className="px-3 py-1 rounded-lg bg-[#D528A2] text-white hover:bg-[#c02090] text-xs font-extrabold transition-all cursor-pointer shadow-2xs"
+                      className="px-3 py-1 rounded-lg bg-[#4F46E5] text-white hover:bg-[#4338CA] text-xs font-extrabold transition-all cursor-pointer shadow-2xs"
                     >
                       Today
                     </button>
@@ -2800,6 +2879,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             <div className="grid grid-cols-7 gap-1.5">
               {calendarDays.map((day, idx) => {
                 const dayInterviews = scheduledInterviewsByDate[day.dateStr] || [];
+                const dayExamInfo = getExamDayInfo(day.dateStr);
                 const isSelected = selectedCalendarDate === day.dateStr;
                 const nowD = new Date();
                 const todayStr = `${nowD.getFullYear()}-${String(nowD.getMonth() + 1).padStart(2, "0")}-${String(nowD.getDate()).padStart(2, "0")}`;
@@ -2811,7 +2891,9 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     onClick={() => setSelectedCalendarDate(day.dateStr)}
                     className={`min-h-[105px] p-2 rounded-xl border transition-all cursor-pointer flex flex-col justify-between ${
                       isSelected
-                        ? "border-[#D528A2] bg-pink-50/40 ring-2 ring-[#D528A2]/40 shadow-xs"
+                        ? "border-[#4F46E5] bg-pink-50/40 ring-2 ring-[#4F46E5]/40 shadow-xs"
+                        : dayExamInfo
+                        ? "bg-purple-50/30 border-purple-200 hover:border-purple-300"
                         : day.isCurrentMonth
                         ? "bg-white border-slate-200/90 hover:border-indigo-300 hover:shadow-xs"
                         : "bg-slate-50/50 border-slate-100 text-slate-300"
@@ -2820,20 +2902,32 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     <div className="flex items-center justify-between">
                       <span className={`text-xs font-extrabold ${
                         isToday
-                          ? "bg-[#D528A2] text-white px-2 py-0.5 rounded-full text-[10px] shadow-xs"
+                          ? "bg-[#4F46E5] text-white px-2 py-0.5 rounded-full text-[10px] shadow-xs"
                           : day.isCurrentMonth ? "text-slate-700" : "text-slate-300"
                       }`}>
                         {day.dayNum}
                       </span>
-                      {dayInterviews.length > 0 && (
-                        <span className="text-[9px] font-black bg-[#D528A2]/10 text-[#D528A2] px-1.5 py-0.5 rounded-full border border-[#D528A2]/20">
-                          {dayInterviews.length}
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1">
+                        {dayExamInfo && (
+                          <span className="text-[8px] font-black bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200" title={dayExamInfo}>
+                            EXAM
+                          </span>
+                        )}
+                        {dayInterviews.length > 0 && (
+                          <span className="text-[9px] font-black bg-[#4F46E5]/10 text-[#4F46E5] px-1.5 py-0.5 rounded-full border border-[#4F46E5]/20">
+                            {dayInterviews.length}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Interview Badges inside Calendar Day Cell */}
+                    {/* Interview Badges & Exam indicator inside Calendar Day Cell */}
                     <div className="space-y-1 mt-1.5">
+                      {dayExamInfo && (
+                        <div className="text-[8.5px] font-bold text-purple-800 bg-purple-100/70 border border-purple-200 px-1 py-0.5 rounded truncate" title={dayExamInfo}>
+                          📝 {dayExamInfo}
+                        </div>
+                      )}
                       {dayInterviews.slice(0, 2).map((inv: any) => (
                         <div
                           key={inv.id}
@@ -2869,13 +2963,13 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
               open={true}
               onOpenChange={(next) => { if (!next) setSelectedCalendarDate(null); }}
               ariaLabel="Scheduled Interviews & Session Details"
-              overlayClassName="bg-slate-900/60 backdrop-blur-xs transition-all duration-200"
+              overlayClassName="bg-slate-950/60 backdrop-blur-sm transition-all duration-200"
               panelClassName="max-w-2xl p-6 space-y-4 max-h-[85vh] flex flex-col justify-between rounded-2xl"
             >
                 {/* Modal Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-pink-50 text-[#D528A2] border border-pink-200/60">
+                    <div className="p-2 rounded-xl bg-pink-50 text-[#4F46E5] border border-pink-200/60">
                       <Calendar className="w-5 h-5" />
                     </div>
                     <div>
@@ -2883,7 +2977,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                         Scheduled Interviews & Session Details
                       </h3>
                       <p className="text-xs text-slate-500 font-medium">
-                        Target Date: <span className="text-[#D528A2] font-bold">{selectedCalendarDate}</span>
+                        Target Date: <span className="text-[#4F46E5] font-bold">{selectedCalendarDate}</span>
                       </p>
                     </div>
                   </div>
@@ -2898,6 +2992,13 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
                 {/* Modal Scrollable Body */}
                 <div className="overflow-y-auto pr-1 space-y-3 flex-1 max-h-[60vh]">
+                  {getExamDayInfo(selectedCalendarDate) && (
+                    <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-purple-900 font-bold text-xs flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4 text-purple-600 shrink-0" />
+                      <span>Exam Day Notice: This date is configured for exams ({getExamDayInfo(selectedCalendarDate)}). Interviews are not conducted on exam days.</span>
+                    </div>
+                  )}
+
                   {(!scheduledInterviewsByDate[selectedCalendarDate] || scheduledInterviewsByDate[selectedCalendarDate].length === 0) ? (
                     <div className="p-8 text-center bg-slate-50 rounded-xl border border-slate-100 space-y-2">
                       <Calendar className="w-8 h-8 text-slate-300 mx-auto" />
@@ -2960,13 +3061,13 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
               open={true}
               onOpenChange={(next) => { if (!next) { setActiveSplitInterview(null); setSplitPreviewResult(null); } }}
               ariaLabel="Regional Priority Split & Overflow Calculator"
-              overlayClassName="bg-slate-900/60 backdrop-blur-xs transition-all animate-in fade-in"
+              overlayClassName="bg-slate-950/60 backdrop-blur-sm transition-all animate-fadeIn"
               panelClassName="max-w-2xl p-6 space-y-4 max-h-[85vh] flex flex-col justify-between rounded-2xl"
             >
                 {/* Modal Header */}
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-pink-50 text-[#D528A2] border border-pink-200/60">
+                    <div className="p-2 rounded-xl bg-pink-50 text-[#4F46E5] border border-pink-200/60">
                       <Sparkles className="w-5 h-5" />
                     </div>
                     <div>
@@ -2974,7 +3075,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                         Regional Priority Split & Overflow Calculator
                       </h3>
                       <p className="text-xs text-slate-500 font-medium">
-                        15 Min / Student Rule — <span className="text-[#D528A2] font-bold">{activeSplitInterview.subject}</span> ({activeSplitInterview.student_count || 10} Students)
+                        15 Min / Student Rule — <span className="text-[#4F46E5] font-bold">{activeSplitInterview.subject}</span> ({activeSplitInterview.student_count || 10} Students)
                       </p>
                     </div>
                   </div>
@@ -2991,7 +3092,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                 <div className="overflow-y-auto pr-1 space-y-3 flex-1 max-h-[60vh]">
                   {isLoadingSplit ? (
                     <div className="p-10 text-center text-xs font-semibold text-slate-500 flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-[#D528A2]" /> Calculating optimal regional mentor slots & free period availability...
+                      <Loader2 className="w-4 h-4 animate-spin text-[#4F46E5]" /> Calculating optimal regional mentor slots & free period availability...
                     </div>
                   ) : splitPreviewResult ? (
                     <div className="space-y-3">
@@ -3023,7 +3124,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                             </div>
                             <div className="text-xs text-slate-500 flex flex-wrap items-center gap-x-4 gap-y-1">
                               <span>Campus: <strong className="text-slate-700">{alloc.target_college_name}</strong></span>
-                              <span>Time Window: <strong className="text-[#D528A2]">{alloc.start_time} - {alloc.end_time}</strong></span>
+                              <span>Time Window: <strong className="text-[#4F46E5]">{alloc.start_time} - {alloc.end_time}</strong></span>
                             </div>
                           </div>
                         ))}
@@ -3062,7 +3163,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             {[
               { label: "Total Sessions", value: interviewsList.length, color: "text-slate-800" },
               { label: "Pending CM", value: interviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
-              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification").length, color: "text-blue-700" },
+              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
               { label: "Completed", value: interviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
             ].map(stat => (
               <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card text-center">
@@ -3074,7 +3175,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
           {isLoading ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-sm text-slate-400 flex items-center justify-center gap-2 shadow-card">
-              <Loader2 className="w-4 h-4 animate-spin text-[#D528A2]" /> Loading session records...
+              <Loader2 className="w-4 h-4 animate-spin text-[#4F46E5]" /> Loading session records...
             </div>
           ) : interviewsList.length === 0 ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center shadow-card">
@@ -3087,16 +3188,19 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
               {interviewsList.map(req => {
                 const isExpanded = expandedRequest === req.id;
                 const reqStudents = sessionStudents(req);
-                const isAssigned = req.status === "assigned" || req.status === "pending_verification" || req.status === "completed";
-                const evaluatedCount = reqStudents.filter((st: any) => Boolean(getEvalForStudent(req.id, st.id))).length;
-                const progressPct = reqStudents.length > 0 ? Math.round((evaluatedCount / reqStudents.length) * 100) : 0;
-
                 const isRaiser = req.mentor_id === currentMentor?.id;
                 const isExternal = req.type === "external";
                 const hasAssignedSlotsAsEvaluator = Boolean(
                   (req.student_slots && req.student_slots.some((s: any) => s.mentor_id === currentMentor?.id)) ||
-                  (req.assigned_mentor_ids && req.assigned_mentor_ids.includes(currentMentor?.id))
+                  (req.assigned_mentor_ids && (
+                    Array.isArray(req.assigned_mentor_ids)
+                      ? req.assigned_mentor_ids.includes(currentMentor?.id)
+                      : String(req.assigned_mentor_ids).includes(currentMentor?.id || "")
+                  ))
                 );
+                const isAssigned = req.status === "assigned" || req.status === "partial_capacity" || req.status === "pending_verification" || req.status === "completed" || (hasAssignedSlotsAsEvaluator && reqStudents.length > 0);
+                const evaluatedCount = reqStudents.filter((st: any) => Boolean(getEvalForStudent(req.id, st.id))).length;
+                const progressPct = reqStudents.length > 0 ? Math.round((evaluatedCount / reqStudents.length) * 100) : 0;
 
                 // Only assigned evaluators (or internal session instructors / CM) can grade
                 const canEvaluate = hasAssignedSlotsAsEvaluator || (!isExternal && isRaiser) || isCM || isKAM;
@@ -3134,9 +3238,9 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                         </div>
                         <div className="font-black text-slate-800 text-sm">{req.subject}</div>
                         <div className="text-xs text-slate-500 flex flex-wrap gap-x-4 gap-y-0.5 font-medium">
-                          <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3 text-[#D528A2]" />{req.class_group || "All Classes"}</span>
-                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-[#D528A2]" />{req.target_date || "Date TBD"}</span>
-                          <span className="flex items-center gap-1"><Users className="w-3 h-3 text-[#D528A2]" />
+                          <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3 text-[#4F46E5]" />{req.class_group || "All Classes"}</span>
+                          <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-[#4F46E5]" />{req.target_date || "Date TBD"}</span>
+                          <span className="flex items-center gap-1"><Users className="w-3 h-3 text-[#4F46E5]" />
                             {reqStudents.length > 0 ? `${evaluatedCount}/${reqStudents.length} Evaluated` : "Count Pending CM"}
                           </span>
                           {req.type === "internal" ? (
@@ -3159,6 +3263,18 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                           <Users className="w-3.5 h-3.5 text-indigo-600" />
                           {isRaiser && isExternal ? "View Roster & External Scores" : "Student Conducted Roster"}
                         </button>
+                        {req.type !== "internal" && (req.gmeet_link || (req.student_slots || []).find((s: any) => s.gmeet_link)?.gmeet_link) && (
+                          <a
+                            href={req.gmeet_link || (req.student_slots || []).find((s: any) => s.gmeet_link)?.gmeet_link}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold px-3.5 py-2 rounded-xl transition-all cursor-pointer shadow-2xs"
+                          >
+                            <Video className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Join Meet</span>
+                            <ExternalLink className="w-3 h-3 opacity-60" />
+                          </a>
+                        )}
                         {isAssigned && canEvaluate && (
                           <button
                             onClick={() => {
@@ -3211,7 +3327,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                               Evaluation Progress: {evaluatedCount} of {reqStudents.length} Students ({progressPct}%)
                             </div>
                             <div className="w-full bg-slate-100 h-2 rounded-full mt-2 overflow-hidden max-w-md">
-                              <div className="bg-[#D528A2] h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
+                              <div className="bg-[#4F46E5] h-full rounded-full transition-all duration-500" style={{ width: `${progressPct}%` }} />
                             </div>
                           </div>
                         </div>
@@ -3223,7 +3339,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                           <div className="lg:col-span-5 bg-white border border-slate-100 rounded-2xl p-4 space-y-3 shadow-card">
                             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
                               <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                                <Users className="w-3.5 h-3.5 text-[#D528A2]" /> Student Roster ({activeStudentsList.length})
+                                <Users className="w-3.5 h-3.5 text-[#4F46E5]" /> Student Roster ({activeStudentsList.length})
                               </span>
                             </div>
 
@@ -3247,7 +3363,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                   onClick={() => setStudentStatusFilter(f)}
                                   className={`flex-1 py-1 rounded-md uppercase transition-all ${
                                     studentStatusFilter === f
-                                      ? "bg-white shadow-2xs text-[#D528A2] font-black"
+                                      ? "bg-white shadow-2xs text-[#4F46E5] font-black"
                                       : "text-slate-500 hover:text-slate-700"
                                   }`}
                                 >
@@ -3361,7 +3477,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                 <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2.5">
                                   <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
                                     <div className="flex items-center gap-1.5 text-slate-700 font-bold">
-                                      <Clock className="w-3.5 h-3.5 text-[#D528A2]" />
+                                      <Clock className="w-3.5 h-3.5 text-[#4F46E5]" />
                                       <span>Scheduled Window:</span>
                                       <span className="font-mono text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
                                         {(() => {
@@ -3434,7 +3550,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                 <div className="space-y-3">
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                                      <HelpCircle className="w-3.5 h-3.5 text-[#D528A2]" /> Structured Question Ratings
+                                      <HelpCircle className="w-3.5 h-3.5 text-[#4F46E5]" /> Structured Question Ratings
                                     </span>
                                     <span className="text-[10px] text-slate-400 font-bold">{evalQuestions.length} Questions</span>
                                   </div>
@@ -3472,9 +3588,9 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                           <input aria-label="Question rating"
                                             type="range" min={1} max={10} value={qItem.score}
                                             onChange={e => handleUpdateQuestion(qItem.id, "score", Number(e.target.value))}
-                                            className="flex-1 cursor-pointer h-1.5 rounded-full appearance-none bg-slate-200 accent-[#D528A2]"
+                                            className="flex-1 cursor-pointer h-1.5 rounded-full appearance-none bg-slate-200 accent-[#4F46E5]"
                                           />
-                                          <span className="text-xs font-black text-[#D528A2] shrink-0">{qItem.score} / 10</span>
+                                          <span className="text-xs font-black text-[#4F46E5] shrink-0">{qItem.score} / 10</span>
                                         </div>
                                       </div>
                                     ))}
@@ -3496,15 +3612,15 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                       }}
                                       className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer border border-indigo-200/80 transition-all"
                                     >
-                                      <Plus className="w-3.5 h-3.5" /> + Add Another Question Asked
+                                      <Plus className="w-3.5 h-3.5" /> Add Another Question Asked
                                     </button>
                                   </div>
                                 </div>
 
                                 {/* ── OVERALL CORE SKILLS SCORING SLIDERS ── */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
-                                  <ScoreSlider label="Communication Skill" value={commScore} onChange={setCommScore} color="#D528A2" />
-                                  <ScoreSlider label="Content Knowledge" value={contentScore} onChange={setContentScore} color="#F4A863" />
+                                  <ScoreSlider label="Communication Skill" value={commScore} onChange={setCommScore} color="#4F46E5" />
+                                  <ScoreSlider label="Content Knowledge" value={contentScore} onChange={setContentScore} color="#7C3AED" />
                                   <ScoreSlider label="Technical Problem Solving" value={techScore} onChange={setTechScore} color="#6366f1" />
                                   <ScoreSlider label="Confidence & Presentation" value={confidenceScore} onChange={setConfidenceScore} color="#f59e0b" />
                                 </div>
@@ -3557,7 +3673,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
         <div className="space-y-4">
           {isLoading ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-sm text-slate-400 flex items-center justify-center gap-2 shadow-card">
-              <Loader2 className="w-4 h-4 animate-spin text-[#D528A2]" /> Loading requests...
+              <Loader2 className="w-4 h-4 animate-spin text-[#4F46E5]" /> Loading requests...
             </div>
           ) : pendingRequests.length === 0 ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center shadow-card">
@@ -3586,9 +3702,9 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                       </div>
                       <div className="font-black text-slate-800">{req.subject}</div>
                       <div className="text-xs text-slate-500 flex flex-wrap gap-x-4 gap-y-0.5">
-                        <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3 text-[#D528A2]" />{req.class_group || "All Classes"}</span>
-                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-[#D528A2]" />{req.target_date}</span>
-                        <span className="flex items-center gap-1"><UserCheck className="w-3 h-3 text-[#D528A2]" />Requested by {req.mentor_name}</span>
+                        <span className="flex items-center gap-1"><GraduationCap className="w-3 h-3 text-[#4F46E5]" />{req.class_group || "All Classes"}</span>
+                        <span className="flex items-center gap-1"><Calendar className="w-3 h-3 text-[#4F46E5]" />{req.target_date}</span>
+                        <span className="flex items-center gap-1"><UserCheck className="w-3 h-3 text-[#4F46E5]" />Requested by {req.mentor_name}</span>
                       </div>
                       {req.topics && (
                         <p className="text-[11px] text-slate-400"><strong className="text-slate-600">Topics:</strong> {req.topics}</p>
@@ -3610,11 +3726,12 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                             {/* 1. Raiser's Home CM Approval Stage */}
                             {(req.status === "pending_origin_cm" || req.status === "draft") && isHostCampus && (
                               <button
+                                type="button"
                                 onClick={() => handleSendCapacityRequest(req.id)}
-                                className="btn-gradient flex items-center gap-1.5 text-white text-xs font-black px-4 py-2 rounded-xl transition-all cursor-pointer shadow-sm hover:scale-[1.02]"
-                                title="Approve mentor's external interview request and broadcast to all Zone Partner Colleges"
+                                className="flex items-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-all cursor-pointer shadow-xs"
+                                title="Approve mentor's external interview request and broadcast to partner colleges"
                               >
-                                <Send className="w-3.5 h-3.5" /> Approve &amp; Broadcast to Zone CAMs
+                                <Send className="w-3.5 h-3.5" /> Approve &amp; Broadcast
                               </button>
                             )}
 
@@ -3819,55 +3936,54 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                       {/* 1. If Raiser's Home CM on External Request: Show Zone Tracking & Broadcast Console */}
                       {isCM && req.type === "external" && (req.origin_college_id === defaultCollegeId || req.college_id === defaultCollegeId) ? (
                         <div className="space-y-4">
-                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
-                            <div>
-                              <h3 className="text-xs font-black text-slate-800 flex items-center gap-2">
-                                <Globe className="w-4 h-4 text-purple-600" />
-                                Zone Broadcast & External Partner Colleges Tracking — {req.subject}
+                          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-2.5">
+                            <div className="flex items-center gap-2">
+                              <Globe className="w-4 h-4 text-slate-700" />
+                              <h3 className="text-xs font-bold text-slate-900">
+                                Partner Campus Capacity
                               </h3>
-                              <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
-                                External interviews are evaluated by faculty mentors from other partner colleges across the zone.
-                              </p>
                             </div>
-                            <span className="text-[10px] font-extrabold text-purple-700 bg-purple-50 border border-purple-200 px-2.5 py-1 rounded-lg">
-                              Host Campus (Your College) • Target: {req.target_date}
+                            <span className="text-[11px] font-medium text-slate-500">
+                              Target Date: <strong className="text-slate-800">{req.target_date}</strong>
                             </span>
                           </div>
 
                           {/* Home CM Pre-Approval Banner */}
                           {req.status === "pending_origin_cm" && (
-                            <div className="p-4 bg-purple-50/80 border border-purple-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
-                              <div className="space-y-1">
-                                <div className="text-xs font-black text-purple-900 flex items-center gap-1.5">
-                                  <AlertCircle className="w-4 h-4 text-purple-600 shrink-0" />
-                                  Action Required: Approve External Broadcast
+                            <div className="p-3.5 bg-slate-50 border border-slate-200/80 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                              <div className="space-y-0.5">
+                                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                                  <AlertCircle className="w-4 h-4 text-slate-700 shrink-0" />
+                                  External Broadcast Pending Approval
                                 </div>
-                                <p className="text-[11px] text-purple-700">
-                                  Faculty mentor <strong>{req.mentor_name}</strong> requested external evaluation for {req.student_count || 10} students. Approve to broadcast this request to all Zone Partner Colleges{(() => {
-                                    const originId = req.origin_college_id || req.college_id || defaultCollegeId;
-                                    const originCol = activeCollegesList.find(c => c.id === originId);
-                                    const originKamId = originCol?.kam_id || (originCol as any)?.kamId || currentKAM?.id;
-                                    const partnerNames = activeCollegesList
-                                      .filter(c => c.id !== originId && (originKamId ? (c.kam_id === originKamId || (c as any).kamId === originKamId) : false))
-                                      .map(c => c.name)
-                                      .join(", ");
-                                    return partnerNames ? ` (${partnerNames})` : "";
-                                  })()}.
+                                <p className="text-xs text-slate-500">
+                                  Mentor requested external evaluation for {req.student_count || 10} students across partner campuses.
                                 </p>
                               </div>
-                              <button
-                                onClick={() => handleSendCapacityRequest(req.id)}
-                                className="btn-gradient flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold text-white shrink-0 cursor-pointer shadow-sm hover:scale-[1.02]"
-                              >
-                                <Send className="w-3.5 h-3.5" /> Approve & Broadcast Now
-                              </button>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleConvertToInternal(req.id)}
+                                  className="px-3.5 py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold cursor-pointer transition-all shadow-2xs"
+                                  title="Switch to Internal and evaluate using campus mentors"
+                                >
+                                  Evaluate Internally
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSendCapacityRequest(req.id)}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold cursor-pointer shadow-xs transition-all"
+                                >
+                                  <Send className="w-3.5 h-3.5" /> Approve &amp; Broadcast
+                                </button>
+                              </div>
                             </div>
                           )}
 
                           {/* Zone Campuses Acceptance Matrix */}
                           <div className="space-y-2">
-                            <label className="text-[10px] text-slate-700 uppercase font-black tracking-wider block">
-                              Zone Partner Colleges Capacity & Assigned Mentors
+                            <label className="text-[11px] text-slate-500 font-semibold uppercase tracking-wider block">
+                              Partner Campuses &amp; Assigned Mentors
                             </label>
                             
                             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
@@ -3876,11 +3992,18 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                 const originCol = activeCollegesList.find(c => c.id === originId);
                                 const originKamId = originCol?.kam_id || (originCol as any)?.kamId || currentKAM?.id;
                                 
-                                // Strictly include only colleges managed by the SAME KAM zone (excluding host campus)
-                                const partnerCols = activeCollegesList.filter(c => 
+                                // Partner colleges under the same KAM zone
+                                let partnerCols = activeCollegesList.filter(c => 
                                   c.id !== originId && 
                                   (originKamId ? (c.kam_id === originKamId || (c as any).kamId === originKamId) : false)
-                                );
+                                ).map(c => ({ id: c.id, name: c.name }));
+
+                                // Fallback: If no colleges under same KAM ID, include other partner colleges in activeCollegesList
+                                if (partnerCols.length === 0) {
+                                  partnerCols = activeCollegesList
+                                    .filter(c => c.id !== originId)
+                                    .map(c => ({ id: c.id, name: c.name }));
+                                }
                                 
                                 (req.cam_responses || []).forEach((resp: any) => {
                                   if (resp.college_id && resp.college_id !== originId && !partnerCols.some(c => c.id === resp.college_id)) {
@@ -3971,7 +4094,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                         /* 2. Evaluating CAM Panel: Map Available Mentors from Evaluating Campus */
                         <>
                           {(() => {
-                            const targetCollegeId = req.college_id || defaultCollegeId || currentMentor?.college_id;
+                            const targetCollegeId = defaultCollegeId || currentMentor?.college_id || req.college_id;
                             const structuredSlots = getStructuredCollegePeriodSlots(targetCollegeId, activeCollegesList, slots);
                             const targetDayName = req.target_date 
                               ? new Date(req.target_date.includes("T") ? req.target_date : `${req.target_date}T00:00:00`).toLocaleDateString("en-US", { weekday: "long" }) 
@@ -3987,7 +4110,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                               <div className="space-y-4">
                                 <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 pb-3">
                                   <h3 className="text-xs font-black text-slate-800 flex items-center gap-2">
-                                    <Users className="w-4 h-4 text-[#D528A2]" />
+                                    <Users className="w-4 h-4 text-[#4F46E5]" />
                                     Map Available Faculty Mentors During Free Periods — {req.subject}
                                   </h3>
                                   <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg">
@@ -4006,7 +4129,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                         <button
                                           type="button"
                                           onClick={() => setCamStudentCount(totalAssignedCandidates)}
-                                          className="text-[9px] font-black text-[#D528A2] hover:underline cursor-pointer flex items-center gap-1"
+                                          className="text-[9px] font-black text-[#4F46E5] hover:underline cursor-pointer flex items-center gap-1"
                                           title="Sync total student count with configured periods across all mentors"
                                         >
                                           <Sparkles className="w-3 h-3" /> Auto-Calc ({totalAssignedCandidates})
@@ -4030,7 +4153,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                   {/* Quick Period Selector (Auto-selects free faculty for that period) */}
                                   <div className="space-y-1.5">
                                     <label className="text-[10px] text-slate-500 uppercase font-extrabold tracking-wider block">
-                                      Quick Period Selector <span className="text-[#D528A2]">(Auto-Selects Free Faculty)</span>
+                                      Quick Period Selector <span className="text-[#4F46E5]">(Auto-Selects Free Faculty)</span>
                                     </label>
                                     <select
                                       aria-label="Quick Period Selector (Auto-Selects Free Faculty)"
@@ -4041,7 +4164,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
                                         // Find all faculty mentors who are FREE in this slot
                                         const freeMentors = mentorsToEvaluate.filter(m => {
-                                          const mentorBusySlots = (slots || []).filter(s => s.mentorId === m.id && (s.day || "").toLowerCase().trim() === targetDayName.toLowerCase().trim());
+                                          const mentorBusySlots = (slots || []).filter(s => (s.mentorId === m.id || (s as any).mentorid === m.id) && (s.day || "").toLowerCase().trim() === targetDayName.toLowerCase().trim());
                                           const busyTimes = mentorBusySlots.map(s => (s.time || "").trim());
                                           return !busyTimes.some(b => b.toLowerCase().replace(/\s+/g, "") === newSlot.toLowerCase().replace(/\s+/g, ""));
                                         });
@@ -4068,19 +4191,58 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
                                   {/* Google Meet Link (Only for External) vs In-Person Campus Notice */}
                                   {req.type === "external" ? (
-                                    <div className="space-y-1.5">
-                                      <label className="text-[10px] text-slate-500 uppercase font-extrabold tracking-wider block">
-                                        Google Meet Link <span className="text-slate-400 font-normal">(Virtual Cross-Campus Panel)</span>
-                                      </label>
-                                      <input
-                                        type="url" value={cmGmeetLink}
-                                        aria-label="Google Meet Link (Virtual Cross-Campus Panel)"
-                                        onChange={e => setCmGmeetLink(e.target.value)}
-                                        placeholder="https://meet.google.com/xxx-xxxx-xxx"
-                                        className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none placeholder-slate-300"
-                                      />
-                                      <p className="text-[9px] text-slate-400 font-medium">
-                                        Auto-dispatched with isolated calendar invite per candidate
+                                    <div className="space-y-2 p-3 bg-slate-50/80 rounded-xl border border-slate-200">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <label className="text-[10px] text-slate-700 uppercase font-black tracking-wider flex items-center gap-1.5">
+                                          <Video className="w-3.5 h-3.5 text-indigo-600" />
+                                          Google Meet Link <span className="text-slate-400 font-normal">(Virtual Panel)</span>
+                                        </label>
+                                        <div className="flex items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            onClick={generateGMeetLink}
+                                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                            title="Generate a fresh Google Meet link instantly"
+                                          >
+                                            <Sparkles className="w-3 h-3" />
+                                            Generate Link
+                                          </button>
+                                          <a
+                                            href="https://meet.google.com/new"
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-2 py-1 rounded-lg bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1"
+                                            title="Open Google Meet in a new tab to create an official Google Workspace meeting"
+                                          >
+                                            <ExternalLink className="w-3 h-3 text-slate-500" />
+                                            New Room ↗
+                                          </a>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          type="url"
+                                          value={cmGmeetLink}
+                                          aria-label="Google Meet Link (Virtual Cross-Campus Panel)"
+                                          onChange={e => setCmGmeetLink(e.target.value)}
+                                          placeholder="https://meet.google.com/xxx-xxxx-xxx"
+                                          className="flex-1 p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                                        />
+                                        {cmGmeetLink.trim() && (
+                                          <a
+                                            href={cmGmeetLink.trim()}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-bold transition-all flex items-center gap-1"
+                                            title="Test Google Meet link"
+                                          >
+                                            <Video className="w-3.5 h-3.5" />
+                                            Test
+                                          </a>
+                                        )}
+                                      </div>
+                                      <p className="text-[9px] text-slate-500 font-medium">
+                                        Auto-dispatched with isolated calendar invite per candidate. If left blank, a link will be generated automatically.
                                       </p>
                                     </div>
                                   ) : (
@@ -4112,7 +4274,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                         type="button"
                                         onClick={() => setShowAllCampusMentors(false)}
                                         className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                                          !showAllCampusMentors ? "bg-white text-[#D528A2] shadow-2xs font-black" : "text-slate-500 hover:text-slate-800"
+                                          !showAllCampusMentors ? "bg-white text-[#4F46E5] shadow-2xs font-black" : "text-slate-500 hover:text-slate-800"
                                         }`}
                                       >
                                         Subject Faculty ({subjectMentors.length})
@@ -4121,7 +4283,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                         type="button"
                                         onClick={() => setShowAllCampusMentors(true)}
                                         className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
-                                          showAllCampusMentors ? "bg-white text-[#D528A2] shadow-2xs font-black" : "text-slate-500 hover:text-slate-800"
+                                          showAllCampusMentors ? "bg-white text-[#4F46E5] shadow-2xs font-black" : "text-slate-500 hover:text-slate-800"
                                         }`}
                                       >
                                         All Campus Faculty ({campusMentors.length})
@@ -4137,7 +4299,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                     ) : (
                                       mentorsToEvaluate.map(m => {
                                         const mentorBusySlots = (slots || []).filter(s => 
-                                          s.mentorId === m.id && 
+                                          (s.mentorId === m.id || (s as any).mentorid === m.id) && 
                                           (s.day || "").toLowerCase().trim() === targetDayName.toLowerCase().trim()
                                         );
                                         const busyTimes = mentorBusySlots.map(s => (s.time || "").trim());
@@ -4388,7 +4550,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                     <div className="space-y-3 pt-3 border-t border-slate-200/80">
                                       <div className="flex items-center justify-between">
                                         <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                                          <Users className="w-3.5 h-3.5 text-[#D528A2]" /> Priority Cohort Allocation ({cohortStudents.length} Enrolled)
+                                          <Users className="w-3.5 h-3.5 text-[#4F46E5]" /> Priority Cohort Allocation ({cohortStudents.length} Enrolled)
                                         </span>
                                         <span className="text-[10px] font-bold text-slate-500">
                                           Allocated: <strong className="text-indigo-600 font-extrabold">{selectedList.length}</strong> • Remaining: <strong className="text-amber-600 font-extrabold">{remainingList.length}</strong>
@@ -4497,7 +4659,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             {[
               { label: "Total Sessions", value: interviewsList.length, color: "text-slate-800" },
               { label: "Pending", value: interviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
-              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification").length, color: "text-blue-700" },
+              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
               { label: "Completed", value: interviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
             ].map(stat => (
               <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card text-center">
@@ -4509,7 +4671,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
           {isLoading ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-sm text-slate-400 flex items-center justify-center gap-2 shadow-card">
-              <Loader2 className="w-4 h-4 animate-spin text-[#D528A2]" /> Loading...
+              <Loader2 className="w-4 h-4 animate-spin text-[#4F46E5]" /> Loading...
             </div>
           ) : interviewsList.length === 0 ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center shadow-card">
@@ -4603,7 +4765,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             {[
               { label: "Total Sessions", value: interviewsList.length, color: "text-slate-800" },
               { label: "Pending", value: interviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
-              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification").length, color: "text-blue-700" },
+              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
               { label: "Completed", value: interviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
             ].map(stat => (
               <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card text-center">
@@ -4615,7 +4777,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
           {isLoading ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-sm text-slate-400 flex items-center justify-center gap-2 shadow-card">
-              <Loader2 className="w-4 h-4 animate-spin text-[#D528A2]" /> Loading region data...
+              <Loader2 className="w-4 h-4 animate-spin text-[#4F46E5]" /> Loading region data...
             </div>
           ) : interviewsList.length === 0 ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center shadow-card">
@@ -4626,7 +4788,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             <div className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden">
               <div className="px-5 py-4 border-b border-slate-200">
                 <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#D528A2]" />
+                  <ShieldCheck className="w-4 h-4 text-[#4F46E5]" />
                   Region Interview Summary
                 </h3>
               </div>

@@ -26,7 +26,7 @@ const COLORS = {
   average: "#f59e0b",   // amber
   poor: "#ef4444",      // red
   bar: "#6366f1",       // indigo
-  barAlt: "#D528A2",    // brand magenta
+  barAlt: "#4F46E5",    // brand magenta
   text: "#334155",
   grid: "#e2e8f0",
   bg: "#ffffff"

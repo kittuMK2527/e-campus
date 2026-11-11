@@ -2,7 +2,7 @@ export const maxDuration = 60;
 
 import { NextResponse } from "next/server";
 import { getDb, resolveClassGroupDetails, syncMentorSubjectsAndClasses, type QueryFailure } from "@/lib/db";
-import { isCohortMatch } from "@/lib/utils";
+import { isCohortMatch, isTimeSlotOverlap } from "@/lib/utils";
 import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
 
@@ -60,6 +60,20 @@ export async function POST(request: Request) {
     const { mentorId, day, time, course, location, shift, classGroup, college_id } = body;
     const actorName = auth?.user?.name || body.actorName || "System";
     const actorRole = auth?.user?.role || body.actorRole || "User";
+    const userRole = (auth?.user?.role || "").toLowerCase();
+    const isRealAdmin = userRole === "admin" || userRole === "super admin";
+
+    // Enforce campus and mentor ownership boundaries (BUG-04)
+    if (userRole === "mentor") {
+      const isSelf = mentorId === auth?.user?.reference_id || mentorId === auth?.user?.id;
+      if (!isSelf) {
+        return NextResponse.json({ success: false, message: "Unauthorized: Mentors can only create slots for themselves." }, { status: 403 });
+      }
+    } else if (userRole === "cm" && auth?.user?.college_id) {
+      if (college_id && college_id.toLowerCase() !== auth.user.college_id.toLowerCase()) {
+        return NextResponse.json({ success: false, message: "Unauthorized: You can only create slots for your assigned campus." }, { status: 403 });
+      }
+    }
 
     if (!mentorId || !day || !time || !course || !location) {
       return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
@@ -75,16 +89,16 @@ export async function POST(request: Request) {
     const preflightFailures: QueryFailure[] = [];
     const [mentorCollisions, classCollisions, roomCollisions, mentorRows] = await db.multiQuery(
       [
-        { sql: "SELECT * FROM slots WHERE mentorId = ? AND day = ? AND time = ?", params: [mentorId, day, time] },
+        { sql: "SELECT * FROM slots WHERE mentorId = ? AND day = ?", params: [mentorId, day] },
         classGroup
           ? {
-              sql: "SELECT s.*, m.name as mentorName FROM slots s JOIN mentors m ON s.mentorId = m.id WHERE LOWER(s.classGroup) = ? AND s.day = ? AND s.time = ? AND s.shift = ?",
-              params: [cleanClassGroup.toLowerCase(), day, time, activeShift]
+              sql: "SELECT s.*, m.name as mentorName FROM slots s JOIN mentors m ON s.mentorId = m.id WHERE LOWER(s.classGroup) = ? AND s.day = ? AND s.shift = ?" + (college_id ? " AND s.college_id = ?" : ""),
+              params: college_id ? [cleanClassGroup.toLowerCase(), day, activeShift, college_id] : [cleanClassGroup.toLowerCase(), day, activeShift]
             }
           : { sql: "SELECT 1 WHERE 1=0", params: [] },
         {
-          sql: "SELECT s.*, m.name as mentorName FROM slots s LEFT JOIN mentors m ON s.mentorId = m.id WHERE LOWER(s.location) = LOWER(?) AND s.day = ? AND s.time = ? AND s.shift = ? LIMIT 1",
-          params: [cleanLocation, day, time, activeShift]
+          sql: "SELECT s.*, m.name as mentorName FROM slots s LEFT JOIN mentors m ON s.mentorId = m.id WHERE LOWER(s.location) = LOWER(?) AND s.day = ? AND s.shift = ?" + (college_id ? " AND s.college_id = ?" : ""),
+          params: college_id ? [cleanLocation, day, activeShift, college_id] : [cleanLocation, day, activeShift]
         },
         { sql: "SELECT name, college_id FROM mentors WHERE id = ?", params: [mentorId] }
       ],
@@ -100,32 +114,33 @@ export async function POST(request: Request) {
       );
     }
 
-    const mentorCollision = mentorCollisions[0];
-    const classCollision = classCollisions[0];
-    const roomCollision = roomCollisions[0];
+    // BUG-05: Check overlapping time ranges, not just exact string match
+    const mentorCollision = mentorCollisions.find(s => isTimeSlotOverlap(s.time, time));
+    const classCollision = classCollisions.find(s => isTimeSlotOverlap(s.time, time));
+    const roomCollision = roomCollisions.find(s => isTimeSlotOverlap(s.time, time));
     const mentorName = mentorRows[0]?.name;
 
-    // 1. Check Collision: Is this mentor already booked at this day and time across any shift?
+    // 1. Check Collision: Is this mentor already booked at this day and overlapping time across any shift?
     if (mentorCollision) {
       return NextResponse.json({
         success: false,
-        message: `Conflict: Mentor already has class "${mentorCollision.course}" scheduled at [${day}, ${time}] in shift "${mentorCollision.shift.replace("_", " ")}".`
+        message: `Conflict: Mentor already has class "${mentorCollision.course}" scheduled at [${day}, ${mentorCollision.time}] overlapping with requested time [${time}].`
       });
     }
 
-    // 2. Check Collision: Is this class group already scheduled for another class at this time?
+    // 2. Check Collision: Is this class group already scheduled for another class at overlapping time?
     if (classCollision) {
       return NextResponse.json({
         success: false,
-        message: `Conflict: Class group "${cleanClassGroup}" is already scheduled for "${classCollision.course}" with ${classCollision.mentorName} at [${day}, ${time}] in ${activeShift.replace("_", " ")}.`
+        message: `Conflict: Class group "${cleanClassGroup}" is already scheduled for "${classCollision.course}" with ${classCollision.mentorName} at [${day}, ${classCollision.time}] overlapping with requested time [${time}].`
       });
     }
 
-    // 3. Check Collision: Is this room already in use by anyone at this day and time?
+    // 3. Check Collision: Is this room already in use by anyone at overlapping time?
     if (roomCollision) {
       return NextResponse.json({
         success: false,
-        message: `Conflict: Room "${cleanLocation}" is already booked by ${roomCollision.mentorName || "another mentor"} for "${roomCollision.course}" at [${day}, ${time}] in ${activeShift.replace("_", " ")}.`
+        message: `Conflict: Room "${cleanLocation}" is already booked by ${roomCollision.mentorName || "another mentor"} for "${roomCollision.course}" at [${day}, ${roomCollision.time}] overlapping with requested time [${time}].`
       });
     }
 
@@ -183,6 +198,12 @@ export async function POST(request: Request) {
       slot: { id: newId, mentorId, day, time, course, location: cleanLocation }
     });
   } catch (error: any) {
+    if (error?.message?.includes("idx_slots_") || error?.code === "23505" || error?.message?.includes("UNIQUE constraint")) {
+      return NextResponse.json({
+        success: false,
+        message: "Conflict: A slot with this mentor/room at this day and time already exists."
+      }, { status: 409 });
+    }
     console.error("API POST Slot error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
@@ -203,12 +224,30 @@ export async function DELETE(request: Request) {
     const collegeId = searchParams.get("college_id") || searchParams.get("collegeId") || auth?.user?.college_id;
     const actorName = auth?.user?.name || searchParams.get("actorName") || "System";
     const actorRole = auth?.user?.role || searchParams.get("actorRole") || "User";
+    const userRole = (auth?.user?.role || "").toLowerCase();
+    const isRealAdmin = userRole === "admin" || userRole === "super admin";
 
     if (!id && !classGroup) {
       return NextResponse.json({ success: false, message: "Missing slot id or classGroup parameter" }, { status: 400 });
     }
 
     if (classGroup) {
+      // Mentors must not be allowed to batch-delete class timetable groups (BUG-04)
+      if (userRole === "mentor") {
+        return NextResponse.json({ success: false, message: "Unauthorized: Mentors cannot clear entire class timetables." }, { status: 403 });
+      }
+
+      // Campus Managers can only clear timetables for their assigned campus
+      if (userRole === "cm" && auth?.user?.college_id) {
+        if (collegeId && collegeId.toLowerCase() !== auth.user.college_id.toLowerCase()) {
+          return NextResponse.json({ success: false, message: "Unauthorized: You can only clear timetables for your assigned campus." }, { status: 403 });
+        }
+      }
+
+      if (!collegeId && !isRealAdmin) {
+        return NextResponse.json({ success: false, message: "Campus (collegeId) is required to clear class timetable." }, { status: 400 });
+      }
+
       const cleanCG = classGroup.toLowerCase().trim();
       const normCG = cleanCG.replace(/[^a-z0-9]/g, "");
       const baseCG = cleanCG.replace(/\s*\([^)]*\)/g, "").trim();
@@ -278,6 +317,18 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ success: false, message: "Slot not found" }, { status: 404 });
     }
 
+    // Enforce slot ownership & campus boundaries (BUG-04)
+    if (userRole === "mentor") {
+      const isOwner = slotToDelete.mentorId === auth?.user?.reference_id || slotToDelete.mentorId === auth?.user?.id;
+      if (!isOwner) {
+        return NextResponse.json({ success: false, message: "Unauthorized: You can only delete your own slots." }, { status: 403 });
+      }
+    } else if (userRole === "cm" && auth?.user?.college_id) {
+      if (slotToDelete.college_id && slotToDelete.college_id.toLowerCase() !== auth.user.college_id.toLowerCase()) {
+        return NextResponse.json({ success: false, message: "Unauthorized: You can only delete slots for your assigned campus." }, { status: 403 });
+      }
+    }
+
     const mentor = await db.get("SELECT name FROM mentors WHERE id = ?", slotToDelete.mentorId);
 
     // Detach attendance, then delete — one transaction, no swallowed failure.
@@ -318,6 +369,8 @@ export async function PUT(request: Request) {
     const { id, mentorId, day, time, course, location, shift, classGroup, college_id } = body;
     const actorName = auth?.user?.name || body.actorName || "System";
     const actorRole = auth?.user?.role || body.actorRole || "Mentor Header";
+    const userRole = (auth?.user?.role || "").toLowerCase();
+    const isRealAdmin = userRole === "admin" || userRole === "super admin";
 
     if (!id || !mentorId || !day || !time || !course || !location) {
       return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
@@ -334,16 +387,16 @@ export async function PUT(request: Request) {
     const [slotRows, mentorCollisions, classCollisions, roomCollisions, newMentorRows] = await db.multiQuery(
       [
         { sql: "SELECT s.*, m.name as mentorName FROM slots s LEFT JOIN mentors m ON s.mentorId = m.id WHERE s.id = ?", params: [id] },
-        { sql: "SELECT * FROM slots WHERE mentorId = ? AND day = ? AND time = ? AND id != ?", params: [mentorId, day, time, id] },
+        { sql: "SELECT * FROM slots WHERE mentorId = ? AND day = ? AND id != ?", params: [mentorId, day, id] },
         classGroup
           ? {
-              sql: "SELECT s.*, m.name as mentorName FROM slots s JOIN mentors m ON s.mentorId = m.id WHERE LOWER(s.classGroup) = ? AND s.day = ? AND s.time = ? AND s.shift = ? AND s.id != ?",
-              params: [cleanClassGroup.toLowerCase(), day, time, activeShift, id]
+              sql: "SELECT s.*, m.name as mentorName FROM slots s JOIN mentors m ON s.mentorId = m.id WHERE LOWER(s.classGroup) = ? AND s.day = ? AND s.shift = ? AND s.id != ?" + (college_id ? " AND s.college_id = ?" : ""),
+              params: college_id ? [cleanClassGroup.toLowerCase(), day, activeShift, id, college_id] : [cleanClassGroup.toLowerCase(), day, activeShift, id]
             }
           : { sql: "SELECT 1 WHERE 1=0", params: [] },
         {
-          sql: "SELECT s.*, m.name as mentorName FROM slots s LEFT JOIN mentors m ON s.mentorId = m.id WHERE LOWER(s.location) = LOWER(?) AND s.day = ? AND s.time = ? AND s.shift = ? AND s.id != ? LIMIT 1",
-          params: [cleanLocation, day, time, activeShift, id]
+          sql: "SELECT s.*, m.name as mentorName FROM slots s LEFT JOIN mentors m ON s.mentorId = m.id WHERE LOWER(s.location) = LOWER(?) AND s.day = ? AND s.shift = ? AND s.id != ?" + (college_id ? " AND s.college_id = ?" : ""),
+          params: college_id ? [cleanLocation, day, activeShift, id, college_id] : [cleanLocation, day, activeShift, id]
         },
         { sql: "SELECT name, college_id FROM mentors WHERE id = ?", params: [mentorId] }
       ],
@@ -359,9 +412,10 @@ export async function PUT(request: Request) {
       );
     }
 
-    const mentorCollision = mentorCollisions[0];
-    const classCollision = classCollisions[0];
-    const roomCollision = roomCollisions[0];
+    // BUG-05: Check overlapping time ranges, not just exact string match
+    const mentorCollision = mentorCollisions.find(s => isTimeSlotOverlap(s.time, time));
+    const classCollision = classCollisions.find(s => isTimeSlotOverlap(s.time, time));
+    const roomCollision = roomCollisions.find(s => isTimeSlotOverlap(s.time, time));
 
     // Check if slot exists
     const slotToUpdate = slotRows[0];
@@ -369,24 +423,39 @@ export async function PUT(request: Request) {
       return NextResponse.json({ success: false, message: "Slot not found" }, { status: 404 });
     }
 
+    // Enforce slot ownership & campus boundaries (BUG-04)
+    if (userRole === "mentor") {
+      const isOwner = slotToUpdate.mentorId === auth?.user?.reference_id || slotToUpdate.mentorId === auth?.user?.id;
+      if (!isOwner) {
+        return NextResponse.json({ success: false, message: "Unauthorized: You can only edit your own slots." }, { status: 403 });
+      }
+      if (mentorId !== slotToUpdate.mentorId) {
+        return NextResponse.json({ success: false, message: "Unauthorized: Mentors cannot reassign slots to another instructor." }, { status: 403 });
+      }
+    } else if (userRole === "cm" && auth?.user?.college_id) {
+      if (slotToUpdate.college_id && slotToUpdate.college_id.toLowerCase() !== auth.user.college_id.toLowerCase()) {
+        return NextResponse.json({ success: false, message: "Unauthorized: You can only edit slots for your assigned campus." }, { status: 403 });
+      }
+    }
+
     if (mentorCollision) {
       return NextResponse.json({
         success: false,
-        message: `Conflict: Mentor already has class "${mentorCollision.course}" scheduled at [${day}, ${time}] in shift "${mentorCollision.shift.replace("_", " ")}".`
+        message: `Conflict: Mentor already has class "${mentorCollision.course}" scheduled at [${day}, ${mentorCollision.time}] overlapping with requested time [${time}].`
       });
     }
 
     if (classCollision) {
       return NextResponse.json({
         success: false,
-        message: `Conflict: Class group "${cleanClassGroup}" is already scheduled for "${classCollision.course}" with ${classCollision.mentorName} at [${day}, ${time}] in ${activeShift.replace("_", " ")}.`
+        message: `Conflict: Class group "${cleanClassGroup}" is already scheduled for "${classCollision.course}" with ${classCollision.mentorName} at [${day}, ${classCollision.time}] overlapping with requested time [${time}].`
       });
     }
 
     if (roomCollision) {
       return NextResponse.json({
         success: false,
-        message: `Conflict: Room "${cleanLocation}" is already booked by ${roomCollision.mentorName || "another mentor"} for "${roomCollision.course}" at [${day}, ${time}] in ${activeShift.replace("_", " ")}.`
+        message: `Conflict: Room "${cleanLocation}" is already booked by ${roomCollision.mentorName || "another mentor"} for "${roomCollision.course}" at [${day}, ${roomCollision.time}] overlapping with requested time [${time}].`
       });
     }
 

@@ -32,8 +32,17 @@ import {
   Building2,
   TrendingUp,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  ArrowRight,
+  ArrowLeft
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  ActionDropdownButton
+} from "@/components/ui/dropdown-menu";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import { Dialog } from "@/components/ui/dialog";
@@ -52,12 +61,13 @@ interface ExamSchedule {
   exam_type: string;
   subject_name: string;
   subject_code?: string;
+  subject_type?: string;
   exam_date: string;
   session_time: string;
   start_time: string;
   end_time: string;
   day_order?: string;
-  hall_room: string;
+  hall_room?: string;
   max_marks?: number;
   passing_marks?: number;
   created_by?: string;
@@ -68,12 +78,13 @@ interface ExamSchedule {
 interface SubjectFormRow {
   subject_name: string;
   subject_code?: string;
+  subject_type?: string;
   included: boolean;
   exam_date: string;
   day_order: string;
   start_time: string;
   end_time: string;
-  hall_room: string;
+  hall_room?: string;
 }
 
 const PRESET_EXAM_SUGGESTIONS = [
@@ -116,6 +127,7 @@ export const ExamScheduleManager: React.FC<{
 
   // Modal: Batch Timetable Creator Popup
   const [isPopupOpen, setIsPopupOpen] = useState(false);
+  const [formStep, setFormStep] = useState<1 | 2>(1);
   const [batchExamName, setBatchExamName] = useState("CIA 1");
   const [batchDept, setBatchDept] = useState("");
   const [batchSem, setBatchSem] = useState("Semester 1");
@@ -237,6 +249,56 @@ export const ExamScheduleManager: React.FC<{
         end_time: newEnd12
       }))
     );
+  };
+
+  // Auto-syncs dates and day orders sequentially across subject rows
+  const applyStartDateToRows = (newDate: string = batchStartDate, orderStr: string = batchDefaultDayOrder) => {
+    if (!newDate) return;
+
+    let currentDate = parseLocalDate(newDate);
+    while (currentDate.getDay() === 0) {
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const match = orderStr.match(/\d+/);
+    const startDay = match ? parseInt(match[0], 10) : 1;
+
+    let seqIdx = 0;
+    setSubjectRows((prev) =>
+      prev.map((row) => {
+        if (!row.included) return row;
+        if (seqIdx > 0) {
+          currentDate.setDate(currentDate.getDate() + 1);
+          while (currentDate.getDay() === 0) {
+            currentDate.setDate(currentDate.getDate() + 1);
+          }
+        }
+        const orderNum = ((startDay - 1 + seqIdx) % 6) + 1;
+        seqIdx++;
+
+        return {
+          ...row,
+          exam_date: formatLocalDate(currentDate),
+          day_order: orderStr !== "None" ? `Day ${orderNum}` : row.day_order || "None",
+          start_time: row.start_time || batchCustomStartTime,
+          end_time: row.end_time || batchCustomEndTime
+        };
+      })
+    );
+  };
+
+  // Handler for global batch start date change - auto-syncs dates sequentially to subject rows below
+  const handleBatchStartDateChange = (newDate: string) => {
+    setBatchStartDate(newDate);
+    if (newDate) {
+      applyStartDateToRows(newDate, batchDefaultDayOrder);
+    }
+  };
+
+  // Handler for global batch day order change - auto-syncs day orders sequentially to subject rows below
+  const handleBatchDayOrderChange = (newOrder: string) => {
+    setBatchDefaultDayOrder(newOrder);
+    applyStartDateToRows(batchStartDate, newOrder);
   };
 
   // Handler for individual subject row start time
@@ -424,12 +486,12 @@ export const ExamScheduleManager: React.FC<{
         {
           subject_name: "",
           subject_code: "",
+          subject_type: "ACADEMIC",
           included: true,
           exam_date: batchStartDate || formatLocalDate(new Date()),
           day_order: batchDefaultDayOrder || "Day 1",
           start_time: batchCustomStartTime,
-          end_time: batchCustomEndTime,
-          hall_room: batchDefaultHall || ""
+          end_time: batchCustomEndTime
         }
       ]);
       return;
@@ -466,12 +528,12 @@ export const ExamScheduleManager: React.FC<{
       return {
         subject_name: sub.name,
         subject_code: sub.code || undefined,
+        subject_type: (sub.type || "ACADEMIC").toUpperCase(),
         included: true,
         exam_date: dStr,
         day_order: dOrder,
         start_time: startT,
-        end_time: endT,
-        hall_room: batchDefaultHall || ""
+        end_time: endT
       };
     });
 
@@ -539,12 +601,12 @@ export const ExamScheduleManager: React.FC<{
       {
         subject_name: "",
         subject_code: "",
+        subject_type: "ACADEMIC",
         included: true,
         exam_date: formatLocalDate(nextDate),
         day_order: batchDefaultDayOrder !== "None" ? `Day ${orderNum}` : "None",
         start_time: batchCustomStartTime,
-        end_time: batchCustomEndTime,
-        hall_room: batchDefaultHall || ""
+        end_time: batchCustomEndTime
       }
     ]);
   };
@@ -621,6 +683,7 @@ export const ExamScheduleManager: React.FC<{
           exam_type: batchExamName.trim(),
           subject_name: row.subject_name,
           subject_code: row.subject_code,
+          subject_type: row.subject_type || "ACADEMIC",
           exam_date: row.exam_date,
           day_order: row.day_order || batchDefaultDayOrder || "Day 1",
           start_time: row.start_time,
@@ -752,7 +815,7 @@ export const ExamScheduleManager: React.FC<{
           ex.exam_type.toLowerCase().includes(q) ||
           ex.subject_name.toLowerCase().includes(q) ||
           ex.department.toLowerCase().includes(q) ||
-          ex.hall_room?.toLowerCase().includes(q);
+          ex.subject_type?.toLowerCase().includes(q);
         if (!matches) return;
       }
 
@@ -880,16 +943,16 @@ export const ExamScheduleManager: React.FC<{
       }
     }
 
-    const headers = ["Department", "Semester", "Exam_Name", "Subject_Name", "Exam_Date", "Day_Order", "Session_Time", "Hall_Room"];
+    const headers = ["Department", "Semester", "Exam_Name", "Subject_Name", "Subject_Type", "Exam_Date", "Day_Order", "Session_Time"];
     const rows = deduplicatedSlots.map((ex) => [
       `"${(ex.department || "").replace(/"/g, '""')}"`,
       `"${(ex.semester || "").replace(/"/g, '""')}"`,
       `"${(ex.exam_type || "").replace(/"/g, '""')}"`,
       `"${(ex.subject_name || "").replace(/"/g, '""')}"`,
+      `"${(ex.subject_type || "").replace(/"/g, '""')}"`,
       `"${(ex.exam_date || "").replace(/"/g, '""')}"`,
       `"${(ex.day_order || "Day 1").replace(/"/g, '""')}"`,
-      `"${(ex.session_time || `${ex.start_time} - ${ex.end_time}`).replace(/"/g, '""')}"`,
-      `"${(ex.hall_room || "").replace(/"/g, '""')}"`
+      `"${(ex.session_time || `${ex.start_time} - ${ex.end_time}`).replace(/"/g, '""')}"`
     ]);
 
     const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((e) => e.join(","))].join("\r\n");
@@ -952,9 +1015,6 @@ export const ExamScheduleManager: React.FC<{
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 mt-0.5 font-medium">
-                Publish complete department assessment timetables, track faculty marks evaluation, and monitor campus pass rates.
-              </p>
             </div>
           </div>
 
@@ -991,21 +1051,27 @@ export const ExamScheduleManager: React.FC<{
                 <>
                   <button
                     type="button"
-                    onClick={handleExportCSV}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer"
-                  >
-                    <Download className="h-4 w-4 text-emerald-600" />
-                    <span>Export CSV</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setIsPopupOpen(true)}
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm hover:shadow-md transition-all cursor-pointer"
+                    onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Schedule Timetable</span>
                   </button>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <ActionDropdownButton />
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem
+                        onClick={handleExportCSV}
+                        className="gap-2 cursor-pointer text-xs"
+                      >
+                        <Download className="h-3.5 w-3.5 text-emerald-600" />
+                        <span>Export CSV</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </>
               ) : (
                 <>
@@ -1013,7 +1079,7 @@ export const ExamScheduleManager: React.FC<{
                     type="button"
                     onClick={() => marksQuery.refetch()}
                     disabled={loadingCampusMarks}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-sunken hover:bg-white border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 transition-all cursor-pointer"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${loadingCampusMarks ? "animate-spin text-indigo-600" : ""}`} />
                     <span>Refresh</span>
@@ -1073,7 +1139,7 @@ export const ExamScheduleManager: React.FC<{
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-sunken hover:bg-white border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer"
                 >
                   <Download className="h-4 w-4 text-emerald-600" />
                   <span>Export CSV</span>
@@ -1081,8 +1147,8 @@ export const ExamScheduleManager: React.FC<{
 
                 <button
                   type="button"
-                  onClick={() => setIsPopupOpen(true)}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm hover:shadow-md transition-all cursor-pointer"
+                  onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Schedule Timetable</span>
@@ -1094,7 +1160,7 @@ export const ExamScheduleManager: React.FC<{
                   type="button"
                   onClick={() => marksQuery.refetch()}
                   disabled={loadingCampusMarks}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 transition-all cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-sunken hover:bg-white border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 transition-all cursor-pointer"
                 >
                   <RefreshCw className={`h-3.5 w-3.5 ${loadingCampusMarks ? "animate-spin text-indigo-600" : ""}`} />
                   <span>Refresh</span>
@@ -1177,7 +1243,7 @@ export const ExamScheduleManager: React.FC<{
                   aria-label="Department"
                   value={selectedDeptFilter}
                   onChange={(e) => setSelectedDeptFilter(e.target.value)}
-                  className="h-10 pl-14 pr-8 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="h-10 pl-14 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="all">All Departments</option>
                   {availableDepartments.map((d) => (
@@ -1196,7 +1262,7 @@ export const ExamScheduleManager: React.FC<{
                   aria-label="Semester"
                   value={selectedSemFilter}
                   onChange={(e) => setSelectedSemFilter(e.target.value)}
-                  className="h-10 pl-13 pr-8 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="h-10 pl-13 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="all">All Semesters</option>
                   {allAvailableSemesters.map((s) => (
@@ -1233,7 +1299,7 @@ export const ExamScheduleManager: React.FC<{
                 placeholder="Search exam, subject, hall..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 w-full pl-9 pr-8 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                className="h-10 w-full pl-9 pr-8 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
               />
               {searchQuery && (
                 <button
@@ -1340,17 +1406,20 @@ export const ExamScheduleManager: React.FC<{
                       <div className="overflow-x-auto">
                         <Table className="w-full text-left text-xs border-collapse min-w-[650px]">
                           <TableHeader>
-                            <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-400 font-bold uppercase text-[9px] hover:bg-slate-50">
+                            <TableRow className="bg-sunken border-b border-slate-200 text-slate-400 font-bold uppercase text-[9px]">
                               <TableHead className="p-3.5 w-12 text-center">#</TableHead>
                               <TableHead className="p-3.5">Subject & Code</TableHead>
+                              <TableHead className="p-3.5">Type</TableHead>
                               <TableHead className="p-3.5">Exam Date & Day Order</TableHead>
                               <TableHead className="p-3.5">Timing & Session</TableHead>
-                              <TableHead className="p-3.5">Hall / Room</TableHead>
                               <TableHead className="p-3.5 text-right">Actions</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody className="divide-y divide-slate-100 font-medium text-slate-700">
                             {batch.slots.map((slot, sIdx) => {
+                              const subObj = subjectsList.find(s => s.name?.toLowerCase().trim() === slot.subject_name?.toLowerCase().trim());
+                              const subjectType = ((slot as any).subject_type || subObj?.type || "ACADEMIC").toUpperCase();
+
                               return (
                                 <TableRow key={slot.id} className="hover:bg-slate-50/70 transition-colors">
                                   <TableCell className="p-3.5 text-center font-mono text-[11px] text-slate-400">
@@ -1361,6 +1430,19 @@ export const ExamScheduleManager: React.FC<{
                                     {slot.subject_code && (
                                       <span className="text-[10px] text-slate-400 font-mono">{slot.subject_code}</span>
                                     )}
+                                  </TableCell>
+                                  <TableCell className="p-3.5">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                                      subjectType === "SKILL"
+                                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                        : subjectType === "LAB"
+                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : subjectType === "GENERAL" || subjectType === "ELECTIVE"
+                                        ? "bg-amber-50 text-amber-700 border-amber-200"
+                                        : "bg-slate-100 text-slate-700 border-slate-200"
+                                    }`}>
+                                      {subjectType}
+                                    </span>
                                   </TableCell>
                                   <TableCell className="p-3.5 font-bold text-slate-800">
                                     <div className="flex flex-col gap-1">
@@ -1380,16 +1462,6 @@ export const ExamScheduleManager: React.FC<{
                                       <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                                       <span className="font-semibold text-slate-800">{slot.session_time || `${slot.start_time} - ${slot.end_time}`}</span>
                                     </div>
-                                  </TableCell>
-                                  <TableCell className="p-3.5">
-                                    {slot.hall_room ? (
-                                      <span className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[10px] text-slate-700 font-bold">
-                                        <MapPin className="h-3 w-3 text-slate-400" />
-                                        {slot.hall_room}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[10px] text-slate-300 italic">—</span>
-                                    )}
                                   </TableCell>
                                   <TableCell className="p-3.5 text-right">
                                     <button
@@ -1519,7 +1591,7 @@ export const ExamScheduleManager: React.FC<{
                   aria-label="Department"
                   value={marksDeptFilter}
                   onChange={(e) => setMarksDeptFilter(e.target.value)}
-                  className="h-10 pl-14 pr-8 bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="h-10 pl-14 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
                 >
                   <option value="all">All Departments</option>
                   {availableDepartments.map((d) => (
@@ -1573,7 +1645,7 @@ export const ExamScheduleManager: React.FC<{
                 placeholder="Search student, roll no, subject..."
                 value={marksSearchQuery}
                 onChange={(e) => setMarksSearchQuery(e.target.value)}
-                className="h-10 w-full pl-9 pr-8 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                className="h-10 w-full pl-9 pr-8 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
               />
               {marksSearchQuery && (
                 <button
@@ -1592,7 +1664,7 @@ export const ExamScheduleManager: React.FC<{
             <div className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden">
               <div className="overflow-x-auto max-h-[600px] scroll-touch">
                 <Table className="w-full text-left text-xs border-collapse min-w-[850px]">
-                  <TableHeader className="bg-slate-50 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-200 z-10 hover:bg-slate-50">
+                  <TableHeader className="bg-sunken text-slate-500 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-200 z-10">
                     <TableRow>
                       <TableHead className="p-3.5 text-center w-12">#</TableHead>
                       <TableHead className="p-3.5">Student Details</TableHead>
@@ -1720,29 +1792,73 @@ export const ExamScheduleManager: React.FC<{
         </div>
       )}
 
-      {/* POPUP MODAL: Schedule Exam Timetable with Subject Accordion */}
+      {/* POPUP MODAL: Schedule Exam Timetable (Two-Step Workflow) */}
       {isPopupOpen && (
         <Dialog
           open={true}
-          onOpenChange={(next) => { if (!next) setIsPopupOpen(false); }}
+          onOpenChange={(next) => { if (!next) { setIsPopupOpen(false); setFormStep(1); } }}
           ariaLabel="Schedule Exam Timetable"
-          overlayClassName="bg-slate-900/60 backdrop-blur-xs p-4 overflow-y-auto"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto"
           panelClassName="max-w-3xl overflow-hidden animate-scaleUp my-8 max-h-[90vh] flex flex-col p-0 space-y-0 rounded-2xl"
         >
             {/* Modal Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
+            <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+                <div className="h-10 w-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
                   <CalendarRange className="h-5 w-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900">Schedule Exam Timetable</h3>
-                  <p className="text-[11px] text-slate-400">Pick department, set dates &amp; times, then publish.</p>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    {formStep === 1 ? "Step 1: Configure parameters" : `Step 2: ${batchDept} • ${batchSem}`}
+                  </p>
                 </div>
               </div>
+
+              {/* Step Navigation Indicator */}
+              <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setFormStep(1)}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                    formStep === 1
+                      ? "bg-white text-indigo-600 shadow-xs font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  1. Setup
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!batchExamName.trim()) {
+                      toast("Please enter an Exam Title", "warning");
+                      return;
+                    }
+                    if (!batchDept) {
+                      toast("Please select a Department", "warning");
+                      return;
+                    }
+                    if (!batchStartDate) {
+                      toast("Please pick a starting date", "warning");
+                      return;
+                    }
+                    applyStartDateToRows(batchStartDate, batchDefaultDayOrder);
+                    setFormStep(2);
+                  }}
+                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                    formStep === 2
+                      ? "bg-white text-indigo-600 shadow-xs font-black"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  2. Timetable
+                </button>
+              </div>
+
               <button
                 type="button"
-                onClick={() => setIsPopupOpen(false)}
+                onClick={() => { setIsPopupOpen(false); setFormStep(1); }}
                 aria-label="Close"
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
@@ -1752,277 +1868,279 @@ export const ExamScheduleManager: React.FC<{
 
             {/* Modal Body */}
             <form onSubmit={handlePublishTimetable} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-xs">
-                {/* College Operating Hours Info */}
-                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100 text-[11px] w-full">
-                  <Clock className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                  <span className="text-indigo-700 font-bold">College Hours:</span>
-                  <span className="font-extrabold text-slate-900">{collegeHours.startTimeStr} – {collegeHours.endTimeStr}</span>
-                  <span className="text-slate-400 ml-auto text-[10px]">Exam times are restricted to these hours</span>
-                </div>
-
-                {/* 1. Exam Type / Name */}
-                <div className="space-y-1.5">
-                  <label className="block text-[10.5px] font-extrabold text-slate-700 uppercase tracking-wider">
-                    Exam Title / Type <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    aria-label="Exam Title / Type"
-                    placeholder="e.g. CIA 1, CIA 2, Model Exam, Mid-Term..."
-                    value={batchExamName}
-                    onChange={(e) => setBatchExamName(e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-slate-200 rounded-xl bg-slate-50 focus:bg-white text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                  />
-                  <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                    <span className="text-[10px] text-slate-400 font-bold">Quick presets:</span>
-                    {PRESET_EXAM_SUGGESTIONS.map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => setBatchExamName(preset)}
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-                          batchExamName.trim().toLowerCase() === preset.toLowerCase()
-                            ? "bg-indigo-600 text-white shadow-2xs"
-                            : "bg-slate-100 hover:bg-slate-200 text-slate-600"
-                        }`}
-                      >
-                        {preset}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* 2. Department & Semester Selection */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <div className="space-y-1.5">
-                    <label className="block text-[10.5px] font-extrabold text-slate-700 uppercase tracking-wider">
-                      Department <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      required
-                      aria-label="Department"
-                      value={batchDept}
-                      onChange={(e) => setBatchDept(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                    >
-                      {availableDepartments.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10.5px] font-extrabold text-slate-700 uppercase tracking-wider">
-                      Semester <span className="text-rose-500">*</span>
-                    </label>
-                    <select
-                      required
-                      aria-label="Semester"
-                      value={batchSem}
-                      onChange={(e) => setBatchSem(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                    >
-                      {batchSemesters.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* 3. Global Batch Settings (Start Date, Day Order, Timings) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 bg-slate-50/80 p-4 rounded-2xl border border-slate-100">
-                  <div className="space-y-1.5">
-                    <label className="block text-[10.5px] font-extrabold text-slate-700 uppercase tracking-wider">
-                      Starting Exam Date
-                    </label>
-                    <input
-                      type="date"
-                      aria-label="Starting Exam Date"
-                      value={batchStartDate}
-                      onChange={(e) => setBatchStartDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10.5px] font-extrabold text-slate-700 uppercase tracking-wider">
-                      Day Order
-                    </label>
-                    <select
-                      aria-label="Day Order"
-                      value={batchDefaultDayOrder}
-                      onChange={(e) => setBatchDefaultDayOrder(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                    >
-                      <option value="Day 1">Start at Day 1</option>
-                      <option value="Day 2">Start at Day 2</option>
-                      <option value="Day 3">Start at Day 3</option>
-                      <option value="Day 4">Start at Day 4</option>
-                      <option value="Day 5">Start at Day 5</option>
-                      <option value="Day 6">Start at Day 6</option>
-                      <option value="None">None / No Order</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10.5px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center justify-between">
-                      <span>Start Time</span>
-                      <span className="text-[9px] text-indigo-600 font-bold">Min: {collegeHours.startTimeStr}</span>
-                    </label>
-                    <input
-                      type="time"
-                      min={collegeMin24}
-                      max={collegeMax24}
-                      aria-label="Start Time"
-                      value={timeTo24h(batchCustomStartTime)}
-                      onChange={(e) => handleBatchStartTimeChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="block text-[10.5px] font-extrabold text-slate-700 uppercase tracking-wider flex items-center justify-between">
-                      <span>End Time</span>
-                      <span className="text-[9px] text-indigo-600 font-bold">Max: {collegeHours.endTimeStr}</span>
-                    </label>
-                    <input
-                      type="time"
-                      min={timeTo24h(batchCustomStartTime) || collegeMin24}
-                      max={collegeMax24}
-                      aria-label="End Time"
-                      value={timeTo24h(batchCustomEndTime)}
-                      onChange={(e) => handleBatchEndTimeChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                {/* Exam Time Blocking Info */}
-                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11px] w-full">
-                  <svg className="h-3.5 w-3.5 text-amber-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  <span className="font-bold text-amber-700">Time Blocking:</span>
-                  <span className="text-amber-800">Publishing blocks this exam's day order &amp; time slot in all student &amp; mentor timetables.</span>
-                </div>
-
-                {/* 4. Subject Accordion / Subject Matrix */}
-                <div className="space-y-2.5">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 pb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-800">
-                        {batchDept} Subjects Timetable ({subjectRows.filter((r) => r.included).length} / {subjectRows.length} Included)
-                      </span>
+              <div className="p-5 sm:p-6 overflow-y-auto space-y-4 text-xs">
+                {formStep === 1 ? (
+                  /* ═════════ STEP 1: CONFIGURATION ═════════ */
+                  <div className="space-y-4">
+                    {/* Exam Name */}
+                    <div className="space-y-1.5">
+                      <label className="block text-[10.5px] font-extrabold text-slate-700 uppercase tracking-wider">
+                        Exam Title <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        aria-label="Exam Title"
+                        placeholder="e.g. CIA 1, CIA 2, Model Exam, Semester End"
+                        value={batchExamName}
+                        onChange={(e) => setBatchExamName(e.target.value)}
+                        className="w-full px-3.5 py-2.5 border border-slate-200 inset-shadow-well rounded-xl bg-sunken focus:bg-white text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                      />
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {PRESET_EXAM_SUGGESTIONS.map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            onClick={() => setBatchExamName(preset)}
+                            className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
+                              batchExamName.trim().toLowerCase() === preset.toLowerCase()
+                                ? "bg-indigo-600 text-white shadow-2xs"
+                                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+                            }`}
+                          >
+                            {preset}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleAddSubjectRow}
-                        className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 rounded-lg text-[10.5px] font-extrabold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Add Subject</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleAutoSequenceDates}
-                        className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-100 text-indigo-700 rounded-lg text-[10.5px] font-extrabold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
-                      >
-                        <Sparkles className="h-3.5 w-3.5" />
-                        <span>Auto-Sequence Consecutive Dates &amp; Day Orders</span>
-                      </button>
-                    </div>
-                  </div>
 
-                  {subjectRows.length === 0 ? (
-                    <div className="p-8 text-center bg-slate-50 border border-slate-100 rounded-2xl text-slate-400 font-medium space-y-3">
-                      <p>No subjects found for <strong>{batchDept}</strong>.</p>
-                      <button
-                        type="button"
-                        onClick={handleAddSubjectRow}
-                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-sm"
-                      >
-                        <Plus className="h-3.5 w-3.5" />
-                        <span>Add First Subject</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
-                      {subjectRows.map((row, idx) => (
-                        <div
-                          key={`${row.subject_name}_${idx}`}
-                          className={`p-3.5 rounded-xl border transition-all ${
-                            row.included
-                              ? "bg-white border-slate-200 shadow-2xs"
-                              : "bg-slate-50 border-slate-100 opacity-60"
-                          }`}
+                    {/* Department & Semester */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                          Department <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          required
+                          aria-label="Department"
+                          value={batchDept}
+                          onChange={(e) => setBatchDept(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
                         >
-                          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3">
-                            {/* Checkbox & Subject Name */}
-                            <div className="flex items-center gap-2.5 flex-1 min-w-[200px]">
-                              <input
-                                type="checkbox"
-                                checked={row.included}
-                                onChange={() => toggleSubjectIncluded(idx)}
-                                className="h-4 w-4 text-indigo-600 rounded cursor-pointer accent-indigo-600"
-                              />
-                              <div className="flex-1">
-                                {row.subject_name ? (
-                                  <>
-                                    <p className="font-extrabold text-slate-900 text-xs">{row.subject_name}</p>
-                                    {row.subject_code && (
-                                      <p className="text-[10px] text-slate-400 font-mono">{row.subject_code}</p>
-                                    )}
-                                  </>
-                                ) : (
-                                  <input
-                                    type="text"
-                                    required
-                                    placeholder="Enter Subject Name (e.g. Data Structures)"
-                                    value={row.subject_name}
-                                    onChange={(e) => updateSubjectRow(idx, { subject_name: e.target.value })}
-                                    className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold w-full outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
-                                  />
-                                )}
-                              </div>
-                            </div>
+                          {availableDepartments.map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      </div>
 
-                            {/* Date, Day Order, Session, Timing, Hall inputs */}
-                            {row.included && (
-                              <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
-                                <div className="flex items-center gap-1">
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                          Semester <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          required
+                          aria-label="Semester"
+                          value={batchSem}
+                          onChange={(e) => setBatchSem(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                        >
+                          {batchSemesters.map((s) => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Dates & Day Order */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                          Starting Exam Date <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="date"
+                          required
+                          aria-label="Starting Exam Date"
+                          value={batchStartDate}
+                          onChange={(e) => handleBatchStartDateChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+                          Starting Day Order
+                        </label>
+                        <select
+                          aria-label="Starting Day Order"
+                          value={batchDefaultDayOrder}
+                          onChange={(e) => handleBatchDayOrderChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                        >
+                          <option value="Day 1">Day 1</option>
+                          <option value="Day 2">Day 2</option>
+                          <option value="Day 3">Day 3</option>
+                          <option value="Day 4">Day 4</option>
+                          <option value="Day 5">Day 5</option>
+                          <option value="Day 6">Day 6</option>
+                          <option value="None">None</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Exam Timings */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Default Start Time</label>
+                          <span className="text-[9.5px] text-indigo-600 font-bold">Min: {collegeHours.startTimeStr}</span>
+                        </div>
+                        <input
+                          type="time"
+                          min={collegeMin24}
+                          max={collegeMax24}
+                          aria-label="Start Time"
+                          value={timeTo24h(batchCustomStartTime)}
+                          onChange={(e) => handleBatchStartTimeChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between">
+                          <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Default End Time</label>
+                          <span className="text-[9.5px] text-indigo-600 font-bold">Max: {collegeHours.endTimeStr}</span>
+                        </div>
+                        <input
+                          type="time"
+                          min={timeTo24h(batchCustomStartTime) || collegeMin24}
+                          max={collegeMax24}
+                          aria-label="End Time"
+                          value={timeTo24h(batchCustomEndTime)}
+                          onChange={(e) => handleBatchEndTimeChange(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* ═════════ STEP 2: SUBJECTS TIMETABLE TABLE ═════════ */
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">
+                          {batchDept} Subjects Timetable
+                        </h4>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {subjectRows.filter((r) => r.included).length} / {subjectRows.length} Included
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleAutoSequenceDates}
+                          className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                          <span>Auto-Sequence</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddSubjectRow}
+                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Add Subject</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {subjectRows.length === 0 ? (
+                      <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-200 rounded-xl space-y-2">
+                        <p className="text-xs font-bold text-slate-500">No subjects found for {batchDept}.</p>
+                        <button
+                          type="button"
+                          onClick={handleAddSubjectRow}
+                          className="px-4 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 cursor-pointer shadow-xs"
+                        >
+                          + Add Subject
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-[380px] overflow-y-auto pr-0.5">
+                        {subjectRows.map((row, idx) => (
+                          <div
+                            key={`${row.subject_name}_${idx}`}
+                            className={`p-3 rounded-xl border transition-all ${
+                              row.included
+                                ? "bg-white border-slate-200 hover:border-indigo-200 shadow-2xs"
+                                : "bg-slate-50/70 border-slate-200/70 opacity-50"
+                            }`}
+                          >
+                            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-2.5">
+                              {/* Include Checkbox & Subject Name */}
+                              <div className="flex items-center gap-2.5 flex-1 min-w-[200px]">
+                                <input
+                                  type="checkbox"
+                                  checked={row.included}
+                                  onChange={() => toggleSubjectIncluded(idx)}
+                                  className="h-4 w-4 text-indigo-600 rounded cursor-pointer accent-indigo-600 shrink-0"
+                                  title="Include in exam timetable"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  {row.subject_name ? (
+                                    <div>
+                                      <div className="flex items-center gap-1.5 flex-wrap">
+                                        <p className="font-extrabold text-slate-900 text-xs truncate">{row.subject_name}</p>
+                                        <span
+                                          className={`text-[9.5px] font-black uppercase px-1.5 py-0.5 rounded-md border ${
+                                            row.subject_type === "SKILL"
+                                              ? "bg-purple-50 text-purple-700 border-purple-200"
+                                              : row.subject_type === "LAB"
+                                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                              : row.subject_type === "GENERAL" || row.subject_type === "ELECTIVE"
+                                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                                              : "bg-blue-50 text-blue-700 border-blue-200"
+                                          }`}
+                                        >
+                                          {row.subject_type || "ACADEMIC"}
+                                        </span>
+                                      </div>
+                                      {row.subject_code && (
+                                        <p className="text-[10px] text-slate-400 font-mono">{row.subject_code}</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <input
+                                      type="text"
+                                      required
+                                      placeholder="Subject Name"
+                                      value={row.subject_name}
+                                      onChange={(e) => updateSubjectRow(idx, { subject_name: e.target.value })}
+                                      className="px-2 py-1 border border-slate-200 rounded-lg text-xs font-bold w-full outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Form Inputs (Date, Day Order, Time, Type, Delete) */}
+                              {row.included && (
+                                <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                                   <input
                                     type="date"
                                     required
                                     value={row.exam_date}
                                     onChange={(e) => updateSubjectRow(idx, { exam_date: e.target.value })}
-                                    className="px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs font-bold bg-slate-50 text-slate-800"
+                                    className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold bg-white text-slate-800 cursor-pointer"
                                     title="Exam Date"
                                   />
-                                </div>
 
-                                <select
-                                  value={row.day_order}
-                                  onChange={(e) => updateSubjectRow(idx, { day_order: e.target.value })}
-                                  className="px-2 py-1.5 border border-purple-200 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 cursor-pointer"
-                                  title="Day Order"
-                                >
-                                  <option value="Day 1">Day 1</option>
-                                  <option value="Day 2">Day 2</option>
-                                  <option value="Day 3">Day 3</option>
-                                  <option value="Day 4">Day 4</option>
-                                  <option value="Day 5">Day 5</option>
-                                  <option value="Day 6">Day 6</option>
-                                  <option value="None">No Order</option>
-                                </select>
+                                  <select
+                                    value={row.day_order}
+                                    onChange={(e) => updateSubjectRow(idx, { day_order: e.target.value })}
+                                    className="px-2 py-1.5 border border-purple-200 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 cursor-pointer"
+                                    title="Day Order"
+                                  >
+                                    <option value="Day 1">Day 1</option>
+                                    <option value="Day 2">Day 2</option>
+                                    <option value="Day 3">Day 3</option>
+                                    <option value="Day 4">Day 4</option>
+                                    <option value="Day 5">Day 5</option>
+                                    <option value="Day 6">Day 6</option>
+                                    <option value="None">None</option>
+                                  </select>
 
-                                <div className="flex items-center gap-1.5 bg-white px-2.5 py-1 rounded-xl border border-slate-200">
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase">From</span>
+                                  <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
                                     <input
                                       type="time"
                                       min={collegeMin24}
@@ -2030,12 +2148,9 @@ export const ExamScheduleManager: React.FC<{
                                       value={timeTo24h(row.start_time)}
                                       onChange={(e) => handleRowStartTimeChange(idx, e.target.value)}
                                       className="text-xs font-bold text-slate-800 bg-transparent outline-none cursor-pointer"
-                                      title={`Start Time (Min: ${collegeHours.startTimeStr})`}
+                                      title="Start Time"
                                     />
-                                  </div>
-                                  <span className="text-slate-400 text-xs font-bold">-</span>
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[9px] font-bold text-slate-400 uppercase">To</span>
+                                    <span className="text-slate-400 text-xs font-bold">–</span>
                                     <input
                                       type="time"
                                       min={timeTo24h(row.start_time) || collegeMin24}
@@ -2043,63 +2158,99 @@ export const ExamScheduleManager: React.FC<{
                                       value={timeTo24h(row.end_time)}
                                       onChange={(e) => handleRowEndTimeChange(idx, e.target.value)}
                                       className="text-xs font-bold text-slate-800 bg-transparent outline-none cursor-pointer"
-                                      title={`End Time (Max: ${collegeHours.endTimeStr})`}
+                                      title="End Time"
                                     />
                                   </div>
-                                </div>
 
-                                <input
-                                  type="text"
-                                  placeholder="Hall (optional)"
-                                  value={row.hall_room}
-                                  onChange={(e) => updateSubjectRow(idx, { hall_room: e.target.value })}
-                                  className="w-28 px-2.5 py-1.5 border border-dashed border-slate-300 rounded-lg text-xs font-medium bg-slate-50/60 text-slate-600 placeholder:text-slate-300 focus:border-slate-400 outline-none"
-                                  title="Hall / Room (optional)"
-                                />
-
-                                {subjectRows.length > 1 && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRemoveSubjectRow(idx)}
-                                    aria-label="Remove subject row"
-                                    className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                                    title="Remove subject row"
+                                  <select
+                                    aria-label="Subject Type"
+                                    value={row.subject_type || "ACADEMIC"}
+                                    onChange={(e) => updateSubjectRow(idx, { subject_type: e.target.value })}
+                                    className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold bg-white text-slate-700 cursor-pointer"
+                                    title="Subject Type"
                                   >
-                                    <Trash2 className="h-3.5 w-3.5" />
-                                  </button>
-                                )}
-                              </div>
-                            )}
+                                    <option value="ACADEMIC">ACADEMIC</option>
+                                    <option value="SKILL">SKILL</option>
+                                    <option value="LAB">LAB</option>
+                                    <option value="GENERAL">GENERAL</option>
+                                  </select>
+
+                                  {subjectRows.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSubjectRow(idx)}
+                                      aria-label="Remove subject row"
+                                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                                      title="Remove subject"
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Modal Footer */}
-              <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/60 shrink-0">
-                <p className="text-[11px] text-slate-500 font-medium">
-                  {subjectRows.filter((r) => r.included).length} of {subjectRows.length} subjects will be published.
-                </p>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setIsPopupOpen(false)}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-600 cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || subjectRows.filter((r) => r.included).length === 0}
-                    className="px-5 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm hover:shadow-md cursor-pointer disabled:opacity-50"
-                  >
-                    {isSubmitting ? "Publishing Timetable..." : "Publish Exam Timetable"}
-                  </button>
-                </div>
+              <div className="p-4 border-t border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
+                {formStep === 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => { setIsPopupOpen(false); setFormStep(1); }}
+                      className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!batchExamName.trim()) {
+                          toast("Please enter an Exam Title", "warning");
+                          return;
+                        }
+                        if (!batchDept) {
+                          toast("Please select a Department", "warning");
+                          return;
+                        }
+                        if (!batchStartDate) {
+                          toast("Please pick a starting date", "warning");
+                          return;
+                        }
+                        applyStartDateToRows(batchStartDate, batchDefaultDayOrder);
+                        setFormStep(2);
+                      }}
+                      className="px-5 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>Next: Build Timetable</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setFormStep(1)}
+                      className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      <span>Back to Setup</span>
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || subjectRows.filter((r) => r.included).length === 0}
+                      className="px-5 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      {isSubmitting ? "Publishing Timetable..." : `Publish ${subjectRows.filter((r) => r.included).length} Subjects`}
+                    </button>
+                  </>
+                )}
               </div>
             </form>
         </Dialog>

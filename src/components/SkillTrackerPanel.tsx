@@ -15,8 +15,16 @@ import {
   TrendingUp,
   Loader2,
   ShieldCheck,
-  BookOpen
+  BookOpen,
+  ChevronDown
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  ActionDropdownButton
+} from "@/components/ui/dropdown-menu";
 import { useToast } from "@/context/ToastContext";
 import { Pagination } from "@/components/ui/Pagination";
 import { Dialog } from "@/components/ui/dialog";
@@ -33,7 +41,7 @@ import { qk } from "@/lib/queryKeys";
    Data source: /api/skill-tracker (GET roll-up, POST verdicts).
    ───────────────────────────────────────────────────────────────────────── */
 
-export type SkillTrackerRole = "mentor" | "sme" | "cm";
+export type SkillTrackerRole = "mentor" | "sme" | "cm" | "kam" | "admin";
 
 export interface SkillTrackerPanelProps {
   role: SkillTrackerRole;
@@ -67,6 +75,8 @@ interface MentorSkillRow {
   college_id: string | null;
   subject: string;
   subject_type: "Skill" | "Academic";
+  semester?: string | null;
+  department?: string | null;
   weeks: WeekRollup[];
 }
 
@@ -108,6 +118,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
 
   // Filters
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
+  const [semesterFilter, setSemesterFilter] = useState<string>("all");
   const [weekFilter, setWeekFilter] = useState<string>("all");
   const [verdictFilter, setVerdictFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
@@ -147,12 +158,27 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
   // Reset pagination when filters change
   useEffect(() => {
     setPage(1);
-  }, [subjectFilter, weekFilter, verdictFilter, search]);
+  }, [subjectFilter, semesterFilter, weekFilter, verdictFilter, search]);
 
   const subjects = useMemo(
     () => Array.from(new Set(rows.map(r => r.subject))).sort(),
     [rows]
   );
+
+  const availableSemesters = useMemo(() => {
+    const semSet = new Set<string>();
+    rows.forEach(r => {
+      if (r.semester) semSet.add(r.semester);
+    });
+    if (semSet.size === 0) {
+      return Array.from({ length: 8 }, (_, i) => `Semester ${i + 1}`);
+    }
+    return Array.from(semSet).sort((a, b) => {
+      const numA = parseInt(a.replace(/\D/g, ""), 10) || 0;
+      const numB = parseInt(b.replace(/\D/g, ""), 10) || 0;
+      return numA - numB;
+    });
+  }, [rows]);
 
   const filteredRows = useMemo(() => {
     return rows
@@ -164,15 +190,19 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
       })
       .filter(r => {
         if (subjectFilter !== "all" && r.subject !== subjectFilter) return false;
+        if (semesterFilter !== "all" && r.semester !== semesterFilter) return false;
         if (r.weeks.length === 0) return false;
         if (search.trim()) {
           const q = search.toLowerCase().trim();
-          const m = (r.mentor_name || "").toLowerCase().includes(q) || r.subject.toLowerCase().includes(q);
+          const m = (r.mentor_name || "").toLowerCase().includes(q) ||
+            r.subject.toLowerCase().includes(q) ||
+            (r.semester || "").toLowerCase().includes(q) ||
+            (r.department || "").toLowerCase().includes(q);
           if (!m) return false;
         }
         return true;
       });
-  }, [rows, subjectFilter, weekFilter, verdictFilter, search]);
+  }, [rows, subjectFilter, semesterFilter, weekFilter, verdictFilter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
   const safePage = Math.min(Math.max(1, page), totalPages);
@@ -191,6 +221,8 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             "Mentor": r.mentor_name || r.mentor_id,
             "Mentor ID": r.mentor_id,
             "Subject": r.subject,
+            "Semester": r.semester || "—",
+            "Department": r.department || "—",
             "Subject Type": r.subject_type,
             "Week": `Week ${w.week_number}`,
             "Topics Planned": w.topics_planned,
@@ -293,46 +325,37 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                 <h2 className="text-base font-black text-slate-900">
                   {role === "mentor" ? "My Skill Tracker" : role === "sme" ? "Mentor Skill Development Approvals" : "Mentor Skill Development Tracker"}
                 </h2>
-                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border ${
-                  role === "sme"
-                    ? "bg-purple-50 text-purple-700 border-purple-200"
-                    : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                }`}>
-                  {role === "mentor" ? "Mentor View" : role === "sme" ? "SME Marking" : "CM View-Only"}
-                </span>
                 {collegeName && (
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700">
                     {collegeName}
                   </span>
                 )}
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                {role === "mentor"
-                  ? "Your weekly skill development progress: planned vs conducted topics, demo outcomes, and SME verdicts."
-                  : role === "sme"
-                  ? "Review mentors' weekly skill progress and demo outcomes. Mark weeks Cleared / Not Cleared / Needs Revision."
-                  : "Campus-wide mentor skill development progress with SME verification status."}
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => trackerQuery.refetch()}
-              disabled={trackerQuery.isFetching}
-              className="px-3 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw className={`h-3.5 w-3.5 ${trackerQuery.isFetching ? "animate-spin" : ""}`} />
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <Download className="h-3.5 w-3.5" />
-              Export (.xlsx)
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <ActionDropdownButton />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuItem
+                  onClick={() => trackerQuery.refetch()}
+                  disabled={trackerQuery.isFetching}
+                  className="gap-2 cursor-pointer text-xs"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${trackerQuery.isFetching ? "animate-spin" : ""}`} />
+                  <span>Refresh Data</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleExportExcel}
+                  className="gap-2 cursor-pointer text-xs"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  <span>Export (.xlsx)</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -388,17 +411,31 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
         )}
 
         {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t border-slate-100 mt-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t border-slate-100 mt-4">
           <div>
             <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Subject</label>
             <select
               aria-label="Subject"
               value={subjectFilter}
               onChange={e => setSubjectFilter(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               <option value="all">All Subjects</option>
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Semester</label>
+            <select
+              aria-label="Semester"
+              value={semesterFilter}
+              onChange={e => setSemesterFilter(e.target.value)}
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+            >
+              <option value="all">All Semesters</option>
+              {availableSemesters.map(sem => (
+                <option key={sem} value={sem}>{sem}</option>
+              ))}
             </select>
           </div>
           <div>
@@ -407,7 +444,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               aria-label="Week"
               value={weekFilter}
               onChange={e => setWeekFilter(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               <option value="all">All Weeks</option>
               {Array.from({ length: 16 }, (_, i) => i + 1).map(w => (
@@ -420,7 +457,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             <select
               value={verdictFilter}
               onChange={e => setVerdictFilter(e.target.value)}
-              className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
               <option value="all">All Verdicts</option>
               <option value="cleared">Cleared</option>
@@ -438,7 +475,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                 placeholder="Search mentor, subject..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
               />
             </div>
           </div>
@@ -450,9 +487,10 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
         <div className="overflow-x-auto">
           <Table className="w-full text-left border-collapse text-xs min-w-[900px]">
             <TableHeader>
-              <TableRow className="bg-slate-50 hover:bg-slate-50 border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-600">
+              <TableRow className="bg-sunken border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-600">
                 <TableHead className="p-3.5">Mentor</TableHead>
                 <TableHead className="p-3.5">Subject</TableHead>
+                <TableHead className="p-3.5">Semester</TableHead>
                 <TableHead className="p-3.5">Type</TableHead>
                 <TableHead className="p-3.5">Week</TableHead>
                 <TableHead className="p-3.5 text-center">Topics (Conducted / Planned)</TableHead>
@@ -465,28 +503,31 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             </TableHeader>
             <TableBody className="divide-y divide-slate-100 font-medium">
               {loading ? (
-                <TableRow><TableCell colSpan={8} className="p-8 text-center text-slate-400">Loading skill tracker...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="p-8 text-center text-slate-400">Loading skill tracker...</TableCell></TableRow>
               ) : paginatedRows.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="p-8 text-center text-slate-400 italic">No skill development records found. Weeks appear once a skill-subject weekly plan or demo exists.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="p-8 text-center text-slate-400 italic">No skill development records found. Weeks appear once a skill-subject weekly plan or demo exists.</TableCell></TableRow>
               ) : (
                 paginatedRows.map(row => (
                   <React.Fragment key={`${row.mentor_id}__${row.subject}`}>
                     {row.weeks.map((w, idx) => (
                       <TableRow key={`${row.mentor_id}__${row.subject}__${w.week_number}`} className="hover:bg-indigo-50/40 transition-colors">
                         <TableCell className="p-3.5">
-                          {idx === 0 ? (
-                            <div>
-                              <div className="font-extrabold text-slate-900">{row.mentor_name || row.mentor_id}</div>
-                              <div className="text-[10px] text-slate-400">{row.mentor_id}</div>
-                            </div>
-                          ) : (
-                            <span className="text-slate-300">"</span>
-                          )}
+                          <div>
+                            <div className="font-extrabold text-slate-900">{row.mentor_name || row.mentor_id}</div>
+                            {idx === 0 && <div className="text-[10px] text-slate-400">{row.mentor_id}</div>}
+                          </div>
                         </TableCell>
                         <TableCell className="p-3.5">
-                          {idx === 0 ? <span className="font-bold text-slate-800">{row.subject}</span> : <span className="text-slate-300">"</span>}
+                          <span className="font-bold text-slate-800">{row.subject}</span>
                         </TableCell>
-                        <TableCell className="p-3.5">{idx === 0 ? <SubjectTypeChip type={row.subject_type} /> : <span className="text-slate-300">"</span>}</TableCell>
+                        <TableCell className="p-3.5">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 whitespace-nowrap">
+                            {row.semester || "—"}
+                          </span>
+                        </TableCell>
+                        <TableCell className="p-3.5">
+                          <SubjectTypeChip type={row.subject_type} />
+                        </TableCell>
                         <TableCell className="p-3.5 font-black text-indigo-700">Week {w.week_number}</TableCell>
                         <TableCell className="p-3.5 text-center">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
@@ -594,7 +635,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               </div>
             )}
 
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {(["cleared", "not_cleared", "needs_revision"] as const).map(s => (
                 <button
                   key={s}
@@ -625,7 +666,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                 onChange={e => setVerdictRemarks(e.target.value)}
                 rows={3}
                 placeholder="SME observations, strengths, improvement areas..."
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-purple-500 resize-none"
+                className="w-full p-2.5 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-purple-500 resize-none"
               />
             </div>
 

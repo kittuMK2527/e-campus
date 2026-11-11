@@ -170,3 +170,26 @@ backup/supabase_prod_backup_2026-09-30T04-54-37-252Z.json
 sample.env
 Cred.txt
 
+
+certificates/
+
+# AI Agent metadata & runtime files
+.agents/
+skills-lock.json
+.cloud-attachments/
+.impeccable/
+.freebuff/
+
+# Compressed archives & large packages
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+*.iso
+
+# macOS metadata
+._*
+.Spotlight-V100
+.Trashes

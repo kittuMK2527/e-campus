@@ -139,7 +139,7 @@ export function EvaluationChecklist({
   if (criteria.length === 0) return null;
 
   return (
-    <div className="space-y-2 p-3.5 bg-[#D528A2]/5 dark:bg-[#D528A2]/10 rounded-xl border border-[#D528A2]/20 dark:border-[#D528A2]/30">
+    <div className="space-y-2 p-3.5 bg-[#4F46E5]/5 dark:bg-[#4F46E5]/10 rounded-xl border border-[#4F46E5]/20 dark:border-[#4F46E5]/30">
       <span className="text-[9.5px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-2">
         Compliance Checklist — {department} (unmet items escalate to KAM / CM)
       </span>
@@ -153,10 +153,10 @@ export function EvaluationChecklist({
                 onChange={(e) =>
                   onChange(entries.map((x) => x.criterionId === entry.criterionId ? { ...x, met: e.target.checked } : x))
                 }
-                className="h-4 w-4 rounded accent-[#D528A2] cursor-pointer"
+                className="h-4 w-4 rounded accent-[#4F46E5] cursor-pointer"
               />
             ) : (
-              <Target className="h-3.5 w-3.5 text-[#D528A2] dark:text-[#f45fc6] shrink-0" />
+              <Target className="h-3.5 w-3.5 text-[#4F46E5] dark:text-[#818CF8] shrink-0" />
             )}
             {entry.label}
           </label>
@@ -238,7 +238,7 @@ export function DemoEvalCriteriaPanel({
               onClick={() => setSelectedDept(d)}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                 selectedDept === d
-                  ? "bg-gradient-to-r from-[#D528A2] to-[#F4A863] text-white shadow-md shadow-[#D528A2]/20"
+                  ? "bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white shadow-md shadow-[#4F46E5]/20"
                   : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold"
               }`}
             >
@@ -256,7 +256,7 @@ export function DemoEvalCriteriaPanel({
               value={newLabel}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="e.g. Materials shared with students before demo"
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#D528A2]/30 focus:border-[#D528A2]"
+              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
             />
           </div>
           <div>
@@ -264,7 +264,7 @@ export function DemoEvalCriteriaPanel({
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value as "checkbox" | "score_rule")}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold cursor-pointer focus:ring-2 focus:ring-[#D528A2]/30 focus:border-[#D528A2]"
+              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold cursor-pointer focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
             >
               <option value="checkbox">Checkbox (manual)</option>
               <option value="score_rule">Mark rule (auto)</option>
@@ -279,7 +279,7 @@ export function DemoEvalCriteriaPanel({
                   step="0.1"
                   value={newThreshold}
                   onChange={(e) => setNewThreshold(e.target.value)}
-                  className="w-full px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:ring-2 focus:ring-[#D528A2]/30 focus:border-[#D528A2]"
+                  className="w-full px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
                 />
               </div>
               <div className="w-20">
@@ -288,7 +288,7 @@ export function DemoEvalCriteriaPanel({
                   type="number"
                   value={newScale}
                   onChange={(e) => setNewScale(e.target.value)}
-                  className="w-full px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:ring-2 focus:ring-[#D528A2]/30 focus:border-[#D528A2]"
+                  className="w-full px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
                 />
               </div>
             </>
@@ -307,7 +307,7 @@ export function DemoEvalCriteriaPanel({
               });
               setNewLabel("");
             }}
-            className="px-4 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-[#D528A2] to-[#F4A863] hover:opacity-95 text-white disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-md shadow-[#D528A2]/20 transition-all"
+            className="px-4 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] hover:opacity-95 text-white disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-md shadow-[#4F46E5]/20 transition-all"
           >
             <Plus className="h-3.5 w-3.5" /> Add
           </button>
@@ -336,7 +336,7 @@ export function DemoEvalCriteriaPanel({
                 className={`p-3.5 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${
                   c.is_system === 1
                     ? "border-slate-200/60 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/20"
-                    : "border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#131317] hover:border-[#D528A2]/40"
+                    : "border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#131317] hover:border-[#4F46E5]/40"
                 }`}
               >
                 {editingId === c.id ? (
@@ -384,15 +384,15 @@ export function DemoEvalCriteriaPanel({
                   <>
                     <div className="flex items-center gap-2.5 min-w-0">
                       {c.type === "checkbox" ? (
-                        <CheckSquare className={`h-4 w-4 shrink-0 ${c.is_system === 1 ? "text-slate-400" : "text-[#D528A2] dark:text-[#f45fc6]"}`} />
+                        <CheckSquare className={`h-4 w-4 shrink-0 ${c.is_system === 1 ? "text-slate-400" : "text-[#4F46E5] dark:text-[#818CF8]"}`} />
                       ) : (
-                        <Target className={`h-4 w-4 shrink-0 ${c.is_system === 1 ? "text-slate-400" : "text-[#F4A863]"}`} />
+                        <Target className={`h-4 w-4 shrink-0 ${c.is_system === 1 ? "text-slate-400" : "text-[#7C3AED]"}`} />
                       )}
                       <span className={`text-xs font-black truncate ${c.is_system === 1 ? "text-slate-600 dark:text-slate-300" : "text-slate-900 dark:text-white"}`}>{c.label}</span>
                       <span
                         className={`px-2 py-0.5 rounded-md text-[8.5px] font-black uppercase shrink-0 ${
                           c.type === "checkbox"
-                            ? "bg-[#D528A2]/10 text-[#D528A2] dark:text-[#f45fc6] border border-[#D528A2]/20"
+                            ? "bg-[#4F46E5]/10 text-[#4F46E5] dark:text-[#818CF8] border border-[#4F46E5]/20"
                             : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900"
                         }`}>
                         {c.type === "checkbox" ? "Manual" : `≥ ${c.threshold}/${c.scale ?? 5}`}
@@ -413,7 +413,7 @@ export function DemoEvalCriteriaPanel({
                               setEditLabel(c.label);
                               setEditThreshold(String(c.threshold ?? ""));
                             }}
-                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#D528A2] hover:bg-[#D528A2]/10 cursor-pointer transition-all"
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-[#4F46E5] hover:bg-[#4F46E5]/10 cursor-pointer transition-all"
                             title="Edit"
                           >
                             <Pencil className="h-3.5 w-3.5" />

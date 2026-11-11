@@ -22,14 +22,15 @@ import {
   BookOpen,
   Edit,
   Trash2,
-  MoreVertical
+  X
 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator
+  DropdownMenuSeparator,
+  ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
 import { SubjectDialog, type SubjectFormState, type DynamicSubjectRow } from "@/components/admin/dialogs/SubjectDialog";
 import { MentorGroupDialog, type MentorGroupFormState } from "@/components/admin/dialogs/MentorGroupDialog";
@@ -389,7 +390,6 @@ export const SubjectsTab: React.FC = () => {
       <PageHeader
         icon={GraduationCap}
         title="Subjects Master Directory"
-        subtitle="Manage individual syllabus items, semester mappings, and teaching slots."
         actions={
           subjectsSubTab === "catalog" && (
             <Button
@@ -474,8 +474,18 @@ export const SubjectsTab: React.FC = () => {
                 placeholder="Search name, ID, course..."
                 value={subjectSearchQuery}
                 onChange={e => setSubjectSearchQuery(e.target.value)}
-                className="w-full pl-9"
+                className="w-full pl-9 pr-8 rounded-2xl"
               />
+              {subjectSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSubjectSearchQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-100 cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           </FilterBar>
 
@@ -583,14 +593,7 @@ export const SubjectsTab: React.FC = () => {
                         <div className="flex justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg cursor-pointer"
-                                title="Subject Actions"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
+                              <ActionDropdownButton size="sm" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuItem onClick={() => handleOpenSubjectModal(sub)}>
@@ -678,14 +681,7 @@ export const SubjectsTab: React.FC = () => {
                         <div className="flex justify-end">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg cursor-pointer"
-                                title="Group Actions"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
+                              <ActionDropdownButton size="sm" />
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuItem onClick={() => handleOpenGroupModal(g)}>

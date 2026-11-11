@@ -48,6 +48,7 @@ export interface AuthGuardResult {
 export interface RequireAuthOptions {
   allowedRoles?: Role[];
   checkCsrf?: boolean;
+  allowPasswordChangeRequired?: boolean;
 }
 
 /** Profile tables that hold display names and metadata for each role */
@@ -300,7 +301,8 @@ export async function resolveLiveUser(
  * 2. Inactivity does not exceed 60 minutes.
  * 3. 7-day hard maximum ceiling is not exceeded.
  * 4. CSRF token validity on mutating HTTP methods (POST, PUT, DELETE, PATCH).
- * 5. Live role permissions on the server.
+ * 5. Mandatory password rotation, unless explicitly allowed for identity/rotation.
+ * 6. Live role permissions on the server.
  */
 export async function requireAuth(
   request: Request,
@@ -359,6 +361,16 @@ export async function requireAuth(
         errorResponse: NextResponse.json(
           { success: false, message: "Unauthorized: User account not found or deactivated.", code: "USER_NOT_FOUND" },
           { status: 401 }
+        )
+      };
+    }
+
+    // Password rotation is mandatory for every role, including super admins.
+    if (user.mustChangePassword && !options.allowPasswordChangeRequired) {
+      return {
+        errorResponse: NextResponse.json(
+          { success: false, message: "You must change your password before continuing.", code: "PASSWORD_CHANGE_REQUIRED" },
+          { status: 403 }
         )
       };
     }

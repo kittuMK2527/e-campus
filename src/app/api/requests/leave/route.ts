@@ -1,11 +1,11 @@
 export const maxDuration = 60;
 
-import { NextResponse, after } from "next/server";
+import { NextResponse } from "next/server";
 import { getDb, type QueryFailure } from "@/lib/db";
 import { requireAuth, Role } from "@/lib/authGuard";
-import { renderEmailShell } from "@/lib/mail";
-import { dispatchMail } from "@/lib/mailAsync";
 import { generateId } from "@/lib/id";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 // No screen calls this route today, but it writes student leave rows and mails
 // parents-style notices, so it is guarded rather than left anonymous.
@@ -123,83 +123,39 @@ export async function POST(request: Request) {
       nowIso
     );
 
-    // Notification moves behind the response: three lookups plus a relay leg that
-    // can burn 12s must not stretch the students submission into a timeout.
-    after(async () => {
-      try {
-        let collegeId = body.college_id || body.collegeId;
-        if (!collegeId) {
-          const student = await db.get("SELECT college_id FROM students WHERE id = ? OR LOWER(TRIM(name)) = LOWER(TRIM(?))", [studentId, studentName]);
-          collegeId = student?.college_id;
-        }
-  
-        if (collegeId) {
-          // The campus managers and the assigned class teacher both key off
-          // collegeId/classGroup, so they leave as one group. Mail-only inputs, so a
-          // failed slice degrades to "no recipient" instead of failing the response.
-          const audienceFailures: QueryFailure[] = [];
-          const [cms, classTeacherRows] = await db.multiQuery([
-            { sql: "SELECT email, name FROM campus_managers WHERE college_id = ?", params: [collegeId] },
-            {
-              sql: `SELECT m.email, m.name
-             FROM class_mentor_assignments cma
-             JOIN mentors m ON cma.mentor_id = m.id
-             WHERE cma.college_id = ? AND LOWER(cma.classGroup) = LOWER(?)`,
-              params: [collegeId, classGroup],
-            },
-          ], audienceFailures);
-          if (audienceFailures.length > 0) {
-            console.warn("[requests/leave] recipient lookup incomplete:", audienceFailures.map(f => f.error).join("; "));
-          }
-          const cmEmails = cms.map((cm: any) => cm.email).filter(Boolean);
-  
-          // Assigned Class Teacher for this classGroup
-          const assignedClassTeacher = classTeacherRows[0];
-  
-          let targetEmails: string[] = [];
-          if (assignedClassTeacher?.email) {
-            targetEmails.push(assignedClassTeacher.email);
-          }
-          // No class teacher assigned: escalate to the campus managers only. Broadcasting to
-          // every mentor on a campus mailed leave requests for students they never teach.
-          const hasClassTeacher = Boolean(assignedClassTeacher?.email);
-  
-          // Combine unique email addresses (Class Teacher + CMs)
-          const allRecipientEmails = Array.from(new Set([...targetEmails, ...cmEmails].filter(Boolean)));
-  
-          if (allRecipientEmails.length > 0) {
-            await dispatchMail({
-              to: allRecipientEmails,
-              subject: `[Student ${type.toUpperCase()} Request] ${studentName} (${classGroup}) — ${dateStr}`,
-              htmlBody: renderEmailShell({
-                title: `New Student ${type.toUpperCase()} Application`,
-                badgeText: `${type.toUpperCase()} Pending Class Teacher Review`,
-                badgeColor: "amber",
-                description: `Student <strong>${studentName}</strong> from cohort <strong>${classGroup}</strong> has submitted a new ${type.toUpperCase()} request for <strong>${dateStr}</strong>. ${assignedClassTeacher?.name ? `Class Teacher: <strong>${assignedClassTeacher.name}</strong>` : "No class teacher is assigned to this cohort, so the campus managers are reviewing it."}`,
-                details: [
-                  { label: "Student Name", value: studentName, highlight: true },
-                  { label: "Class Group", value: classGroup },
-                  { label: "Class Teacher", value: hasClassTeacher ? assignedClassTeacher.name : "Unassigned (Campus Manager to review)" },
-                  { label: "Request Type", value: type.toUpperCase() },
-                  { label: "Leave Date", value: dateStr, highlight: true },
-                  { label: "Reason", value: reason },
-                  { label: "Submitted At", value: new Date(nowIso).toLocaleString() },
-                ],
-                ctaText: "Open Portal Console to Review & Approve →",
-              }),
-              context: "student-leave-created",
-            });
-          }
-        }
-      } catch (mailErr) {
-        console.warn("Failed to send student leave request email to Mentor/CM:", mailErr);
-      }
+    // Realtime notification dispatch to CM and Admin
+    const studentRecord = await db.get(
+      "SELECT college_id FROM students WHERE id = ? OR LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1",
+      studentId,
+      studentName
+    ).catch(() => null);
+    const studentCollegeId = studentRecord?.college_id || null;
+
+    try {
+      await dispatchSystemNotification(db, {
+        roles: ["cm", "admin"],
+        collegeId: studentCollegeId,
+        title: `New ${type.toUpperCase()} Request: ${studentName}`,
+        message: `${studentName} (${classGroup}) submitted ${type.toUpperCase()} request for ${dateStr}: "${reason.slice(0, 80)}"`,
+        link: "/cm/approvals",
+        type: "warning",
+        domain: "notifications",
+        action: "created",
+        payload: { requestId: newId, studentId, studentName, classGroup, type, dateStr }
+      });
+    } catch (_) {}
+
+    notifyRealtimeEvent({
+      domain: "requests",
+      action: "leave_requested",
+      targetRoles: ["cm", "mentor", "admin"],
+      payload: { requestId: newId, studentId, studentName, classGroup, type, dateStr }
     });
 
     return NextResponse.json({ 
       success: true, 
       requestId: newId,
-      message: "Leave request submitted successfully. The Class Teacher / CM are being notified by email."
+      message: "Leave request submitted successfully. The Class Teacher / CM are being notified."
     });
   } catch (error: any) {
     console.error("API POST Leave error:", error);
@@ -303,45 +259,42 @@ export async function PUT(request: Request) {
       new Date().toISOString()
     );
 
-    // Deferred for the same reason: the decision is recorded, the student is told
-    // once the response is already on the wire.
-    after(async () => {
-      try {
-        const student = await db.get("SELECT email FROM students WHERE id = ?", [leaveReq.studentId]);
-        const studentEmail = student?.email;
-  
-        if (studentEmail) {
-          const isApproved = status === "approved";
-          await dispatchMail({
-            to: studentEmail,
-            subject: `[Leave Request ${status.toUpperCase()}] Your ${leaveReq.type.toUpperCase()} for ${leaveReq.dateStr}`,
-            htmlBody: renderEmailShell({
-              title: `Your ${leaveReq.type.toUpperCase()} Request Has Been ${isApproved ? "Approved" : "Rejected"}`,
-              badgeText: `Status: ${status.toUpperCase()}`,
-              badgeColor: isApproved ? "emerald" : "rose",
-              description: `Dear <strong>${leaveReq.studentName}</strong>, your ${leaveReq.type.toUpperCase()} request for <strong>${leaveReq.dateStr}</strong> has been reviewed and <strong>${status.toUpperCase()}</strong> by <strong>${resolverName}</strong>.`,
-              details: [
-                { label: "Student Name", value: leaveReq.studentName },
-                { label: "Class Group", value: leaveReq.classGroup },
-                { label: "Request Type", value: leaveReq.type.toUpperCase() },
-                { label: "Leave Date", value: leaveReq.dateStr, highlight: true },
-                { label: "Status Decision", value: status.toUpperCase(), highlight: true },
-                { label: "Reviewed By", value: resolverName },
-                ...(isApproved ? [{ label: "Attendance Action", value: "Class periods on this date automatically excused as Present / OD." }] : []),
-              ],
-              ctaText: "Open Student Dashboard →",
-            }),
-            context: "student-leave-resolved",
-          });
-        }
-      } catch (mailErr) {
-        console.warn("Failed to send leave decision email to student:", mailErr);
-      }
+    // Realtime notification dispatch to Student
+    try {
+      await dispatchSystemNotification(db, {
+        userIds: [leaveReq.studentId],
+        roles: ["admin"],
+        collegeId: leaveReq.college_id || undefined,
+        title: `Leave Request ${status === "approved" ? "Approved" : "Rejected"}`,
+        message: `Your ${leaveReq.type.toUpperCase()} request for ${leaveReq.dateStr} was ${status} by ${resolverName}.`,
+        link: "/student/schedule",
+        type: status === "approved" ? "success" : "error",
+        domain: "notifications",
+        action: "created",
+        payload: { requestId, status, studentId: leaveReq.studentId, dateStr: leaveReq.dateStr }
+      });
+    } catch (_) {}
+
+    notifyRealtimeEvent({
+      domain: "requests",
+      action: "leave_resolved",
+      targetUserIds: [leaveReq.studentId],
+      targetRoles: ["student", "cm", "mentor", "admin"],
+      payload: { requestId, status, studentId: leaveReq.studentId, dateStr: leaveReq.dateStr }
     });
+    if (status === "approved") {
+      notifyRealtimeEvent({
+        domain: "attendance",
+        action: "leave_approved_attendance_marked",
+        targetUserIds: [leaveReq.studentId],
+        targetRoles: ["student", "cm", "admin"],
+        payload: { studentId: leaveReq.studentId, dateStr: leaveReq.dateStr }
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Leave request status updated to ${status}. The student is being notified by email.`
+      message: `Leave request status updated to ${status}. The student is being notified.`
     });
   } catch (error: any) {
     console.error("API PUT Leave error:", error);

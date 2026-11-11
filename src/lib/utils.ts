@@ -19,17 +19,15 @@ const ROLE_ALIASES: Record<string, NormalizedRole> = {
 };
 
 const ROLE_HOME_PATHS: Record<string, string> = {
-  admin: "/admin",
-  cm: "/cm",
-  mentor: "/mentor",
-  student: "/student",
-  kam: "/kam",
-  sme: "/sme",
-  fee_manager: "/fee-manager",
+  admin: "/admin/overview",
+  cm: "/cm/overview",
+  mentor: "/mentor/home",
+  student: "/student/dashboard",
+  kam: "/kam/overview",
+  sme: "/sme/overview",
+  fee_manager: "/fee-manager/overview",
   hr: "/hr",
-  "L and D": "/l-and-d",
-  "l-d": "/l-and-d",
-  ld: "/l-and-d"
+  "L and D": "/l-and-d"
 };
 
 /** Client-safe role normalization (mirrors authGuard.normalizeRole). */
@@ -49,6 +47,18 @@ export function formatRoleLabel(role?: string | null): string {
 export function getRoleHomePath(role?: string | null): string {
   const normalized = normalizeRoleValue(role);
   return ROLE_HOME_PATHS[normalized] || `/${normalized}`;
+}
+
+const SME_TABS = ["overview", "demo_list", "weekly_plans", "skill_approvals", "availability", "reallocation", "history", "eval_criteria"] as const;
+const FEE_MANAGER_TABS = ["overview", "colleges", "students", "transactions"] as const;
+
+export function resolveSmeTab(value: unknown): typeof SME_TABS[number] {
+  const tab = value === "calendar" ? "availability" : value === "reallocation_hub" ? "reallocation" : value;
+  return SME_TABS.find((candidate) => candidate === tab) ?? "overview";
+}
+
+export function resolveFeeManagerTab(value: unknown): typeof FEE_MANAGER_TABS[number] {
+  return FEE_MANAGER_TABS.find((candidate) => candidate === value) ?? "overview";
 }
 
 export function isTimeSlotMatch(t1?: string, t2?: string): boolean {
@@ -93,6 +103,50 @@ export function isTimeSlotMatch(t1?: string, t2?: string): boolean {
   }
 
   return false;
+}
+
+/** Parses start and end minutes from a slot time range (e.g. "09:00 AM - 10:00 AM"). */
+export function parseSlotTimeRange(timeStr: string): { start: number; end: number } | null {
+  if (!timeStr) return null;
+  const matches = Array.from(timeStr.matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
+  if (matches.length < 2) return null;
+
+  const parseM = (m: RegExpMatchArray, defaultAmpm?: string | null) => {
+    let hr = parseInt(m[1], 10);
+    const min = m[2] ? parseInt(m[2], 10) : 0;
+    let ampm = m[3] ? m[3].toUpperCase() : defaultAmpm;
+    if (ampm === "PM" && hr < 12) hr += 12;
+    if (ampm === "AM" && hr === 12) hr = 0;
+    return hr * 60 + min;
+  };
+
+  const secondAmpm = matches[1][3] ? matches[1][3].toUpperCase() : null;
+  const firstAmpm = matches[0][3] ? matches[0][3].toUpperCase() : (secondAmpm === "AM" ? "AM" : null);
+
+  let start = parseM(matches[0], firstAmpm);
+  let end = parseM(matches[1], secondAmpm);
+
+  if (end < start && !matches[1][3] && start < 12 * 60) {
+    end += 12 * 60;
+  }
+
+  return { start, end };
+}
+
+/** Checks whether two slot time ranges overlap (BUG-05). */
+export function isTimeSlotOverlap(t1?: string, t2?: string): boolean {
+  if (!t1 || !t2) return false;
+  if (t1.trim().toLowerCase() === t2.trim().toLowerCase()) return true;
+
+  const r1 = parseSlotTimeRange(t1);
+  const r2 = parseSlotTimeRange(t2);
+
+  if (!r1 || !r2) {
+    return isTimeSlotMatch(t1, t2);
+  }
+
+  // Two intervals overlap if startA < endB and endA > startB
+  return r1.start < r2.end && r1.end > r2.start;
 }
 
 export function normalizeClassGroup(cg?: string): string {
@@ -808,8 +862,11 @@ export interface ShiftParams {
 
 export const parseTimeToMinutes = (timeStr: string): number => {
   if (!timeStr) return 0;
-  const cleanStr = timeStr.trim().replace(/\./g, ":");
-  const match = cleanStr.match(/^(\d+)(?::(\d+))?\s*(AM|PM)?$/i);
+  // If timeStr is a range (e.g. "08:30 AM - 09:30 AM"), take the first segment
+  const firstPart = timeStr.replace(/to/i, "-").split("-")[0].replace(/hrs|hr/i, "").trim();
+  const cleanStr = firstPart.replace(/\./g, ":");
+  // Accept: "14:00", "14:00:00", "08:30 AM", "8.30AM", "8:30am", "8am", "8", etc.
+  const match = cleanStr.match(/^(\d{1,2})(?::(\d{1,2}))?(?::\d{1,2})?\s*(AM|PM)?$/i);
   if (!match) return 0;
   let hours = parseInt(match[1], 10);
   const minutes = match[2] ? parseInt(match[2], 10) : 0;
@@ -820,7 +877,7 @@ export const parseTimeToMinutes = (timeStr: string): number => {
     if (isPM && hours < 12) hours += 12;
     if (!isPM && hours === 12) hours = 0;
   }
-  return hours * 60 + minutes;
+  return (hours % 24) * 60 + minutes;
 };
 
 export const formatMinutesToTime = (totalMinutes: number): string => {
@@ -979,7 +1036,7 @@ export function resolveClassGroupDetailsFromState(
   const allCourseNames = Array.from(new Set(coursesList.map(c => c.name).filter(Boolean)));
   for (const deptName of allCourseNames) {
     const deptNorm = normalize(deptName);
-    if (cgNorm.includes(deptNorm)) {
+    if (cgNorm && deptNorm && cgNorm.includes(deptNorm)) {
       if (deptNorm.length > bestDeptMatchScore) {
         resolvedDept = deptName;
         bestDeptMatchScore = deptNorm.length;
@@ -991,7 +1048,7 @@ export function resolveClassGroupDetailsFromState(
     const codes = Array.from(new Set(coursesList.map((c: any) => c.code).filter(Boolean)));
     for (const code of codes) {
       const codeNorm = normalize(code);
-      if (cgNorm.includes(codeNorm)) {
+      if (cgNorm && codeNorm && cgNorm.includes(codeNorm)) {
         const matched = coursesList.find((c: any) => c.code === code);
         if (matched) {
           resolvedDept = matched.name;
@@ -1011,7 +1068,7 @@ export function resolveClassGroupDetailsFromState(
         .join("")
         .toLowerCase();
 
-      if (abbreviation && cgNorm.includes(abbreviation)) {
+      if (abbreviation && cgNorm && cgNorm.includes(abbreviation)) {
         resolvedDept = deptName;
         break;
       }
@@ -1161,10 +1218,12 @@ export function isCohortMatching(cg1?: string, cg2?: string, coursesList: any[] 
   if (!cg1 || !cg2) return false;
   const clean1 = cg1.trim().toLowerCase();
   const clean2 = cg2.trim().toLowerCase();
+  if (!clean1 || !clean2) return false;
   if (clean1 === clean2) return true;
 
   const norm1 = clean1.replace(/[^a-z0-9]/g, "");
   const norm2 = clean2.replace(/[^a-z0-9]/g, "");
+  if (!norm1 || !norm2) return false;
   if (norm1 === norm2) return true;
 
   const p1 = parseCohort(cg1);
@@ -1175,7 +1234,7 @@ export function isCohortMatching(cg1?: string, cg2?: string, coursesList: any[] 
 
   const dept1 = getDeptFromClassGroup(cg1).toLowerCase().trim();
   const dept2 = getDeptFromClassGroup(cg2).toLowerCase().trim();
-  if (dept1 && dept2 && (dept1 === dept2 || dept1.includes(dept2) || dept2.includes(dept1))) {
+  if (dept1 && dept2 && dept1.length >= 2 && dept2.length >= 2 && (dept1 === dept2 || dept1.includes(dept2) || dept2.includes(dept1))) {
     if (p1.semester && p2.semester && p1.semester === p2.semester) {
       return true;
     }
@@ -1191,7 +1250,7 @@ export function isCohortMatching(cg1?: string, cg2?: string, coursesList: any[] 
   const depClean1 = (d1.department || "").replace(/^(iii|ii|i|iv)\s+/i, "").toLowerCase().trim();
   const depClean2 = (d2.department || "").replace(/^(iii|ii|i|iv)\s+/i, "").toLowerCase().trim();
 
-  if (depClean1 && depClean2 && (depClean1 === depClean2 || depClean1.includes(depClean2) || depClean2.includes(depClean1))) {
+  if (depClean1 && depClean2 && depClean1.length >= 2 && depClean2.length >= 2 && (depClean1 === depClean2 || depClean1.includes(depClean2) || depClean2.includes(depClean1))) {
     if (d1.semester && d2.semester && d1.semester.toLowerCase().trim() === d2.semester.toLowerCase().trim()) {
       return true;
     }
@@ -1311,50 +1370,81 @@ export function matchCanonicalCourse(deptOrCode?: string, courses: any[] = []): 
 export function getCollegePeriodTimeSlots(
   collegeId?: string,
   colleges: any[] = [],
-  slots: any[] = []
+  slots: any[] = [],
+  shiftFilter?: string
 ): string[] {
   const resultSlots = new Set<string>();
 
   // 1. Fetch from actual timetable slots recorded for this college
   if (collegeId && slots && slots.length > 0) {
-    slots
-      .filter(s => s.college_id === collegeId && s.time)
-      .forEach(s => {
-        const t = (s.time || "").trim();
-        if (t) resultSlots.add(t);
+    const matchingCollegeSlots = slots.filter(s => {
+      const matchCol = s.college_id === collegeId || (s as any).collegeId === collegeId;
+      if (!matchCol) return false;
+      if (shiftFilter) {
+        const sShift = ((s.shift || "") as string).toLowerCase().replace(/[\s_-]/g, "");
+        const targetShift = shiftFilter.toLowerCase().replace(/[\s_-]/g, "");
+        if (sShift && sShift !== targetShift) return false;
+      }
+      return Boolean(s.time);
+    });
+
+    matchingCollegeSlots.forEach(s => {
+      const t = (s.time || "").trim();
+      if (t) resultSlots.add(t);
+    });
+
+    // If this college already has active timetable slots, those are its authoritative period times
+    if (resultSlots.size > 0) {
+      return Array.from(resultSlots).sort((a, b) => {
+        const sA = parseTimeToMinutes((a.split("-")[0] || a).trim());
+        const sB = parseTimeToMinutes((b.split("-")[0] || b).trim());
+        return sA - sB;
       });
+    }
   }
 
-  // 2. Parse shift_configs if configured for this college
+  // 2. Parse shift_configs if configured for this college (only when no actual timetable slots exist)
   if (collegeId && colleges && colleges.length > 0) {
     const college = colleges.find(c => c.id === collegeId);
     if (college?.shift_configs) {
       try {
-        const parsed = JSON.parse(college.shift_configs);
-        const allParams: any[] = [];
-        if (parsed.semesters) {
-          Object.values(parsed.semesters).forEach((semObj: any) => {
-            Object.values(semObj).forEach((shiftObj: any) => {
-              if (shiftObj?.custom_shift_params) allParams.push(shiftObj.custom_shift_params);
-            });
-          });
-        }
-        if (parsed.custom_shift_params) {
-          Object.values(parsed.custom_shift_params).forEach((param: any) => {
-            allParams.push(param);
+        const parsed = typeof college.shift_configs === "string"
+          ? JSON.parse(college.shift_configs)
+          : college.shift_configs;
+
+        const hasShifts = Boolean(college.has_shifts);
+        const desiredShift = shiftFilter
+          ? shiftFilter.toLowerCase().replace(/[\s_-]/g, "")
+          : (hasShifts ? "shift1" : "general");
+
+        // First check direct period arrays (e.g. parsed.general, parsed.shift_1)
+        const shiftKeys = Object.keys(parsed).filter(k => k !== "custom_shift_params" && k !== "semester_configs" && k !== "semesters");
+        const matchingKey = shiftKeys.find(k => k.toLowerCase().replace(/[\s_-]/g, "") === desiredShift);
+        if (matchingKey && Array.isArray(parsed[matchingKey]) && parsed[matchingKey].length > 0) {
+          parsed[matchingKey].forEach((t: string) => {
+            if (t && typeof t === "string") resultSlots.add(t.trim());
           });
         }
 
-        allParams.forEach(param => {
-          const res = calculateShiftSchedule(param);
-          if (res && res.items) {
-            res.items
-              .filter(item => item.type === "period")
-              .forEach(item => {
-                resultSlots.add(`${item.startTimeStr} - ${item.endTimeStr}`);
-              });
+        // If not found in direct arrays, check custom_shift_params
+        if (resultSlots.size === 0 && parsed.custom_shift_params) {
+          const paramKey = Object.keys(parsed.custom_shift_params).find(
+            k => k.toLowerCase().replace(/[\s_-]/g, "") === desiredShift
+          );
+          const param = paramKey
+            ? parsed.custom_shift_params[paramKey]
+            : (parsed.custom_shift_params.general || parsed.custom_shift_params.shift_1 || Object.values(parsed.custom_shift_params)[0]);
+          if (param) {
+            const res = calculateShiftSchedule(param);
+            if (res && res.items) {
+              res.items
+                .filter(item => item.type === "period")
+                .forEach(item => {
+                  resultSlots.add(`${item.startTimeStr} - ${item.endTimeStr}`);
+                });
+            }
           }
-        });
+        }
       } catch (_) {}
     }
   }
@@ -1370,13 +1460,12 @@ export function getCollegePeriodTimeSlots(
   // 4. Default standard fallback if completely unconfigured
   if (resultSlots.size === 0) {
     return [
-      "8.20 AM - 9.10 AM",
-      "9.10 AM - 10.00 AM",
-      "10.20 AM - 11.10 AM",
-      "11.10 AM - 12.00 PM",
-      "12.00 PM - 12.50 PM",
-      "02:00 PM - 03:00 PM",
-      "03:00 PM - 04:00 PM"
+      "9.00 AM - 9.50 AM",
+      "9.50 AM - 10.40 AM",
+      "10.55 AM - 11.45 AM",
+      "12.20 PM - 1.10 PM",
+      "1.10 PM - 2.00 PM",
+      "2.00 PM - 2.50 PM"
     ];
   }
 
@@ -1574,9 +1663,14 @@ export function evaluateDailyStudentAttendance(
   const totalEff = Math.max(stSlotsCount, totalMarked);
 
   // RULE 0: Master Tracker Sheet compliance resolution (when hourly records carry daily compliance tag)
-  const masterDailyRec = records.find(r => r.attendancetypesub === "daily_present" || r.attendancetypesub === "daily_absent");
+  // Bug 9 Fix: Support both camelCase attendanceTypeSub and lowercase attendancetypesub
+  const masterDailyRec = records.find(r => {
+    const sub = String(r.attendanceTypeSub || (r as any).attendancetypesub || "").toLowerCase().trim();
+    return sub === "daily_present" || sub === "daily_absent";
+  });
   if (masterDailyRec) {
-    const isDailyP = masterDailyRec.attendancetypesub === "daily_present";
+    const sub = String(masterDailyRec.attendanceTypeSub || (masterDailyRec as any).attendancetypesub || "").toLowerCase().trim();
+    const isDailyP = sub === "daily_present";
     return {
       status: isDailyP ? "P" : "A",
       presentDays: isDailyP ? 1 : 0,
@@ -1677,6 +1771,17 @@ export function evaluateDailyStudentAttendance(
     isExamDay,
     tooltipInfo: "No valid status"
   };
+}
+
+/**
+ * Standard Attendance Presence Check.
+ * Treats 'present', 'p', 'od', and 'on_duty' as present across all dashboards (KAM, Admin, CM).
+ */
+export function isAttendancePresent(status: string | undefined | null | boolean | number): boolean {
+  if (status === true || status === 1) return true;
+  if (!status) return false;
+  const s = String(status).toLowerCase().trim();
+  return s === "present" || s === "p" || s === "od" || s === "on_duty" || s === "on duty";
 }
 
 export function isSkillSubject(subject: { name?: string; type?: string } | string | null | undefined): boolean {

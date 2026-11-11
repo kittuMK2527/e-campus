@@ -11,6 +11,13 @@ import {
   type NotificationAction,
 } from "@/lib/notificationTarget";
 import {
+  requestDeviceNotificationPermission,
+  getDeviceNotificationStatus,
+  sendDeviceSystemNotification,
+  registerPushSubscription,
+  type DeviceNotificationPermission,
+} from "@/lib/deviceNotifications";
+import {
   Bell,
   CheckCircle2,
   Circle,
@@ -58,6 +65,37 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
   const notifications = notificationsQuery.data || [];
   const loading = notificationsQuery.isPending;
 
+  const [deviceNotifStatus, setDeviceNotifStatus] = React.useState<DeviceNotificationPermission>("default");
+  const [hidePermissionBanner, setHidePermissionBanner] = React.useState(false);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      setDeviceNotifStatus(getDeviceNotificationStatus());
+      const hidden = localStorage.getItem("fp_hide_notif_banner") === "true";
+      setHidePermissionBanner(hidden);
+    }
+  }, []);
+
+  const handleEnableDeviceNotifs = async () => {
+    const res = await requestDeviceNotificationPermission();
+    setDeviceNotifStatus(res.permission);
+    if (res.permission === "granted") {
+      registerPushSubscription({ userId, role: portalType }).catch(() => {});
+      toast("Desktop & mobile notifications enabled! Background push is active.", "success");
+    } else if (res.instructions) {
+      toast(res.instructions, res.permission === "denied" ? "error" : "info");
+    } else if (res.permission === "denied") {
+      toast("Notification permission was denied in your browser settings.", "error");
+    }
+  };
+
+  const handleHidePermissionBanner = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("fp_hide_notif_banner", "true");
+      setHidePermissionBanner(true);
+    }
+  };
+
   const patchCachedNotifications = (patch: (rows: any[]) => any[]) => {
     const uid = userId || "anonymous";
     queryClient.setQueryData<any[]>(qk.notificationsFull(uid), prev => patch(prev || []));
@@ -75,6 +113,13 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
       const data = await res.json();
       if (data.success) {
         patchCachedNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: 1 } : n));
+        try {
+          if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+            const bc = new BroadcastChannel("fp_realtime_channel");
+            bc.postMessage({ domain: "notifications", action: "marked_read", payload: { id } });
+            bc.close();
+          }
+        } catch (_) {}
       }
     } catch (e) {
       toast("Failed to update status", "error");
@@ -91,12 +136,54 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
       const data = await res.json();
       if (data.success) {
         patchCachedNotifications(prev => prev.map(n => ({ ...n, is_read: 1 })));
+        try {
+          if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+            const bc = new BroadcastChannel("fp_realtime_channel");
+            bc.postMessage({ domain: "notifications", action: "all_marked_read", payload: { userId } });
+            bc.close();
+          }
+        } catch (_) {}
         toast("All marked as read", "success");
       }
     } catch (e) {
       toast("Failed to update status", "error");
     }
   };
+
+  React.useEffect(() => {
+    if (!userId) return;
+    let bc: BroadcastChannel | null = null;
+    try {
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        bc = new BroadcastChannel("fp_realtime_channel");
+        bc.onmessage = (event) => {
+          if (event.data?.domain === "notifications") {
+            if (event.data?.action === "created") {
+              queryClient.invalidateQueries({ queryKey: qk.notificationsFull(userId) });
+              if (event.data?.payload?.title) {
+                sendDeviceSystemNotification({
+                  title: event.data.payload.title,
+                  message: event.data.payload.message,
+                  link: event.data.payload.link,
+                  tag: event.data.payload.id || (Array.isArray(event.data.payload.notificationIds) ? event.data.payload.notificationIds[0] : undefined),
+                });
+              }
+            } else if (event.data?.action === "all_marked_read") {
+              patchCachedNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
+            } else if (event.data?.action === "marked_read" && event.data?.payload?.id) {
+              patchCachedNotifications((prev) =>
+                prev.map((n) => (n.id === event.data.payload.id ? { ...n, is_read: 1 } : n))
+              );
+            }
+          }
+        };
+      }
+    } catch (_) {}
+
+    return () => {
+      if (bc) bc.close();
+    };
+  }, [userId, queryClient]);
 
   const resolveTarget = (n: any) => {
     const target = resolveNotificationDestination(n, portalType);
@@ -182,6 +269,40 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
         )}
       </div>
 
+      {/* Device Notification Alert Banner */}
+      {deviceNotifStatus !== "granted" && !hidePermissionBanner && (
+        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs relative">
+          <button
+            type="button"
+            onClick={handleHidePermissionBanner}
+            className="absolute top-2 right-2 text-indigo-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-white/50 transition-colors"
+            title="Don't show again"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="h-9 w-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Bell className="h-4.5 w-4.5 animate-bounce" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-indigo-950">Enable Desktop & Mobile Notifications</p>
+              <p className="text-[11px] text-indigo-700/80">
+                Receive instant alerts on your screen even when the app is in the background or minimized.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleEnableDeviceNotifs}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer self-start sm:self-auto shrink-0"
+          >
+            Enable Device Alerts
+          </button>
+        </div>
+      )}
+
       {notifications.length === 0 ? (
         <div className="bg-white rounded-2xl shadow-card border border-slate-100 p-16 text-center space-y-3">
           <div className="h-12 w-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center mx-auto text-slate-300">
@@ -202,7 +323,7 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
               <div
                 key={n.id}
                 onClick={() => handleNotificationAction(n)}
-                className={`p-4 md:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer group hover:shadow-md ${
+                className={`p-4 md:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer group ${
                   n.is_read
                     ? "bg-white border-slate-200/80 hover:border-indigo-300"
                     : "bg-indigo-50/40 border-indigo-200/80 hover:border-indigo-400"

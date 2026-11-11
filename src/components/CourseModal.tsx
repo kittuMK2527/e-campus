@@ -355,7 +355,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
         if (!next) onClose();
       }}
       ariaLabel={editingCourse ? "Edit course and batch details" : "Add course or department"}
-      overlayClassName="bg-slate-900/60 backdrop-blur-xs p-4 sm:p-6 overflow-y-auto animate-fadeIn"
+      overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4 sm:p-6 overflow-y-auto animate-fadeIn"
       panelClassName="max-w-2xl max-h-[85vh] p-0 space-y-0 overflow-hidden flex flex-col rounded-2xl"
     >
         
@@ -406,7 +406,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                   aria-label="Assigned Campus"
                   value={form.college_id}
                   onChange={(e) => setForm(prev => ({ ...prev, college_id: e.target.value }))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 cursor-pointer"
+                  className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 cursor-pointer"
                 >
                   <option value="">— Select Campus —</option>
                   {colleges.map(c => (
@@ -484,7 +484,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 aria-label="Course Duration"
                 value={form.years}
                 onChange={(e) => handleYearsChange(Number(e.target.value))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
               >
                 <option value={1}>1 Year (2 Semesters)</option>
                 <option value={2}>2 Years (4 Semesters - Masters / PG)</option>
@@ -503,7 +503,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 aria-label="Status"
                 value={form.status}
                 onChange={(e) => setForm(prev => ({ ...prev, status: e.target.value as any }))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
               >
                 <option value="Active">Active</option>
                 <option value="Inactive">Inactive</option>
@@ -519,7 +519,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 aria-label="Shift Offering"
                 value={form.default_shift}
                 onChange={(e) => setForm(prev => ({ ...prev, default_shift: e.target.value }))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-slate-800"
               >
                 <option value="general">General Shift</option>
                 <option value="shift_1">Shift 1 (Day)</option>
@@ -539,7 +539,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 aria-label="Batch Start Date"
                 value={form.start_date}
                 onChange={(e) => handleStartDateChange(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
               />
             </div>
 
@@ -552,7 +552,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 aria-label="Batch End Date"
                 value={form.end_date}
                 onChange={(e) => setForm(prev => ({ ...prev, end_date: e.target.value }))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
               />
             </div>
 
@@ -567,7 +567,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 placeholder="e.g. 2026"
                 value={form.start_year}
                 onChange={(e) => setForm(prev => ({ ...prev, start_year: e.target.value }))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
               />
             </div>
 
@@ -581,7 +581,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 placeholder="e.g. 2029"
                 value={form.end_year}
                 onChange={(e) => setForm(prev => ({ ...prev, end_year: e.target.value }))}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
               />
             </div>
 
@@ -615,7 +615,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                     placeholder="e.g. Room 101, Lab 3, Hall A"
                     value={primaryRoom}
                     onChange={(e) => handleSingleRoomChange(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
+                    className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
                   />
                   {campusRoomSuggestions.length > 0 && (
                     <datalist id={`rooms-suggest-modal-${form.college_id || "none"}`}>
@@ -650,7 +650,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                           placeholder={`e.g. Room for Year ${yearNum}`}
                           value={currentRoom}
                           onChange={(e) => handleYearRoomChange(yearNum, e.target.value)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
+                          className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 text-xs"
                         />
                       </div>
                     );
@@ -678,7 +678,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                 value={form.description}
                 onChange={(e) => setForm(prev => ({ ...prev, description: e.target.value }))}
                 rows={2}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 resize-none"
+                className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-slate-800 resize-none"
               />
             </div>
 
