@@ -17,6 +17,7 @@ import {
   getDeviceNotificationStatus,
   registerPushSubscription,
   registerServiceWorker,
+  checkNotificationEnvironment,
   type DeviceNotificationPermission,
 } from "@/lib/deviceNotifications";
 import { UserProfileBar } from "./UserProfileBar";
@@ -189,7 +190,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    // Eagerly register service worker so push and offline shell are ready on mobile devices
+    // Eagerly register service worker for push and offline caching
     registerServiceWorker().catch(() => {});
 
     const status = getDeviceNotificationStatus();
@@ -226,26 +227,48 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
         localStorage.setItem("fp_device_notif_granted", "true");
         localStorage.removeItem("fp_notif_prompt_dismissed_until");
 
-        await registerPushSubscription({
+        // Register Web Push subscription (with race timeout so it never hangs)
+        const pushResult = await registerPushSubscription({
           userId: notificationsUserId || undefined,
           role: currentRole || undefined,
           collegeId: effectiveCollegeId,
         });
 
-        await sendDeviceSystemNotification({
+        // Trigger welcome OS notification
+        const systemNotifSent = await sendDeviceSystemNotification({
           title: "🎉 Notifications Active!",
           message: "You will now receive instant alerts from FACE Prep E-Campus on this device.",
           link: "/schedule",
           tag: "fp_welcome_device_push",
         });
 
-        showToast("Desktop & mobile notifications enabled!", "success");
+        playNotificationChime();
+
+        if (pushResult.success || systemNotifSent) {
+          showToast("Notifications enabled successfully on this device!", "success");
+        } else {
+          const env = checkNotificationEnvironment();
+          if (!env.isSecure && env.isMobile) {
+            showToast(
+              "Permission allowed! Note: Mobile background push requires HTTPS (run 'npm run dev:https'). In-app alerts are active.",
+              "info"
+            );
+          } else {
+            showToast(
+              pushResult.error || "Permission allowed! In-app notifications are active.",
+              "success"
+            );
+          }
+        }
       } else if (res.instructions) {
         showToast(res.instructions, res.permission === "denied" ? "error" : "info");
       } else if (res.permission === "denied") {
         setShowPromptBanner(false);
         showToast("Notification permission was denied in your browser settings.", "error");
       }
+    } catch (err: any) {
+      console.warn("[Notifications] Activation error:", err);
+      showToast("An error occurred while enabling notifications. Please try again.", "error");
     } finally {
       setIsActivatingPush(false);
     }
@@ -254,22 +277,45 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
   const handleDismissPrompt = () => {
     setShowPromptBanner(false);
     if (typeof window !== "undefined") {
-      // 7-day cooldown so users aren't repeatedly prompted on mobile
+      // 7-day cooldown so users aren't repeatedly prompted
       localStorage.setItem("fp_notif_prompt_dismissed_until", String(Date.now() + 7 * 24 * 60 * 60 * 1000));
     }
   };
 
   const handleSendTestNotification = async () => {
+    const env = checkNotificationEnvironment();
+
+    // If on insecure mobile HTTP (e.g. http://192.168.x.x:3000 in dev)
+    if (!env.isSecure && env.isMobile) {
+      playNotificationChime();
+      try {
+        if (typeof navigator !== "undefined" && "vibrate" in navigator) {
+          navigator.vibrate([200, 100, 200]);
+        }
+      } catch (_) {}
+      showToast(
+        "Mobile browsers require HTTPS for system notifications. In dev, run 'npm run dev:https' or test on desktop localhost.",
+        "error"
+      );
+      return;
+    }
+
     const success = await sendDeviceSystemNotification({
       title: "🔔 FACE Prep Website Alert Test",
       message: `Website notifications are active on this device at ${new Date().toLocaleTimeString()}!`,
       link: "/notifications",
       tag: `test_push_${Date.now()}`,
     });
+
     if (success) {
       showToast("Test notification sent to your device tray!", "success");
     } else {
-      showToast("Could not trigger system notification. Check browser permissions or access via HTTPS on mobile.", "error");
+      playNotificationChime();
+      const latestEnv = checkNotificationEnvironment();
+      showToast(
+        latestEnv.errorMessage || "Could not trigger system notification. Check browser permissions or access via HTTPS on mobile.",
+        "error"
+      );
     }
   };
 

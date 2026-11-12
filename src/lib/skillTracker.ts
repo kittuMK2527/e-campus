@@ -74,6 +74,7 @@ export function demoStatusToVerdict(
 export interface WeekPlanInput {
   week_number: number;
   session_plan?: string | any[] | null;
+  topics_planned?: string | null;
   start_date?: string | null;
   created_at?: string | null;
 }
@@ -122,6 +123,7 @@ export function buildWeekRollup(
   passMark: number = DEMO_PASS_MARK
 ): {
   week_number: number;
+  topic_name: string | null;
   topics: TopicProgress[];
   topics_planned: number;
   topics_conducted: number;
@@ -146,9 +148,40 @@ export function buildWeekRollup(
   } catch {
     tasks = [];
   }
-  const plannedTopics: string[] = tasks
+  let plannedTopics: string[] = tasks
     .map((t: any) => (t?.topic || "").trim())
     .filter(Boolean);
+
+  // If session_plan didn't yield topics, check plan.topics_planned
+  if (plannedTopics.length === 0 && (plan as any)?.topics_planned) {
+    const raw = String((plan as any).topics_planned).trim();
+    if (raw) {
+      plannedTopics = raw.split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+      if (plannedTopics.length === 0 && raw) plannedTopics = [raw];
+    }
+  }
+
+  // Also check clearances for any topic-scope records
+  if (plannedTopics.length === 0) {
+    const clearanceTopics = clearances.map(c => c.topic?.trim()).filter(Boolean) as string[];
+    if (clearanceTopics.length > 0) {
+      plannedTopics = Array.from(new Set(clearanceTopics));
+    }
+  }
+
+  // Also check conducted topics from tracker rows
+  if (plannedTopics.length === 0) {
+    const trackerTopics = trackerRows
+      .filter(r => {
+        const wk = parseInt(String(r.weekly_plan_week ?? ""), 10);
+        return isNaN(wk) || wk === weekNumber;
+      })
+      .map(r => (r.topic || "").trim())
+      .filter(Boolean);
+    if (trackerTopics.length > 0) {
+      plannedTopics = Array.from(new Set(trackerTopics));
+    }
+  }
 
   // 2. Conducted topics: matched from academic_tracker rows for this week.
   // Rows with no weekly_plan_week are undated as to week, so they count for every week.
@@ -229,8 +262,12 @@ export function buildWeekRollup(
     }
   }
 
+  const topicNames = topics.map(t => t.topic).filter(Boolean);
+  const topic_name = topicNames.length > 0 ? topicNames.join(", ") : null;
+
   return {
     week_number: weekNumber,
+    topic_name,
     topics,
     topics_planned: topics.length,
     topics_conducted: topics.filter(t => t.conducted).length,

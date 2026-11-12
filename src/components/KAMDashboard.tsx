@@ -44,7 +44,6 @@ import { isSuperAdminSession } from "@/lib/superadmin";
 import { cmNavGroups, cmMobileTabs, cmMoreTabs, cmMoreTabIds, CmNavGroup } from "@/lib/cmNav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ALL_SEMESTERS } from "@/lib/semesters";
 
 // ── Lazy-loaded Modular Panels (completely decoupled from CAMDashboard) ──
 const KAMOverview = dynamic(() => import("./kam/overview/KAMOverview").then(m => m.KAMOverview), {
@@ -1029,7 +1028,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                       onChange={e => setSelectedCohortSem(e.target.value)}
                       className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
                     >
-                      {ALL_SEMESTERS.slice(0, 4).map(s => (
+                      {["Semester 1", "Semester 2", "Semester 3", "Semester 4"].map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>

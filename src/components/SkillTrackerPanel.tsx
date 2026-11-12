@@ -65,6 +65,7 @@ export interface SkillTrackerPanelProps {
 
 interface WeekRollup {
   week_number: number;
+  topic_name?: string | null;
   topics: { topic: string; planned: boolean; conducted: boolean }[];
   topics_planned: number;
   topics_conducted: number;
@@ -390,6 +391,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             "Department": r.department || "—",
             "Subject Type": r.subject_type,
             "Task Given Date": w.task_given_date || "—",
+            "Topic": w.topic_name || w.topics?.map(t => t.topic).join(", ") || "—",
             "Week": `Week ${w.week_number}`,
             "Topics Planned": w.topics_planned,
             "Topics Conducted": w.topics_conducted,
@@ -445,6 +447,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             "Semester": r.semester || "—",
             "Subject Type": r.subject_type,
             "Task Given Date": w.task_given_date || "—",
+            "Topic": w.topic_name || w.topics?.map(t => t.topic).join(", ") || "—",
             "Week": `Week ${w.week_number}`,
             "Topics Planned": w.topics_planned,
             "Topics Conducted": w.topics_conducted,
@@ -725,7 +728,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                 <TableHead className="p-3.5">Semester</TableHead>
                 <TableHead className="p-3.5">Type</TableHead>
                 <TableHead className="p-3.5">Task Given Date</TableHead>
-                <TableHead className="p-3.5 text-center">Topics (Conducted / Planned)</TableHead>
+                <TableHead className="p-3.5">Topic</TableHead>
                 <TableHead className="p-3.5 text-center">Submission Document / Link</TableHead>
                 <TableHead className="p-3.5 text-center">SME Verdict</TableHead>
                 {role !== "mentor" && (
@@ -775,16 +778,33 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                             <span>{w.task_given_date || "—"}</span>
                           </div>
                         </TableCell>
-                        <TableCell className="p-3.5 text-center">
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
-                            w.topics_planned > 0 && w.topics_conducted === w.topics_planned
-                              ? "bg-emerald-100 text-emerald-800"
-                              : w.topics_conducted > 0
-                              ? "bg-amber-100 text-amber-800"
-                              : "bg-slate-100 text-slate-600"
-                          }`}>
-                            {w.topics_conducted} / {w.topics_planned}
-                          </span>
+                        <TableCell className="p-3.5">
+                          {(() => {
+                            const topicText = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "");
+                            if (!topicText) {
+                              return <span className="text-slate-400 text-xs italic">—</span>;
+                            }
+                            return (
+                              <div className="space-y-1 max-w-[260px]">
+                                <div className="font-extrabold text-slate-900 dark:text-slate-100 text-xs leading-snug" title={topicText}>
+                                  {topicText}
+                                </div>
+                                {w.topics_planned > 0 && (
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black ${
+                                      w.topics_conducted >= w.topics_planned
+                                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                        : w.topics_conducted > 0
+                                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
+                                    }`}>
+                                      <span>{w.topics_conducted} / {w.topics_planned} covered</span>
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="p-3.5 text-center">
                           {(() => {

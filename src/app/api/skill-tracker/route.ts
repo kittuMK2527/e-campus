@@ -270,6 +270,7 @@ export async function GET(request: Request) {
         if (weeks.length === 0) {
           weeks.push({
             week_number: 1,
+            topic_name: null,
             topics: [],
             topics_planned: 0,
             topics_conducted: 0,
