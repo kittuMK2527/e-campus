@@ -74,6 +74,8 @@ export function demoStatusToVerdict(
 export interface WeekPlanInput {
   week_number: number;
   session_plan?: string | any[] | null;
+  start_date?: string | null;
+  created_at?: string | null;
 }
 
 export interface ClearanceRow {
@@ -88,6 +90,8 @@ export interface ClearanceRow {
   remarks?: string | null;
   verified_by?: string | null;
   verified_at?: string | null;
+  submission_link?: string | null;
+  created_at?: string | null;
 }
 
 export interface DemoRow {
@@ -129,6 +133,8 @@ export function buildWeekRollup(
   remarks: string | null;
   verified_by: string | null;
   verified_at: string | null;
+  submission_link: string | null;
+  task_given_date: string | null;
 } {
   // 1. Planned topics from the weekly plan's session_plan JSON
   let tasks: any[] = [];
@@ -200,6 +206,29 @@ export function buildWeekRollup(
     verified_by = topicScope.find(c => c.status === "cleared" && c.verified_by)?.verified_by || null;
   }
 
+  // 5. Submission link: check clearance record first, then weekly plan material_url or session_plan tasks
+  let submission_link: string | null = null;
+  for (const c of clearances) {
+    if (c.submission_link) {
+      submission_link = c.submission_link;
+      break;
+    }
+  }
+  if (!submission_link && (plan as any)?.submission_link) {
+    submission_link = (plan as any).submission_link;
+  }
+  if (!submission_link && (plan as any)?.material_url) {
+    submission_link = (plan as any).material_url;
+  }
+  if (!submission_link) {
+    for (const t of tasks) {
+      if (t?.materialUrl && typeof t.materialUrl === "string" && t.materialUrl.trim()) {
+        submission_link = t.materialUrl.trim();
+        break;
+      }
+    }
+  }
+
   return {
     week_number: weekNumber,
     topics,
@@ -212,6 +241,12 @@ export function buildWeekRollup(
     score,
     remarks,
     verified_by,
-    verified_at
+    verified_at,
+    submission_link,
+    task_given_date:
+      (plan as any)?.start_date ||
+      ((plan as any)?.created_at ? String((plan as any).created_at).slice(0, 10) : null) ||
+      (clearances.find(c => (c as any).created_at)?.created_at ? String((clearances.find(c => (c as any).created_at) as any).created_at).slice(0, 10) : null) ||
+      null
   };
 }

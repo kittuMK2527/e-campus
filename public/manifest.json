@@ -1,11 +1,16 @@
 {
   "name": "FACE Prep E-Campus",
   "short_name": "E-Campus",
-  "description": "FACE Prep Operations & Timetable System",
-  "start_url": "/",
+  "description": "Institutional Operations, Timetable & Academic Management Platform",
+  "start_url": "/?source=pwa",
+  "id": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#4f46e5",
+  "display_override": ["standalone", "window-controls-overlay", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "categories": ["education", "productivity", "management"],
   "icons": [
     {
       "src": "/faceprep-fav.png",
@@ -19,6 +24,19 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "short_name": "Dashboard",
+      "url": "/",
+      "icons": [{ "src": "/faceprep-fav.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Live Notifications",
+      "short_name": "Alerts",
+      "url": "/admin/notifications",
+      "icons": [{ "src": "/faceprep-fav.png", "sizes": "192x192" }]
+    }
   ]
 }
-

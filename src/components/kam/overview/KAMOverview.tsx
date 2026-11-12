@@ -14,6 +14,7 @@ import {
   Phone,
   ArrowUpRight
 } from "lucide-react";
+import { KAMKpiCard } from "../shared/KAMKpiCard";
 
 interface CampusCard {
   id: string;
@@ -117,90 +118,43 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* ── 1. Top Executive KPI Cards ── */}
+      {/* ── 1. Top Clean Executive KPI Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total Students */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Students</span>
-            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
-              <Users className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{kpis.totalStudents.toLocaleString()}</span>
-            <span className="text-xs font-bold text-emerald-600 flex items-center">
-              <TrendingUp className="h-3 w-3 mr-0.5" /> +3.2%
-            </span>
-          </div>
-          <p className="text-[11px] text-slate-400 font-medium mt-1">Across {kpis.totalCampuses} partner campuses</p>
-        </div>
-
-        {/* Avg Attendance */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Avg Attendance</span>
-            <div className="h-8 w-8 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
-              <Percent className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">
-              {kpis.avgAttendance !== null && kpis.avgAttendance !== undefined ? `${kpis.avgAttendance}%` : "No data"}
-            </span>
-            {kpis.avgAttendance !== null && kpis.avgAttendance !== undefined && (
-              <span className="text-xs font-bold text-emerald-600 flex items-center">
-                <TrendingUp className="h-3 w-3 mr-0.5" /> +1.8%
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-400 font-medium mt-1">Portfolio average (last 30 days)</p>
-        </div>
-
-        {/* Active Faculty */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Faculty Deployed</span>
-            <div className="h-8 w-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-700">
-              <GraduationCap className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{kpis.activeFaculty}</span>
-            <span className="text-xs font-bold text-slate-600">100% Covered</span>
-          </div>
-          <p className="text-[11px] text-slate-400 font-medium mt-1">Active Mentors & Lab Instructors</p>
-        </div>
-
-        {/* At Risk Students */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Attention Needed</span>
-            <div className="h-8 w-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-              <AlertTriangle className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-amber-600">{riskStats.atRisk + riskStats.critical}</span>
-            <span className="text-xs font-bold text-rose-500">{riskStats.critical} Critical (&lt;60%)</span>
-          </div>
-          <p className="text-[11px] text-slate-400 font-medium mt-1">{riskStats.atRisk} At Risk (60-74%)</p>
-        </div>
-
-        {/* Campus Operational Health */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-slate-400 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Portfolio Health</span>
-            <div className="h-8 w-8 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
-              <HeartPulse className="h-4 w-4" />
-            </div>
-          </div>
-          <div className="mt-3 flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{kpis.campusHealth}%</span>
-            <span className="text-xs font-bold text-emerald-600">Optimal</span>
-          </div>
-          <p className="text-[11px] text-slate-400 font-medium mt-1">Timetable coverage & CM SLA</p>
-        </div>
+        <KAMKpiCard
+          label="Total Students"
+          value={kpis.totalStudents.toLocaleString()}
+          badge={{ text: "+3.2%", type: "positive" }}
+          icon={Users}
+          accentColor="indigo"
+        />
+        <KAMKpiCard
+          label="Avg Attendance"
+          value={kpis.avgAttendance !== null && kpis.avgAttendance !== undefined ? `${kpis.avgAttendance}%` : "—"}
+          badge={{ text: "Optimal", type: "positive" }}
+          icon={Percent}
+          accentColor="emerald"
+        />
+        <KAMKpiCard
+          label="Faculty Deployed"
+          value={kpis.activeFaculty}
+          badge={{ text: "100%", type: "positive" }}
+          icon={GraduationCap}
+          accentColor="zinc"
+        />
+        <KAMKpiCard
+          label="At Risk Students"
+          value={riskStats.atRisk + riskStats.critical}
+          badge={{ text: `${riskStats.critical} Critical`, type: riskStats.critical > 0 ? "negative" : "warning" }}
+          icon={AlertTriangle}
+          accentColor="rose"
+        />
+        <KAMKpiCard
+          label="Portfolio Health"
+          value={`${kpis.campusHealth}%`}
+          badge={{ text: "Grade A", type: "positive" }}
+          icon={HeartPulse}
+          accentColor="amber"
+        />
       </div>
 
       {/* ── 2. Middle Row: Attendance Trend + Risk Distribution ── */}

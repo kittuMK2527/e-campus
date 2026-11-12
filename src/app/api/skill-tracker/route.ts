@@ -282,7 +282,9 @@ export async function GET(request: Request) {
             verified_by: null,
             verified_at: null,
             weekly_plan_id: null,
-            plan_status: null
+            plan_status: null,
+            submission_link: null,
+            task_given_date: null
           });
         }
 
@@ -439,6 +441,39 @@ export async function POST(request: Request) {
       );
     }
 
+    // In-app notifications for mentor on verdict outcome
+    if (mentorId && (status === "not_cleared" || status === "needs_revision")) {
+      const notifId = generateId("notif");
+      const title = status === "not_cleared" ? "Skill Submission Not Cleared" : "Skill Submission Needs Revision";
+      const message = `Your Week ${weekNumber} submission for ${subject} was marked ${status === "not_cleared" ? "Not Cleared" : "Needs Revision"} by ${verifiedBy || "SME"}.${remarks ? ` Feedback: "${remarks}"` : ""}`;
+      await db.run(
+        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+        notifId,
+        mentorId,
+        title,
+        message,
+        "/mentor/skill-tracker",
+        "skill_verdict_revision",
+        nowStr
+      ).catch(() => {});
+    } else if (mentorId && status === "cleared") {
+      const notifId = generateId("notif");
+      const title = "Skill Clearance Approved";
+      const message = `Your Week ${weekNumber} submission for ${subject} has been Cleared by ${verifiedBy || "SME"}.`;
+      await db.run(
+        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+        notifId,
+        mentorId,
+        title,
+        message,
+        "/mentor/skill-tracker",
+        "skill_verdict_cleared",
+        nowStr
+      ).catch(() => {});
+    }
+
     // Presentation only - the panel refetches the roll-up after a successful POST, so a
     // read-back failure must not turn an already-saved verdict into "Failed to record".
     let row: any = null;
@@ -457,6 +492,98 @@ export async function POST(request: Request) {
     console.error("POST /api/skill-tracker error:", err);
     return NextResponse.json(
       { success: false, message: err?.message || "Failed to record skill verdict" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { errorResponse } = await requireAuth(request, { allowedRoles: ["mentor", "sme", "cm", "kam", "admin"] });
+    if (errorResponse) return errorResponse;
+    const db = await getDb();
+    await ensureMigration("mentor_skill_clearances");
+    await ensureMigration("mentor_weekly_plans");
+
+    const body = await request.json();
+    const { mentorId, mentorName, collegeId, subject, weekNumber, submissionLink } = body;
+
+    if (!mentorId || !subject || !weekNumber) {
+      return NextResponse.json(
+        { success: false, message: "Missing required fields: mentorId, subject, weekNumber." },
+        { status: 400 }
+      );
+    }
+
+    const cleanLink = (submissionLink || "").trim();
+    const nowStr = new Date().toISOString();
+    const wk = parseInt(String(weekNumber), 10);
+
+    // 1. Update weekly plan if found
+    const plan = await db.get(
+      "SELECT id FROM mentor_weekly_plans WHERE mentor_id = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ? ORDER BY updated_at DESC LIMIT 1",
+      mentorId, subject, wk
+    );
+    if (plan?.id) {
+      await db.run(
+        "UPDATE mentor_weekly_plans SET submission_link = ?, material_url = ?, updated_at = ? WHERE id = ?",
+        cleanLink, cleanLink, nowStr, plan.id
+      ).catch(() => {});
+    }
+
+    // 2. Upsert clearance record with submission_link
+    const clearance = await db.get(
+      "SELECT id, status, verified_by FROM mentor_skill_clearances WHERE mentor_id = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ? AND scope = 'week'",
+      mentorId, subject, wk
+    );
+
+    const isRevision = clearance?.status === "not_cleared" || clearance?.status === "needs_revision";
+    const nextStatus = isRevision ? "pending" : (clearance?.status || "pending");
+
+    if (clearance?.id) {
+      await db.run(
+        "UPDATE mentor_skill_clearances SET submission_link = ?, status = ?, updated_at = ? WHERE id = ?",
+        cleanLink, nextStatus, nowStr, clearance.id
+      ).catch(() => {});
+    } else {
+      const newId = generateId("MSC");
+      const resolvedType = deriveSubjectType(subject, "Skill");
+      await db.run(
+        `INSERT INTO mentor_skill_clearances (
+          id, college_id, mentor_id, mentor_name, subject, subject_type,
+          week_number, scope, status, submission_link, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'week', 'pending', ?, ?, ?)`,
+        newId, collegeId || null, mentorId, mentorName || null, subject, resolvedType,
+        wk, cleanLink, nowStr, nowStr
+      ).catch(() => {});
+    }
+
+    if (isRevision && cleanLink) {
+      const notifId = generateId("notif");
+      const title = "Skill Work Re-submitted";
+      const message = `${mentorName || mentorId} has re-submitted Week ${wk} work for ${subject} following your feedback.`;
+      await db.run(
+        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
+        notifId,
+        clearance.verified_by || "sme",
+        title,
+        message,
+        "/sme?tab=skill_approvals",
+        "skill_resubmitted",
+        nowStr
+      ).catch(() => {});
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Submission link updated successfully.",
+      submission_link: cleanLink
+    });
+  } catch (err: any) {
+    console.error("PATCH /api/skill-tracker error:", err);
+    return NextResponse.json(
+      { success: false, message: err?.message || "Failed to update submission link" },
       { status: 500 }
     );
   }

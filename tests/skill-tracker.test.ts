@@ -140,4 +140,33 @@ describe("buildWeekRollup", () => {
     expect(r.topics_planned).toBe(0);
     expect(r.verdict).toBe("pending");
   });
+
+  it("extracts submission_link from clearance row or weekly plan", () => {
+    const clearancesWithLink = [
+      { mentor_id: "m1", subject: "DSA", week_number: 3, scope: "week", status: "cleared", submission_link: "https://drive.google.com/test-submission.pdf" }
+    ];
+    const r1 = buildWeekRollup(plan, clearancesWithLink, [], [], 3);
+    expect(r1.submission_link).toBe("https://drive.google.com/test-submission.pdf");
+
+    const planWithLink = { ...plan, submission_link: "https://example.com/sheet.xlsx" };
+    const r2 = buildWeekRollup(planWithLink, [], [], [], 3);
+    expect(r2.submission_link).toBe("https://example.com/sheet.xlsx");
+
+    const uploadedDocPlan = { ...plan, submission_link: "/uploads/submissions/1715000000_doc_dsa_notes.pdf" };
+    const r3 = buildWeekRollup(uploadedDocPlan, [], [], [], 3);
+    expect(r3.submission_link).toBe("/uploads/submissions/1715000000_doc_dsa_notes.pdf");
+  });
+
+  it("extracts task_given_date from plan start_date, created_at, or clearance", () => {
+    const planWithStartDate = { ...plan, start_date: "2026-09-15" };
+    const r1 = buildWeekRollup(planWithStartDate, [], [], [], 3);
+    expect(r1.task_given_date).toBe("2026-09-15");
+
+    const planWithCreatedAt = { ...plan, created_at: "2026-09-12 10:30:00" };
+    const r2 = buildWeekRollup(planWithCreatedAt, [], [], [], 3);
+    expect(r2.task_given_date).toBe("2026-09-12");
+
+    const r3 = buildWeekRollup(plan, [], [], [], 3);
+    expect(r3.task_given_date).toBeNull();
+  });
 });

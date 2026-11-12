@@ -18,15 +18,6 @@ type Migration = {
 
 const migrations: Migration[] = [
   {
-    name: "slots_unique_constraints",
-    run: async (db) => {
-      await db.exec(`
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_slots_mentor_day_time_shift ON slots (mentorId, day, time, shift);
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_slots_room_day_time_shift ON slots (LOWER(location), day, time, shift);
-      `).catch(() => {});
-    }
-  },
-  {
     name: "audit_logs_extended_columns",
     run: async (db) => {
       const isPg = (db as any).isPostgres;
@@ -448,7 +439,8 @@ const migrations: Migration[] = [
         "ALTER TABLE mentor_skill_clearances ADD COLUMN mentor_name TEXT",
         "ALTER TABLE mentor_skill_clearances ADD COLUMN subject_type TEXT DEFAULT 'Skill'",
         "ALTER TABLE mentor_skill_clearances ADD COLUMN weekly_plan_id TEXT",
-        "ALTER TABLE mentor_skill_clearances ADD COLUMN updated_at TEXT"
+        "ALTER TABLE mentor_skill_clearances ADD COLUMN updated_at TEXT",
+        "ALTER TABLE mentor_skill_clearances ADD COLUMN submission_link TEXT"
       ];
       for (const sql of cols) {
         await db.exec(sql).catch(() => {});
@@ -490,7 +482,8 @@ const migrations: Migration[] = [
       const cols = [
         "ALTER TABLE mentor_weekly_plans ADD COLUMN start_date VARCHAR(50)",
         "ALTER TABLE mentor_weekly_plans ADD COLUMN end_date VARCHAR(50)",
-        "ALTER TABLE mentor_weekly_plans ADD COLUMN sme_remarks TEXT"
+        "ALTER TABLE mentor_weekly_plans ADD COLUMN sme_remarks TEXT",
+        "ALTER TABLE mentor_weekly_plans ADD COLUMN submission_link TEXT"
       ];
       for (const sql of cols) {
         await db.exec(sql).catch(() => {});
@@ -894,125 +887,6 @@ const migrations: Migration[] = [
         );
         CREATE INDEX IF NOT EXISTS idx_sme_evaluators_status ON sme_evaluators(status);
         CREATE INDEX IF NOT EXISTS idx_sme_evaluators_email ON sme_evaluators(email);
-      `).catch(() => {});
-    }
-  },
-  {
-    name: "high_impact_performance_indexes_v2",
-    run: async (db) => {
-      await db.exec(`
-        CREATE INDEX IF NOT EXISTS idx_user_sessions_revoked_active ON user_sessions(user_id, is_revoked);
-        CREATE INDEX IF NOT EXISTS idx_student_tracker_email ON student_academic_tracker(student_email);
-        CREATE INDEX IF NOT EXISTS idx_student_tracker_week ON student_academic_tracker(class_group, subject, week_number);
-        CREATE INDEX IF NOT EXISTS idx_student_tracker_lookup ON student_academic_tracker(student_id, updated_at DESC);
-        CREATE INDEX IF NOT EXISTS idx_audit_logs_timestamp ON audit_logs(timestamp DESC);
-      `).catch(() => {});
-    }
-  },
-  {
-    name: "realtime_event_outbox_and_concurrency_v1",
-    run: async (db) => {
-      // 1. Transactional Event Outbox with XID horizon tracking
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS event_outbox (
-            id BIGSERIAL PRIMARY KEY,
-            xid xid8 DEFAULT pg_current_xact_id(),
-            event_id VARCHAR(64) NOT NULL UNIQUE,
-            domain VARCHAR(64) NOT NULL,
-            action VARCHAR(64) NOT NULL,
-            college_id VARCHAR(64),
-            target_user_ids JSONB,
-            target_roles JSONB,
-            origin_tab_id VARCHAR(64),
-            payload JSONB NOT NULL DEFAULT '{}'::jsonb,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-        CREATE INDEX IF NOT EXISTS idx_outbox_created_at ON event_outbox(created_at);
-        CREATE INDEX IF NOT EXISTS idx_outbox_id ON event_outbox(id);
-      `).catch(() => {});
-
-      // 2. Announcement Reads Join Table
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS announcement_reads (
-            announcement_id VARCHAR(255) NOT NULL,
-            user_id VARCHAR(255) NOT NULL,
-            read_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            PRIMARY KEY (announcement_id, user_id)
-        );
-      `).catch(() => {});
-
-      // 3. Idempotency Records Table
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS idempotency_records (
-            key VARCHAR(255) NOT NULL,
-            route VARCHAR(255) NOT NULL,
-            user_id VARCHAR(255) NOT NULL,
-            status VARCHAR(50) NOT NULL,
-            response_body JSONB,
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            PRIMARY KEY (key, route, user_id)
-        );
-      `).catch(() => {});
-
-      // 4. Optimistic Versioning Columns
-      await db.exec(`
-        ALTER TABLE daily_configs ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
-        ALTER TABLE slots ADD COLUMN IF NOT EXISTS version INTEGER NOT NULL DEFAULT 1;
-      `).catch(() => {});
-
-      // 5. System Settings Realtime Kill Switch
-      await db.exec(`
-        ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS realtime_enabled BOOLEAN NOT NULL DEFAULT true;
-      `).catch(() => {});
-
-      // 6. Safe Soft-Cancel Duplicate Interview Slots
-      await db.exec(`
-        UPDATE student_interview_slots
-        SET status = 'cancelled'
-        WHERE id IN (
-          SELECT s.id FROM student_interview_slots s
-          LEFT JOIN interview_evaluations e ON e.interview_id = s.interview_id AND e.student_id = s.student_id
-          WHERE (s.status IS NULL OR s.status != 'cancelled')
-            AND e.id IS NULL
-            AND s.id NOT IN (
-              SELECT MIN(s2.id) FROM student_interview_slots s2
-              WHERE s2.status IS NULL OR s2.status != 'cancelled'
-              GROUP BY s2.mentor_id, s2.target_date, s2.slot_start_time
-            )
-        );
-      `).catch(() => {});
-
-      // 7. Partial Unique Indexes for Interview Concurrency Protection
-      await db.exec(`
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_uniq_mentor_interview_slot
-        ON student_interview_slots(mentor_id, target_date, slot_start_time)
-        WHERE (status IS NULL OR status != 'cancelled');
-
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_uniq_active_student_interview
-        ON student_interview_slots(student_id, interview_id)
-        WHERE (status IS NULL OR status != 'cancelled');
-      `).catch(() => {});
-    }
-  },
-  {
-    name: "push_subscriptions_table_v1",
-    run: async (db) => {
-      await db.exec(`
-        CREATE TABLE IF NOT EXISTS push_subscriptions (
-            id VARCHAR(64) PRIMARY KEY,
-            user_id VARCHAR(255) NOT NULL,
-            endpoint TEXT NOT NULL UNIQUE,
-            p256dh TEXT NOT NULL,
-            auth TEXT NOT NULL,
-            user_agent TEXT,
-            college_id VARCHAR(64),
-            role VARCHAR(64),
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-        );
-        CREATE INDEX IF NOT EXISTS idx_push_subs_user_id ON push_subscriptions(user_id);
-        CREATE INDEX IF NOT EXISTS idx_push_subs_college ON push_subscriptions(college_id);
       `).catch(() => {});
     }
   }

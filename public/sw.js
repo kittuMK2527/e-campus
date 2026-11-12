@@ -1,10 +1,45 @@
 // Service Worker for Mobile and Desktop OS-Level System Notifications & Web Push
+const CACHE_NAME = "faceprep-pwa-v2";
+const STATIC_ASSETS = ["/", "/faceprep-fav.png", "/manifest.json"];
+
 self.addEventListener("install", (event) => {
   self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS)).catch(() => {})
+  );
 });
 
 self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(
+        keys.map((key) => {
+          if (key !== CACHE_NAME) return caches.delete(key);
+        })
+      )
+    ).then(() => self.clients.claim())
+  );
+});
+
+// Cache strategy: network-first for navigation, cache-fallback for images/shell
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetch(event.request).catch(async () => {
+        const cached = await caches.match("/");
+        return cached || new Response("Offline", { status: 503, statusText: "Offline" });
+      })
+    );
+    return;
+  }
+
+  if (event.request.destination === "image" || event.request.url.includes("faceprep-fav")) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => cached || fetch(event.request))
+    );
+  }
 });
 
 // Handle incoming background Web Push from Google FCM / Apple APNs (even when tab is closed)
@@ -47,7 +82,6 @@ self.addEventListener("notificationclick", (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
-      // If a window is already open, focus it and navigate
       for (const client of clientList) {
         if ("focus" in client) {
           client.focus();
@@ -57,11 +91,9 @@ self.addEventListener("notificationclick", (event) => {
           return;
         }
       }
-      // Otherwise open a new window
       if (self.clients.openWindow) {
         return self.clients.openWindow(targetUrl);
       }
     })
   );
 });
-

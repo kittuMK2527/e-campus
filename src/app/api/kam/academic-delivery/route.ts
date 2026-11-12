@@ -46,21 +46,21 @@ export async function GET(request: Request) {
         FROM academic_tracker at
         LEFT JOIN colleges c ON at.college_id = c.id
         LEFT JOIN mentors m ON at.mentor_id = m.id
-        WHERE at.college_id IN (${collegePlaceholders})
+        WHERE (at.college_id IN (${collegePlaceholders}) OR at.college_id IS NULL)
         ORDER BY at.date DESC
       `, ...collegeIds),
       db.all(`
         SELECT s.*, c.name as college_name
         FROM subjects s
         LEFT JOIN colleges c ON s.college_id = c.id
-        WHERE s.college_id IN (${collegePlaceholders})
+        WHERE (s.college_id IN (${collegePlaceholders}) OR s.college_id IS NULL)
       `, ...collegeIds),
       db.all(`
         SELECT sl.*, c.name as college_name, m.name as mentor_name
         FROM slots sl
         LEFT JOIN colleges c ON sl.college_id = c.id
         LEFT JOIN mentors m ON sl.mentorId = m.id
-        WHERE sl.college_id IN (${collegePlaceholders})
+        WHERE (sl.college_id IN (${collegePlaceholders}) OR sl.college_id IS NULL)
       `, ...collegeIds)
     ]);
 

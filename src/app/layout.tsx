@@ -33,6 +33,15 @@ const jakartaSans = Plus_Jakarta_Sans({
 export const metadata: Metadata = {
   title: "FACE Prep E-Campus - Operations & Timetable System",
   description: "Advanced Slot Booking, Operations, and Student Academic Management Platform",
+  applicationName: "FACE Prep E-Campus",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "FACE Prep",
+  },
+  formatDetection: {
+    telephone: false,
+  },
   icons: {
     icon: "/faceprep-fav.png",
     shortcut: "/faceprep-fav.png",
@@ -47,6 +56,7 @@ export const viewport: Viewport = {
   // Without viewport-fit=cover every env(safe-area-inset-*) in the app resolves
   // to zero, so the phone bottom bar sat under the iOS home indicator.
   viewportFit: "cover",
+  themeColor: "#09090b",
 };
 
 export default function RootLayout({

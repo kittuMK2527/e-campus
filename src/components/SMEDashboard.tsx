@@ -735,46 +735,50 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
         <div className="p-3 md:p-6 space-y-6 max-w-[1400px] mx-auto animate-scaleUp">
 
           {/* Top Header Banner & Profile Card */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-card">
-            <div className="flex items-center gap-3.5">
-              <div className="h-10 w-10 rounded-lg bg-pink-50 dark:bg-pink-950/30 flex items-center justify-center text-pink-600 dark:text-pink-400 shrink-0 border border-pink-100 dark:border-pink-900">
-                <Sparkles className="h-5 w-5" />
+          {activeTab !== "skill_approvals" && (
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-card">
+              <div className="flex items-center gap-3.5">
+                <div className="h-10 w-10 rounded-lg bg-pink-50 dark:bg-pink-950/30 flex items-center justify-center text-pink-600 dark:text-pink-400 shrink-0 border border-pink-100 dark:border-pink-900">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h1 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
+                    SME Dashboard
+                  </h1>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    Mentor demos, availability schedule, and reallocation requests.
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
-                  SME Dashboard
-                </h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                  Mentor demos, availability schedule, and reallocation requests.
-                </p>
-              </div>
-            </div>
 
-            <div className="flex items-center gap-2 shrink-0">
-              <button
-                onClick={handleExportCSV}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-extrabold border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-              >
-                <Download className="h-3.5 w-3.5" /> Export CSV
-              </button>
-              <button
-                onClick={async () => { await refreshData(); toast("Data refreshed successfully!", "success"); }}
-                className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-2xs"
-                title="Refresh Data"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </button>
-              <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shrink-0">
-                <div className="h-7 w-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">
-                  {currentSME.name?.charAt(0) || "S"}
-                </div>
-                <div className="text-left hidden sm:block">
-                  <span className="text-[10px] font-black text-slate-900 dark:text-white block leading-tight">{currentSME.name}</span>
-                  <span className="text-[8.5px] text-pink-600 dark:text-pink-400 font-bold block">Profile</span>
+              <div className="flex items-center gap-2 shrink-0">
+                {activeTab === "demo_list" && (
+                  <button
+                    onClick={handleExportCSV}
+                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-extrabold border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Download className="h-3.5 w-3.5" /> Export CSV
+                  </button>
+                )}
+                <button
+                  onClick={async () => { await refreshData(); toast("Data refreshed successfully!", "success"); }}
+                  className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-2xs"
+                  title="Refresh Data"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+                <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shrink-0">
+                  <div className="h-7 w-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">
+                    {currentSME.name?.charAt(0) || "S"}
+                  </div>
+                  <div className="text-left hidden sm:block">
+                    <span className="text-[10px] font-black text-slate-900 dark:text-white block leading-tight">{currentSME.name}</span>
+                    <span className="text-[8.5px] text-pink-600 dark:text-pink-400 font-bold block">Profile</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* System Alerts */}
           {successMsg && (
