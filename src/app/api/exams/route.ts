@@ -3,6 +3,8 @@ import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
+import { dispatchSystemNotification } from "@/lib/notifications";
+import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -231,6 +233,39 @@ export async function POST(request: Request) {
     }
 
     const inserted = rows.map(r => r.inserted);
+
+    // Notify students, mentors, and CMs of the published/updated exam schedule
+    if (rows.length > 0) {
+      try {
+        const first = rows[0].inserted;
+        const collegeId = rows[0].values[1];
+        const title = rows.length === 1
+          ? `Exam Scheduled: ${first.subject_name} (${first.exam_date})`
+          : `Exam Timetable Published (${rows.length} Assessment${rows.length > 1 ? "s" : ""})`;
+        const message = rows.length === 1
+          ? `${first.exam_type} for ${first.subject_name} is scheduled on ${first.exam_date} (${first.session_time}). Room: ${rows[0].values[12]}.`
+          : `New exam schedule published for ${first.department || "campus"} (${rows.length} subjects). Check Exams tab for your schedule.`;
+
+        await dispatchSystemNotification(db, {
+          roles: ["student", "mentor", "cm", "admin"],
+          collegeId: collegeId || undefined,
+          title,
+          message,
+          link: "/student/exams",
+          type: "info",
+          action: "exam_scheduled"
+        });
+
+        notifyRealtimeEvent({
+          domain: "exams",
+          action: "schedule_updated",
+          collegeId: collegeId || undefined,
+          payload: { count: rows.length, firstExamDate: first.exam_date }
+        });
+      } catch (notifErr) {
+        console.warn("Exams notification dispatch failed:", notifErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

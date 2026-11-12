@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
 import { ensureMigration } from "@/lib/migrations";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -46,6 +47,25 @@ export async function POST(request: Request) {
       [taskId, title, collegeId || null, assigned_cam_id || null, description || null, priority || "medium", status || "pending", dueDate]
     );
 
+    if (assigned_cam_id || collegeId) {
+      try {
+        await dispatchSystemNotification(db, {
+          userIds: assigned_cam_id ? [assigned_cam_id] : undefined,
+          roles: !assigned_cam_id ? ["cm"] : undefined,
+          collegeId: collegeId || null,
+          title: `New Task Assigned: ${title}`,
+          message: `Task "${title}" (Priority: ${priority || "medium"}) has been assigned. Due date: ${dueDate}.`,
+          link: "/cm/tasks",
+          type: priority === "high" || priority === "urgent" ? "warning" : "info",
+          domain: "tasks",
+          action: "assigned",
+          payload: { taskId, title, priority, dueDate, collegeId }
+        });
+      } catch (taskNotifErr) {
+        console.error("[tasks] dispatch notification error:", taskNotifErr);
+      }
+    }
+
     return NextResponse.json({ success: true, task: { id: taskId, title, collegeId, assigned_cam_id, description, priority, status, dueDate } });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -85,6 +105,22 @@ export async function PUT(request: Request) {
     }
 
     const updated = await db.get("SELECT * FROM kam_tasks WHERE id = ?", [id]);
+
+    if (updated?.assigned_cam_id) {
+      try {
+        await dispatchSystemNotification(db, {
+          userIds: [updated.assigned_cam_id],
+          title: `Task Updated: ${updated.title}`,
+          message: status ? `Task status updated to: ${status}.` : `Task details updated.`,
+          link: "/cm/tasks",
+          type: "info",
+          domain: "tasks",
+          action: "updated",
+          payload: { taskId: id, status, title: updated.title }
+        });
+      } catch (_) {}
+    }
+
     return NextResponse.json({ success: true, task: updated });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

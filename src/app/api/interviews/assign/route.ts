@@ -10,6 +10,7 @@ import { generateStudentGCalUrl } from "@/lib/google-calendar";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 const SLOT_COLUMNS = [
   "id", "interview_id", "allocation_id", "student_id", "student_name",
@@ -228,6 +229,8 @@ export async function POST(request: Request) {
           }).filter((ms: any) => ms.student_count > 0);
         })();
 
+    const slotRows: any[][] = [];
+
     if (effectiveSchedule.length > 0) {
       const isInternal = interview.type === "internal";
       const selectedStudentIds = Array.isArray(body.selected_student_ids) ? body.selected_student_ids.filter(Boolean) : [];
@@ -339,7 +342,6 @@ export async function POST(request: Request) {
       // could die halfway, leaving the panel with a partial schedule.
       let sIndex = 0;
       let slotRunningIndex = 0;
-      const slotRows: any[][] = [];
       for (const ms of effectiveSchedule) {
         const mObj = mentorById.get(ms.mentor_id);
         const mName = mObj?.name || "Mentor";
@@ -434,6 +436,36 @@ export async function POST(request: Request) {
         gmeetLink: gmeet_link || interview.gmeet_link,
         actorName: cm_name
       });
+    }
+
+    try {
+      const allocatedStudentIds = Array.from(new Set(slotRows.map((r: any[]) => r[3]).filter(Boolean))) as string[];
+      if (allocatedStudentIds.length > 0) {
+        await dispatchSystemNotification(db, {
+          userIds: allocatedStudentIds,
+          title: `Mock Interview Scheduled: ${interview.subject || "Interview"}`,
+          message: `You have been scheduled for a mock interview on ${interview.target_date || "upcoming date"}. Meet link: ${gmeet_link || interview.gmeet_link || "Check schedule"}.`,
+          link: "/student/interviews",
+          type: "info",
+          domain: "interviews",
+          action: "assigned",
+          payload: { interviewId: interview.id, subject: interview.subject, targetDate: interview.target_date }
+        });
+      }
+      if (mappedMentorIds.length > 0) {
+        await dispatchSystemNotification(db, {
+          userIds: mappedMentorIds,
+          title: `Interview Assignment: ${interview.subject || "Interview"}`,
+          message: `You are assigned to evaluate ${updatedCount} student(s) on ${interview.target_date || "scheduled date"}.`,
+          link: "/mentor/interviews",
+          type: "info",
+          domain: "interviews",
+          action: "assigned",
+          payload: { interviewId: interview.id, subject: interview.subject, targetDate: interview.target_date }
+        });
+      }
+    } catch (assignNotifErr) {
+      console.error("[interviews/assign] dispatch notification error:", assignNotifErr);
     }
 
     return NextResponse.json({

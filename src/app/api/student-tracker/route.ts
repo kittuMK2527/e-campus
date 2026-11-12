@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { normalizeRole, requireAuth, Role } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 const TASK_ASSIGN_ROLES: Role[] = ["mentor", "admin"];
 
@@ -53,6 +54,28 @@ export async function POST(request: Request) {
         "SELECT * FROM weekly_tasks WHERE class_group = ? AND subject = ? AND week_number = ?",
         [classGroup, subject, weekNumber]
       );
+
+      try {
+        const studentRows = await db.all(
+          `SELECT id, email FROM students WHERE LOWER(TRIM(COALESCE("classGroup", classgroup, ''))) = LOWER(TRIM(?))`,
+          [classGroup.trim()]
+        );
+        const studentIds = studentRows.map((s: any) => s.id || s.email).filter(Boolean);
+        if (studentIds.length > 0) {
+          await dispatchSystemNotification(db, {
+            userIds: studentIds,
+            title: `Task Assigned: ${taskName.trim()}`,
+            message: `Week ${weekNumber} task for ${subject.trim()} has been assigned.`,
+            link: "/student/tasks",
+            type: "info",
+            domain: "tracker",
+            action: "task_assigned",
+            payload: { classGroup, subject, weekNumber, taskName }
+          });
+        }
+      } catch (notifErr) {
+        console.error("[student-tracker] dispatch task notification error:", notifErr);
+      }
 
       return NextResponse.json({ success: true, task: updatedTask });
     }
@@ -130,6 +153,21 @@ export async function PUT(request: Request) {
         [studentId, classGroup, subject, weekNumber]
       );
 
+      try {
+        await dispatchSystemNotification(db, {
+          userIds: [studentId],
+          title: `Task Graded: ${subject}`,
+          message: `Your Week ${weekNumber} submission for ${subject} was evaluated${marks !== undefined && marks !== null ? ` (Marks: ${marks}/10)` : ""}.`,
+          link: "/student/tasks",
+          type: "success",
+          domain: "tracker",
+          action: "grade_updated",
+          payload: { studentId, classGroup, subject, weekNumber, marks }
+        });
+      } catch (notifErr) {
+        console.error("[student-tracker] dispatch grade notification error:", notifErr);
+      }
+
       return NextResponse.json({ success: true, entry: updatedEntry });
     }
 
@@ -192,6 +230,27 @@ export async function PUT(request: Request) {
         "SELECT * FROM student_tracker WHERE student_id = ? AND class_group = ? AND subject = ? AND week_number = ?",
         [studentId, classGroup, subject, weekNumber]
       );
+
+      try {
+        const task = await db.get(
+          "SELECT mentor_id FROM weekly_tasks WHERE LOWER(TRIM(class_group)) = LOWER(TRIM(?)) AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ?",
+          [classGroup.trim(), subject.trim(), weekNumber]
+        );
+        if (task?.mentor_id) {
+          await dispatchSystemNotification(db, {
+            userIds: [task.mentor_id],
+            title: `Student Submission: ${subject}`,
+            message: `A student submitted work for Week ${weekNumber} (${subject}, ${classGroup}).`,
+            link: "/mentor/tracker",
+            type: "info",
+            domain: "tracker",
+            action: "submission_uploaded",
+            payload: { studentId, classGroup, subject, weekNumber }
+          });
+        }
+      } catch (notifErr) {
+        console.error("[student-tracker] dispatch submission notification error:", notifErr);
+      }
 
       return NextResponse.json({ success: true, entry: updatedEntry });
     }

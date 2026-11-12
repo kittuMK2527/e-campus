@@ -133,7 +133,7 @@ export async function POST(request: Request) {
 
     try {
       await dispatchSystemNotification(db, {
-        roles: ["cm", "admin"],
+        roles: ["cm", "mentor", "admin"],
         collegeId: studentCollegeId,
         title: `New ${type.toUpperCase()} Request: ${studentName}`,
         message: `${studentName} (${classGroup}) submitted ${type.toUpperCase()} request for ${dateStr}: "${reason.slice(0, 80)}"`,

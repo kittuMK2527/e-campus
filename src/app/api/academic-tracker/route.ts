@@ -7,6 +7,7 @@ import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
 import { notifyRealtimeEvent } from "@/lib/realtimeServer";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -228,6 +229,28 @@ export async function POST(request: Request) {
         payload: { classGroup, subject, weekNumber }
       });
 
+      try {
+        const studentRows = await db.all(
+          `SELECT id, email FROM students WHERE LOWER(TRIM(COALESCE("classGroup", classgroup, ''))) = LOWER(TRIM(?))`,
+          [classGroup.trim()]
+        );
+        const studentIds = studentRows.map((s: any) => s.id || s.email).filter(Boolean);
+        if (studentIds.length > 0) {
+          await dispatchSystemNotification(db, {
+            userIds: studentIds,
+            title: `New Academic Task: ${taskName.trim()}`,
+            message: `Week ${weekNumber} task for ${subject.trim()} has been assigned. Due date: ${effectiveTaskDate}.`,
+            link: "/student/academic-tracker",
+            type: "info",
+            domain: "tracker",
+            action: "task_assigned",
+            payload: { classGroup, subject, weekNumber, taskName }
+          });
+        }
+      } catch (notifErr) {
+        console.error("[academic-tracker] dispatch task notification error:", notifErr);
+      }
+
       return NextResponse.json({ success: true, task: savedTask });
     }
 
@@ -321,6 +344,24 @@ export async function POST(request: Request) {
         targetRoles: ["student", "mentor", "cm", "admin"],
         payload: { classGroup, subject, weekNumber, updatedCount }
       });
+
+      try {
+        const uploadedEmails = Array.from(markRows.values()).map(r => r[1]).filter(Boolean);
+        if (uploadedEmails.length > 0) {
+          await dispatchSystemNotification(db, {
+            userIds: uploadedEmails,
+            title: `Academic Marks Updated: ${subject.trim()}`,
+            message: `Your Week ${weekNumber} marks for ${subject.trim()} (${classGroup.trim()}) have been published.`,
+            link: "/student/academic-tracker",
+            type: "success",
+            domain: "tracker",
+            action: "marks_updated",
+            payload: { classGroup, subject, weekNumber }
+          });
+        }
+      } catch (notifErr) {
+        console.error("[academic-tracker] dispatch bulk marks notification error:", notifErr);
+      }
 
       return NextResponse.json({
         success: true,
@@ -419,6 +460,21 @@ export async function POST(request: Request) {
         targetRoles: ["student", "mentor", "cm", "admin"],
         payload: { studentEmail: email, classGroup, subject, weekNumber }
       });
+
+      try {
+        await dispatchSystemNotification(db, {
+          userIds: [studentId, email].filter(Boolean),
+          title: `Academic Grade Evaluated: ${subject.trim()}`,
+          message: `Your Week ${weekNumber} submission for ${subject.trim()} (${classGroup.trim()}) was evaluated${totMarks !== null ? ` (Total: ${totMarks})` : ""}.`,
+          link: "/student/academic-tracker",
+          type: "success",
+          domain: "tracker",
+          action: "student_graded",
+          payload: { studentEmail: email, classGroup, subject, weekNumber, totalMarks: totMarks }
+        });
+      } catch (notifErr) {
+        console.error("[academic-tracker] dispatch single grade notification error:", notifErr);
+      }
 
       return NextResponse.json({ success: true, entry: updatedEntry });
     }

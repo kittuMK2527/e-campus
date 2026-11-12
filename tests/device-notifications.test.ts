@@ -12,7 +12,7 @@ describe("Device System Notifications (Desktop & Mobile)", () => {
   it("returns unsupported when window or Notification is undefined", () => {
     // In node/vitest environment without browser Notification
     const status = getDeviceNotificationStatus();
-    expect(["unsupported", "default", "granted", "denied"]).toContain(status);
+    expect(["unsupported", "default", "granted", "denied"]).toContain(status.permission);
   });
 
   it("handles sendDeviceSystemNotification gracefully when permission is not granted", async () => {

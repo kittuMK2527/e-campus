@@ -5,6 +5,7 @@ import { getDb, PostgresDbAdapter } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { requireKamScope } from "@/lib/kamScope";
 import { fetchWithTimeout, DEFAULT_FETCH_TIMEOUT_MS } from "@/lib/net";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 const SUPABASE_REST_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://scuvqabxqqtvibjutoyj.supabase.co";
 const SUPABASE_REST_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "sb_publishable_wptvdh6rVvEy2uSppa4Ckw_ozPuC6L4";
@@ -180,6 +181,27 @@ export async function PATCH(request: Request) {
     }
 
     const updated = await res.json();
+    const updatedTicket = Array.isArray(updated) ? updated[0] : null;
+    if (updatedTicket) {
+      const creatorId = updatedTicket.user_id || updatedTicket.created_by || updatedTicket.email || updatedTicket.user_email;
+      if (creatorId) {
+        try {
+          await dispatchSystemNotification(db, {
+            userIds: [String(creatorId)],
+            title: `Ticket ${status === "resolved" ? "Resolved" : "Updated"}: ${updatedTicket.title || updatedTicket.subject || ticketId}`,
+            message: `Your ticket has been marked as ${status}${notes ? `: ${notes}` : "."}`,
+            link: "/cm/tickets",
+            type: status === "resolved" ? "success" : "info",
+            domain: "tickets",
+            action: "status_changed",
+            payload: { ticketId, status, notes }
+          });
+        } catch (ticketNotifErr) {
+          console.error("[tickets] dispatch notification error:", ticketNotifErr);
+        }
+      }
+    }
+
     return NextResponse.json({ success: true, tickets: Array.isArray(updated) ? updated : [] });
   } catch (error: any) {
     console.error("PATCH /api/tickets error:", error);

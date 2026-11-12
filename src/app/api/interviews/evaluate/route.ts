@@ -5,6 +5,7 @@ import { requireAuth } from "@/lib/authGuard";
 import { getDb, type QueryFailure } from "@/lib/db";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   try {
@@ -294,6 +295,23 @@ export async function POST(request: Request) {
     }
 
     const savedEval = savedEvalRows[0] || null;
+
+    try {
+      await dispatchSystemNotification(db, {
+        userIds: [student_id],
+        title: `Mock Interview Evaluated: ${finalStatus}`,
+        message: isAbsent
+          ? `You were marked absent for the mock interview (${interview?.subject || "Interview"}).`
+          : `Your mock interview evaluation is complete. Status: ${finalStatus}. Overall Score: ${totalScore}/10.`,
+        link: "/student/interviews",
+        type: isAbsent ? "warning" : (finalStatus === "Cleared" ? "success" : "info"),
+        domain: "interviews",
+        action: "evaluated",
+        payload: { interview_id, student_id, status: finalStatus, totalScore }
+      });
+    } catch (notifErr) {
+      console.error("[interviews/evaluate] dispatch notification error:", notifErr);
+    }
 
     return NextResponse.json({
       success: true,

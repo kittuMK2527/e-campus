@@ -70,7 +70,7 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
-      setDeviceNotifStatus(getDeviceNotificationStatus());
+      setDeviceNotifStatus(getDeviceNotificationStatus().permission);
       const hidden = localStorage.getItem("fp_hide_notif_banner") === "true";
       setHidePermissionBanner(hidden);
     }

@@ -591,6 +591,22 @@ export async function POST(request: Request) {
       }
     }
 
+    try {
+      await dispatchSystemNotification(db, {
+        roles: ["cm", "admin", "kam"],
+        collegeId: effectiveCollegeId,
+        title: `New Faculty ${requestType} Request: ${mentor?.name || mentorId}`,
+        message: `${mentor?.name || mentorId} applied for ${requestType} from ${startDate} to ${effectiveEndDate}. Reason: ${finalReason}`,
+        link: "/cm/leaves",
+        type: "warning",
+        domain: "faculty_leave",
+        action: "submitted",
+        payload: { requestId: reqId, mentorId, startDate, endDate: effectiveEndDate, requestType }
+      });
+    } catch (notifErr) {
+      console.error("[faculty-leave] dispatch leave submitted notification error:", notifErr);
+    }
+
     return NextResponse.json({
       success: true,
       message: `${requestType} request submitted successfully!${createdHandovers.length > 0 ? ` Cover requests are being sent for ${createdHandovers.length} class(es).` : ""} The Campus Manager has been notified for review.`,

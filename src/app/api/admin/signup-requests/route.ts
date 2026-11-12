@@ -7,6 +7,7 @@ import { requireAuth, normalizeRole } from "@/lib/authGuard";
 import { formatRoleLabel } from "@/lib/utils";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
@@ -163,6 +164,21 @@ export async function PATCH(request: Request) {
           [logId, `Signup request for ${req.name} (${req.email}) was APPROVED as ${formatRoleLabel(targetRole).toUpperCase()} by Admin`, nowStr]
         );
       });
+
+      try {
+        await dispatchSystemNotification(db, {
+          userIds: [userId, req.email.toLowerCase()],
+          title: "Account Approved & Activated!",
+          message: `Welcome to the Platform, ${req.name}! Your account has been approved as ${formatRoleLabel(targetRole)}.`,
+          link: "/",
+          type: "success",
+          domain: "auth",
+          action: "approved",
+          payload: { userId, role: targetRole }
+        });
+      } catch (welcomeNotifErr) {
+        console.error("[signup-requests] dispatch welcome notification error:", welcomeNotifErr);
+      }
 
       return NextResponse.json({ success: true, message: `Request approved and mapped as ${formatRoleLabel(targetRole)}!` });
     }

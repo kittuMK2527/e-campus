@@ -8,7 +8,7 @@ import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
 import { notifyRealtimeEvent } from "@/lib/realtimeServer";
-import { sendWebPushNotification } from "@/lib/webPush";
+import { dispatchSystemNotification } from "@/lib/notifications";
 import crypto from "crypto";
 
 const noCacheHeaders = {
@@ -50,78 +50,6 @@ async function bulkUpsertDailyConfigs(db: any, rows: any[][]) {
       params
     );
   }
-}
-
-/** rows: [id, user_id, title, message, type, link] */
-async function bulkInsertNotifications(db: any, rows: any[][], nowStr: string, collegeId?: string) {
-  for (const chunk of chunkBy(rows, NOTIFY_CHUNK)) {
-    const values = chunk.map(() => "(?, ?, ?, ?, ?, ?, 0, ?)").join(", ");
-    const params = chunk.flatMap(r => [...r, nowStr]);
-    await db.run(
-      `INSERT INTO notifications (id, user_id, title, message, type, link, is_read, created_at)
-       VALUES ${values}`,
-      params
-    );
-  }
-
-  if (rows.length > 0) {
-    const firstRow = rows[0];
-    const eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-    const targetUserIds = Array.from(new Set(rows.map(r => String(r[1]))));
-    const payload = {
-      title: firstRow[2],
-      message: firstRow[3],
-      link: firstRow[5],
-      type: firstRow[4],
-      count: rows.length
-    };
-
-    try {
-      await db.run(
-        `INSERT INTO event_outbox (event_id, domain, action, college_id, target_user_ids, origin_tab_id, payload, created_at)
-         VALUES (?, 'daily_configs', 'updated', ?, ?::jsonb, NULL, ?::jsonb, NOW())`,
-        [eventId, collegeId || null, JSON.stringify(targetUserIds), JSON.stringify(payload)]
-      );
-      await db.run(`SELECT pg_notify('fp_realtime_channel', ?)`, [
-        JSON.stringify({ eventId, domain: "daily_configs", action: "updated", collegeId: collegeId || null })
-      ]);
-    } catch (_) {}
-
-    notifyRealtimeEvent({
-      domain: "daily_configs",
-      action: "updated",
-      collegeId: collegeId || undefined,
-      targetUserIds,
-      payload
-    });
-
-    notifyRealtimeEvent({
-      domain: "notifications",
-      action: "created",
-      collegeId: collegeId || undefined,
-      targetUserIds,
-      payload
-    });
-
-    // Device Web Push to lock screens and desktop action center
-    sendWebPushNotification(db, {
-      userIds: targetUserIds,
-      collegeId: collegeId || undefined,
-      title: firstRow[2],
-      message: firstRow[3],
-      link: firstRow[5] || "/schedule",
-      data: payload
-    }).catch(() => {});
-  }
-}
-
-async function loadCampusAudience(db: any, collegeId: string) {
-  return db.all(
-    `SELECT id, role FROM users WHERE reference_id IN (SELECT id FROM mentors WHERE college_id = ?)
-     UNION
-     SELECT id, role FROM users WHERE reference_id IN (SELECT id FROM students WHERE college_id = ?)`,
-    collegeId, collegeId
-  );
 }
 
 async function handleAutoAdaptNextWeek(db: any, body: any) {
@@ -220,23 +148,28 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
 
   await bulkUpsertDailyConfigs(db, configRows);
 
-  // Insert notifications for all students & mentors
+  // Dispatch campus-wide notifications and background mobile Web Push
   try {
-    const users = await loadCampusAudience(db, college_id);
     const title = "Next Week Schedule Auto-Configured";
-    const message = `The campus schedule for next week (${nextDates[0]} to ${nextDates[6]}) has been automatically configured based on the current week's pattern. Please review your timetable.`;
-    const nowStr = new Date().toISOString();
+    const message = `The campus schedule for next week (${nextDates[0]} to ${nextDates[6]}) has been automatically configured (${insertedConfigs.length} days). Please review your timetable.`;
 
-    const notifRows = users.map((u: any) => [
-      generateId("n"),
-      u.id,
+    await dispatchSystemNotification(db, {
+      userIds: [body.user_id, body.userId].filter(Boolean),
+      roles: ["cm", "mentor", "student", "admin", "kam"],
+      collegeId: college_id,
       title,
       message,
-      "info",
-      u.role === "mentor" ? `/mentor/schedule?week=${nextDates[0]}` : `/student/schedule?week=${nextDates[0]}`
-    ]);
+      link: `/schedule?week=${nextDates[0]}`,
+      type: "info",
+      action: "daily_config_auto_adapted"
+    });
 
-    await bulkInsertNotifications(db, notifRows, nowStr, college_id);
+    notifyRealtimeEvent({
+      domain: "daily_configs",
+      action: "updated",
+      collegeId: college_id || undefined,
+      payload: { title, message }
+    });
   } catch (errNotif) {
     console.error("Failed to write auto-adapt notifications:", errNotif);
   }
@@ -299,7 +232,7 @@ export async function POST(request: Request) {
     allowedRoles: ["admin", "cm", "kam"],
     checkCsrf: true
   });
-  if (errorResponse) return errorResponse;
+  if (errorResponse || !auth) return errorResponse;
 
   try {
     const db = await getDb();
@@ -377,33 +310,52 @@ export async function POST(request: Request) {
 
     await bulkUpsertDailyConfigs(db, configRows);
 
-    // 1. Insert Database Notifications for all Students & Mentors of this college
+    // Dispatch campus-wide notifications and background mobile Web Push for every configured day
     try {
-      const users = await loadCampusAudience(db, college_id);
-      const nowStr = new Date().toISOString();
-      const notifRows: any[][] = [];
-
-      for (const plan of dayPlans) {
+      if (dayPlans.length === 1) {
+        const plan = dayPlans[0];
         const displayType = plan.dayType === "holiday" ? "Holiday" : plan.dayType === "event" ? "Event" : plan.dayType === "exam_day" ? "Exam Day" : "Working Day";
-        const title = `Campus Schedule Update: ${plan.dStr}`;
-        const message = `The calendar schedule for ${plan.dStr} has been configured as a ${displayType} (${plan.dayOrder === "None" ? "No Day Order" : plan.dayOrder}) operating in ${sessionModeVal} mode. Notes: ${notesVal || "None"}`;
+        const orderLabel = plan.dayOrder === "None" ? "No Day Order" : plan.dayOrder;
+        const title = `Day Order Update: ${plan.dStr} (${orderLabel})`;
+        const message = `Day Order for ${plan.dStr} is set as ${orderLabel} (${displayType}) in ${sessionModeVal} mode.${notesVal ? ` Notes: ${notesVal}` : ""}`;
         const notifType = plan.dayType === "holiday" ? "warning" : "info";
 
-        for (const u of users) {
-          notifRows.push([
-            generateId("n"),
-            u.id,
-            title,
-            message,
-            notifType,
-            u.role === "mentor" ? `/mentor/schedule?date=${plan.dStr}` : `/student/schedule?date=${plan.dStr}`
-          ]);
-        }
+        await dispatchSystemNotification(db, {
+          userIds: [auth.user.id, auth.user.reference_id].filter(Boolean) as string[],
+          roles: ["cm", "mentor", "student", "admin", "kam"],
+          collegeId: college_id,
+          title,
+          message,
+          link: `/schedule?date=${plan.dStr}`,
+          type: notifType,
+          action: "daily_config_updated"
+        });
+      } else if (dayPlans.length > 1) {
+        const first = dayPlans[0];
+        const last = dayPlans[dayPlans.length - 1];
+        const title = `Campus Schedule Updated (${dayPlans.length} days)`;
+        const message = `Campus Day Order schedule from ${first.dStr} to ${last.dStr} has been configured in ${sessionModeVal} mode.${notesVal ? ` Notes: ${notesVal}` : ""}`;
+
+        await dispatchSystemNotification(db, {
+          userIds: [auth.user.id, auth.user.reference_id].filter(Boolean) as string[],
+          roles: ["cm", "mentor", "student", "admin", "kam"],
+          collegeId: college_id,
+          title,
+          message,
+          link: `/schedule?date=${first.dStr}`,
+          type: "info",
+          action: "daily_config_updated"
+        });
       }
 
-      await bulkInsertNotifications(db, notifRows, nowStr, college_id);
+      notifyRealtimeEvent({
+        domain: "daily_configs",
+        action: "updated",
+        collegeId: college_id || undefined,
+        payload: { count: dayPlans.length }
+      });
     } catch (errNotif) {
-      console.error("Failed to write daily-config db notifications:", errNotif);
+      console.error("Failed to write daily-config notifications:", errNotif);
     }
 
     return NextResponse.json({ success: true, message: "Daily configuration saved successfully" });
