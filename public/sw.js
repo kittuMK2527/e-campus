@@ -1,6 +1,14 @@
 // Service Worker for Mobile and Desktop OS-Level System Notifications & Web Push
-const CACHE_NAME = "faceprep-pwa-v2";
-const STATIC_ASSETS = ["/", "/faceprep-fav.png", "/manifest.json"];
+const CACHE_NAME = "faceprep-pwa-v3";
+const STATIC_ASSETS = [
+  "/",
+  "/faceprep-fav.png",
+  "/manifest.json",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/maskable-512.png",
+  "/icons/apple-touch-icon.png",
+];
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();

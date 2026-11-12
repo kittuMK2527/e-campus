@@ -41,9 +41,10 @@ import {
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import { isSuperAdminSession } from "@/lib/superadmin";
-import { cmNavGroups, cmMobileTabs, cmMoreTabs, cmMoreTabIds, CmNavGroup } from "@/lib/cmNav";
+import { cmNavGroups, cmMobileTabs, cmMoreTabs, cmMoreTabIds, cmLeafById, CmNavGroup } from "@/lib/cmNav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ALL_SEMESTERS } from "@/lib/semesters";
 
 // ── Lazy-loaded Modular Panels (completely decoupled from CAMDashboard) ──
 const KAMOverview = dynamic(() => import("./kam/overview/KAMOverview").then(m => m.KAMOverview), {
@@ -565,45 +566,69 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
       {/* ── MAIN WORKSPACE CONTENT ── */}
       <main className="flex-1 min-w-0 flex flex-col overflow-x-hidden overflow-y-auto h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-12 scroll-touch">
         <div className="p-6 space-y-6 flex-1 min-w-0 max-w-full">
-          {/* ── KAM PORTFOLIO HEADER & CAMPUS SWITCHER BANNER ── */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-card">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-zinc-950 font-black text-sm shadow-xs">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-sm font-extrabold text-slate-900 dark:text-white">
-                    {activeCollegeId === "all" ? "All Supervised Campuses (Portfolio Overview)" : activeCollegeName}
-                  </h2>
-                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
-                    KAM Portfolio
-                  </span>
-                </div>
-                <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                  {scopedColleges.length} institutional campus{scopedColleges.length !== 1 ? "es" : ""} assigned • Real-time executive synchronization
-                </p>
-              </div>
-            </div>
-
-            {/* Campus Selector Dropdown */}
-            <div className="flex items-center gap-2">
-              <label className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Campus:</label>
-              <select
-                aria-label="Filter Campus"
-                value={activeCollegeId}
-                onChange={e => setActiveCollegeId(e.target.value)}
-                className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+          {/* ── MOBILE SUB-PAGE BREADCRUMB HEADER ── */}
+          {activeTab !== "overview" && activeTab !== "more_menu" && (
+            <div className="md:hidden flex items-center justify-between pb-3 mb-2 border-b border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setActiveTab("more_menu")}
+                className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
               >
-                <option value="all">All Supervised Campuses (Portfolio Overview)</option>
-                {scopedColleges.map(c => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                <ChevronLeft className="h-4 w-4" />
+                <span>All Tools</span>
+              </button>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                {cmLeafById(cmNavModel, activeTab)?.label || activeTab}
+              </span>
             </div>
-          </div>
+          )}
+
+          {/* ── MOBILE TAB: MORE MENU (Full Mobile Portal & Tools Grid) ── */}
+          {activeTab === "more_menu" && (
+            <div className="space-y-4 animate-fadeIn pb-12">
+              <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-card">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200/60 dark:border-amber-800/60">
+                    <Menu className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-extrabold text-slate-900 dark:text-white">
+                      All Tools & Portals
+                    </h2>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                      Select any academic, faculty, timetable or audit module
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {cmMoreList.map((t) => {
+                  const Icon = t.icon;
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      onClick={() => setActiveTab(t.id)}
+                      className="min-h-[5.5rem] p-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-amber-200 dark:hover:ring-amber-900 active:scale-[0.98] transition-all flex flex-col justify-between shadow-card cursor-pointer group"
+                    >
+                      <div className="h-10 w-10 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200/60 dark:border-amber-800/60 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 mt-3">
+                        <span className="block text-xs font-bold text-slate-900 dark:text-white leading-tight">
+                          {t.label}
+                        </span>
+                        <span className="block text-[10px] text-slate-400 font-medium leading-snug mt-1 line-clamp-2">
+                          {t.hint}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* ══════════════════════════════════════════════════════════════════
               TAB 1: DASHBOARD / OVERVIEW
@@ -1028,7 +1053,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                       onChange={e => setSelectedCohortSem(e.target.value)}
                       className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
                     >
-                      {["Semester 1", "Semester 2", "Semester 3", "Semester 4"].map(s => (
+                      {ALL_SEMESTERS.slice(0, 4).map(s => (
                         <option key={s} value={s}>{s}</option>
                       ))}
                     </select>

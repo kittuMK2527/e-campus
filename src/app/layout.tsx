@@ -43,11 +43,16 @@ export const metadata: Metadata = {
     telephone: false,
   },
   icons: {
-    icon: "/faceprep-fav.png",
-    shortcut: "/faceprep-fav.png",
-    apple: "/faceprep-fav.png",
+    icon: [
+      { url: "/icons/icon-192.png?v=3", sizes: "192x192", type: "image/png" },
+      { url: "/faceprep-fav.png?v=3", type: "image/png" },
+    ],
+    shortcut: "/faceprep-fav.png?v=3",
+    apple: [
+      { url: "/icons/apple-touch-icon.png?v=3", sizes: "180x180", type: "image/png" },
+    ],
   },
-  manifest: "/manifest.json",
+  manifest: "/manifest.json?v=3",
 };
 
 export const viewport: Viewport = {

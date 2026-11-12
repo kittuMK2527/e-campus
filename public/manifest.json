@@ -2,8 +2,8 @@
   "name": "FACE Prep E-Campus",
   "short_name": "E-Campus",
   "description": "Institutional Operations, Timetable & Academic Management Platform",
-  "start_url": "/?source=pwa",
-  "id": "/",
+  "start_url": "/?source=pwa&v=3",
+  "id": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "display_override": ["standalone", "window-controls-overlay", "minimal-ui"],
@@ -13,16 +13,27 @@
   "categories": ["education", "productivity", "management"],
   "icons": [
     {
-      "src": "/faceprep-fav.png",
+      "src": "/icons/icon-192.png?v=3",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/faceprep-fav.png",
+      "src": "/icons/icon-512.png?v=3",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png?v=3",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/apple-touch-icon.png?v=3",
+      "sizes": "180x180",
+      "type": "image/png"
     }
   ],
   "shortcuts": [
@@ -30,13 +41,13 @@
       "name": "Dashboard",
       "short_name": "Dashboard",
       "url": "/",
-      "icons": [{ "src": "/faceprep-fav.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png?v=3", "sizes": "192x192" }]
     },
     {
       "name": "Live Notifications",
       "short_name": "Alerts",
       "url": "/admin/notifications",
-      "icons": [{ "src": "/faceprep-fav.png", "sizes": "192x192" }]
+      "icons": [{ "src": "/icons/icon-192.png?v=3", "sizes": "192x192" }]
     }
   ]
 }
