@@ -93,7 +93,6 @@ export default function LndRulesTab({
   return (
     <Panel
       title="Department Rules & Targets"
-      subtitle="Configure target weekly L&D sessions per department and mentor."
     >
       <div className="space-y-6">
         {/* Target L&D Config Card */}

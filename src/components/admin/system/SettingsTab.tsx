@@ -124,7 +124,7 @@ export const SettingsTab: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-extrabold text-gray-900">Global Email & Mailing System</h3>
                   <span className="text-[10px] text-gray-400 font-medium block">
-                    Controls Brevo REST API, SMTP Relay & GAS Webhooks
+                    Controls email delivery services, SMTP relay & notification webhooks
                   </span>
                 </div>
               </div>

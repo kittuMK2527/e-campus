@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
       try {
         const studentRows = await db.all(
-          `SELECT id, email FROM students WHERE LOWER(TRIM(COALESCE("classGroup", classgroup, ''))) = LOWER(TRIM(?))`,
+          `SELECT id, email FROM students WHERE LOWER(TRIM(COALESCE(classgroup, ''))) = LOWER(TRIM(?))`,
           [classGroup.trim()]
         );
         const studentIds = studentRows.map((s: any) => s.id || s.email).filter(Boolean);

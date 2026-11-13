@@ -1,4 +1,5 @@
 "use client";
+import { BulkOperationDialog, useBulkOperation } from "@/components/ui/bulk-operation";
 
 import React, { useState, useEffect, useMemo, useRef, useDeferredValue, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -29,6 +30,7 @@ import { Input } from "./Input";
 import { Select } from "./Select";
 import { LoadingButton } from "./ui/LoadingButton";
 import { Pagination } from "./ui/Pagination";
+import { ActionMenu } from "./ui/ActionMenu";
 import { Combobox } from "./ui/combobox";
 import { Dialog } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
@@ -1350,7 +1352,7 @@ export const CAMCampusInsightPanel: React.FC<{
       </div>
     ` : '';
 
-      const scopeNoticeText = options?.scopeNotice || `This audit document constitutes an official Institutional Intelligence Ledger compiled for ${activeCollegeName || "University Campus"}. All metrics, attendance records, exam clearances, and faculty distributions represent verified database census records prepared under the authority of the Campus Manager (CM) and comply with University Academic Bylaws.`;
+      const scopeNoticeText = options?.scopeNotice || `This audit document constitutes an official Institutional Intelligence Ledger compiled for ${activeCollegeName || "University Campus"}. All metrics, attendance records, exam clearances, and faculty distributions represent verified institutional census records prepared under the authority of the Campus Manager (CM) and comply with University Academic Bylaws.`;
 
       const html = `
       <!DOCTYPE html>
@@ -2123,7 +2125,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                 Audited Institutional Data Register
               </div>
-              <span class="table-record-count">Displaying ${rows.length} certified database entries</span>
+              <span class="table-record-count">Displaying ${rows.length} certified records</span>
             </div>
 
             <table>
@@ -3463,7 +3465,7 @@ export const CAMCampusInsightPanel: React.FC<{
         exportToCSV(filePrefix, headers, rows);
       } else {
         const kpis = [
-          { label: "Total Tickets", value: campusTickets.length, color: "slate" as const, note: "Logged in Supabase" },
+          { label: "Total Tickets", value: campusTickets.length, color: "slate" as const, note: "Logged Tickets" },
           { label: "Unresolved / Open", value: campusTickets.filter(t => !isResolvedTicket(t.status) && !isInProgressTicket(t.status)).length, color: "amber" as const, note: "Awaiting action" },
           { label: "In Progress", value: campusTickets.filter(t => isInProgressTicket(t.status)).length, color: "blue" as const, note: "Under review" },
           { label: "Resolved", value: campusTickets.filter(t => isResolvedTicket(t.status)).length, color: "emerald" as const, note: `${campusTickets.length > 0 ? Math.round((campusTickets.filter(t => isResolvedTicket(t.status)).length / campusTickets.length) * 100) : 0}% resolved` }
@@ -3487,7 +3489,7 @@ export const CAMCampusInsightPanel: React.FC<{
         </div>
       `;
 
-        exportToPrintablePDF(`${activeCollegeName} — Campus Help Desk Tickets Ledger`, `Official grievance and support tickets recorded in Supabase for ${activeCollegeName}.`, headers, rows, { kpis, chartsHtml });
+        exportToPrintablePDF(`${activeCollegeName} — Campus Help Desk Tickets Ledger`, `Official grievance and support tickets recorded for ${activeCollegeName}.`, headers, rows, { kpis, chartsHtml });
       }
     };
 
@@ -4249,7 +4251,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   type="button"
                   onClick={fetchCampusTickets}
                   disabled={ticketsLoading}
-                  title="Reload live tickets from Supabase DB"
+                  title="Reload live tickets"
                   className="p-2 rounded-xl border border-slate-200 inset-shadow-well bg-sunken hover:bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${ticketsLoading ? "animate-spin text-indigo-600" : ""}`} />
@@ -4262,7 +4264,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   type="button"
                   onClick={() => fetchPlacementData()}
                   disabled={placementLoading}
-                  title="Reload live placement data from Supabase DB"
+                  title="Reload placement records"
                   className="p-2 rounded-xl border border-slate-200 inset-shadow-well bg-sunken hover:bg-white text-slate-600 transition-all cursor-pointer disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3.5 h-3.5 ${placementLoading ? "animate-spin text-indigo-600" : ""}`} />
@@ -4332,33 +4334,29 @@ export const CAMCampusInsightPanel: React.FC<{
                 </div>
               </div>
 
-              {/* Export Buttons */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => exportAttendanceShortage("csv")}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 text-slate-500" />
-                  <span>CSV</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportAttendanceShortage("excel")}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Download Excel (.xlsx)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportAttendanceShortage("pdf")}
-                  className="px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-black shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Official Dean Warning Notice (PDF)</span>
-                </button>
-              </div>
+              {/* Export Action Menu */}
+              <ActionMenu
+                triggerVariant="button"
+                triggerLabel="Export Report"
+                triggerClassName="bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-2xs font-bold text-xs"
+                items={[
+                  {
+                    label: "Download Excel (.xlsx)",
+                    icon: <FileSpreadsheet className="h-4 w-4 text-emerald-600" />,
+                    onClick: () => exportAttendanceShortage("excel"),
+                  },
+                  {
+                    label: "Export CSV",
+                    icon: <Download className="h-4 w-4 text-slate-500" />,
+                    onClick: () => exportAttendanceShortage("csv"),
+                  },
+                  {
+                    label: "Dean Warning Notice (PDF)",
+                    icon: <FileText className="h-4 w-4 text-rose-600" />,
+                    onClick: () => exportAttendanceShortage("pdf"),
+                  },
+                ]}
+              />
             </div>
 
             {/* KPI Summary Cards */}
@@ -4911,7 +4909,7 @@ export const CAMCampusInsightPanel: React.FC<{
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-base font-black text-slate-900 leading-tight">Campus Help Desk &amp; Student Tickets</h3>
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        Live Supabase DB
+                        Support Desk Active
                       </span>
                     </div>
                     <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -4943,7 +4941,7 @@ export const CAMCampusInsightPanel: React.FC<{
                       ? "bg-white text-indigo-700 shadow-xs font-black"
                       : "text-slate-600 hover:text-slate-900"
                       }`}
-                    title="View all database tickets across all colleges"
+                    title="View all support tickets across all colleges"
                   >
                     🌐 All Campuses ({allRawTickets.length})
                   </button>
@@ -4955,36 +4953,34 @@ export const CAMCampusInsightPanel: React.FC<{
                   onClick={() => fetchCampusTickets()}
                   disabled={ticketsLoading}
                   className="p-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-indigo-600 transition-all cursor-pointer shadow-2xs"
-                  title="Refresh tickets from database"
+                  title="Refresh tickets"
                 >
                   <RefreshCw className={`w-4 h-4 ${ticketsLoading ? "animate-spin text-indigo-600" : ""}`} />
                 </button>
 
-                {/* Export Buttons */}
-                <button
-                  type="button"
-                  onClick={() => exportCampusTickets("csv")}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                >
-                  <Download className="w-3.5 h-3.5 text-slate-500" />
-                  <span>CSV</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportCampusTickets("excel")}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Download Excel (.xlsx)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportCampusTickets("pdf")}
-                  className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-xs font-black shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Print / PDF Ledger</span>
-                </button>
+                {/* Export Action Menu */}
+                <ActionMenu
+                  triggerVariant="button"
+                  triggerLabel="Export Tickets"
+                  triggerClassName="bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-2xs font-bold text-xs"
+                  items={[
+                    {
+                      label: "Download Excel (.xlsx)",
+                      icon: <FileSpreadsheet className="h-4 w-4 text-emerald-600" />,
+                      onClick: () => exportCampusTickets("excel"),
+                    },
+                    {
+                      label: "Export CSV",
+                      icon: <Download className="h-4 w-4 text-slate-500" />,
+                      onClick: () => exportCampusTickets("csv"),
+                    },
+                    {
+                      label: "Print / PDF Ledger",
+                      icon: <FileText className="h-4 w-4 text-amber-600" />,
+                      onClick: () => exportCampusTickets("pdf"),
+                    },
+                  ]}
+                />
               </div>
             </div>
 
@@ -5098,7 +5094,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   ? "bg-indigo-600 text-white border-indigo-700 shadow-md ring-2 ring-indigo-500"
                   : "bg-indigo-50/60 border-indigo-200 text-indigo-900 hover:bg-indigo-100/60"
                   }`}
-                title="Click to filter tickets with uploaded screenshots / images from database"
+                title="Click to filter tickets with uploaded screenshots / images"
               >
                 <div className="flex items-center justify-between">
                   <span className={`text-[10px] font-extrabold uppercase tracking-wider block ${ticketAttachmentFilter === "with_image" ? "text-indigo-100" : "text-indigo-700"}`}>
@@ -5802,30 +5798,29 @@ export const CAMCampusInsightPanel: React.FC<{
 
               {/* Export Buttons */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => exportDemoEvaluations("csv")}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 text-slate-500" />
-                  <span>CSV</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportDemoEvaluations("excel")}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Download Excel (.xlsx)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportDemoEvaluations("pdf")}
-                  className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Print / PDF Ledger</span>
-                </button>
+                {/* Export Action Menu */}
+                <ActionMenu
+                  triggerVariant="button"
+                  triggerLabel="Export Evaluations"
+                  triggerClassName="bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-2xs font-bold text-xs"
+                  items={[
+                    {
+                      label: "Download Excel (.xlsx)",
+                      icon: <FileSpreadsheet className="h-4 w-4 text-emerald-600" />,
+                      onClick: () => exportDemoEvaluations("excel"),
+                    },
+                    {
+                      label: "Export CSV",
+                      icon: <Download className="h-4 w-4 text-slate-500" />,
+                      onClick: () => exportDemoEvaluations("csv"),
+                    },
+                    {
+                      label: "Print / PDF Ledger",
+                      icon: <FileText className="h-4 w-4 text-indigo-600" />,
+                      onClick: () => exportDemoEvaluations("pdf"),
+                    },
+                  ]}
+                />
               </div>
             </div>
 
@@ -6027,30 +6022,29 @@ export const CAMCampusInsightPanel: React.FC<{
 
               {/* Export Buttons */}
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => exportFacultyWorkload("csv")}
-                  className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5 text-slate-500" />
-                  <span>CSV</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportFacultyWorkload("excel")}
-                  className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Download Excel (.xlsx)</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => exportFacultyWorkload("pdf")}
-                  className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Print / PDF Ledger</span>
-                </button>
+                {/* Export Action Menu */}
+                <ActionMenu
+                  triggerVariant="button"
+                  triggerLabel="Export Workload"
+                  triggerClassName="bg-white hover:bg-slate-50 text-slate-800 border-slate-200 shadow-2xs font-bold text-xs"
+                  items={[
+                    {
+                      label: "Download Excel (.xlsx)",
+                      icon: <FileSpreadsheet className="h-4 w-4 text-emerald-600" />,
+                      onClick: () => exportFacultyWorkload("excel"),
+                    },
+                    {
+                      label: "Export CSV",
+                      icon: <Download className="h-4 w-4 text-slate-500" />,
+                      onClick: () => exportFacultyWorkload("csv"),
+                    },
+                    {
+                      label: "Print / PDF Ledger",
+                      icon: <FileText className="h-4 w-4 text-blue-600" />,
+                      onClick: () => exportFacultyWorkload("pdf"),
+                    },
+                  ]}
+                />
               </div>
             </div>
 
@@ -7165,7 +7159,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black shadow-xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
               >
                 {isSubmittingTicketUpdate && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-                <span>Save to Supabase</span>
+                <span>Save Changes</span>
               </button>
             </div>
           </Dialog>
@@ -7738,7 +7732,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 </div>
                 <div className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl text-center">
                   <span className="text-[10px] font-black text-purple-800 uppercase tracking-wider block">Demo Score</span>
-                  <div className="text-2xl font-black text-purple-900 mt-0.5">{selectedDemoRecord.marks} / 100</div>
+                  <div className="text-2xl font-black text-slate-900 mt-0.5">{selectedDemoRecord.marks} / 100</div>
                   <span className="text-[9px] font-bold text-purple-700">
                     {selectedDemoRecord.marks >= 80 ? "Distinction Approved" : selectedDemoRecord.marks >= 65 ? "Qualified" : "Needs Re-demo"}
                   </span>
@@ -9253,27 +9247,32 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     }
   };
 
+  const bulk = useBulkOperation();
   const handleBulkDeleteStudents = async (targetIds?: string[]) => {
-    const idsToDelete = targetIds || selectedStudentIds;
+    const idsToDelete = [...new Set(targetIds || selectedStudentIds)];
+    if (idsToDelete.length > 500) {
+      toast("Select at most 500 students or narrow your filters before deleting.", "warning");
+      return;
+    }
     if (!idsToDelete || idsToDelete.length === 0) return;
     const ok = await showConfirm({
-      title: "Delete Selected Students",
-      message: `Are you sure you want to delete ${idsToDelete.length} selected student(s)? This will permanently remove their records, attendance logs, and login credentials.`,
+      title: targetIds ? "Delete All Filtered Students" : "Delete Selected Students",
+      message: `Permanently delete ${idsToDelete.length} students and their linked attendance, marks, fees, interviews and login accounts? This cannot be undone.`,
       confirmLabel: `Delete ${idsToDelete.length} Students`,
       danger: true
     });
-    if (ok) {
+    if (ok && bulk.begin({ title: 'Delete students', campus: activeCollegeName, danger: true, detail: `Deleting ${idsToDelete.length} students and their linked records.` })) {
       setActionLoading('bulk_delete_students', true);
       try {
         const res = await bulkDeleteStudents(idsToDelete);
         if (res.success) {
-          toast(`${res.count || idsToDelete.length} student record(s) deleted successfully.`, "success");
+          bulk.finish(res.message);
           setSelectedStudentIds(prev => prev.filter(id => !idsToDelete.includes(id)));
           if (selectedStudentForDetail && idsToDelete.includes(selectedStudentForDetail.id)) {
             setSelectedStudentForDetail(null);
           }
         } else {
-          toast(res.message || "Failed to delete selected students.", "error");
+          bulk.finish(res.message || "Deletion could not be confirmed. Refresh before retrying.", true);
         }
       } finally {
         setActionLoading('bulk_delete_students', false);
@@ -9604,6 +9603,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
   const handleConfirmStudentImportSubmit = async () => {
     if (!studentImportPreview || studentImportPreview.parsed.length === 0) return;
+    if (!bulk.begin({ title: "Student import", campus: activeCollegeName, detail: `Saving ${studentImportPreview.parsed.length} student rows.` })) return;
     setIsStudentImportSubmitting(true);
     try {
       const payload = studentImportPreview.parsed.map(s => ({
@@ -9618,15 +9618,16 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        toast(`Successfully imported ${payload.length} students directly from template!`, "success");
         setShowStudentImportModal(false);
         setStudentImportPreview(null);
-        await refreshData();
+        bulk.update({ detail: "Import confirmed. Refreshing the directory..." });
+        try { await refreshData(); bulk.finish(data.message); }
+        catch { bulk.finish(data.message + " Reload the directory to see the changes.", true); }
       } else {
-        toast(data.message || "Failed to import students.", "error");
+        bulk.finish(data.message || "Student import failed.", true);
       }
     } catch (err: any) {
-      toast("Error submitting student import: " + err.message, "error");
+      bulk.finish("Import not confirmed. Check the directory before retrying. " + err.message, true);
     } finally {
       setIsStudentImportSubmitting(false);
     }
@@ -10025,6 +10026,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
   const handleConfirmAttendanceImportSubmit = async () => {
     if (!attendanceImportPreview || attendanceImportPreview.parsed.length === 0) return;
+    if (!bulk.begin({ title: "Attendance import", campus: activeCollegeName, detail: `Preparing attendance entries.` })) return;
     setIsAttendanceImportSubmitting(true);
 
     try {
@@ -10071,7 +10073,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       });
 
       if (recordsToPost.length === 0) {
-        toast("No valid attendance records found in the uploaded file.", "warning");
+        bulk.finish("No valid attendance entries in this file. Nothing was submitted.", true);
         setIsAttendanceImportSubmitting(false);
         return;
       }
@@ -10089,6 +10091,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       // Sequential not parallel: avoids write races on shared student rows
       const CHUNK_SIZE = 500;
       let totalCount = 0;
+      let processed = 0;
+      let skipped = 0;
+      const total = recordsToPost.length;
       const chunks: any[][] = [];
       for (let i = 0; i < recordsToPost.length; i += CHUNK_SIZE) {
         chunks.push(recordsToPost.slice(i, i + CHUNK_SIZE));
@@ -10096,6 +10101,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
       for (let idx = 0; idx < chunks.length; idx++) {
         const chunk = chunks[idx];
+        bulk.update({ processed, total, detail: `${processed} of ${total} entries processed. Saving batch ${idx + 1} of ${chunks.length}.` });
         let data: any = {};
         try {
           const res = await fetch("/api/attendance", {
@@ -10114,12 +10120,12 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           catch (_) { throw new Error(`Server error (${res.status}): ${rawText.slice(0, 120)}`); }
           if (!data.success) throw new Error(data.message || "Import failed.");
         } catch (chunkErr: any) {
-          // Earlier chunks are already committed (upserted, so a re-run is safe).
-          throw new Error(
-            `Only ${totalCount} of ${recordsToPost.length} entries were saved before chunk ${idx + 1}/${chunks.length} failed: ${chunkErr.message}. Fix the cause and run the import again — already-saved entries are updated, not duplicated.`
-          );
+          throw new Error(`${processed} of ${total} entries confirmed in prior batches. Batch ${idx + 1} was not fully confirmed; check the attendance matrix before retrying.`);
         }
-        totalCount += data.count || chunk.length;
+        processed += chunk.length;
+        totalCount += data.count ?? 0;
+        skipped += data.skipped ?? 0;
+        bulk.update({ processed, total });
       }
 
       // Expand active date range so imported dates show in the matrix immediately
@@ -10129,15 +10135,16 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         if (allDates[allDates.length - 1] > attendanceEndDate) setAttendanceEndDate(allDates[allDates.length - 1]);
       }
 
-      toast(`Successfully imported ${totalCount} attendance entries across ${attendanceImportPreview.parsed.length} students!`, "success");
+      const summary = `${processed} entries processed. ${totalCount} attendance marks saved. ${skipped} entries skipped.`;
       setShowAttendanceImportModal(false);
       setAttendanceImportPreview(null);
 
-      // Non-blocking background refresh — do NOT await, user sees success immediately
-      refreshAttendance(activeCollegeId).catch(() => { });
+      bulk.update({ detail: "Import confirmed. Refreshing attendance..." });
+      try { await refreshAttendance(activeCollegeId); bulk.finish(summary, skipped > 0); }
+      catch { bulk.finish(summary + " Reload the matrix to see changes.", true); }
 
     } catch (err: any) {
-      toast("Error submitting attendance import: " + err.message, "error");
+      bulk.finish(err.message || "Attendance import could not be confirmed.", true);
     } finally {
       setIsAttendanceImportSubmitting(false);
     }
@@ -10534,19 +10541,19 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
   const handleConfirmFacultyImport = async () => {
     if (!facultyImportPreview || facultyImportPreview.parsed.length === 0) return;
+    if (!bulk.begin({ title: "Faculty import", campus: activeCollegeName, detail: `Saving ${facultyImportPreview.parsed.length} faculty rows.` })) return;
     setIsImportingFaculty(true);
     try {
       const res = await bulkImportMentors(facultyImportPreview.parsed, activeCollegeId);
       if (res.success) {
-        toast(res.message || `Successfully imported ${res.count} faculty members.`, "success");
+        bulk.finish(res.message);
         setShowFacultyImportModal(false);
         setFacultyImportPreview(null);
-        await refreshData(true);
       } else {
-        toast(res.message || "Failed to import faculty.", "error");
+        bulk.finish(res.message || "Faculty import was not confirmed.", true);
       }
     } catch (err: any) {
-      toast("Error importing faculty: " + err.message, "error");
+      bulk.finish(err.message || "Check the directory before retrying.", true);
     } finally {
       setIsImportingFaculty(false);
     }
@@ -11029,6 +11036,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [initializedCollegeId, setInitializedCollegeId] = useState("");
   const [viewerClassGroup, setViewerClassGroup] = useState("");
   const [viewerShift, setViewerShift] = useState<"shift_1" | "shift_2" | "general">("general");
+  const [mobileTimetableDay, setMobileTimetableDay] = useState<string>("Monday");
 
   // Quick Add Subject states in Generator
   const [showQuickAddForm, setShowQuickAddForm] = useState(false);
@@ -14695,7 +14703,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       <main className="flex-1 min-w-0 flex flex-col overflow-x-hidden overflow-y-auto h-full pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-12 scroll-touch">
 
         {/* Scrollable Work Canvas */}
-        <div ref={containerRef} className="p-6 space-y-6 flex-1 min-w-0 max-w-full">
+        <div ref={containerRef} className="p-3.5 sm:p-5 md:p-6 space-y-4 sm:space-y-6 flex-1 min-w-0 max-w-full">
 
           {/* KAM Multi-Campus Scoping Header Banner */}
           {isKAMView && (
@@ -15126,7 +15134,6 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         </div>
                         <div>
                           <h2 className="text-sm font-extrabold text-slate-900 leading-tight">Campus Timetable Load Distribution</h2>
-                          <p className="text-[11px] text-slate-400 font-medium">Daily slot distribution across weekday class schedules</p>
                         </div>
                       </div>
 
@@ -15372,7 +15379,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                 {/* Academic Year CRUD */}
                 <div className="space-y-4 bg-slate-50/50 p-5 rounded-xl border border-slate-100">
-                  <h3 className="text-xs font-black text-indigo-700 uppercase tracking-wider border-b border-slate-100 pb-2">Configure Academic Years</h3>
+                  <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider border-b border-slate-100 pb-2">Configure Academic Years</h3>
                   <form onSubmit={handleAddYear} className="flex gap-2">
                     <input
                       type="text"
@@ -15433,7 +15440,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 <div className="space-y-4 bg-slate-50/50 p-5 rounded-xl border border-slate-100">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-2.5 gap-2">
                     <div>
-                      <h3 className="text-xs font-black text-indigo-700 uppercase tracking-wider">Configure Working Days & Hours</h3>
+                      <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Configure Working Days & Hours</h3>
                       <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
                         Configuring: <strong className="text-indigo-600">{colleges.find(c => c.id === ((isSuperAdminUser || isKAMView) ? (configCollegeId || activeCollegeId) : (activeCollegeId || currentCAM?.college_id)))?.name || activeCollegeName}</strong>
                       </p>
@@ -16037,7 +16044,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             >
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-xs font-black text-indigo-700 uppercase tracking-wider">Faculty Workload Distribution</h3>
+                  <h3 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Faculty Workload Distribution</h3>
                 </div>
 
                 {/* ── FACULTY INFOGRAPHICS ── */}
@@ -17050,78 +17057,154 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           No class group selected or scheduled. Select a class group above to view its timetable.
                         </div>
                       ) : (
-                        <div className="overflow-auto max-h-[70vh] rounded-xl border border-slate-200 shadow-sm relative no-scrollbar">
-                          <Table containerClassName="overflow-visible" className="w-full border-collapse text-left min-w-[800px] table-fixed">
-                            <TableHeader>
-                              <TableRow className="text-[9.5px] font-bold uppercase">
-                                <TableHead className="sticky top-0 left-0 z-30 p-3 text-slate-500 bg-slate-100/95 backdrop-blur-xs border-r border-b border-slate-200 w-[15%]">Time Slot</TableHead>
-                                {DAYS.map(day => (
-                                  <TableHead key={day} className="sticky top-0 z-20 p-3 text-slate-700 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200">{day}</TableHead>
-                                ))}
-                              </TableRow>
-                            </TableHeader>
-                            <TableBody className="divide-y divide-slate-100 bg-white">
-                              {dynamicRows.map((row, rIdx) => {
-                                if (row.type === "break" || row.type === "lunch") {
-                                  return (
-                                    <TableRow key={`break-${rIdx}`} className="bg-slate-50/40">
-                                      <TableCell className="sticky left-0 z-10 p-3 text-[10px] font-bold text-slate-500 border-r border-slate-100 bg-slate-100/95 backdrop-blur-xs whitespace-nowrap">
-                                        <div className="flex items-center gap-1.5 font-bold text-slate-500">
-                                          <Clock className="h-3 w-3 text-slate-400" />
-                                          {row.timeRange}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell colSpan={5} className="p-3 text-center text-[10px] font-black tracking-widest text-slate-400 uppercase italic bg-slate-50/40">
-                                        {row.label}
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                }
+                        <div className="space-y-3">
+                          {/* Mobile Day Selector Pill Strip (visible only on mobile) */}
+                          <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                            {DAYS.map(day => (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => setMobileTimetableDay(day)}
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                  (mobileTimetableDay || DAYS[0]) === day
+                                    ? "bg-indigo-600 text-white shadow-xs"
+                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
+                              >
+                                {day}
+                              </button>
+                            ))}
+                          </div>
 
-                                if (row.type === "slot") {
-                                  const time = row.time;
-                                  return (
-                                    <TableRow key={time} className="hover:bg-slate-50/30 transition-colors">
-                                      <TableCell className="sticky left-0 z-10 p-3 text-[10px] font-semibold text-slate-600 border-r border-slate-100 bg-slate-50/95 backdrop-blur-xs whitespace-nowrap">
-                                        <div className="flex items-center gap-1.5">
-                                          <Clock className="h-3 w-3 text-slate-400" />
-                                          {time}
-                                        </div>
-                                      </TableCell>
-                                      {DAYS.map(day => {
-                                        const slot = collegeSlots.find(
-                                          s =>
-                                            s.day === day &&
-                                            (s.time === time || isTimeSlotMatch(s.time, time)) &&
-                                            (s.classGroup === viewerClassGroup || isCohortMatch(s.classGroup, viewerClassGroup)) &&
-                                            (s.shift || "general").toLowerCase() === (hasShifts ? viewerShift : "general").toLowerCase()
-                                        );
-                                        const mentor = slot ? collegeMentors.find(m => m.id === slot.mentorId) : null;
-                                        return (
-                                          <TableCell key={day} className="p-2 border-r border-slate-100 last:border-r-0 h-20">
-                                            {slot ? (
-                                              <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-indigo-100 bg-indigo-50/20 text-xs shadow-sm">
-                                                <div className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-wider truncate">
-                                                  {mentor ? mentor.name : "Unassigned"}
+                          {/* Mobile Vertical Period Cards (visible only on mobile) */}
+                          <div className="space-y-2.5 block md:hidden">
+                            {dynamicRows.map((row, rIdx) => {
+                              if (row.type === "break" || row.type === "lunch") {
+                                return (
+                                  <div key={`m-break-${rIdx}`} className="p-2.5 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-between text-xs text-slate-500 font-bold">
+                                    <div className="flex items-center gap-1.5">
+                                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                      <span>{row.timeRange}</span>
+                                    </div>
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 italic">{row.label}</span>
+                                  </div>
+                                );
+                              }
+                              if (row.type !== "slot") return null;
+                              const time = row.time;
+                              const activeDay = mobileTimetableDay || DAYS[0] || "Monday";
+                              const slot = collegeSlots.find(
+                                s =>
+                                  s.day === activeDay &&
+                                  (s.time === time || isTimeSlotMatch(s.time, time)) &&
+                                  (s.classGroup === viewerClassGroup || isCohortMatch(s.classGroup, viewerClassGroup)) &&
+                                  (s.shift || "general").toLowerCase() === (hasShifts ? viewerShift : "general").toLowerCase()
+                              );
+                              const mentor = slot ? collegeMentors.find(m => m.id === slot.mentorId) : null;
+
+                              return (
+                                <div key={`m-slot-${time}`} className="p-3.5 rounded-xl border border-slate-200 bg-white shadow-2xs space-y-2">
+                                  <div className="flex items-center justify-between border-b border-slate-100 pb-1.5">
+                                    <div className="flex items-center gap-1.5 text-xs font-bold text-slate-600">
+                                      <Clock className="h-3.5 w-3.5 text-slate-400" />
+                                      <span>{time}</span>
+                                    </div>
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                                      slot ? "bg-indigo-50 text-indigo-700 border border-indigo-200" : "bg-slate-100 text-slate-400"
+                                    }`}>
+                                      {slot ? "Scheduled" : "Free Period"}
+                                    </span>
+                                  </div>
+                                  {slot ? (
+                                    <div className="space-y-1">
+                                      <h4 className="text-xs font-extrabold text-slate-900">{slot.course}</h4>
+                                      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500 pt-1">
+                                        <span className="font-semibold text-indigo-600">{mentor ? mentor.name : "Unassigned Faculty"}</span>
+                                        <span className="font-medium">{slot.location || "Classroom"}</span>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-slate-400 italic">No course scheduled for this period.</p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Desktop Full Weekly Matrix Table (hidden on mobile) */}
+                          <div className="hidden md:block overflow-auto max-h-[70vh] rounded-xl border border-slate-200 shadow-sm relative no-scrollbar">
+                            <Table containerClassName="overflow-visible" className="w-full border-collapse text-left min-w-[800px] table-fixed">
+                              <TableHeader>
+                                <TableRow className="text-[9.5px] font-bold uppercase">
+                                  <TableHead className="sticky top-0 left-0 z-30 p-3 text-slate-500 bg-slate-100/95 backdrop-blur-xs border-r border-b border-slate-200 w-[15%]">Time Slot</TableHead>
+                                  {DAYS.map(day => (
+                                    <TableHead key={day} className="sticky top-0 z-20 p-3 text-slate-700 bg-slate-50/95 backdrop-blur-xs border-b border-slate-200">{day}</TableHead>
+                                  ))}
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody className="divide-y divide-slate-100 bg-white">
+                                {dynamicRows.map((row, rIdx) => {
+                                  if (row.type === "break" || row.type === "lunch") {
+                                    return (
+                                      <TableRow key={`break-${rIdx}`} className="bg-slate-50/40">
+                                        <TableCell className="sticky left-0 z-10 p-3 text-[10px] font-bold text-slate-500 border-r border-slate-100 bg-slate-100/95 backdrop-blur-xs whitespace-nowrap">
+                                          <div className="flex items-center gap-1.5 font-bold text-slate-500">
+                                            <Clock className="h-3 w-3 text-slate-400" />
+                                            {row.timeRange}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell colSpan={5} className="p-3 text-center text-[10px] font-black tracking-widest text-slate-400 uppercase italic bg-slate-50/40">
+                                          {row.label}
+                                        </TableCell>
+                                      </TableRow>
+                                    );
+                                  }
+
+                                  if (row.type === "slot") {
+                                    const time = row.time;
+                                    return (
+                                      <TableRow key={time} className="hover:bg-slate-50/30 transition-colors">
+                                        <TableCell className="sticky left-0 z-10 p-3 text-[10px] font-semibold text-slate-600 border-r border-slate-100 bg-slate-50/95 backdrop-blur-xs whitespace-nowrap">
+                                          <div className="flex items-center gap-1.5">
+                                            <Clock className="h-3 w-3 text-slate-400" />
+                                            {time}
+                                          </div>
+                                        </TableCell>
+                                        {DAYS.map(day => {
+                                          const slot = collegeSlots.find(
+                                            s =>
+                                              s.day === day &&
+                                              (s.time === time || isTimeSlotMatch(s.time, time)) &&
+                                              (s.classGroup === viewerClassGroup || isCohortMatch(s.classGroup, viewerClassGroup)) &&
+                                              (s.shift || "general").toLowerCase() === (hasShifts ? viewerShift : "general").toLowerCase()
+                                          );
+                                          const mentor = slot ? collegeMentors.find(m => m.id === slot.mentorId) : null;
+                                          return (
+                                            <TableCell key={day} className="p-2 border-r border-slate-100 last:border-r-0 h-20">
+                                              {slot ? (
+                                                <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-indigo-100 bg-indigo-50/20 text-xs shadow-sm">
+                                                  <div className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-wider truncate">
+                                                    {mentor ? mentor.name : "Unassigned"}
+                                                  </div>
+                                                  <div className="font-bold text-slate-800 truncate text-[10px]">{slot.course}</div>
+                                                  <div className="text-[9px] text-slate-500 font-semibold truncate">{slot.location}</div>
                                                 </div>
-                                                <div className="font-bold text-slate-800 truncate text-[10px]">{slot.course}</div>
-                                                <div className="text-[9px] text-slate-500 font-semibold truncate">{slot.location}</div>
-                                              </div>
-                                            ) : (
-                                              <div className="h-full flex items-center justify-center border border-dashed border-slate-200 rounded-xl bg-slate-50/20">
-                                                <span className="text-[9px] text-slate-300 font-medium">Free</span>
-                                              </div>
-                                            )}
-                                          </TableCell>
-                                        );
-                                      })}
-                                    </TableRow>
-                                  );
-                                }
-                                return null;
-                              })}
-                            </TableBody>
-                          </Table>
+                                              ) : (
+                                                <div className="h-full flex items-center justify-center border border-dashed border-slate-200 rounded-xl bg-slate-50/20">
+                                                  <span className="text-[9px] text-slate-300 font-medium">Free</span>
+                                                </div>
+                                              )}
+                                            </TableCell>
+                                          );
+                                        })}
+                                      </TableRow>
+                                    );
+                                  }
+                                  return null;
+                                })}
+                              </TableBody>
+                            </Table>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -17245,7 +17328,6 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           <Sparkles className="h-5 w-5 text-indigo-500 animate-pulse" />
                           <div>
                             <h3 className="text-sm font-bold text-slate-900">Step 1: Define Target & Bounds</h3>
-                            <p className="text-xs text-slate-400 font-semibold mt-0.5">Specify the course, semester, shift and room criteria for generating a new timetable.</p>
                           </div>
                         </div>
 
@@ -17407,7 +17489,6 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           <SlidersHorizontal className="h-5 w-5 text-indigo-500" />
                           <div>
                             <h3 className="text-sm font-bold text-slate-900">Step 2: Setup Workloads & Instructors</h3>
-                            <p className="text-xs text-slate-400 font-semibold mt-0.5">Map subjects to faculty mentors, define target hours per week and assign classrooms.</p>
                           </div>
                         </div>
 
@@ -17696,7 +17777,6 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             <Calendar className="h-5 w-5 text-indigo-500" />
                             <div>
                               <h3 className="text-sm font-bold text-slate-900">Step 3: Conflict Check & Preview</h3>
-                              <p className="text-xs text-slate-400 font-semibold mt-0.5">Review the generated clash-free slots. Inspect conflicts or unscheduled workloads before publishing.</p>
                             </div>
                           </div>
                           <span className="px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase">
@@ -17722,7 +17802,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         {genUnscheduled.length > 0 && (
                           <div className="p-4 bg-amber-50/55 border border-amber-200/60 rounded-xl space-y-2">
                             <div className="flex items-center gap-2 text-amber-800 text-xs font-black uppercase tracking-wider">
-                              <AlertTriangle className="h-4 w-4 text-amber-500 animate-bounce" />
+                              <AlertTriangle className="h-4 w-4 text-amber-500" />
                               Unscheduled Workload Detected!
                             </div>
                             <p className="text-[11px] text-amber-700 font-semibold leading-normal">
@@ -18513,53 +18593,18 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   </div>
 
                   {/* Pagination Footer Controls */}
-                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 text-xs font-semibold text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <span>
-                        Showing <strong className="text-slate-900">{filtered.length === 0 ? 0 : ((safePage - 1) * (attendancePageSize || filtered.length)) + 1}</strong> to <strong className="text-slate-900">{Math.min(safePage * (attendancePageSize || filtered.length), filtered.length)}</strong> of <strong className="text-slate-900">{filtered.length}</strong> students
-                      </span>
-                      <span className="text-slate-300">|</span>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-400 text-[11px]">Rows per page:</span>
-                        <select aria-label="Rows per page"
-                          value={attendancePageSize}
-                          onChange={(e) => {
-                            setAttendancePageSize(Number(e.target.value));
-                            setAttendancePage(1);
-                          }}
-                          className="px-2 py-1 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        >
-                          <option value={25}>25</option>
-                          <option value={50}>50</option>
-                          <option value={100}>100</option>
-                          <option value={0}>All ({filtered.length})</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    {totalPages > 1 && (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          disabled={safePage <= 1}
-                          onClick={() => setAttendancePage(p => Math.max(1, p - 1))}
-                          className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold cursor-pointer transition-all"
-                        >
-                          Previous
-                        </button>
-                        <span className="px-2 py-1 text-slate-500 font-bold text-[11px]">
-                          Page {safePage} of {totalPages}
-                        </span>
-                        <button
-                          type="button"
-                          disabled={safePage >= totalPages}
-                          onClick={() => setAttendancePage(p => Math.min(totalPages, p + 1))}
-                          className="px-2.5 py-1 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold cursor-pointer transition-all"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    )}
+                  <div className="pt-3 border-t border-slate-100">
+                    <Pagination
+                      currentPage={safePage}
+                      totalItems={filtered.length}
+                      pageSize={attendancePageSize <= 0 ? 25 : attendancePageSize}
+                      pageSizeOptions={[25, 50, 100]}
+                      onPageChange={setAttendancePage}
+                      onPageSizeChange={(newSize) => {
+                        setAttendancePageSize(newSize);
+                        setAttendancePage(1);
+                      }}
+                    />
                   </div>
                 </div>
 
@@ -19308,7 +19353,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 {/* Active reported issues list with Search & filters */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-6">
                   <div className="border-b border-slate-100 pb-3 space-y-2">
-                    <h2 className="text-xs font-black text-indigo-700 uppercase tracking-wider">Reported Issues Ledger</h2>
+                    <h2 className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">Reported Issues Ledger</h2>
                     <div className="flex gap-2 flex-wrap text-[10px]">
                       <div className="relative flex-1">
                         <Search className="absolute left-2 top-2.5 h-3 w-3 text-slate-400" />
@@ -19588,14 +19633,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       setApprovalsPage(1);
                     }}
                     className={`p-4 rounded-xl border transition-all cursor-pointer shadow-xs ${approvalsCategoryFilter === "handovers"
-                        ? "bg-indigo-600 text-white border-indigo-600 shadow-md scale-101"
-                        : "bg-white text-slate-800 border-indigo-100 hover:border-indigo-300"
+                        ? "bg-slate-900 text-white border-slate-900 shadow-md scale-101"
+                        : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
                       }`}
                   >
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${approvalsCategoryFilter === "handovers" ? "text-indigo-100" : "text-indigo-600"}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider ${approvalsCategoryFilter === "handovers" ? "text-slate-200" : "text-slate-600"}`}>
                       <Users className="w-3.5 h-3.5 inline-block mr-1" /> Class Substitutions
                     </p>
-                    <p className={`text-2xl font-black mt-1 ${approvalsCategoryFilter === "handovers" ? "text-white" : "text-indigo-600"}`}>
+                    <p className={`text-2xl font-black mt-1 ${approvalsCategoryFilter === "handovers" ? "text-white" : "text-slate-900"}`}>
                       {handoverPendingCount}
                     </p>
                   </div>
@@ -19607,14 +19652,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       setApprovalsPage(1);
                     }}
                     className={`p-4 rounded-xl border transition-all cursor-pointer shadow-xs ${approvalsCategoryFilter === "exam_marks"
-                        ? "bg-purple-600 text-white border-purple-600 shadow-md scale-101"
-                        : "bg-white text-slate-800 border-purple-100 hover:border-purple-300"
+                        ? "bg-slate-900 text-white border-slate-900 shadow-md scale-101"
+                        : "bg-white text-slate-800 border-slate-200 hover:border-slate-300"
                       }`}
                   >
-                    <p className={`text-[10px] font-bold uppercase tracking-wider ${approvalsCategoryFilter === "exam_marks" ? "text-purple-100" : "text-purple-600"}`}>
+                    <p className={`text-[10px] font-bold uppercase tracking-wider ${approvalsCategoryFilter === "exam_marks" ? "text-slate-200" : "text-slate-600"}`}>
                       <FileText className="w-3.5 h-3.5 inline-block mr-1" /> Exam Mark Edits
                     </p>
-                    <p className={`text-2xl font-black mt-1 ${approvalsCategoryFilter === "exam_marks" ? "text-white" : "text-purple-600"}`}>
+                    <p className={`text-2xl font-black mt-1 ${approvalsCategoryFilter === "exam_marks" ? "text-white" : "text-slate-900"}`}>
                       {examMarkPendingCount}
                     </p>
                   </div>
@@ -20476,7 +20521,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-xs">
                           <Table className="w-full border-collapse text-left text-xs font-semibold min-w-[580px]">
                             <TableHeader>
-                              <TableRow className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[9px] tracking-widest">
+                              <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase text-[9px] tracking-widest">
                                 <TableHead className="p-3">Date Offered</TableHead>
                                 <TableHead className="p-3">Debtor (Owes Hours)</TableHead>
                                 <TableHead className="p-3">Creditor (Owed Hours)</TableHead>
@@ -21221,15 +21266,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         </div>
 
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-card space-y-1">
-                          <span className="text-[10px] text-[#4F46E5] font-bold uppercase tracking-wider block">Active Faculty Loggers</span>
-                          <div className="text-2xl font-black text-[#4F46E5]">{activeFacultyCount} / {collegeMentors.length}</div>
+                          <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Active Faculty Loggers</span>
+                          <div className="text-2xl font-black text-slate-900">{activeFacultyCount} / {collegeMentors.length}</div>
                           <span className="text-[9px] text-slate-400 font-semibold block">Mentors recording lessons</span>
                         </div>
 
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-card space-y-1">
-                          <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wider block">Academic Courses</span>
-                          <div className="text-2xl font-black text-indigo-900">{subjectsTrackedCount} Subjects</div>
-                          <span className="text-[9px] text-indigo-500 font-semibold block">With documented lessons</span>
+                          <span className="text-[10px] text-slate-600 font-bold uppercase tracking-wider block">Academic Courses</span>
+                          <div className="text-2xl font-black text-slate-900">{subjectsTrackedCount} Subjects</div>
+                          <span className="text-[9px] text-slate-500 font-semibold block">With documented lessons</span>
                         </div>
 
                         <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-card space-y-1">
@@ -21512,28 +21557,19 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         )}
 
                         {/* Pagination Footer */}
-                        {filteredLogs.length > camAcadPageSize && (
-                          <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                            <span>Showing {(camAcadPage - 1) * camAcadPageSize + 1} to {Math.min(camAcadPage * camAcadPageSize, filteredLogs.length)} of {filteredLogs.length} logs</span>
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                disabled={camAcadPage === 1}
-                                onClick={() => setCamAcadPage(prev => Math.max(1, prev - 1))}
-                                className="px-2.5 py-1 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
-                              >
-                                Previous
-                              </button>
-                              <span className="px-2 font-bold text-slate-700">Page {camAcadPage} of {totalPages}</span>
-                              <button
-                                type="button"
-                                disabled={camAcadPage === totalPages}
-                                onClick={() => setCamAcadPage(prev => Math.min(totalPages, prev + 1))}
-                                className="px-2.5 py-1 border border-slate-200 rounded-lg font-bold hover:bg-slate-50 disabled:opacity-40 cursor-pointer"
-                              >
-                                Next
-                              </button>
-                            </div>
+                        {filteredLogs.length > 0 && (
+                          <div className="p-4 border-t border-slate-100">
+                            <Pagination
+                              currentPage={camAcadPage}
+                              totalItems={filteredLogs.length}
+                              pageSize={camAcadPageSize}
+                              pageSizeOptions={[10, 20, 50, 100]}
+                              onPageChange={setCamAcadPage}
+                              onPageSizeChange={(newSize) => {
+                                setCamAcadPageSize(newSize);
+                                setCamAcadPage(1);
+                              }}
+                            />
                           </div>
                         )}
                       </div>
@@ -22836,7 +22872,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           disabled={isSyncingHireScore}
                           onClick={handleSyncHireScoreLive}
                           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 text-xs font-extrabold transition-all shadow-2xs cursor-pointer active:scale-95 disabled:opacity-60"
-                          title="Fetch latest HireScore and EFSET scores from live API (https://hire-score-fawn.vercel.app/api/students)"
+                          title="Synchronize latest HireScore and EFSET assessment scores"
                         >
                           {isSyncingHireScore ? (
                             <>
@@ -23207,10 +23243,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 </div>
                 <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-card">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Upcoming Fests</span>
-                  <span className="text-2xl font-black text-indigo-600">
+                  <span className="text-2xl font-black text-amber-600">
                     {filteredEvents.filter(e => (e.status || "Upcoming") === "Upcoming").length}
                   </span>
-                  <span className="text-[10px] font-semibold text-indigo-600 block mt-1">Yet to begin</span>
+                  <span className="text-[10px] font-semibold text-amber-600 block mt-1">Yet to begin</span>
                 </div>
                 <div className="p-4 bg-white border border-slate-100 rounded-2xl shadow-card">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block mb-1">Live &amp; Ongoing</span>
@@ -23477,7 +23513,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                   </div>
                                 </div>
                               ) : (
-                                <div className="h-20 bg-gradient-to-r from-indigo-900 via-purple-900 to-pink-900 p-3.5 flex items-center justify-between relative overflow-hidden">
+                                <div className="h-20 bg-slate-900 dark:bg-slate-950 p-3.5 flex items-center justify-between relative overflow-hidden">
                                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-white/10 rounded-full blur-xl pointer-events-none" />
                                   <span className={`text-[9.5px] font-black uppercase px-2.5 py-1 rounded-lg backdrop-blur-md bg-white/90 text-slate-900 shadow-sm z-10`}>
                                     {ev.category || "Fest"}
@@ -25721,7 +25757,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               <div className="space-y-1">
                 <p className="font-extrabold text-[11px]">Replacing Old Timetable</p>
                 <p className="text-slate-500 text-[10.5px] font-medium leading-normal">
-                  Committing this schedule will **permanently delete** all existing slots for "{viewerClassGroup}". Clashing slots listed above will still be written to the database unless fixed, causing overlap flags on dashboards.
+                  Committing this schedule will **permanently delete** all existing slots for "{viewerClassGroup}". Clashing slots listed above will still be saved to the timetable unless fixed, causing overlap flags on dashboards.
                 </p>
               </div>
             </div>
@@ -25921,7 +25957,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       })()}
 
       {/* Excel Student Import Preview Modal */}
-      {showStudentImportModal && studentImportPreview && (
+      <BulkOperationDialog operation={bulk} />
+      {!bulk.state && showStudentImportModal && studentImportPreview && (
         <Dialog
           open={true}
           onOpenChange={(next) => { if (!next) { setShowStudentImportModal(false); setStudentImportPreview(null); } }}
@@ -26161,7 +26198,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           {/* Header */}
           <div className="flex justify-between items-start border-b border-slate-100 pb-4">
             <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-lg font-black shadow-md">
+              <div className="h-12 w-12 rounded-full bg-slate-900 text-white flex items-center justify-center text-lg font-black shadow-md">
                 {selectedStudentForDetail.name.substring(0, 2).toUpperCase()}
               </div>
               <div>
@@ -26187,7 +26224,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           {/* Details Sections */}
           <div className="space-y-4 text-xs">
             {/* Assessment & Test Scores */}
-            <div className="bg-gradient-to-r from-indigo-50/70 to-purple-50/70 border border-indigo-200/80 p-4 rounded-xl space-y-2">
+            <div className="bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700 p-4 rounded-xl space-y-2">
               <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest flex items-center gap-1.5">
                 <Award className="h-3.5 w-3.5 text-indigo-600" />
                 Assessment &amp; Skill Benchmark Scores
@@ -26370,7 +26407,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       )}
 
       {/* ── Attendance Excel Import Preview Modal ── */}
-      {showAttendanceImportModal && attendanceImportPreview && (
+      {!bulk.state && showAttendanceImportModal && attendanceImportPreview && (
         <Dialog
           open={true}
           onOpenChange={(next) => { if (!next) { setShowAttendanceImportModal(false); setAttendanceImportPreview(null); } }}
@@ -26617,7 +26654,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             {/* Header */}
             <div className="flex justify-between items-start border-b border-slate-100 pb-3 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white flex items-center justify-center text-sm font-black shadow-2xs">
+                <div className="h-10 w-10 rounded-full bg-slate-900 text-white flex items-center justify-center text-sm font-black shadow-2xs">
                   {st.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div>
@@ -27792,7 +27829,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         />
       )}
       {/* ── FACULTY BULK IMPORT PREVIEW MODAL ── */}
-      {showFacultyImportModal && facultyImportPreview && (
+      {!bulk.state && showFacultyImportModal && facultyImportPreview && (
         <Dialog
           open={true}
           onOpenChange={(next) => { if (!next) setShowFacultyImportModal(false); }}

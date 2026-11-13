@@ -384,7 +384,6 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
               </div>
               <div>
                 <h2 className="text-sm font-extrabold text-slate-900 leading-tight">Weekly Operational Trends</h2>
-                <p className="text-[11px] text-slate-400 font-medium">Daily slot load calculated across active campus timetables</p>
               </div>
             </div>
 

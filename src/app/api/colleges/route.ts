@@ -66,7 +66,10 @@ export async function GET(request: Request) {
       { sql: "SELECT id, name, email, title FROM kam_users ORDER BY name" }
     ]);
 
-    return NextResponse.json({ success: true, colleges, campusManagers, kamUsers });
+    return NextResponse.json(
+      { success: true, colleges, campusManagers, kamUsers },
+      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" } }
+    );
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

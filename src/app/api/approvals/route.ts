@@ -224,7 +224,7 @@ export async function PUT(request: Request) {
         title: `Request ${status.toUpperCase()}: ${module_type.replace("_", " ").toUpperCase()}`,
         message: `Your request has been ${status} by ${approver_name}. ${reasonText ? `Remarks: ${reasonText}` : ""}`,
         type: status === "approved" ? "result" : "alert",
-        link: module_type === "faculty_leave" ? "/mentor/leave" : "/mentor/schedule",
+        link: module_type === "faculty_leave" ? "/mentor?tab=handovers" : "/mentor/schedule",
         domain: "approvals",
         action: "resolved",
       });

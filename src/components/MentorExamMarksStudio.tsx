@@ -411,6 +411,29 @@ export const MentorExamMarksStudio: React.FC = () => {
     });
   };
 
+  const handleMarkChange = (studentId: string, rawVal: string) => {
+    if (rawVal === "") {
+      setMarksState((prev) => ({
+        ...prev,
+        [studentId]: { ...(prev[studentId] || { marks: "", isAbsent: false, remarks: "" }), marks: "", isAbsent: false },
+      }));
+      return;
+    }
+    let num = parseFloat(rawVal);
+    if (isNaN(num)) num = 0;
+    if (num > globalMaxMarks) num = globalMaxMarks;
+    if (num < 0) num = 0;
+
+    setMarksState((prev) => ({
+      ...prev,
+      [studentId]: {
+        ...(prev[studentId] || { marks: "", isAbsent: false, remarks: "" }),
+        marks: String(num),
+        isAbsent: false,
+      },
+    }));
+  };
+
   // Handle Save Attendance & Marks
   const handleSaveMarks = async () => {
     if (!selectedExam) return;
@@ -531,17 +554,14 @@ export const MentorExamMarksStudio: React.FC = () => {
   return (
     <div className="space-y-6 font-sans">
       {/* Header Banner */}
-      <div className="bg-gradient-to-r from-indigo-900 via-slate-900 to-slate-950 p-6 rounded-2xl text-white shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4 border border-indigo-800/40">
+      <div className="bg-slate-900 p-5 md:p-6 rounded-2xl text-white shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4 border border-slate-800">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300">
+            <div className="h-8 w-8 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
               <Award className="h-5 w-5" />
             </div>
             <h1 className="text-xl font-black tracking-tight">Faculty Exam Grading & Scorecard Studio</h1>
           </div>
-          <p className="text-xs text-slate-300 font-medium max-w-2xl">
-            Input, evaluate, and publish academic marks with customized scales (Out of 50, 75, or 100). Submitted scores instantly sync to student report cards and CM registries.
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -649,7 +669,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                     className="p-5 rounded-2xl shadow-card border border-slate-100 hover:border-indigo-400 hover:shadow-card-lg transition-all bg-white flex flex-col items-start gap-3 text-left group cursor-pointer"
                   >
                     <div className="flex items-center justify-between w-full">
-                      <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-sm">
+                      <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-amber-400 shadow-xs">
                         {examType}
                       </span>
                       <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
@@ -665,7 +685,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                       {/* Progress bar */}
                       <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-gradient-to-r from-emerald-500 to-indigo-500 rounded-full transition-all"
+                          className="h-full bg-emerald-500 rounded-full transition-all"
                           style={{ width: `${typeExams.length > 0 ? (conductedCount / typeExams.length) * 100 : 0}%` }}
                         />
                       </div>
@@ -714,7 +734,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                         </div>
 
                         <div>
-                          <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-indigo-600 transition-colors">
+                          <h3 className="font-extrabold text-slate-900 text-sm group-hover:text-amber-600 transition-colors">
                             {ex.subject_name}
                           </h3>
                           <div className="text-xs text-slate-500 font-semibold mt-0.5">
@@ -984,9 +1004,112 @@ export const MentorExamMarksStudio: React.FC = () => {
             </div>
           </div>
 
-          {/* Student Marks Evaluation Table */}
+          {/* Student Marks Evaluation Table & Mobile Cards */}
           <div className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden">
-            <div className="overflow-x-auto max-h-[550px] scroll-touch">
+            {/* Mobile Cards (< md) */}
+            <div className="block md:hidden divide-y divide-slate-100 p-3 space-y-3">
+              {loadingRoster ? (
+                <div className="p-8 text-center text-slate-400 font-bold text-xs">
+                  <RefreshCw className="h-5 w-5 animate-spin mx-auto text-amber-500 mb-2" />
+                  Loading student roster...
+                </div>
+              ) : filteredRoster.length === 0 ? (
+                <div className="p-8 text-center text-slate-400 font-medium text-xs italic">
+                  No students matching criteria.
+                </div>
+              ) : (
+                paginatedRoster.map((st) => {
+                  const state = marksState[st.student_id] || { marks: "", isAbsent: false, isOD: false, remarks: "" };
+                  const marksNum = state.marks.trim() !== "" && !state.isAbsent ? parseFloat(state.marks) : null;
+                  const { grade, label, color } = computeGrade(marksNum, state.isAbsent, globalMaxMarks, globalPassingMarks);
+                  const isAlreadySubmitted = st.marks_obtained !== null && st.marks_obtained !== undefined;
+
+                  return (
+                    <div key={st.student_id} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-extrabold text-slate-900 text-sm">{st.student_name}</div>
+                          <div className="text-xs text-slate-500 font-mono mt-0.5">{st.roll_number || st.student_id} · {st.classGroup || st.department || "General"}</div>
+                        </div>
+                        <button
+                          type="button"
+                          disabled={!isExamOver}
+                          onClick={() => handleToggleStudentAttendance(st.student_id)}
+                          className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all cursor-pointer border shadow-2xs ${
+                            state.isAbsent
+                              ? "bg-rose-50 text-rose-700 border-rose-200"
+                              : state.isOD
+                              ? "bg-amber-50 text-amber-700 border-amber-200"
+                              : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          } disabled:opacity-60`}
+                        >
+                          {state.isAbsent ? "Absent" : state.isOD ? "OD" : "Present"}
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5 items-center">
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase tracking-wider">Marks (/{globalMaxMarks})</label>
+                          {!isExamOver ? (
+                            <div className="py-2 px-3 bg-slate-100 text-slate-400 font-bold text-xs rounded-lg border border-slate-200 text-center">
+                              🔒 Locked
+                            </div>
+                          ) : isAlreadySubmitted ? (
+                            <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
+                              <span className="px-2.5 py-1 bg-slate-100 border border-slate-200 rounded-lg">{st.marks_obtained}</span>
+                              <span className="text-[10px] text-emerald-600 font-bold">Saved</span>
+                            </div>
+                          ) : state.isAbsent ? (
+                            <div className="py-2 px-3 bg-rose-50 border border-rose-200 text-rose-700 font-bold text-xs rounded-lg text-center">
+                              Absent
+                            </div>
+                          ) : (
+                            <input
+                              type="number"
+                              min={0}
+                              max={globalMaxMarks}
+                              placeholder={`0-${globalMaxMarks}`}
+                              value={state.marks}
+                              onChange={(e) => handleMarkChange(st.student_id, e.target.value)}
+                              className="w-full min-h-[44px] px-3 py-2 text-sm font-bold border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+                            />
+                          )}
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase tracking-wider">Grade &amp; Status</label>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase border ${color}`}>
+                              {grade}
+                            </span>
+                            <span className="text-xs text-slate-500 font-medium truncate">{label}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <input
+                          type="text"
+                          placeholder="Feedback / Remarks..."
+                          value={state.remarks}
+                          disabled={!isExamOver}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setMarksState(prev => ({
+                              ...prev,
+                              [st.student_id]: { ...prev[st.student_id], remarks: val }
+                            }));
+                          }}
+                          className="w-full min-h-[40px] px-3 py-1.5 text-xs border border-slate-200 rounded-lg bg-white focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop Table (>= md) */}
+            <div className="hidden md:block overflow-x-auto max-h-[550px] scroll-touch">
               <Table className="w-full text-left text-xs border-collapse min-w-[850px]">
                 <TableHeader className="bg-slate-50 text-slate-500 font-extrabold uppercase text-[10px] tracking-wider sticky top-0 border-b border-slate-200 z-10">
                   <TableRow className="hover:bg-slate-50">

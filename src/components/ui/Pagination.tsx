@@ -14,7 +14,7 @@ export interface PaginationProps {
 }
 
 const navButtonClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-40 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white";
+  "inline-flex h-9 w-9 sm:h-8 sm:w-8 min-h-[36px] min-w-[36px] sm:min-h-[32px] sm:min-w-[32px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 disabled:pointer-events-none disabled:opacity-35 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white cursor-pointer shadow-2xs";
 
 export const Pagination: React.FC<PaginationProps> = ({
   currentPage,
@@ -63,7 +63,7 @@ export const Pagination: React.FC<PaginationProps> = ({
           onPageSizeChange(Number(e.target.value));
           onPageChange(1);
         }}
-        className="cursor-pointer rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken px-2 py-1 text-xs font-bold text-slate-700 focus:border-[#4F46E5] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
+        className="cursor-pointer rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] bg-sunken px-2.5 py-1.5 h-9 sm:h-8 text-xs font-bold text-slate-700 focus:border-amber-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/30 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
       >
         {sizes.map((opt) => (
           <option key={opt} value={opt}>
@@ -128,10 +128,10 @@ export const Pagination: React.FC<PaginationProps> = ({
                   onClick={() => goTo(p)}
                   aria-label={`Page ${p}`}
                   aria-current={safePage === p ? "page" : undefined}
-                  className={`h-8 min-w-[32px] rounded-lg px-1.5 text-xs font-extrabold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--focus-ring)] focus-visible:ring-offset-2 ${
+                  className={`h-9 min-w-[36px] sm:h-8 sm:min-w-[32px] rounded-xl px-2 text-xs font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 cursor-pointer ${
                     safePage === p
-                      ? "bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] text-white shadow-xs"
-                      : "border border-slate-200 text-slate-600 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+                      ? "bg-slate-900 text-white dark:bg-amber-500 dark:text-slate-950 shadow-xs border border-slate-900 dark:border-amber-500"
+                      : "border border-slate-200 text-slate-700 hover:bg-slate-100 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
                   }`}
                 >
                   {p}

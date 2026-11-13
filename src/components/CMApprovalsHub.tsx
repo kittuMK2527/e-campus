@@ -1,15 +1,34 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
-import { Clock, CheckCircle2, XCircle, Search, CalendarRange, MapPin, Inbox, ShieldCheck, FileText, ChevronRight, Check, Loader2 } from "lucide-react";
+import { Clock, CheckCircle2, XCircle, Search, CalendarRange, MapPin, Inbox, ShieldCheck, FileText, ChevronRight, ChevronLeft, Check, Loader2 } from "lucide-react";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/Pagination";
 import { isInCmQueue, cmRequestCategory } from "@/lib/requestStatus";
+import { cn } from "@/lib/utils";
 
-export function CMApprovalsHub() {
+interface CMApprovalsHubProps {
+  collegeId?: string;
+  onCollegeChange?: (collegeId: string) => void;
+}
+
+export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubProps = {}) {
   const { requests, mentors, colleges, currentCAM, approvedHandovers, handleRequest } = useApp();
   const { toast } = useToast();
   
+  // Internal campus selection
+  const [selectedCampus, setSelectedCampus] = useState<string>(() => collegeId || currentCAM?.college_id || "all");
+
+  useEffect(() => {
+    if (collegeId !== undefined) {
+      setSelectedCampus(collegeId);
+    }
+  }, [collegeId]);
+
+  // Active college
+  const activeCollegeId = selectedCampus === "all" ? undefined : selectedCampus;
+  const activeCollege = colleges.find(c => c.id === activeCollegeId);
+
   // Filter state
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
   const [categoryFilter, setCategoryFilter] = useState<"all" | "Late Attendance" | "Late Punch" | "Substitution" | "Exam Mark Edit">("all");
@@ -28,13 +47,9 @@ export function CMApprovalsHub() {
   const [customSubjName, setCustomSubjName] = useState("");
   const [selectedCoverMentorId, setSelectedCoverMentorId] = useState<string | null>(null);
 
-  // Active college
-  const activeCollegeId = currentCAM?.college_id;
-  const activeCollege = colleges.find(c => c.id === activeCollegeId);
-
   // Filter requests for this CM's campus
   const campusRequests = useMemo(() => {
-    if (!activeCollegeId) return [];
+    if (!activeCollegeId) return requests || [];
     return (requests || []).filter((req: any) => {
       const requestor = mentors.find((m: any) => m.id === req.requestorId);
       return requestor?.college_id === activeCollegeId;
@@ -55,7 +70,9 @@ export function CMApprovalsHub() {
   }, [campusRequests, categoryFilter, searchQuery]);
 
   const campusApproved = useMemo(() => {
-    if (!activeCollegeId) return [];
+    if (!activeCollegeId) {
+      return (approvedHandovers || []).slice().sort((a: any, b: any) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime()).reverse();
+    }
     return (approvedHandovers || []).filter((h: any) => {
       const originalMentor = mentors.find((m: any) => m.id === h.originalMentorId);
       return originalMentor?.college_id === activeCollegeId;
@@ -151,21 +168,40 @@ export function CMApprovalsHub() {
     <div className="flex flex-col h-[calc(100dvh-80px)] overflow-hidden bg-slate-50">
       
       {/* Header & Tabs */}
-      <div className="shrink-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10 shadow-sm">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-            Approvals & Leaves Hub
-          </h1>
-          <p className="text-sm font-semibold text-slate-500 mt-1 flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5" />
-            {activeCollege?.name || "All Campuses"}
-          </p>
+      <div className="shrink-0 bg-white border-b border-slate-200 px-4 sm:px-6 py-3 sm:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 z-10 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
+              Approvals & Leaves Hub
+            </h1>
+            <p className="text-xs sm:text-sm font-semibold text-slate-500 mt-0.5 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5" />
+              {activeCollege?.name || "All Supervised Campuses"}
+            </p>
+          </div>
+          {colleges && colleges.length > 0 && (
+            <select
+              aria-label="Filter Campus"
+              value={selectedCampus}
+              onChange={e => {
+                const val = e.target.value;
+                setSelectedCampus(val);
+                onCollegeChange?.(val);
+              }}
+              className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-800 outline-none ml-0 sm:ml-4"
+            >
+              <option value="all">All Supervised Campuses ({colleges.length})</option>
+              {colleges.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          )}
         </div>
         
-        <div className="flex bg-slate-100 p-1 rounded-lg">
+        <div className="flex bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
           <button
             onClick={() => setActiveTab("pending")}
-            className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === "pending" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold transition-all ${activeTab === "pending" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             Pending Requests
             {pendingRequests.length > 0 && (
@@ -176,7 +212,7 @@ export function CMApprovalsHub() {
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`px-4 py-1.5 rounded-md text-sm font-bold transition-all ${activeTab === "history" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold transition-all ${activeTab === "history" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             Handover History
           </button>
@@ -184,9 +220,9 @@ export function CMApprovalsHub() {
       </div>
 
       {activeTab === "history" ? (
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4">
           <div className="bg-white rounded-2xl shadow-card border border-slate-100 overflow-hidden">
-            <Table className="w-full border-collapse text-left text-sm">
+            <Table className="w-full border-collapse text-left text-xs sm:text-sm">
               <TableHeader>
                 <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-xs tracking-wider">
                   <TableHead className="p-4 border-r border-slate-100">Date</TableHead>
@@ -250,7 +286,10 @@ export function CMApprovalsHub() {
         <div className="flex flex-1 overflow-hidden">
           
           {/* Left Pane: Master List */}
-          <div className="w-1/3 min-w-[350px] max-w-[450px] bg-white border-r border-slate-200 flex flex-col z-0">
+          <div className={cn(
+            "w-full md:w-1/3 md:min-w-[320px] md:max-w-[420px] bg-white border-r border-slate-200 flex-col z-0",
+            selectedRequestId ? "hidden md:flex" : "flex"
+          )}>
             <div className="p-4 border-b border-slate-100 space-y-3">
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -307,30 +346,46 @@ export function CMApprovalsHub() {
           </div>
 
           {/* Right Pane: Detail View */}
-          <div className="flex-1 bg-slate-50/50 overflow-y-auto relative">
+          <div className={cn(
+            "flex-1 bg-slate-50/50 overflow-y-auto relative",
+            selectedRequestId ? "flex flex-col" : "hidden md:flex flex-col"
+          )}>
             {selectedRequest ? (
-              <div className="max-w-3xl mx-auto p-8 space-y-6">
-                
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
-                  <div className="border-b border-slate-100 bg-slate-50/50 p-6">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase border ${getStatusColor(selectedRequest.reasonCategory)}`}>
-                        {getStatusIcon(selectedRequest.reasonCategory)}
-                        {selectedRequest.reasonCategory} Request
-                      </span>
-                      <span className="text-sm font-bold text-slate-500">{new Date(selectedRequest.timestamp).toLocaleString()}</span>
-                    </div>
-                    <h2 className="text-2xl font-black text-slate-900 mt-2">{selectedRequest.requestorName}</h2>
-                    <p className="text-sm font-semibold text-slate-500 mt-1">Requested approval for {selectedRequest.dateStr}</p>
-                  </div>
+              <>
+                {/* Mobile Back Button Bar */}
+                <div className="md:hidden flex items-center gap-2 p-3 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRequestId(null)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Back to Requests</span>
+                  </button>
+                </div>
 
-                  <div className="p-6 grid grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Schedule Details</h4>
-                        <p className="font-bold text-slate-800">{selectedRequest.course}</p>
-                        <p className="text-sm font-semibold text-slate-600">{selectedRequest.classGroup || "General Class"} • {selectedRequest.time}</p>
+                <div className="max-w-3xl w-full mx-auto p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6">
+                  
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden">
+                    <div className="border-b border-slate-100 bg-slate-50/50 p-4 sm:p-6">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-black uppercase border ${getStatusColor(selectedRequest.reasonCategory)}`}>
+                          {getStatusIcon(selectedRequest.reasonCategory)}
+                          {selectedRequest.reasonCategory} Request
+                        </span>
+                        <span className="text-xs sm:text-sm font-bold text-slate-500">{new Date(selectedRequest.timestamp).toLocaleString()}</span>
                       </div>
+                      <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-2">{selectedRequest.requestorName}</h2>
+                      <p className="text-xs sm:text-sm font-semibold text-slate-500 mt-1">Requested approval for {selectedRequest.dateStr}</p>
+                    </div>
+
+                    <div className="p-4 sm:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Schedule Details</h4>
+                          <p className="font-bold text-slate-800">{selectedRequest.course}</p>
+                          <p className="text-sm font-semibold text-slate-600">{selectedRequest.classGroup || "General Class"} • {selectedRequest.time}</p>
+                        </div>
                       
                       {selectedRequest.reasonCategory === "Substitution" && selectedRequest.targetStaffName && (
                         <div>
@@ -352,7 +407,7 @@ export function CMApprovalsHub() {
                 </div>
 
                 {/* CM Action Panel */}
-                <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-6 space-y-6">
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-4 sm:p-6 space-y-4 sm:space-y-6">
                   <h3 className="text-lg font-black text-slate-900">Campus Manager Action</h3>
                   
                   {selectedRequest.reasonCategory === "Substitution" && (
@@ -408,12 +463,12 @@ export function CMApprovalsHub() {
                     />
                   </div>
 
-                  <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-3 pt-4 border-t border-slate-100 md:border-t-0 sticky bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm -mx-6 -mb-6 p-4 border-t border-slate-200 dark:border-slate-800 z-10">
                     <button
                       type="button"
                       disabled={actionLoading[selectedRequest.id]}
                       onClick={() => handleRequestAction(selectedRequest.id, "approved")}
-                      className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="flex-1 min-h-[48px] py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {actionLoading[selectedRequest.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                       <span>Approve Request</span>
@@ -423,7 +478,7 @@ export function CMApprovalsHub() {
                       type="button"
                       disabled={actionLoading[selectedRequest.id]}
                       onClick={() => handleRequestAction(selectedRequest.id, "rejected")}
-                      className="flex-1 py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-black shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="flex-1 min-h-[48px] py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-black shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {actionLoading[selectedRequest.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                       <span>Decline Request</span>
@@ -432,6 +487,7 @@ export function CMApprovalsHub() {
                 </div>
 
               </div>
+            </>
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-slate-400">
                 <div className="w-16 h-16 rounded-2xl bg-white border border-slate-100 shadow-card flex items-center justify-center mb-4">

@@ -124,11 +124,15 @@ const MethodBadge = ({ method }: { method: string }) => {
 export interface FeeManagerDashboardProps {
   activeTab?: TabType;
   onTabChange?: (tab: TabType) => void;
+  readOnly?: boolean;
+  collegeId?: string;
 }
 
 export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
   activeTab: propActiveTab,
-  onTabChange
+  onTabChange,
+  readOnly = false,
+  collegeId: propCollegeId,
 }) => {
   const { colleges: ctxColleges, coursesList: ctxCourses, slots: ctxSlots, subjectsList: ctxSubjects } = useApp();
   const { toast: toastFe, confirm: showConfirm } = useToast();
@@ -155,7 +159,13 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
   const loading = feesQuery.isPending;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [filterCollege, setFilterCollege] = useState("all");
+  const [filterCollege, setFilterCollege] = useState(propCollegeId || "all");
+
+  useEffect(() => {
+    if (propCollegeId !== undefined) {
+      setFilterCollege(propCollegeId);
+    }
+  }, [propCollegeId]);
   const [filterDept, setFilterDept] = useState("all");
   const [filterYear, setFilterYear] = useState("all");
   const [filterFeeStatus, setFilterFeeStatus] = useState("all");
@@ -971,7 +981,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
     return (
       <div className="flex-1 flex items-center justify-center min-h-[500px] bg-warm-canvas">
         <div className="flex flex-col items-center gap-4">
-          <div className="h-12 w-12 rounded-full border-4 border-[#4F46E5]/20 border-t-[#4F46E5] animate-spin" />
+          <div className="h-12 w-12 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin" />
           <p className="text-xs font-extrabold text-slate-500 uppercase tracking-wider">Loading Fee Workspace &amp; Analytics…</p>
         </div>
       </div>
@@ -982,9 +992,9 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
     return (
       <div className="flex-1 flex items-center justify-center min-h-[500px] bg-warm-canvas">
         <Card className="max-w-md text-center p-8">
-          <AlertCircle className="h-12 w-12 text-[#4F46E5] mx-auto mb-3" />
+          <AlertCircle className="h-12 w-12 text-amber-600 mx-auto mb-3" />
           <h3 className="text-base font-extrabold text-slate-800 dark:text-slate-200">Unable to Load Fee Records</h3>
-          <p className="text-xs text-slate-500 mt-1 mb-5">Database connection failed. Please retry.</p>
+          <p className="text-xs text-slate-500 mt-1 mb-5">Unable to connect to server. Please retry.</p>
           <Button onClick={fetchData} variant="default">
             Retry Connection
           </Button>
@@ -1053,23 +1063,8 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
         </div>
       </aside>
 
-      {/* Mobile Nav Bar */}
-      <div className="md:hidden flex overflow-x-auto border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131317] p-2 gap-2 shrink-0">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 ${
-              activeTab === id ? "btn-gradient text-white" : "text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800"
-            }`}
-          >
-            <Icon className="h-4 w-4" /> {label}
-          </button>
-        ))}
-      </div>
-
       {/* Main Content Workspace */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden pb-20 md:pb-0">
         {/* Floating Header */}
         <header className="mx-3 md:mx-8 mt-4 md:mt-6 mb-2 px-5 py-4 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#131317]/80 backdrop-blur-md flex flex-wrap items-center justify-between gap-4 shrink-0 shadow-xs">
           <div>
@@ -1082,13 +1077,13 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
               </span>
             </h1>
             <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 mt-0.5">
-              Target Revenue: {fmt(stats.totalFees)} · Collected: <span className="text-[#4F46E5] font-black">{fmt(stats.totalPaid)}</span> · Outstanding: <span className="text-rose-500 font-black">{fmt(stats.totalOutstanding)}</span>
+              Target Revenue: {fmt(stats.totalFees)} · Collected: <span className="text-emerald-600 font-black">{fmt(stats.totalPaid)}</span> · Outstanding: <span className="text-rose-500 font-black">{fmt(stats.totalOutstanding)}</span>
             </p>
           </div>
 
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 border border-slate-200 dark:border-slate-800 rounded-2xl px-3 py-1.5 bg-white/60 dark:bg-black/20 text-xs font-bold text-slate-700 dark:text-slate-300">
-              <Calendar className="h-3.5 w-3.5 text-[#4F46E5] shrink-0" />
+              <Calendar className="h-3.5 w-3.5 text-slate-500 shrink-0" />
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">From:</span>
               <input
                 type="date"
@@ -1160,7 +1155,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                 onClick={handleDownloadFilteredReport}
                 variant="outline"
                 size="default"
-                className="border-[#4F46E5]/20 text-[#4F46E5] hover:bg-[#4F46E5]/10 font-bold"
+                className="border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold"
               >
                 <Download className="h-4 w-4" />
                 <span>Export Report</span>
@@ -1206,17 +1201,17 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                 <Card className="flex items-center justify-between p-5 hover:shadow-card-lg transition-shadow">
                   <div>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Total Paid Collections</span>
-                    <h3 className="text-xl font-black text-[#4F46E5] dark:text-[#818CF8] mt-1">
+                    <h3 className="text-xl font-black text-emerald-700 dark:text-emerald-400 mt-1">
                       {fmt(reportsData.totalPaidOverall)}
                     </h3>
                     <div className="w-28 bg-slate-100 dark:bg-slate-800 h-2 rounded-full mt-2 overflow-hidden">
                       <div
-                        className="bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] h-full rounded-full transition-all duration-500"
+                        className="bg-emerald-600 h-full rounded-full transition-all duration-500"
                         style={{ width: `${Math.min(reportsData.totalAchievedPercent, 100)}%` }}
                       />
                     </div>
                   </div>
-                  <div className="h-11 w-11 rounded-xl bg-[#4F46E5]/10 flex items-center justify-center text-[#4F46E5] border border-[#4F46E5]/20 shadow-inner">
+                  <div className="h-11 w-11 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 shadow-inner">
                     <Receipt className="h-5 w-5" />
                   </div>
                 </Card>
@@ -1225,14 +1220,14 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                 <Card className="flex items-center justify-between p-5 hover:shadow-card-lg transition-shadow">
                   <div>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Total Pending Fees</span>
-                    <h3 className="text-xl font-black text-[#7C3AED] mt-1">
+                    <h3 className="text-xl font-black text-amber-700 dark:text-amber-400 mt-1">
                       {fmt(reportsData.totalPendingOverall)}
                     </h3>
                     <p className="text-[10px] font-extrabold text-slate-400 mt-2">
                       Outstanding collections
                     </p>
                   </div>
-                  <div className="h-11 w-11 rounded-xl bg-[#7C3AED]/10 flex items-center justify-center text-[#7C3AED] border border-[#7C3AED]/20 shadow-inner">
+                  <div className="h-11 w-11 rounded-xl bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800 shadow-inner">
                     <IndianRupee className="h-5 w-5" />
                   </div>
                 </Card>
@@ -1279,14 +1274,13 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   <div className="flex items-center justify-between border-b border-slate-800 pb-4">
                     <div>
                       <h3 className="text-xs font-black uppercase tracking-wider text-slate-300">Payment Status</h3>
-                      <p className="text-[10px] text-slate-500 font-semibold mt-0.5">Paid vs Pending counts by institution</p>
                     </div>
                     <div className="flex items-center gap-4 text-[10px] font-black uppercase tracking-wider">
-                      <span className="flex items-center gap-1.5 text-[#4F46E5]">
-                        <span className="h-2 w-2 rounded-full bg-[#4F46E5]" /> Paid
+                      <span className="flex items-center gap-1.5 text-emerald-400">
+                        <span className="h-2 w-2 rounded-full bg-emerald-400" /> Paid
                       </span>
-                      <span className="flex items-center gap-1.5 text-[#7C3AED]">
-                        <span className="h-2 w-2 rounded-full bg-[#7C3AED]" /> Pending
+                      <span className="flex items-center gap-1.5 text-amber-400">
+                        <span className="h-2 w-2 rounded-full bg-amber-400" /> Pending
                       </span>
                     </div>
                   </div>
@@ -1302,22 +1296,22 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                       <text x="30" y="154" textAnchor="end" className="text-[9px] font-bold fill-slate-500">0</text>
 
                       {reportsData.paidLinePath && (
-                        <path d={reportsData.paidLinePath} fill="none" stroke="#4F46E5" strokeWidth="3.5" strokeLinecap="round" />
+                        <path d={reportsData.paidLinePath} fill="none" stroke="#10b981" strokeWidth="3.5" strokeLinecap="round" />
                       )}
                       {reportsData.pendingLinePath && (
-                        <path d={reportsData.pendingLinePath} fill="none" stroke="#7C3AED" strokeWidth="3.5" strokeLinecap="round" />
+                        <path d={reportsData.pendingLinePath} fill="none" stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round" />
                       )}
 
                       {reportsData.paidPoints.map((pt, idx) => (
                         <g key={idx}>
-                          <polygon points={`${pt.x},${pt.y - 4} ${pt.x + 4},${pt.y} ${pt.x},${pt.y + 4} ${pt.x - 4},${pt.y}`} fill="#4F46E5" stroke="#0f172a" strokeWidth="1.5" />
+                          <polygon points={`${pt.x},${pt.y - 4} ${pt.x + 4},${pt.y} ${pt.x},${pt.y + 4} ${pt.x - 4},${pt.y}`} fill="#10b981" stroke="#0f172a" strokeWidth="1.5" />
                           <text x={pt.x} y={pt.y - 8} textAnchor="middle" className="text-[9px] font-black fill-white">{pt.val}</text>
                         </g>
                       ))}
 
                       {reportsData.pendingPoints.map((pt, idx) => (
                         <g key={idx}>
-                          <circle cx={pt.x} cy={pt.y} r="4" fill="#7C3AED" stroke="#0f172a" strokeWidth="1.5" />
+                          <circle cx={pt.x} cy={pt.y} r="4" fill="#f59e0b" stroke="#0f172a" strokeWidth="1.5" />
                           <text x={pt.x} y={pt.y - 8} textAnchor="middle" className="text-[9px] font-black fill-white">{pt.val}</text>
                         </g>
                       ))}
@@ -1340,11 +1334,11 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                 <div className="xl:col-span-3 flex flex-col justify-between gap-6 min-h-[380px]">
                   <Card className="flex-1 p-5 flex flex-col justify-between">
                     <div className="border-t border-b border-slate-200 dark:border-slate-800 py-1.5 text-center">
-                      <h4 className="text-xs font-black italic tracking-widest text-[#4F46E5] uppercase">TARGET</h4>
+                      <h4 className="text-xs font-black italic tracking-widest text-slate-800 dark:text-slate-200 uppercase">TARGET</h4>
                     </div>
                     
                     <div className="text-center space-y-1">
-                      <div className="inline-block bg-[#4F46E5] text-white text-[9px] font-black px-4 py-1 rounded-sm uppercase tracking-wider">
+                      <div className="inline-block bg-slate-900 dark:bg-slate-800 text-white text-[9px] font-black px-4 py-1 rounded-sm uppercase tracking-wider">
                         Total College Fees
                       </div>
                       <p className="text-lg font-black text-slate-800 dark:text-slate-100">
@@ -1353,7 +1347,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     </div>
 
                     <div className="text-center space-y-1">
-                      <div className="inline-block bg-[#7C3AED] text-white text-[9px] font-black px-4 py-1 rounded-sm uppercase tracking-wider">
+                      <div className="inline-block bg-amber-600 text-white text-[9px] font-black px-4 py-1 rounded-sm uppercase tracking-wider">
                         Total FPC Fees
                       </div>
                       <p className="text-lg font-black text-slate-800 dark:text-slate-100">
@@ -1364,11 +1358,11 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
 
                   <Card className="flex-1 p-5 flex flex-col justify-between">
                     <div className="border-t border-b border-slate-200 dark:border-slate-800 py-1.5 text-center">
-                      <h4 className="text-xs font-black italic tracking-widest text-[#4F46E5] uppercase">ACHIEVED</h4>
+                      <h4 className="text-xs font-black italic tracking-widest text-slate-800 dark:text-slate-200 uppercase">ACHIEVED</h4>
                     </div>
                     
                     <div className="text-center space-y-1">
-                      <div className="inline-block bg-[#4F46E5] text-white text-[9px] font-black px-4 py-1 rounded-sm uppercase tracking-wider">
+                      <div className="inline-block bg-slate-900 dark:bg-slate-800 text-white text-[9px] font-black px-4 py-1 rounded-sm uppercase tracking-wider">
                         Total College Fees
                       </div>
                       <p className="text-lg font-black text-slate-800 dark:text-slate-100">
@@ -1377,7 +1371,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     </div>
 
                     <div className="text-center space-y-1">
-                      <div className="inline-block bg-[#7C3AED] text-white text-[9px] font-black px-4 py-1 rounded-sm uppercase tracking-wider">
+                      <div className="inline-block bg-amber-600 text-white text-[9px] font-black px-4 py-1 rounded-sm uppercase tracking-wider">
                         Total FPC Fees
                       </div>
                       <p className="text-lg font-black text-slate-800 dark:text-slate-100">
@@ -1393,11 +1387,11 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">Total Fees Breakdown</h3>
                     <div className="flex items-center justify-center gap-4 mt-2 text-[10px] font-bold uppercase tracking-wider">
                       <div className="flex items-center gap-1.5">
-                        <span className="inline-block w-3 h-3 bg-[#4F46E5]" />
+                        <span className="inline-block w-3 h-3 bg-slate-900 dark:bg-slate-700" />
                         <span className="text-slate-500">College fees</span>
                       </div>
                       <div className="flex items-center gap-1.5">
-                        <span className="inline-block w-3 h-3 bg-[#7C3AED]" />
+                        <span className="inline-block w-3 h-3 bg-amber-500" />
                         <span className="text-slate-500">Fpc Fees</span>
                       </div>
                     </div>
@@ -1420,19 +1414,19 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                           <div className="space-y-1 pl-2">
                             <div className="flex items-center gap-2">
                               <div 
-                                className="h-3.5 bg-gradient-to-r from-[#4F46E5] to-[#FF6B6B] rounded-sm transition-all duration-500 shadow-2xs" 
+                                className="h-3.5 bg-slate-900 dark:bg-slate-700 rounded-sm transition-all duration-500 shadow-2xs" 
                                 style={{ width: `${collegeWidth * 0.7}%` }} 
                               />
-                              <span className="text-[9px] font-extrabold text-[#4F46E5]">
+                              <span className="text-[9px] font-extrabold text-slate-900 dark:text-slate-100">
                                 {fmt(col.collegeFeesTarget)}
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
                               <div 
-                                className="h-3.5 bg-gradient-to-r from-[#7C3AED] to-[#FFD166] rounded-sm transition-all duration-500 shadow-2xs" 
+                                className="h-3.5 bg-amber-500 rounded-sm transition-all duration-500 shadow-2xs" 
                                 style={{ width: `${fpcWidth * 0.7}%` }} 
                               />
-                              <span className="text-[9px] font-extrabold text-[#7C3AED]">
+                              <span className="text-[9px] font-extrabold text-amber-700 dark:text-amber-400">
                                 {fmt(col.fpcFeesTarget)}
                               </span>
                             </div>
@@ -1458,18 +1452,18 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                       {/* Modern Top Header Card */}
                       <div className="p-6 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
                         <div className="flex items-center gap-3.5">
-                          <div className="h-11 w-11 rounded-xl btn-gradient flex items-center justify-center text-white shadow-md">
+                          <div className="h-11 w-11 rounded-xl bg-slate-800 text-amber-400 border border-slate-700 flex items-center justify-center shadow-xs">
                             <School className="h-5 w-5" />
                           </div>
                           <div>
                             <h3 className="text-sm font-black text-white">{col.name}</h3>
                             <div className="text-[10px] font-extrabold text-slate-400 mt-0.5 flex items-center gap-1.5">
-                              <Users className="h-3 w-3 text-[#7C3AED]" /> {col.totalStudents} Enrolled Students
+                              <Users className="h-3 w-3 text-amber-400" /> {col.totalStudents} Enrolled Students
                             </div>
                           </div>
                         </div>
                         <div className="text-right">
-                          <span className="text-2xl font-black bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] bg-clip-text text-transparent">
+                          <span className="text-2xl font-black text-emerald-500">
                             {col.collectionRate}%
                           </span>
                           <span className="text-[9px] font-extrabold text-slate-400 block uppercase tracking-wider">Collected</span>
@@ -1482,13 +1476,13 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                           <span className="text-[9px] font-black text-slate-400 uppercase block mb-1 tracking-wider">Target Fees</span>
                           <span className="text-sm font-black text-slate-800 dark:text-slate-200">{fmt(col.totalFees)}</span>
                         </div>
-                        <div className="p-4 rounded-xl bg-[#4F46E5]/10 text-center border border-[#4F46E5]/20">
-                          <span className="text-[9px] font-black text-[#4F46E5] uppercase block mb-1 tracking-wider">Collected</span>
-                          <span className="text-sm font-black text-[#4F46E5]">{fmt(col.totalPaid)}</span>
+                        <div className="p-4 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 text-center border border-emerald-200 dark:border-emerald-800/60">
+                          <span className="text-[9px] font-black text-emerald-700 dark:text-emerald-400 uppercase block mb-1 tracking-wider">Collected</span>
+                          <span className="text-sm font-black text-emerald-700 dark:text-emerald-400">{fmt(col.totalPaid)}</span>
                         </div>
-                        <div className="p-4 rounded-xl bg-[#7C3AED]/10 text-center border border-[#7C3AED]/20">
-                          <span className="text-[9px] font-black text-[#7C3AED] uppercase block mb-1 tracking-wider">Outstanding</span>
-                          <span className="text-sm font-black text-[#7C3AED]">{fmt(col.outstanding)}</span>
+                        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 text-center border border-amber-200 dark:border-amber-800/60">
+                          <span className="text-[9px] font-black text-amber-700 dark:text-amber-400 uppercase block mb-1 tracking-wider">Outstanding</span>
+                          <span className="text-sm font-black text-amber-700 dark:text-amber-400">{fmt(col.outstanding)}</span>
                         </div>
                       </div>
                     </div>
@@ -1497,7 +1491,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     <div className="px-6 pb-6 pt-0">
                       <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-slate-200/50 dark:border-slate-700/50">
                         <div
-                          className="bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] h-full rounded-full transition-all duration-500 shadow-sm"
+                          className="bg-emerald-500 h-full rounded-full transition-all duration-500 shadow-sm"
                           style={{ width: `${Math.min(col.collectionRate, 100)}%` }}
                         />
                       </div>
@@ -1515,7 +1509,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
               <Card className="p-5 space-y-4">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
                   <div className="flex items-center gap-2">
-                    <ListFilter className="h-4 w-4 text-[#4F46E5]" />
+                    <ListFilter className="h-4 w-4 text-amber-500" />
                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
                       Student Search &amp; Filters
                     </h3>
@@ -1530,7 +1524,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     }}
                     variant="link"
                     size="sm"
-                    className="p-0 text-[#4F46E5] uppercase tracking-wider h-auto font-black"
+                    className="p-0 text-amber-600 dark:text-amber-400 hover:text-amber-700 uppercase tracking-wider h-auto font-black"
                   >
                     Reset Filters
                   </Button>
@@ -1550,7 +1544,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                       <button
                         onClick={() => setSearchQuery("")}
                         aria-label="Clear search"
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
                       >
                         <X className="h-3.5 w-3.5" />
                       </button>
@@ -1560,7 +1554,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   <select
                     value={filterCollege}
                     onChange={(e) => setFilterCollege(e.target.value)}
-                    className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#4F46E5]/50 cursor-pointer"
+                    className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                   >
                     <option value="all">All Colleges</option>
                     {data.colleges.map((c) => (
@@ -1571,7 +1565,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   <select
                     value={filterDept}
                     onChange={(e) => setFilterDept(e.target.value)}
-                    className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#4F46E5]/50 cursor-pointer"
+                    className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                   >
                     <option value="all">All Departments</option>
                     {uniqueDepartments.map((dept) => (
@@ -1583,7 +1577,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   <select
                     value={filterYear}
                     onChange={(e) => setFilterYear(e.target.value)}
-                    className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#4F46E5]/50 cursor-pointer"
+                    className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                   >
                     <option value="all">All Academic Years</option>
                     {uniqueYears.map((yr) => (
@@ -1594,7 +1588,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   <select
                     value={filterFeeStatus}
                     onChange={(e) => setFilterFeeStatus(e.target.value)}
-                    className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#4F46E5]/50 cursor-pointer"
+                    className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                   >
                     <option value="all">All Statuses</option>
                     <option value="paid">Paid</option>
@@ -1640,7 +1634,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                       const isExpanded = expandedStudentId === student.id;
 
                       return (
-                        <Card key={student.id} className="overflow-hidden hover:border-[#4F46E5]/40">
+                        <Card key={student.id} className="overflow-hidden hover:border-amber-400/50">
                           <button
                             onClick={() => setExpandedStudentId(isExpanded ? null : student.id)}
                             className="w-full p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 text-left cursor-pointer hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors"
@@ -1697,24 +1691,26 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                             <div className="p-5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#181820]/50 space-y-4 animate-fadeIn">
                               <div className="flex items-center justify-between">
                                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-2">
-                                  <Receipt className="h-3.5 w-3.5 text-[#4F46E5]" />
+                                  <Receipt className="h-3.5 w-3.5 text-amber-500" />
                                   Semester Fee Breakdown &amp; Payment Links
                                 </h4>
-                                <Button
-                                  onClick={() => setAddingStudentFeeId(student.id)}
-                                  size="sm"
-                                  className="h-7 text-xs font-black bg-[#4F46E5] hover:bg-[#4F46E5]/90 text-white"
-                                >
-                                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Semester Fee
-                                </Button>
+                                {!readOnly && (
+                                  <Button
+                                    onClick={() => setAddingStudentFeeId(student.id)}
+                                    size="sm"
+                                    className="h-8 text-xs font-black bg-slate-900 hover:bg-slate-800 text-white"
+                                  >
+                                    <Plus className="h-3.5 w-3.5 mr-1" /> Add Semester Fee
+                                  </Button>
+                                )}
                               </div>
 
                               {/* Create New Fee Form */}
-                              {addingStudentFeeId === student.id && (
-                                <Card className="p-4 border-[#4F46E5]/30 bg-white dark:bg-[#131317] space-y-3">
+                              {!readOnly && addingStudentFeeId === student.id && (
+                                <Card className="p-4 border-slate-200 dark:border-slate-800 bg-white dark:bg-[#131317] space-y-3">
                                   <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2">
-                                    <span className="text-xs font-black text-[#4F46E5]">Add New Semester Fee Record</span>
-                                    <button onClick={() => setAddingStudentFeeId(null)} aria-label="Close add fee form" className="text-slate-400 hover:text-slate-600">
+                                    <span className="text-xs font-black text-slate-900 dark:text-slate-100">Add New Semester Fee Record</span>
+                                    <button onClick={() => setAddingStudentFeeId(null)} aria-label="Close add fee form" className="text-slate-400 hover:text-slate-600 cursor-pointer">
                                       <X className="h-3.5 w-3.5" />
                                     </button>
                                   </div>
@@ -1726,7 +1722,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                         onChange={(e) => setNewTermName(e.target.value)}
                                         aria-label="Term / Description"
                                         placeholder="e.g. Semester 2 Fee"
-                                        className="h-8 text-xs font-bold"
+                                        className="h-9 sm:h-8 text-xs font-bold"
                                       />
                                     </div>
                                     <div>
@@ -1737,7 +1733,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                         onChange={(e) => setNewAmount(e.target.value)}
                                         aria-label="Target Amount (₹)"
                                         placeholder="e.g. 25000"
-                                        className="h-8 text-xs font-bold"
+                                        className="h-9 sm:h-8 text-xs font-bold"
                                       />
                                     </div>
                                     <div>
@@ -1747,7 +1743,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                         value={newPaidAmount}
                                         onChange={(e) => setNewPaidAmount(e.target.value)}
                                         aria-label="Paid Amount (₹)"
-                                        className="h-8 text-xs font-bold"
+                                        className="h-9 sm:h-8 text-xs font-bold"
                                       />
                                     </div>
                                     <div>
@@ -1756,7 +1752,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                         aria-label="Status"
                                         value={newStatus}
                                         onChange={(e) => setNewStatus(e.target.value)}
-                                        className="w-full h-8 px-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#131317] text-xs font-bold"
+                                        className="w-full h-9 sm:h-8 px-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#131317] text-xs font-bold cursor-pointer"
                                       >
                                         <option value="paid">Paid</option>
                                         <option value="partial">Partial</option>
@@ -1771,7 +1767,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                       onChange={(e) => setNewProofLink(e.target.value)}
                                       aria-label="Online Payment Link / Proof URL (Optional)"
                                       placeholder="https://rzp.io/l/sample or https://drive.google.com/..."
-                                      className="h-8 text-xs font-mono"
+                                      className="h-9 sm:h-8 text-xs font-mono"
                                     />
                                   </div>
                                   <div className="flex justify-end gap-2 pt-1">
@@ -1780,7 +1776,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                       onClick={() => handleCreateFee(student.id)}
                                       disabled={savingFeeId === student.id}
                                       size="sm"
-                                      className="bg-[#4F46E5] hover:bg-[#4F46E5]/90 text-white"
+                                      className="bg-slate-900 hover:bg-slate-800 text-white"
                                     >
                                       {savingFeeId === student.id ? "Creating…" : "Save Record"}
                                     </Button>
@@ -1798,7 +1794,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                       <div key={fee.id} className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-[#131317] space-y-3 shadow-card">
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                                           <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded-lg bg-[#4F46E5]/10 flex items-center justify-center text-[#4F46E5] font-black text-xs">
+                                            <div className="h-8 w-8 rounded-lg bg-amber-50 dark:bg-amber-950/30 flex items-center justify-center text-amber-700 dark:text-amber-400 font-black text-xs border border-amber-200/80">
                                               ₹
                                             </div>
                                             <div>
@@ -1821,13 +1817,13 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                                 href={fee.pay_link}
                                                 target="_blank"
                                                 rel="noreferrer"
-                                                className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-[#4F46E5]/10 text-[#4F46E5] hover:bg-[#4F46E5]/20 flex items-center gap-1 transition-all"
+                                                className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 flex items-center gap-1 transition-all"
                                               >
                                                 <ExternalLink className="h-3 w-3" /> Pay Link
                                               </a>
                                             )}
 
-                                            {!isEditingThis && (
+                                            {!readOnly && !isEditingThis && (
                                               <div className="flex items-center gap-2">
                                                 <Button
                                                   onClick={() => {
@@ -1840,7 +1836,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                                   }}
                                                   variant="outline"
                                                   size="sm"
-                                                  className="border-[#4F46E5]/20 text-[#4F46E5] hover:bg-[#4F46E5]/10"
+                                                  className="border-slate-200 text-slate-800 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200"
                                                 >
                                                   Edit Record
                                                 </Button>
@@ -1858,7 +1854,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                                         </div>
 
                                         {/* Inline Fee Edit Form */}
-                                        {isEditingThis && (
+                                        {!readOnly && isEditingThis && (
                                           <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3 animate-fadeIn">
                                             <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs font-semibold">
                                               <div>
@@ -1954,39 +1950,65 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
           {activeTab === "transactions" && (
             <div className="space-y-6 animate-fadeIn">
               <Card className="overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="pl-6">Receipt No</TableHead>
-                      <TableHead>Student</TableHead>
-                      <TableHead>College</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Payment Method</TableHead>
-                      <TableHead>Reference No</TableHead>
-                      <TableHead className="pr-6">Date</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedPayments.map((p) => (
-                      <TableRow key={p.id}>
-                        <TableCell className="pl-6 font-mono text-[#4F46E5] font-extrabold">{p.receipt_no}</TableCell>
-                        <TableCell>
-                          <span className="font-extrabold text-slate-800 dark:text-slate-200 block">{getStudentName(p.student_id)}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">{p.student_id}</span>
-                        </TableCell>
-                        <TableCell className="text-slate-500 font-medium text-[11px] max-w-[200px] truncate">
-                          {getCollegeName(p.college_id)}
-                        </TableCell>
-                        <TableCell className="font-black text-slate-900 dark:text-slate-100">{fmt(p.amount)}</TableCell>
-                        <TableCell><MethodBadge method={p.payment_method} /></TableCell>
-                        <TableCell className="font-mono text-[10px] text-slate-400">{p.reference_no}</TableCell>
-                        <TableCell className="pr-6 text-slate-500">
-                          {new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                        </TableCell>
+                {/* Mobile Responsive Cards (viewports < md) */}
+                <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                  {paginatedPayments.map((p) => (
+                    <div key={p.id} className="p-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs text-slate-900 dark:text-amber-400 font-extrabold">{p.receipt_no}</span>
+                        <MethodBadge method={p.payment_method} />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">{getStudentName(p.student_id)}</span>
+                          <span className="text-[10px] text-slate-400 font-medium">{getCollegeName(p.college_id)}</span>
+                        </div>
+                        <span className="font-black text-sm text-slate-900 dark:text-slate-100">{fmt(p.amount)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-50 dark:border-slate-800/60 font-mono">
+                        <span>Ref: {p.reference_no || "N/A"}</span>
+                        <span>{new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Desktop Full Data Table (viewports >= md) */}
+                <div className="hidden md:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="pl-6">Receipt No</TableHead>
+                        <TableHead>Student</TableHead>
+                        <TableHead>College</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Payment Method</TableHead>
+                        <TableHead>Reference No</TableHead>
+                        <TableHead className="pr-6">Date</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedPayments.map((p) => (
+                        <TableRow key={p.id}>
+                          <TableCell className="pl-6 font-mono text-slate-900 dark:text-amber-400 font-extrabold">{p.receipt_no}</TableCell>
+                          <TableCell>
+                            <span className="font-extrabold text-slate-800 dark:text-slate-200 block">{getStudentName(p.student_id)}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">{p.student_id}</span>
+                          </TableCell>
+                          <TableCell className="text-slate-500 font-medium text-[11px] max-w-[200px] truncate">
+                            {getCollegeName(p.college_id)}
+                          </TableCell>
+                          <TableCell className="font-black text-slate-900 dark:text-slate-100">{fmt(p.amount)}</TableCell>
+                          <TableCell><MethodBadge method={p.payment_method} /></TableCell>
+                          <TableCell className="font-mono text-[10px] text-slate-400">{p.reference_no}</TableCell>
+                          <TableCell className="pr-6 text-slate-500">
+                            {new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
                 {filteredPayments.length === 0 ? (
                   <div className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
                     No payment transactions found.
@@ -2010,7 +2032,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
         <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
           <DialogHeader>
             <DialogTitle>
-              <Upload className="h-4 w-4 text-[#4F46E5]" />
+              <Upload className="h-4 w-4 text-amber-500" />
               <span>Bulk Upload Student Fee Excel Sheet</span>
             </DialogTitle>
             <DialogDescription>
@@ -2035,7 +2057,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Processed Records</span>
                   </div>
                   <div className="p-3 bg-white dark:bg-[#181820] rounded-xl border border-amber-500/20">
-                    <span className="text-2xl font-black text-[#7C3AED] block">{uploadResult.skippedCount}</span>
+                    <span className="text-2xl font-black text-amber-600 block">{uploadResult.skippedCount}</span>
                     <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider">Skipped Rows</span>
                   </div>
                 </div>
@@ -2059,9 +2081,9 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
             </div>
           ) : uploadStep === 1 ? (
             <div className="space-y-5 text-xs font-semibold">
-              <div className="p-4 rounded-xl bg-[#4F46E5]/5 border border-[#4F46E5]/20 space-y-3">
-                <div className="flex justify-between items-center border-b border-[#4F46E5]/10 pb-2">
-                  <span className="text-[10px] font-black text-[#4F46E5] uppercase tracking-wider">Download Pre-filled Excel Template</span>
+              <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#181820] border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex justify-between items-center border-b border-slate-200 dark:border-slate-800 pb-2">
+                  <span className="text-[10px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">Download Pre-filled Excel Template</span>
                   <span className="text-[9px] text-slate-400 font-bold">Auto-fills student names &amp; registration numbers</span>
                 </div>
 
@@ -2072,7 +2094,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                       aria-label="College"
                       value={selectedTemplateCollege}
                       onChange={(e) => setSelectedTemplateCollege(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] font-bold outline-none focus:ring-1 focus:ring-[#4F46E5] cursor-pointer"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] font-bold outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                     >
                       {availableColleges.map((colName) => (
                         <option key={colName} value={colName}>{colName}</option>
@@ -2086,7 +2108,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                       aria-label="Department"
                       value={selectedTemplateDept}
                       onChange={(e) => setSelectedTemplateDept(e.target.value)}
-                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] font-bold outline-none focus:ring-1 focus:ring-[#4F46E5] cursor-pointer"
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] font-bold outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                     >
                       {availableDepartments.map((dept) => (
                         <option key={dept} value={dept}>{dept}</option>
@@ -2101,7 +2123,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     onClick={handleDownloadTemplate}
                     variant="outline"
                     size="sm"
-                    className="border-[#4F46E5]/20 text-[#4F46E5] hover:bg-[#4F46E5]/10"
+                    className="border-slate-200 text-slate-800 dark:border-slate-800 dark:text-slate-200 hover:bg-slate-100"
                   >
                     <Download className="h-3.5 w-3.5" /> Download (.xlsx)
                   </Button>
@@ -2110,7 +2132,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
 
               <div className="space-y-1">
                 <label className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Excel File Upload</label>
-                <div className="border-2 border-dashed border-slate-200 inset-shadow-well dark:border-slate-800 hover:border-[#4F46E5] rounded-xl p-8 text-center bg-sunken/50 dark:bg-[#181820]/50 relative cursor-pointer group transition-colors">
+                <div className="border-2 border-dashed border-slate-200 inset-shadow-well dark:border-slate-800 hover:border-amber-500 rounded-xl p-8 text-center bg-sunken/50 dark:bg-[#181820]/50 relative cursor-pointer group transition-colors">
                   <input
                     type="file"
                     accept=".xlsx, .xls, .csv"
@@ -2118,8 +2140,8 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     onChange={handleFileChange}
                     className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   />
-                  <Upload className="h-8 w-8 mx-auto text-slate-400 group-hover:text-[#4F46E5] transition-colors mb-2" />
-                  <p className="text-[#4F46E5] dark:text-[#818CF8] font-extrabold text-xs">Drag &amp; Drop Excel file here or click to browse</p>
+                  <Upload className="h-8 w-8 mx-auto text-slate-400 group-hover:text-amber-500 transition-colors mb-2" />
+                  <p className="text-slate-800 dark:text-slate-200 font-extrabold text-xs">Drag &amp; Drop Excel file here or click to browse</p>
                   <p className="text-slate-400 font-medium text-[9px] mt-1">Formats: .xlsx, .xls, .csv</p>
                 </div>
               </div>
@@ -2128,7 +2150,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
             <div className="space-y-4 text-xs font-semibold">
               <div className="p-4 rounded-xl bg-slate-50 dark:bg-[#181820] border border-slate-100 dark:border-slate-800 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-[10px] font-black text-[#4F46E5] uppercase tracking-wider">Excel Field Mapping</span>
+                  <span className="text-[10px] font-black text-slate-900 dark:text-slate-100 uppercase tracking-wider">Excel Field Mapping</span>
                   <span className="text-[9px] text-slate-400 font-bold">Auto-matched columns</span>
                 </div>
 
@@ -2199,6 +2221,33 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
           )}
         </Dialog>
       </main>
+
+      {/* Mobile Bottom Navigation Bar (Persistent 1-Tap Thumb Navigation) */}
+      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom" aria-label="Fee manager sections">
+        <div className="flex w-full items-stretch justify-around px-1 py-1">
+          {tabs.map(({ id, label, icon: Icon }) => {
+            const isActive = activeTab === id;
+            const shortLabel = id === "overview" ? "Overview" : id === "colleges" ? "Colleges" : id === "students" ? "Students" : "Transactions";
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setActiveTab(id)}
+                aria-current={isActive ? "page" : undefined}
+                className={`relative flex min-h-[3.5rem] flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors cursor-pointer ${
+                  isActive ? "text-zinc-950 dark:text-white" : "text-slate-400 dark:text-slate-500"
+                }`}
+              >
+                <Icon className={`h-4.5 w-4.5 transition-transform ${isActive ? "scale-110 text-amber-500 dark:text-amber-400" : ""}`} />
+                <span className={`text-[10px] font-bold leading-none tracking-tight ${isActive ? "text-zinc-950 dark:text-white font-black" : "text-slate-500 dark:text-slate-400"}`}>
+                  {shortLabel}
+                </span>
+                {isActive && <span className="absolute top-0 inset-x-2 h-0.5 rounded-full bg-amber-500" />}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 };

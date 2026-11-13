@@ -258,9 +258,6 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
               <h3 className="text-base font-black text-slate-900 leading-tight">
                 Campus Placement and Internship Roster
               </h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Official tracking of student placement readiness, internship offers, and recruitment eligibility.
-              </p>
             </div>
           </div>
         </div>
@@ -735,7 +732,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                       <span>💻 Algorithmic &amp; Contest Standing</span>
-                      <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[8.5px] font-black">Live DB</span>
+                      <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[8.5px] font-black">Verified</span>
                     </span>
                     <span className="text-[10px] text-slate-400 font-medium">LeetCode &amp; HackerRank</span>
                   </div>

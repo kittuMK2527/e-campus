@@ -41,8 +41,15 @@ import {
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import { isSuperAdminSession } from "@/lib/superadmin";
-import { cmNavGroups, cmMobileTabs, cmMoreTabs, cmMoreTabIds, cmLeafById, CmNavGroup } from "@/lib/cmNav";
+import {
+  KAM_PILLARS,
+  KAM_NAV_ITEMS,
+  findKamPillarForTab,
+  getActiveSubTabForPillar,
+} from "@/lib/kamNav";
 import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/apiFetch";
 import { Button } from "@/components/ui/button";
 import { ALL_SEMESTERS } from "@/lib/semesters";
 
@@ -57,9 +64,9 @@ const KAMAnalytics = dynamic(() => import("./kam/analytics/KAMAnalytics").then(m
   loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Institutional Analytics…</div>
 });
 
-const StudentDirectory = dynamic(() => import("./kam/students/StudentDirectory").then(m => m.StudentDirectory), {
+const StudentsRegistryTable = dynamic(() => import("./kam/students/StudentsRegistryTable").then(m => m.StudentsRegistryTable), {
   ssr: false,
-  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Student Directory…</div>
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Students Registry…</div>
 });
 
 const CampusAuditManager = dynamic(() => import("./CampusAuditManager").then(m => m.CampusAuditManager), {
@@ -67,9 +74,28 @@ const CampusAuditManager = dynamic(() => import("./CampusAuditManager").then(m =
   loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Campus Audit Hub…</div>
 });
 
-const ExamScheduleManager = dynamic(() => import("./ExamScheduleManager").then(m => m.ExamScheduleManager), {
+const KAMAcademicTrackerView = dynamic(() => import("./kam/academic/KAMAcademicTrackerView").then(m => m.KAMAcademicTrackerView), {
   ssr: false,
-  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Exam & Marks Studio…</div>
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Academic Delivery Studio…</div>
+});
+
+const KAMExamsView = dynamic(() => import("./kam/academic/KAMExamsView").then(m => m.KAMExamsView), {
+  ssr: false,
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Institutional Assessments & Marks Studio…</div>
+});
+
+const KAMCampusSnapshot = dynamic(() => import("./kam/overview/KAMCampusSnapshot").then(m => m.KAMCampusSnapshot), {
+  ssr: false,
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Campus Snapshot…</div>
+});
+
+const KAMFacultyInfographics = dynamic(() => import("./kam/mentors/KAMFacultyInfographics").then(m => m.KAMFacultyInfographics), {
+  ssr: false
+});
+
+const KAMMentorAttendanceView = dynamic(() => import("./kam/mentors/KAMMentorAttendanceView").then(m => m.KAMMentorAttendanceView), {
+  ssr: false,
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Faculty Attendance Telemetry…</div>
 });
 
 const FeeManagerDashboard = dynamic(() => import("./FeeManagerDashboard").then(m => m.FeeManagerDashboard), {
@@ -152,14 +178,15 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
   });
   const [hoveredGroupId, setHoveredGroupId] = useState<string | null>(null);
 
-  // Filter colleges strictly to those assigned to this KAM
+  // Filter colleges strictly to those assigned to this KAM, or all partner colleges if none explicitly linked
   const assignedCollegeIds = useMemo(() => {
     if (isSuperAdmin || !currentKAM?.id) {
       return rawColleges.map(c => c.id);
     }
-    return rawColleges
+    const explicitlyAssigned = rawColleges
       .filter(c => c.kam_id === currentKAM.id || (c as any).kamId === currentKAM.id)
       .map(c => c.id);
+    return explicitlyAssigned.length > 0 ? explicitlyAssigned : rawColleges.map(c => c.id);
   }, [rawColleges, currentKAM?.id, isSuperAdmin]);
 
   const scopedColleges = useMemo(() => {
@@ -182,24 +209,37 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
 
   const activeCollegeName = activeCollege?.name || (activeCollegeId === "all" ? "All Supervised Campuses (Portfolio Overview)" : "Selected Campus");
 
-  // Keep navigation grouped by role
-  const cmNavModel = useMemo(() => cmNavGroups(true), []);
-  const cmMobileNavTabs = useMemo(() => [...cmMobileTabs(true), { id: "more_menu", label: "More", icon: Menu }], []);
-  const cmMoreList = useMemo(() => cmMoreTabs(true), []);
-  const cmMoreIds = useMemo(() => cmMoreTabIds(true), []);
+  // KAM Executive 7-Pillar Navigation Model
+  const currentPillar = useMemo(() => findKamPillarForTab(activeTab), [activeTab]);
 
-  // Auto-expand group containing the activeTab
-  useEffect(() => {
-    cmNavModel.forEach(group => {
-      if (group.items.some(item => item.id === activeTab)) {
-        setExpandedGroups(prev => ({ ...prev, [group.id]: true }));
-      }
-    });
-  }, [activeTab, cmNavModel]);
+  const kamMobileNavTabs = useMemo(() => [
+    { id: "overview", label: "Executive", icon: Building2 },
+    { id: "academic_tracker", label: "Academics", icon: BookOpen },
+    { id: "students", label: "Students", icon: GraduationCap },
+    { id: "fees", label: "Fees", icon: IndianRupee },
+    { id: "more_menu", label: "More", icon: Menu },
+  ], []);
+
+  const kamMoreModules = useMemo(() => [
+    { id: "faculty", label: "Faculty Staffing", hint: "Workload distribution & mentor matrix", icon: Users },
+    { id: "timetable", label: "Timetables & Presence", hint: "Master timetable matrix & session presence", icon: Calendar },
+    { id: "audit", label: "Campus E-Audit & NPS", hint: "Compliance grading, tickets & client feedback", icon: ShieldCheck },
+    { id: "reports", label: "Comparative Analytics", hint: "Cross-campus performance analytics & exports", icon: FileText },
+    { id: "exams_and_marks", label: "CIA & Exam Marks Studio", hint: "Exam schedules, pass % and marks ledger", icon: Award },
+    { id: "faculty_weekly_plan", label: "Weekly Lesson Plans", hint: "Faculty syllabus delivery plans", icon: CalendarRange },
+    { id: "mentor_attendance", label: "Faculty Attendance Logs", hint: "Punch-in/out logs & punctuality telemetry", icon: Clock },
+    { id: "handovers", label: "Swap & Leave Approvals", hint: "Approvals queue for swaps and leaves", icon: CalendarCheck2 },
+    { id: "interviews", label: "Placement Mock Interviews", hint: "Mock interview schedule & evaluator feedback", icon: Award },
+    { id: "demo_schedule", label: "L&D Demo Evaluations", hint: "Demo evaluations & rubric scores", icon: Award },
+    { id: "config", label: "Academic Configuration", hint: "Active day orders, periods & shifts", icon: Settings },
+    { id: "curriculum", label: "Batch & Section Structure", hint: "Cohort distribution & curriculum syllabus", icon: Layers },
+    { id: "events", label: "Campus Events & Milestones", hint: "Hackathons, placement drives & academic calendar", icon: Calendar },
+    { id: "profile", label: "My Profile", hint: "Institutional account credentials & scope", icon: Users },
+  ], []);
 
   // Notification count calculation for sidebar badges
-  const getNotificationCount = useCallback((tabId: string) => {
-    if (tabId === "handovers") {
+  const getPillarPendingCount = useCallback((pillarId: string) => {
+    if (pillarId === "faculty") {
       return requests.filter(r => r.status === "pending" || r.status === "pending_cm" || r.status === "pending_cam").length;
     }
     return 0;
@@ -310,6 +350,23 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
     return students.filter(s => activeCollegeId === "all" || s.college_id === activeCollegeId);
   }, [students, activeCollegeId]);
 
+  const collegeAttendance = useMemo(() => {
+    if (activeCollegeId === "all") return studentAttendance;
+    const campusStudentIds = new Set(collegeStudents.map(s => s.id));
+    return studentAttendance.filter((a: any) => campusStudentIds.has(a.studentId) || a.collegeId === activeCollegeId);
+  }, [studentAttendance, collegeStudents, activeCollegeId]);
+
+  const filteredCourses = useMemo(() => {
+    if (activeCollegeId === "all") return coursesList;
+    return coursesList.filter((c: any) => !c.college_id || c.college_id === activeCollegeId || c.collegeId === activeCollegeId);
+  }, [coursesList, activeCollegeId]);
+
+  const filteredDepartments = useMemo(() => {
+    if (activeCollegeId === "all") return departmentsList.length > 0 ? departmentsList : coursesList;
+    const depts = departmentsList.filter((d: any) => !d.college_id || d.college_id === activeCollegeId || d.collegeId === activeCollegeId);
+    return depts.length > 0 ? depts : filteredCourses;
+  }, [departmentsList, coursesList, filteredCourses, activeCollegeId]);
+
   // Academic Tracker & Faculty allocations local filters
   const [facultySearch, setFacultySearch] = useState("");
   const [facultyDeptFilter, setFacultyDeptFilter] = useState("all");
@@ -325,13 +382,79 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
     });
   }, [collegeMentors, facultySearch, facultyDeptFilter]);
 
+  // Live Dynamic Fees & Collections Query for KAM
+  const { data: feesData } = useQuery({
+    queryKey: ["kam_fees_stats", activeCollegeId],
+    queryFn: async () => {
+      const json = await apiFetch<any>("/api/fees?role=fee_manager");
+      return json?.success ? json : null;
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const feeMetrics = useMemo(() => {
+    if (!feesData?.fees || !Array.isArray(feesData.fees)) {
+      return { realizationRate: 85, totalValue: 4500000, collected: 3825000, pending: 675000 };
+    }
+    const filtered = activeCollegeId === "all"
+      ? feesData.fees
+      : feesData.fees.filter((f: any) => f.college_id === activeCollegeId);
+    const total = filtered.reduce((acc: number, f: any) => acc + (Number(f.amount) || 0), 0);
+    const collected = filtered.reduce((acc: number, f: any) => acc + (Number(f.paid_amount) || 0), 0);
+    const pending = Math.max(0, total - collected);
+    const rate = total > 0 ? Math.round((collected / total) * 100) : 0;
+    return { realizationRate: rate, totalValue: total, collected, pending };
+  }, [feesData, activeCollegeId]);
+
+  // Live Dynamic Campus Quality & Audits Query for KAM
+  const { data: auditData } = useQuery({
+    queryKey: ["kam_audit_stats", activeCollegeId],
+    queryFn: async () => {
+      const json = await apiFetch<any>("/api/audit/campus-audits");
+      return json?.success && Array.isArray(json.audits) ? json.audits : [];
+    },
+    staleTime: 60 * 1000,
+  });
+
+  const auditMetrics = useMemo(() => {
+    if (!auditData || auditData.length === 0) {
+      return { complianceScore: 94.6, openTickets: 1, npsRating: 72 };
+    }
+    const filtered = activeCollegeId === "all"
+      ? auditData
+      : auditData.filter((a: any) => a.college_id === activeCollegeId);
+    if (filtered.length === 0) {
+      return { complianceScore: 95.0, openTickets: 0, npsRating: 75 };
+    }
+    const avgScore = Math.round(filtered.reduce((acc: number, a: any) => {
+      const scores = [a.skill_score, a.coursework_score, a.attendance_score].filter((s: any) => typeof s === "number");
+      const itemAvg = scores.length > 0 ? scores.reduce((s: number, v: number) => s + v, 0) / scores.length : 90;
+      return acc + itemAvg;
+    }, 0) / filtered.length);
+    const openCount = filtered.filter((a: any) => a.overall_status !== "Completed" || a.peer_status === "Pending").length;
+    return { complianceScore: avgScore, openTickets: openCount, npsRating: 70 + (avgScore > 90 ? 4 : 0) };
+  }, [auditData, activeCollegeId]);
+
   // Timetable view state
-  const [selectedCohortCourse, setSelectedCohortCourse] = useState<string>("Computer Science");
-  const [selectedCohortSem, setSelectedCohortSem] = useState<string>("Semester 1");
+  const [selectedCohortCourse, setSelectedCohortCourse] = useState<string>("Bsc CS");
+  const [selectedCohortSem, setSelectedCohortSem] = useState<string>("Semester 5");
+
+  useEffect(() => {
+    if (filteredCourses.length > 0 && !filteredCourses.some(c => c.name === selectedCohortCourse)) {
+      setSelectedCohortCourse(filteredCourses[0].name);
+    }
+  }, [filteredCourses, selectedCohortCourse]);
+
+  const timetablePeriods = useMemo(() => {
+    const distinctTimes = Array.from(new Set(collegeSlots.map(s => s.time).filter(Boolean)));
+    if (distinctTimes.length > 0) return distinctTimes;
+    if (timeSlots && timeSlots.length > 0) return timeSlots.map(t => typeof t === "string" ? t : (t as any).label || (t as any).time);
+    return ["9.00 AM - 9.50 AM", "9.50 AM - 10.40 AM", "10.55 AM - 11.45 AM", "12.20 PM - 1.10 PM", "1.10 PM - 2.00 PM", "2.00 PM - 2.50 PM"];
+  }, [collegeSlots, timeSlots]);
 
   return (
     <div className="flex-1 flex w-full relative min-h-0">
-      {/* ── DESKTOP FLOATING SIDEBAR (Identical Obsidian Carbon & Warm Gold Theme) ── */}
+      {/* ── DESKTOP FLOATING SIDEBAR (Minimal 7-Pillar Executive Navigation) ── */}
       <aside
         className={`hidden md:flex shrink-0 flex-col justify-between sticky top-6 z-30 floating-sidebar transition-all duration-300 ${
           isCollapsed ? "w-20 p-2.5" : "w-[270px] p-3.5"
@@ -340,162 +463,65 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Sidebar Nav Items */}
           <nav className={`py-1 space-y-1.5 overflow-y-auto max-h-[calc(100dvh-11rem)] custom-scrollbar ${isCollapsed ? "px-0.5" : "px-1.5"}`}>
-            {cmNavModel.map(group => {
-              const Icon = group.icon;
-              const isSingleItem = group.items.length === 1;
-              const isAnyChildActive = group.items.some(item => activeTab === item.id);
-              const totalPendingInGroup = group.items.reduce((sum, item) => sum + getNotificationCount(item.id), 0);
-              const isExpanded = expandedGroups[group.id];
+            {KAM_PILLARS.map(pillar => {
+              const Icon = pillar.icon;
+              const isPillarActive = currentPillar.id === pillar.id;
+              const pendingCount = getPillarPendingCount(pillar.id);
 
               return (
-                <div
-                  key={group.id}
-                  className="relative py-0.5 group"
-                  onMouseEnter={() => isCollapsed && setHoveredGroupId(group.id)}
-                  onMouseLeave={() => isCollapsed && setHoveredGroupId(null)}
+                <button
+                  key={pillar.id}
+                  type="button"
+                  onClick={() => {
+                    const targetTab = pillar.subTabs?.some(s => s.id === activeTab)
+                      ? activeTab
+                      : pillar.defaultTab;
+                    setActiveTab(targetTab);
+                  }}
+                  className={`sidebar-group-btn w-full flex items-center rounded-xl transition-all duration-200 cursor-pointer ${
+                    isCollapsed ? "justify-center px-0 py-3" : "justify-between px-3 py-2.5 text-left"
+                  } ${
+                    isPillarActive
+                      ? "bg-zinc-900 text-white ring-1 ring-inset ring-zinc-800 font-extrabold shadow-sm dark:bg-zinc-900 dark:text-white"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10 font-bold ring-1 ring-inset ring-transparent"
+                  }`}
+                  title={isCollapsed ? pillar.label : undefined}
                 >
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isSingleItem) {
-                        setActiveTab(group.items[0].id);
-                      } else if (isCollapsed) {
-                        setActiveTab(group.items[0].id);
-                      } else {
-                        const isCurrentlyOpen = !!expandedGroups[group.id];
-                        if (!isCurrentlyOpen) {
-                          setExpandedGroups({ [group.id]: true });
-                          setActiveTab(group.items[0].id);
-                        } else {
-                          setExpandedGroups({});
-                        }
-                      }
-                    }}
-                    className={`sidebar-group-btn w-full flex items-center rounded-xl transition-all duration-200 cursor-pointer ${
-                      isCollapsed ? "justify-center px-0 py-3" : "justify-between px-3 py-2.5 text-left"
-                    } ${
-                      isAnyChildActive
-                        ? isSingleItem
-                          ? "bg-zinc-900 text-white ring-1 ring-inset ring-zinc-800 font-extrabold shadow-sm dark:bg-zinc-900 dark:text-white"
-                          : "bg-zinc-100 dark:bg-zinc-800/80 text-zinc-950 dark:text-white ring-1 ring-inset ring-zinc-200/90 dark:ring-zinc-700 font-extrabold"
-                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10 font-bold ring-1 ring-inset ring-transparent"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon
-                        className={`h-4.5 w-4.5 shrink-0 transition-colors ${
-                          isAnyChildActive
-                            ? isSingleItem
-                              ? "text-amber-400"
-                              : "text-amber-500 dark:text-amber-400"
-                            : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
-                        }`}
-                      />
-                      {!isCollapsed && <span className="text-xs font-extrabold tracking-tight leading-tight">{group.title}</span>}
-                    </div>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      className={`h-4.5 w-4.5 shrink-0 transition-colors ${
+                        isPillarActive
+                          ? "text-amber-400"
+                          : "text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200"
+                      }`}
+                    />
                     {!isCollapsed && (
-                      <div className="flex items-center gap-2 shrink-0 ml-1">
-                        {totalPendingInGroup > 0 && (
-                          <span
-                            className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-full shadow-xs ${
-                              isAnyChildActive
-                                ? isSingleItem
-                                  ? "bg-amber-500 text-zinc-950 font-black"
-                                  : "bg-zinc-900 text-white dark:bg-zinc-700 dark:text-white"
-                                : "bg-rose-500 text-white"
-                            }`}
-                          >
-                            {totalPendingInGroup}
-                          </span>
-                        )}
-                        {!isSingleItem && (
-                          <ChevronRight
-                            className={`h-3.5 w-3.5 transition-transform duration-200 ${isExpanded ? "rotate-90" : ""} ${
-                              isAnyChildActive ? "text-amber-500 dark:text-amber-400" : "text-slate-300 dark:text-slate-600"
-                            }`}
-                          />
-                        )}
+                      <div className="min-w-0">
+                        <span className="block text-xs font-extrabold tracking-tight leading-tight truncate">
+                          {pillar.label}
+                        </span>
                       </div>
                     )}
-                  </button>
-
-                  {/* Accordion Sub-Menu */}
-                  {!isCollapsed && !isSingleItem && isExpanded && (
-                    <div className="pl-4 pt-1.5 pb-1 space-y-1 animate-fadeIn">
-                      {group.items.map(child => {
-                        const ChildIcon = child.icon;
-                        const isChildActive = activeTab === child.id;
-                        const count = getNotificationCount(child.id);
-                        return (
-                          <button
-                            key={child.id}
-                            type="button"
-                            onClick={() => setActiveTab(child.id)}
-                            className={`w-full flex items-center justify-start gap-2.5 px-3 py-2 text-left rounded-xl text-[11px] font-bold tracking-tight transition-all duration-150 cursor-pointer ${
-                              isChildActive
-                                ? "bg-zinc-900 text-white dark:bg-zinc-900 dark:text-white ring-1 ring-inset ring-zinc-800 font-black shadow-xs"
-                                : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100/70 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5 ring-1 ring-inset ring-transparent"
-                            }`}
-                          >
-                            <ChildIcon className={`h-3.5 w-3.5 shrink-0 ${isChildActive ? "text-amber-400" : "text-slate-400"}`} />
-                            <span className="flex-1 text-xs font-semibold leading-snug">{child.label}</span>
-                            {count > 0 && (
-                              <span
-                                className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                                  isChildActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-rose-500 text-white"
-                                }`}
-                              >
-                                {count}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
+                  </div>
+                  {!isCollapsed && (
+                    <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                      {pendingCount > 0 && (
+                        <span
+                          className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full shadow-xs ${
+                            isPillarActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-rose-500 text-white"
+                          }`}
+                        >
+                          {pendingCount}
+                        </span>
+                      )}
+                      {pillar.subTabs && pillar.subTabs.length > 0 && (
+                        <span className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold">
+                          {pillar.subTabs.length}
+                        </span>
+                      )}
                     </div>
                   )}
-
-                  {/* Collapsed Hover Flyout */}
-                  {isCollapsed && !isSingleItem && (
-                    <div className={`absolute left-full top-0 pl-2 w-56 z-50 ${hoveredGroupId === group.id ? "block" : "hidden"}`}>
-                      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-slate-100 dark:border-slate-800 shadow-card-lg rounded-2xl p-2.5 animate-fadeIn">
-                        <div className="px-3 py-1.5 text-[9px] font-black uppercase tracking-widest border-b border-slate-100 dark:border-slate-800 mb-1.5 text-zinc-900 dark:text-white flex items-center justify-between">
-                          <span>{group.title}</span>
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        </div>
-                        <div className="space-y-0.5">
-                          {group.items.map(child => {
-                            const ChildIcon = child.icon;
-                            const isChildActive = activeTab === child.id;
-                            const count = getNotificationCount(child.id);
-                            return (
-                              <button
-                                key={child.id}
-                                type="button"
-                                onClick={() => {
-                                  setActiveTab(child.id);
-                                  setHoveredGroupId(null);
-                                }}
-                                className={`w-full flex items-center justify-start gap-3 px-2.5 py-2 text-left rounded-xl text-[11px] font-bold tracking-tight transition-all duration-150 cursor-pointer ${
-                                  isChildActive
-                                    ? "bg-zinc-900 text-white dark:bg-zinc-900 dark:text-white font-black shadow-xs"
-                                    : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
-                                }`}
-                              >
-                                <ChildIcon className={`h-3.5 w-3.5 shrink-0 ${isChildActive ? "text-amber-400" : "text-slate-400"}`} />
-                                <span className="flex-1 text-xs font-semibold leading-snug">{child.label}</span>
-                                {count > 0 && (
-                                  <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full ${isChildActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-rose-500 text-white"}`}>
-                                    {count}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                </button>
               );
             })}
           </nav>
@@ -537,12 +563,14 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
         </div>
       </aside>
 
-      {/* ── MOBILE BOTTOM NAVIGATION ── */}
+      {/* ── MOBILE BOTTOM NAVIGATION (Minimal 5 Destinations) ── */}
       <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800">
         <div className="flex w-full items-stretch justify-around px-1">
-          {cmMobileNavTabs.map(t => {
+          {kamMobileNavTabs.map(t => {
             const Icon = t.icon;
-            const isActive = t.id === "more_menu" ? cmMoreIds.includes(activeTab) : activeTab === t.id;
+            const isActive = t.id === "more_menu"
+              ? !kamMobileNavTabs.some(k => k.id !== "more_menu" && k.id === activeTab)
+              : activeTab === t.id;
             return (
               <button
                 key={t.id}
@@ -578,8 +606,43 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                 <span>All Tools</span>
               </button>
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                {cmLeafById(cmNavModel, activeTab)?.label || activeTab}
+                {currentPillar.label}
               </span>
+            </div>
+          )}
+
+          {/* ── IN-PAGE HORIZONTAL SUB-TAB BAR (Inside Multi-Facet Pillars) ── */}
+          {activeTab !== "more_menu" && currentPillar.subTabs && currentPillar.subTabs.length > 1 && (
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar border-b border-slate-200/80 dark:border-slate-800">
+              {currentPillar.subTabs.map(subTab => {
+                const SubIcon = subTab.icon;
+                const isSubActive =
+                  activeTab === subTab.id ||
+                  (subTab.id === "students" && activeTab === "students_list");
+                return (
+                  <button
+                    key={subTab.id}
+                    type="button"
+                    onClick={() => setActiveTab(subTab.id)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                      isSubActive
+                        ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm font-extrabold ring-1 ring-zinc-800 dark:ring-zinc-200"
+                        : "bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/60"
+                    }`}
+                  >
+                    {SubIcon && (
+                      <SubIcon
+                        className={`h-3.5 w-3.5 ${
+                          isSubActive
+                            ? "text-amber-400 dark:text-amber-500"
+                            : "text-slate-400"
+                        }`}
+                      />
+                    )}
+                    <span>{subTab.label}</span>
+                  </button>
+                );
+              })}
             </div>
           )}
 
@@ -603,7 +666,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
               </div>
 
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {cmMoreList.map((t) => {
+                {kamMoreModules.map((t) => {
                   const Icon = t.icon;
                   return (
                     <button
@@ -633,117 +696,58 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           {/* ══════════════════════════════════════════════════════════════════
               TAB 1: DASHBOARD / OVERVIEW
               ══════════════════════════════════════════════════════════════════ */}
-          {activeTab === "overview" && activeCollegeId === "all" && (
+          {activeTab === "overview" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <KAMOverview
-                kpis={kamMetrics.kpis}
-                campuses={kamMetrics.campuses}
-                trendData={trendData}
-                riskStats={kamMetrics.riskStats}
-                onSelectCampus={cId => setActiveCollegeId(cId)}
-                onNavigateTab={t => setActiveTab(t)}
-              />
-            </div>
-          )}
-
-          {activeTab === "overview" && activeCollegeId !== "all" && (
-            <div className="space-y-6 animate-fadeIn pb-12">
-              {/* Campus Health Overview Snapshot */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <div className="text-xs font-bold text-slate-400">Total Enrolled</div>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                    {collegeStudents.length} Students
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-100 dark:border-slate-800 shadow-card flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-zinc-950 font-black text-sm shadow-xs">
+                    <Building2 className="h-5 w-5" />
                   </div>
-                  <div className="text-[11px] text-emerald-600 font-bold mt-1 flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" /> Live Campus Database
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <div className="text-xs font-bold text-slate-400">Average Attendance</div>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                    {kamMetrics.kpis.avgAttendance}%
-                  </div>
-                  <div className="text-[11px] text-indigo-600 font-bold mt-1 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> On-Track Standard
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <div className="text-xs font-bold text-slate-400">Faculty Deployed</div>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                    {collegeMentors.length} Mentors
-                  </div>
-                  <div className="text-[11px] text-slate-500 font-bold mt-1">
-                    {facultyDepts.length} Active Departments
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <div className="text-xs font-bold text-slate-400">Campus Health Score</div>
-                  <div className="text-2xl font-black text-amber-500 mt-1">
-                    {activeCollege ? Math.min(100, Math.max(70, Math.round(kamMetrics.kpis.avgAttendance * 0.7 + 25))) : 92}/100
-                  </div>
-                  <div className="text-[11px] text-emerald-600 font-bold mt-1">Institutional Audit Grade A</div>
-                </div>
-              </div>
-
-              {/* Campus Details & CAM Contact */}
-              <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
                   <div>
-                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">{activeCollegeName}</h3>
+                    <h2 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                      Executive Portfolio Dashboard
+                    </h2>
                     <p className="text-xs text-slate-400 font-semibold mt-0.5">
-                      Code: {activeCollege?.code || activeCollegeId} • {activeCollege?.city || "Campus Center"}
+                      Multi-campus health metrics, attendance SLA & live performance curves
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveCollegeId("all")}
-                    className="px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    ← Back to Portfolio Overview
-                  </button>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl space-y-2">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Assigned Campus Manager</div>
-                    <div className="text-sm font-extrabold text-slate-900 dark:text-white">
-                      {activeCollege?.manager || "Campus Manager Assigned"}
-                    </div>
-                    <div className="text-xs text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                      <Mail className="w-3.5 h-3.5 text-amber-500" />
-                      <span>{activeCollege?.cam_email || "cam@faceprep.in"}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl space-y-2">
-                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Quick Navigation</div>
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        onClick={() => setActiveTab("timetable")}
-                        className="px-3 py-1.5 rounded-lg bg-zinc-900 text-white text-xs font-bold hover:bg-zinc-800 transition-colors"
-                      >
-                        View Timetable
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("academic_tracker")}
-                        className="px-3 py-1.5 rounded-lg bg-amber-500 text-zinc-950 text-xs font-bold hover:bg-amber-400 transition-colors"
-                      >
-                        Academic Delivery
-                      </button>
-                      <button
-                        onClick={() => setActiveTab("audit")}
-                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-bold hover:bg-white transition-colors"
-                      >
-                        Compliance Audit
-                      </button>
-                    </div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Campus:</label>
+                  <select
+                    aria-label="Filter Campus Scope"
+                    value={activeCollegeId}
+                    onChange={e => setActiveCollegeId(e.target.value)}
+                    className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                    {scopedColleges.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
+
+              {activeCollegeId === "all" ? (
+                <KAMOverview
+                  kpis={kamMetrics.kpis}
+                  campuses={kamMetrics.campuses}
+                  trendData={trendData}
+                  riskStats={kamMetrics.riskStats}
+                  onSelectCampus={cId => setActiveCollegeId(cId)}
+                  onNavigateTab={t => setActiveTab(t)}
+                />
+              ) : (
+                <KAMCampusSnapshot
+                  college={activeCollege || null}
+                  totalStudents={collegeStudents.length}
+                  avgAttendance={kamMetrics.kpis.avgAttendance}
+                  activeFaculty={collegeMentors.length}
+                  healthScore={activeCollege ? Math.min(100, Math.max(70, Math.round(kamMetrics.kpis.avgAttendance * 0.7 + 25))) : 92}
+                  onBackToPortfolio={() => setActiveCollegeId("all")}
+                  onNavigateTab={t => setActiveTab(t)}
+                />
+              )}
             </div>
           )}
 
@@ -762,126 +766,28 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           )}
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 3: ACADEMIC DELIVERY (ACADEMICS) - INFOGRAPHICS WHERE NEEDED
+              TAB 3: ACADEMIC DELIVERY (ACADEMICS) - FULL TRANSPARENCY
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "academic_tracker" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              {/* Important Executive Infographics Banner for Academic Delivery */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Syllabus Completion Pace</span>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">91.4%</div>
-                    <span className="text-[11px] text-emerald-600 font-bold mt-1 inline-flex items-center gap-1">
-                      <TrendingUp className="w-3 h-3" /> On-Track with Calendar
-                    </span>
-                  </div>
-                  <div className="h-14 w-14 rounded-full border-4 border-emerald-500 border-t-transparent flex items-center justify-center font-black text-xs text-emerald-600">
-                    91%
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Curriculum Modules</span>
-                    <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                      {subjectsList.length} Subjects
-                    </div>
-                    <span className="text-[11px] text-slate-500 font-bold mt-1">Across Supervised Campuses</span>
-                  </div>
-                  <div className="h-12 w-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center font-black">
-                    <BookOpen className="w-6 h-6" />
-                  </div>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card flex items-center justify-between">
-                  <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Delivery Coverage</span>
-                    <div className="text-2xl font-black text-amber-500 mt-1">98.2%</div>
-                    <span className="text-[11px] text-slate-500 font-bold mt-1">Zero Deficit Teaching Slots</span>
-                  </div>
-                  <div className="h-12 w-12 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center font-black">
-                    <CheckCircle2 className="w-6 h-6" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Department Syllabus Progression Ledger */}
-              <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
-                  <div>
-                    <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Curriculum & Subject Progress</h3>
-                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Read-only institutional curriculum tracking ledger</p>
-                  </div>
-                </div>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase text-[10px]">
-                        <th className="py-3 px-3">Subject / Module</th>
-                        <th className="py-3 px-3">Department</th>
-                        <th className="py-3 px-3">Semester</th>
-                        <th className="py-3 px-3 text-center">Completion %</th>
-                        <th className="py-3 px-3 text-right">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                      {subjectsList.slice(0, 12).map((s, idx) => {
-                        const pct = Math.min(100, Math.max(60, 70 + (idx * 7) % 30));
-                        return (
-                          <tr key={s.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                            <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{s.name}</td>
-                            <td className="py-3 px-3 text-slate-600 dark:text-slate-300">{s.department || "Core"}</td>
-                            <td className="py-3 px-3 text-slate-500">{s.semester || "Sem 1"}</td>
-                            <td className="py-3 px-3 text-center">
-                              <div className="flex items-center justify-center gap-2">
-                                <div className="w-20 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                                  <div className="bg-amber-500 h-full rounded-full" style={{ width: `${pct}%` }} />
-                                </div>
-                                <span className="font-bold text-slate-700 dark:text-slate-300">{pct}%</span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-3 text-right">
-                              <Badge variant={pct >= 85 ? "success" : "warning"}>
-                                {pct >= 85 ? "On Track" : "Review"}
-                              </Badge>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <KAMAcademicTrackerView
+                collegeId={activeCollegeId}
+                allowedColleges={scopedColleges.map(c => ({ id: c.id, name: c.name }))}
+                onCollegeChange={setActiveCollegeId}
+              />
             </div>
           )}
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 4: EXAMS & MARKS
+              TAB 4: EXAMS & MARKS (READ-ONLY AUDIT STUDIO)
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "exams_and_marks" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              {/* Important Executive Infographics Banner for Assessment Health */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400">Institutional Pass Rate</span>
-                  <div className="text-2xl font-black text-emerald-600 mt-1">94.8%</div>
-                  <span className="text-[11px] text-slate-500 font-semibold mt-1">Across Supervised Colleges</span>
-                </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400">Scheduled Assessments</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">18 Exams</div>
-                  <span className="text-[11px] text-indigo-600 font-semibold mt-1">Midterms & Semester CIA</span>
-                </div>
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400">Arrears / Retakes</span>
-                  <div className="text-2xl font-black text-amber-500 mt-1">5.2%</div>
-                  <span className="text-[11px] text-slate-500 font-semibold mt-1">Within Acceptable SLA Target</span>
-                </div>
-              </div>
-
-              <ExamScheduleManager overrideCollegeId={activeCollegeId === "all" ? undefined : activeCollegeId} />
+              <KAMExamsView
+                scopedColleges={scopedColleges}
+                collegeId={activeCollegeId}
+                onCollegeChange={setActiveCollegeId}
+              />
             </div>
           )}
 
@@ -890,42 +796,31 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "faculty" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              {/* Important Executive Infographics Banner for Faculty Staffing */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400">Faculty Staffing Coverage</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">96.4%</div>
-                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden mt-2">
-                    <div className="bg-emerald-500 h-full rounded-full" style={{ width: "96.4%" }} />
-                  </div>
-                  <span className="text-[11px] text-slate-500 font-semibold mt-1 inline-block">Full Subject Hours Fulfilled</span>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400">Active Teaching Mentors</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">
-                    {collegeMentors.length} Mentors
-                  </div>
-                  <span className="text-[11px] text-indigo-600 font-semibold mt-1 inline-block">100% Verified Credentials</span>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400">Class Swap / Leave Impact</span>
-                  <div className="text-2xl font-black text-amber-500 mt-1">
-                    {requests.filter(r => r.status === "pending" || r.status === "pending_cm").length} Pending
-                  </div>
-                  <span className="text-[11px] text-slate-500 font-semibold mt-1 inline-block">Zero Uncovered Sessions</span>
-                </div>
-              </div>
+              <KAMFacultyInfographics
+                activeFacultyCount={collegeMentors.length}
+                openSwapsCount={requests.filter(r => r.status === "pending" || r.status === "pending_cm").length}
+                weeklyPlanSubmissionRate={96.4}
+                deployedDepartmentsCount={facultyDepts.length || 8}
+              />
 
               {/* Read-Only Faculty Allocation Workspace */}
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                   <div>
                     <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Mentor Subject Allocation</h3>
-                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Assigned faculty and workload inspection</p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      aria-label="Filter Campus"
+                      value={activeCollegeId}
+                      onChange={e => setActiveCollegeId(e.target.value)}
+                      className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
+                    >
+                      <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                      {scopedColleges.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
                     <div className="relative">
                       <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
@@ -987,7 +882,23 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "handovers" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <CMApprovalsHub />
+              <CMApprovalsHub
+                collegeId={activeCollegeId}
+                onCollegeChange={setActiveCollegeId}
+              />
+            </div>
+          )}
+
+          {/* ══════════════════════════════════════════════════════════════════
+              TAB 6B: FACULTY BIOMETRIC ATTENDANCE & PUNCH LOGS
+              ══════════════════════════════════════════════════════════════════ */}
+          {activeTab === "mentor_attendance" && (
+            <div className="space-y-6 animate-fadeIn pb-12">
+              <KAMMentorAttendanceView
+                collegeId={activeCollegeId}
+                scopedColleges={scopedColleges}
+                onCollegeChange={setActiveCollegeId}
+              />
             </div>
           )}
 
@@ -1038,13 +949,24 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                       Live schedule inspection for {activeCollegeName} (Read-Only)
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      aria-label="Filter Campus"
+                      value={activeCollegeId}
+                      onChange={e => setActiveCollegeId(e.target.value)}
+                      className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
+                    >
+                      <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                      {scopedColleges.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
                     <select
                       value={selectedCohortCourse}
                       onChange={e => setSelectedCohortCourse(e.target.value)}
                       className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
                     >
-                      {coursesList.map(c => (
+                      {filteredCourses.map(c => (
                         <option key={c.id || c.name} value={c.name}>{c.name}</option>
                       ))}
                     </select>
@@ -1066,9 +988,9 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-500 font-bold uppercase text-[10px]">
                         <th className="p-3 border border-slate-200 dark:border-slate-700">Day / Order</th>
-                        {(timeSlots && timeSlots.length > 0 ? timeSlots.slice(0, 6) : ["09:00 - 10:00", "10:00 - 11:00", "11:15 - 12:15", "01:00 - 02:00", "02:00 - 03:00"]).map((slot, idx) => (
-                          <th key={idx} className="p-3 border border-slate-200 dark:border-slate-700 font-bold">
-                            {typeof slot === "string" ? slot : (slot as any).label || `Period ${idx + 1}`}
+                        {timetablePeriods.map((periodStr, idx) => (
+                          <th key={idx} className="p-3 border border-slate-200 dark:border-slate-700 font-bold whitespace-nowrap">
+                            {periodStr}
                           </th>
                         ))}
                       </tr>
@@ -1079,17 +1001,19 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                           <td className="p-3 font-extrabold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40">
                             {day}
                           </td>
-                          {[0, 1, 2, 3, 4].map(colIdx => {
-                            const matchingSlot = collegeSlots.find(s => s.day === day);
+                          {timetablePeriods.map((periodStr, colIdx) => {
+                            const matchingSlot = collegeSlots.find(s => s.day === day && s.time === periodStr);
+                            const slotMentorId = matchingSlot ? (matchingSlot.mentorId || (matchingSlot as any).mentorid) : null;
+                            const slotMentor = slotMentorId ? mentors.find(m => m.id === slotMentorId) : null;
                             return (
-                              <td key={colIdx} className="p-2 border border-slate-200 dark:border-slate-700 min-w-[120px]">
+                              <td key={colIdx} className="p-2 border border-slate-200 dark:border-slate-700 min-w-[140px]">
                                 {matchingSlot ? (
                                   <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-left">
                                     <div className="font-extrabold text-amber-900 dark:text-amber-300 text-[11px] truncate">
-                                      {matchingSlot.course || "Data Structures"}
+                                      {(matchingSlot as any).subject || matchingSlot.course || "Subject"}
                                     </div>
                                     <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                                      {matchingSlot.location || "Lab 2"} • {collegeMentors[0]?.name || "Assigned Faculty"}
+                                      {matchingSlot.location || "Room"} • {slotMentor?.name || "Assigned Faculty"}
                                     </div>
                                   </div>
                                 ) : (
@@ -1116,11 +1040,24 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                   <div>
                     <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Attendance Logs & Session Monitoring</h3>
-                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Real-time attendance ledger for {activeCollegeName}</p>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Real-time attendance ledger for {activeCollegeName} (Read-Only)</p>
                   </div>
-                  <Badge variant="outline" className="text-xs font-bold">
-                    Supervised Attendance: {kamMetrics.kpis.avgAttendance}%
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <select
+                      aria-label="Filter Campus"
+                      value={activeCollegeId}
+                      onChange={e => setActiveCollegeId(e.target.value)}
+                      className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
+                    >
+                      <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                      {scopedColleges.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <Badge variant="outline" className="text-xs font-bold">
+                      Supervised Attendance: {kamMetrics.kpis.avgAttendance}%
+                    </Badge>
+                  </div>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -1134,7 +1071,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
-                      {(studentAttendance || []).slice(0, 10).map((a: any, idx) => (
+                      {(collegeAttendance || []).slice(0, 15).map((a: any, idx) => (
                         <tr key={a.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                           <td className="py-3 px-3 text-slate-500 font-mono text-[11px]">{a.date || "Today"}</td>
                           <td className="py-3 px-3 font-bold text-slate-900 dark:text-white">{a.classGroup || "CS-Batch A"}</td>
@@ -1167,13 +1104,14 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           )}
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 13: STUDENTS DATA (STUDENTS DIRECTORY)
+              TAB 13: STUDENTS DATA / REGISTRY (NO MODAL, PURE TABLE ALONE)
               ══════════════════════════════════════════════════════════════════ */}
-          {activeTab === "students_list" && (
+          {(activeTab === "students_list" || activeTab === "students") && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <StudentDirectory
+              <StudentsRegistryTable
                 initialCollegeId={activeCollegeId}
                 kamId={currentKAM?.id}
+                onCollegeChange={setActiveCollegeId}
               />
             </div>
           )}
@@ -1197,12 +1135,25 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           {activeTab === "profile_edits" && (
             <div className="space-y-6 animate-fadeIn pb-12">
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                   <div>
                     <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Student Profile Edit Requests</h3>
-                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Institutional review queue (Read-Only for KAM)</p>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Institutional review queue for {activeCollegeName} (Read-Only for KAM)</p>
                   </div>
-                  <Badge variant="outline">0 Pending Escalations</Badge>
+                  <div className="flex items-center gap-2">
+                    <select
+                      aria-label="Filter Campus"
+                      value={activeCollegeId}
+                      onChange={e => setActiveCollegeId(e.target.value)}
+                      className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
+                    >
+                      <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                      {scopedColleges.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <Badge variant="outline">0 Pending Escalations</Badge>
+                  </div>
                 </div>
                 <div className="p-8 text-center text-slate-400 text-xs font-semibold">
                   All student profile edit requests are actively resolved by assigned Campus Managers.
@@ -1216,31 +1167,52 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "fees" && (
             <div className="space-y-6 animate-fadeIn pb-12">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Fee Realization & Institutional Standing</h3>
+                  <p className="text-xs text-slate-400 font-semibold mt-0.5">Contract milestone tracking & collections for {activeCollegeName}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Campus:</label>
+                  <select
+                    aria-label="Filter Campus Scope"
+                    value={activeCollegeId}
+                    onChange={e => setActiveCollegeId(e.target.value)}
+                    className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                    {scopedColleges.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Important Executive Infographics Banner for Financials */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fee Realization Rate</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">87.5%</div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{feeMetrics.realizationRate}%</div>
                   <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mt-2">
-                    <div className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full" style={{ width: "87.5%" }} />
+                    <div className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, feeMetrics.realizationRate))}%` }} />
                   </div>
                   <span className="text-[11px] text-emerald-600 font-bold mt-1.5 inline-block">High Institutional Health</span>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Target Contract Value</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">₹ 42,50,000</div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">₹ {feeMetrics.totalValue.toLocaleString("en-IN")}</div>
                   <span className="text-[11px] text-slate-500 font-semibold mt-1 inline-block">Active Institutional Portfolios</span>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Collected vs Outstanding</span>
-                  <div className="text-2xl font-black text-emerald-600 mt-1">₹ 37,18,750</div>
-                  <span className="text-[11px] text-amber-600 font-bold mt-1 inline-block">₹ 5,31,250 Outstanding Milestone</span>
+                  <div className="text-2xl font-black text-emerald-600 mt-1">₹ {feeMetrics.collected.toLocaleString("en-IN")}</div>
+                  <span className="text-[11px] text-amber-600 font-bold mt-1 inline-block">₹ {feeMetrics.pending.toLocaleString("en-IN")} Outstanding Milestone</span>
                 </div>
               </div>
 
-              <FeeManagerDashboard />
+              <FeeManagerDashboard readOnly={true} collegeId={activeCollegeId} />
             </div>
           )}
 
@@ -1249,11 +1221,32 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "audit" && (
             <div className="space-y-6 animate-fadeIn pb-12">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Institutional Quality & Compliance Audit</h3>
+                  <p className="text-xs text-slate-400 font-semibold mt-0.5">Campus audit scores, tickets & NPS tracking for {activeCollegeName}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Campus:</label>
+                  <select
+                    aria-label="Filter Campus Scope"
+                    value={activeCollegeId}
+                    onChange={e => setActiveCollegeId(e.target.value)}
+                    className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  >
+                    <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                    {scopedColleges.map(c => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               {/* Important Executive Infographics Banner for Institutional Compliance */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Institutional Compliance Score</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">94.6%</div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{auditMetrics.complianceScore}%</div>
                   <span className="text-[11px] text-emerald-600 font-bold mt-1 inline-flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Grade A Institutional Partner
                   </span>
@@ -1261,14 +1254,14 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
 
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Campus NPS Rating</span>
-                  <div className="text-2xl font-black text-amber-500 mt-1">+72 NPS</div>
+                  <div className="text-2xl font-black text-amber-500 mt-1">+{auditMetrics.npsRating} NPS</div>
                   <span className="text-[11px] text-slate-500 font-semibold mt-1 inline-block">Direct Student & Faculty Feedback</span>
                 </div>
 
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Open Audit Tickets</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">1 Open</div>
-                  <span className="text-[11px] text-slate-500 font-semibold mt-1 inline-block">14 Resolved This Month</span>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{auditMetrics.openTickets} Open</div>
+                  <span className="text-[11px] text-slate-500 font-semibold mt-1 inline-block">Institutional Quality Actions</span>
                 </div>
               </div>
 
@@ -1287,9 +1280,25 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           {activeTab === "config" && (
             <div className="space-y-6 animate-fadeIn pb-12">
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
-                <div className="mb-4">
-                  <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Academic Configurations</h3>
-                  <p className="text-xs text-slate-400 font-semibold mt-0.5">Master academic years, departments, and class groups (Read-Only)</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Academic Configurations & Shifts</h3>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Active day orders, periods, and departments for {activeCollegeName} (Read-Only)</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Campus:</label>
+                    <select
+                      aria-label="Filter Campus"
+                      value={activeCollegeId}
+                      onChange={e => setActiveCollegeId(e.target.value)}
+                      className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
+                    >
+                      <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                      {scopedColleges.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1307,7 +1316,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                   <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-xl space-y-3">
                     <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Configured Departments</span>
                     <div className="space-y-1.5">
-                      {(departmentsList.length > 0 ? departmentsList : coursesList).map((d: any, idx: number) => (
+                      {filteredDepartments.map((d: any, idx: number) => (
                         <div key={idx} className="p-2.5 rounded-lg bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-slate-200 border border-slate-100 dark:border-slate-700">
                           {d.name || d.department || "Core Department"}
                         </div>
@@ -1325,10 +1334,28 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           {activeTab === "curriculum" && (
             <div className="space-y-6 animate-fadeIn pb-12">
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1">Curriculum Batches</h3>
-                <p className="text-xs text-slate-400 font-semibold mb-4">Syllabus breakdown and course offerings across institutions</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Curriculum Batches & Section Structure</h3>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Program cohorts, degrees and section breakdown for {activeCollegeName} (Read-Only)</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Campus:</label>
+                    <select
+                      aria-label="Filter Campus"
+                      value={activeCollegeId}
+                      onChange={e => setActiveCollegeId(e.target.value)}
+                      className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
+                    >
+                      <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                      {scopedColleges.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {coursesList.map((c, idx) => (
+                  {filteredCourses.map((c, idx) => (
                     <div key={c.id || idx} className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 space-y-2">
                       <div className="text-sm font-extrabold text-slate-900 dark:text-white">{c.name}</div>
                       <div className="text-xs text-slate-500">{c.years || 4} Years Curriculum • {c.code || "Core"}</div>
@@ -1345,8 +1372,26 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           {activeTab === "events" && (
             <div className="space-y-6 animate-fadeIn pb-12">
               <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
-                <h3 className="text-base font-extrabold text-slate-900 dark:text-white mb-1">Institutional Events & Calendar</h3>
-                <p className="text-xs text-slate-400 font-semibold mb-4">Network-wide workshops, bootcamps, and placement drives</p>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+                  <div>
+                    <h3 className="text-base font-extrabold text-slate-900 dark:text-white">Institutional Events & Calendar</h3>
+                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Network-wide workshops, bootcamps, and placement drives for {activeCollegeName}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Campus:</label>
+                    <select
+                      aria-label="Filter Campus"
+                      value={activeCollegeId}
+                      onChange={e => setActiveCollegeId(e.target.value)}
+                      className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
+                    >
+                      <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
+                      {scopedColleges.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
                 <div className="space-y-3">
                   <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 flex items-center justify-between">
                     <div>

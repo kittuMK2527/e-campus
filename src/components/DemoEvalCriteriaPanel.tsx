@@ -225,7 +225,6 @@ export function DemoEvalCriteriaPanel({
   return (
     <Panel
       title="EVALUATION CRITERIA"
-      subtitle="Configure the compliance checklist evaluators must complete for each department — unmet items trigger KAM/CM escalation mail"
     >
       <div className="space-y-5">
         {/* Department selector */}

@@ -26,7 +26,7 @@ const CampusInsightPanel = dynamic(
 interface AdminInsightTabProps {
   subTab: InsightSubTab;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: LucideIcon;
 }
 

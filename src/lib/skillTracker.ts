@@ -123,6 +123,7 @@ export function buildWeekRollup(
   passMark: number = DEMO_PASS_MARK
 ): {
   week_number: number;
+  task_number?: number;
   topic_name: string | null;
   topics: TopicProgress[];
   topics_planned: number;
@@ -136,7 +137,11 @@ export function buildWeekRollup(
   verified_by: string | null;
   verified_at: string | null;
   submission_link: string | null;
+  submission_date?: string | null;
+  deadline?: string | null;
   task_given_date: string | null;
+  instructions?: string | null;
+  reference_material?: string | null;
 } {
   // 1. Planned topics from the weekly plan's session_plan JSON
   let tasks: any[] = [];
@@ -265,8 +270,29 @@ export function buildWeekRollup(
   const topicNames = topics.map(t => t.topic).filter(Boolean);
   const topic_name = topicNames.length > 0 ? topicNames.join(", ") : null;
 
+  const deadline =
+    (plan as any)?.start_date ||
+    ((plan as any)?.created_at ? String((plan as any).created_at).slice(0, 10) : null) ||
+    (clearances.find(c => (c as any).created_at)?.created_at ? String((clearances.find(c => (c as any).created_at) as any).created_at).slice(0, 10) : null) ||
+    null;
+
+  let submission_date: string | null = null;
+  if (submission_link) {
+    const clearanceWithLink = clearances.find(c => c.submission_link);
+    if (clearanceWithLink && (clearanceWithLink as any).updated_at) {
+      submission_date = String((clearanceWithLink as any).updated_at).slice(0, 10);
+    } else if ((plan as any)?.updated_at && (plan as any)?.submission_link) {
+      submission_date = String((plan as any).updated_at).slice(0, 10);
+    }
+  }
+
+  const firstTaskObj = tasks[0] || null;
+  const taskInstructions = firstTaskObj?.description || firstTaskObj?.instructions || null;
+  const taskRefMaterial = firstTaskObj?.materialUrl || firstTaskObj?.referenceUrl || null;
+
   return {
     week_number: weekNumber,
+    task_number: weekNumber,
     topic_name,
     topics,
     topics_planned: topics.length,
@@ -280,10 +306,10 @@ export function buildWeekRollup(
     verified_by,
     verified_at,
     submission_link,
-    task_given_date:
-      (plan as any)?.start_date ||
-      ((plan as any)?.created_at ? String((plan as any).created_at).slice(0, 10) : null) ||
-      (clearances.find(c => (c as any).created_at)?.created_at ? String((clearances.find(c => (c as any).created_at) as any).created_at).slice(0, 10) : null) ||
-      null
+    submission_date,
+    deadline,
+    task_given_date: deadline,
+    instructions: taskInstructions,
+    reference_material: taskRefMaterial
   };
 }

@@ -998,7 +998,7 @@ export const ExamScheduleManager: React.FC<{
       {!embedded ? (
         <div className="bg-white border border-slate-100 rounded-2xl p-5 md:p-6 shadow-card flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3.5">
-            <div className="h-11 w-11 rounded-2xl bg-gradient-to-tr from-indigo-600 via-indigo-700 to-purple-600 flex items-center justify-center text-white shadow-md shrink-0">
+            <div className="h-11 w-11 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-amber-500 shadow-sm shrink-0">
               <Award className="h-6 w-6" />
             </div>
             <div>
@@ -1052,7 +1052,7 @@ export const ExamScheduleManager: React.FC<{
                   <button
                     type="button"
                     onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Schedule Timetable</span>
@@ -1148,7 +1148,7 @@ export const ExamScheduleManager: React.FC<{
                 <button
                   type="button"
                   onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Schedule Timetable</span>
@@ -1195,15 +1195,15 @@ export const ExamScheduleManager: React.FC<{
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">Active scheduled batches</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-indigo-200 transition-all">
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-slate-300 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Total Exam Slots</p>
-                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Exam Slots</p>
+                <div className="p-2 rounded-xl bg-slate-100 text-slate-700">
                   <Clock className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-indigo-600 mt-1">{exams.length}</p>
-              <p className="text-[11px] text-indigo-400/90 font-medium mt-0.5">Subject time slots</p>
+              <p className="text-2xl font-black text-slate-900 mt-1">{exams.length}</p>
+              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Subject time slots</p>
             </div>
 
             <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-teal-200 transition-all">
@@ -1221,15 +1221,15 @@ export const ExamScheduleManager: React.FC<{
 
             <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-purple-200 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-purple-500">Assessment Types</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-purple-600">Assessment Types</p>
                 <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
                   <Award className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-purple-600 mt-1">
+              <p className="text-2xl font-black text-slate-900 mt-1">
                 {Array.from(new Set(exams.map((e) => e.exam_type))).length}
               </p>
-              <p className="text-[11px] text-purple-400/90 font-medium mt-0.5">CIA &amp; Semester finals</p>
+              <p className="text-[11px] text-purple-600/80 font-medium mt-0.5">CIA &amp; Semester finals</p>
             </div>
           </div>
 
@@ -1401,9 +1401,61 @@ export const ExamScheduleManager: React.FC<{
                       </div>
                     </div>
 
-                    {/* Accordion Body: Table of Subjects */}
+                    {/* Accordion Body: Mobile Cards (< md) */}
                     {isOpen && (
-                      <div className="overflow-x-auto">
+                      <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800 p-3 space-y-3">
+                        {batch.slots.map((slot, sIdx) => {
+                          const subObj = subjectsList.find(s => s.name?.toLowerCase().trim() === slot.subject_name?.toLowerCase().trim());
+                          const subjectType = ((slot as any).subject_type || subObj?.type || "ACADEMIC").toUpperCase();
+                          return (
+                            <div key={slot.id} className="p-3 bg-slate-50/70 dark:bg-slate-800/40 rounded-xl space-y-2 border border-slate-100 dark:border-slate-800">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <span className="font-extrabold text-slate-900 dark:text-white text-xs block">{slot.subject_name}</span>
+                                  {slot.subject_code && (
+                                    <span className="text-[10px] text-slate-400 font-mono">{slot.subject_code}</span>
+                                  )}
+                                </div>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase border shrink-0 ${
+                                  subjectType === "SKILL"
+                                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                    : subjectType === "LAB"
+                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                    : "bg-slate-100 text-slate-700 border-slate-200"
+                                }`}>
+                                  {subjectType}
+                                </span>
+                              </div>
+                              <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 gap-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
+                                <div className="flex items-center gap-1.5 font-bold">
+                                  <Calendar className="h-3 w-3 text-indigo-500 shrink-0" />
+                                  <span>{slot.exam_date}</span>
+                                  {slot.day_order && slot.day_order !== "None" && (
+                                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-black">{slot.day_order}</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-1 font-semibold text-slate-500">
+                                  <Clock className="h-3 w-3 text-slate-400 shrink-0" />
+                                  <span>{slot.session_time || `${slot.start_time} - ${slot.end_time}`}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteSingleExam(slot.id, slot.subject_name)}
+                                  className="p-1 text-rose-600 hover:bg-rose-100 rounded cursor-pointer ml-auto"
+                                  title="Delete Single Slot"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Accordion Body: Desktop Table (>= md) */}
+                    {isOpen && (
+                      <div className="hidden md:block overflow-x-auto">
                         <Table className="w-full text-left text-xs border-collapse min-w-[650px]">
                           <TableHeader>
                             <TableRow className="bg-sunken border-b border-slate-200 text-slate-400 font-bold uppercase text-[9px]">
@@ -1535,15 +1587,15 @@ export const ExamScheduleManager: React.FC<{
               <p className="text-[11px] text-amber-600/80 font-medium mt-0.5">Missed assessments</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-indigo-200 transition-all">
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-emerald-200 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Campus Pass Rate</p>
-                <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Campus Pass Rate</p>
+                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
                   <TrendingUp className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-indigo-700 mt-1">{campusMarksStats.passRate}%</p>
-              <p className="text-[11px] text-indigo-600/80 font-medium mt-0.5">Overall qualification</p>
+              <p className="text-2xl font-black text-emerald-600 mt-1">{campusMarksStats.passRate}%</p>
+              <p className="text-[11px] text-emerald-600/80 font-medium mt-0.5">Overall qualification</p>
             </div>
           </div>
 
@@ -1868,7 +1920,7 @@ export const ExamScheduleManager: React.FC<{
 
             {/* Modal Body */}
             <form onSubmit={handlePublishTimetable} className="flex flex-col flex-1 overflow-hidden">
-              <div className="p-5 sm:p-6 overflow-y-auto space-y-4 text-xs">
+              <div className="p-3.5 sm:p-6 overflow-y-auto space-y-4 text-xs">
                 {formStep === 1 ? (
                   /* ═════════ STEP 1: CONFIGURATION ═════════ */
                   <div className="space-y-4">
@@ -2029,17 +2081,17 @@ export const ExamScheduleManager: React.FC<{
                         <button
                           type="button"
                           onClick={handleAutoSequenceDates}
-                          className="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                          className="min-h-[44px] px-3 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
                         >
-                          <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                          <Sparkles className="h-4 w-4 text-amber-600" />
                           <span>Auto-Sequence</span>
                         </button>
                         <button
                           type="button"
                           onClick={handleAddSubjectRow}
-                          className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                          className="min-h-[44px] px-3 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
                         >
-                          <Plus className="h-3.5 w-3.5" />
+                          <Plus className="h-4 w-4" />
                           <span>Add Subject</span>
                         </button>
                       </div>
@@ -2051,7 +2103,7 @@ export const ExamScheduleManager: React.FC<{
                         <button
                           type="button"
                           onClick={handleAddSubjectRow}
-                          className="px-4 py-1.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 cursor-pointer shadow-xs"
+                          className="min-h-[44px] px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 cursor-pointer shadow-xs"
                         >
                           + Add Subject
                         </button>
@@ -2074,7 +2126,7 @@ export const ExamScheduleManager: React.FC<{
                                   type="checkbox"
                                   checked={row.included}
                                   onChange={() => toggleSubjectIncluded(idx)}
-                                  className="h-4 w-4 text-indigo-600 rounded cursor-pointer accent-indigo-600 shrink-0"
+                                  className="h-5 w-5 text-indigo-600 rounded cursor-pointer accent-indigo-600 shrink-0"
                                   title="Include in exam timetable"
                                 />
                                 <div className="flex-1 min-w-0">
@@ -2083,7 +2135,7 @@ export const ExamScheduleManager: React.FC<{
                                       <div className="flex items-center gap-1.5 flex-wrap">
                                         <p className="font-extrabold text-slate-900 text-xs truncate">{row.subject_name}</p>
                                         <span
-                                          className={`text-[9.5px] font-black uppercase px-1.5 py-0.5 rounded-md border ${
+                                          className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-md border ${
                                             row.subject_type === "SKILL"
                                               ? "bg-purple-50 text-purple-700 border-purple-200"
                                               : row.subject_type === "LAB"
@@ -2107,7 +2159,7 @@ export const ExamScheduleManager: React.FC<{
                                       placeholder="Subject Name"
                                       value={row.subject_name}
                                       onChange={(e) => updateSubjectRow(idx, { subject_name: e.target.value })}
-                                      className="px-2 py-1 border border-slate-200 rounded-lg text-xs font-bold w-full outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                                      className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs font-bold w-full outline-none focus:ring-1 focus:ring-indigo-500 bg-white min-h-[44px]"
                                     />
                                   )}
                                 </div>
@@ -2121,14 +2173,14 @@ export const ExamScheduleManager: React.FC<{
                                     required
                                     value={row.exam_date}
                                     onChange={(e) => updateSubjectRow(idx, { exam_date: e.target.value })}
-                                    className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold bg-white text-slate-800 cursor-pointer"
+                                    className="px-2.5 py-2 min-h-[44px] border border-slate-200 rounded-lg text-xs font-bold bg-white text-slate-800 cursor-pointer flex-1 sm:flex-initial"
                                     title="Exam Date"
                                   />
 
                                   <select
                                     value={row.day_order}
                                     onChange={(e) => updateSubjectRow(idx, { day_order: e.target.value })}
-                                    className="px-2 py-1.5 border border-purple-200 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 cursor-pointer"
+                                    className="px-2.5 py-2 min-h-[44px] border border-purple-200 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 cursor-pointer"
                                     title="Day Order"
                                   >
                                     <option value="Day 1">Day 1</option>
@@ -2140,7 +2192,7 @@ export const ExamScheduleManager: React.FC<{
                                     <option value="None">None</option>
                                   </select>
 
-                                  <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-slate-200">
+                                  <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 min-h-[44px] rounded-lg border border-slate-200">
                                     <input
                                       type="time"
                                       min={collegeMin24}
@@ -2166,7 +2218,7 @@ export const ExamScheduleManager: React.FC<{
                                     aria-label="Subject Type"
                                     value={row.subject_type || "ACADEMIC"}
                                     onChange={(e) => updateSubjectRow(idx, { subject_type: e.target.value })}
-                                    className="px-2 py-1.5 border border-slate-200 rounded-lg text-xs font-bold bg-white text-slate-700 cursor-pointer"
+                                    className="px-2.5 py-2 min-h-[44px] border border-slate-200 rounded-lg text-xs font-bold bg-white text-slate-700 cursor-pointer"
                                     title="Subject Type"
                                   >
                                     <option value="ACADEMIC">ACADEMIC</option>
@@ -2180,10 +2232,10 @@ export const ExamScheduleManager: React.FC<{
                                       type="button"
                                       onClick={() => handleRemoveSubjectRow(idx)}
                                       aria-label="Remove subject row"
-                                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
+                                      className="p-2 min-h-[44px] min-w-[44px] text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer flex items-center justify-center ml-auto sm:ml-0"
                                       title="Remove subject"
                                     >
-                                      <Trash2 className="h-3.5 w-3.5" />
+                                      <Trash2 className="h-4 w-4" />
                                     </button>
                                   )}
                                 </div>
@@ -2226,7 +2278,7 @@ export const ExamScheduleManager: React.FC<{
                         applyStartDateToRows(batchStartDate, batchDefaultDayOrder);
                         setFormStep(2);
                       }}
-                      className="px-5 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center gap-1.5 cursor-pointer"
+                      className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
                     >
                       <span>Next: Build Timetable</span>
                       <ArrowRight className="h-4 w-4" />
@@ -2245,7 +2297,7 @@ export const ExamScheduleManager: React.FC<{
                     <button
                       type="submit"
                       disabled={isSubmitting || subjectRows.filter((r) => r.included).length === 0}
-                      className="px-5 py-2 btn-gradient text-white rounded-xl text-xs font-extrabold shadow-sm cursor-pointer disabled:opacity-50"
+                      className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50"
                     >
                       {isSubmitting ? "Publishing Timetable..." : `Publish ${subjectRows.filter((r) => r.included).length} Subjects`}
                     </button>

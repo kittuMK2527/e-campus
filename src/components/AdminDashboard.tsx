@@ -36,7 +36,10 @@ import {
   ThumbsUp,
   Smile,
   Handshake,
-  CalendarCheck
+  CalendarCheck,
+  ClipboardList,
+  Search,
+  X
 } from "lucide-react";
 
 // Re-export utility functions and types for backward compatibility
@@ -144,6 +147,10 @@ const ExaminationsTab = dynamic(
   () => import("@/components/admin/operations/ExaminationsTab").then(m => m.ExaminationsTab),
   { ssr: false, loading: () => <AdminTabSkeleton /> }
 );
+const MentorTaskAssignmentStudio = dynamic(
+  () => import("@/components/MentorTaskAssignmentStudio").then(m => m.MentorTaskAssignmentStudio),
+  { ssr: false, loading: () => <AdminTabSkeleton /> }
+);
 const CAMDashboard = dynamic(
   () => import("@/components/CAMDashboard").then(m => m.CAMDashboard),
   {
@@ -196,6 +203,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { id: "schedules", label: "Schedules", icon: Grid },
       { id: "oversight", label: "Oversight & Approvals", icon: Eye },
       { id: "monitoring", label: "Attendance Monitoring", icon: Clock },
+      { id: "mentor_tasks", label: "Mentor Skill Tasks", icon: ClipboardList },
       { id: "examinations", label: "Examinations", icon: CalendarCheck },
       { id: "interviews", label: "Mock Interviews", icon: Award },
       { id: "fees", label: "Fee Collections", icon: Receipt },
@@ -275,6 +283,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const setActiveTab = onTabChange || setLocalActiveTab;
   const { colleges, currentUser, currentAdmin } = useApp();
   const [drillDownCollegeId, setDrillDownCollegeId] = useState<string | null>(null);
+  const [moreMenuCategory, setMoreMenuCategory] = useState<string>("all");
+  const [moreMenuSearch, setMoreMenuSearch] = useState<string>("");
 
   const activeNavLabel =
     activeTab === "more_menu"
@@ -367,62 +377,153 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* Main Scrollable Content Area */}
       <section className="flex-1 min-w-0 min-h-0 overflow-x-hidden overflow-y-auto pt-3 md:pt-5 pb-24 md:pb-16 space-y-4 scroll-touch">
-        {/* Mobile "More" Menu Hub */}
-        {activeTab === "more_menu" && (
-          <div className="space-y-4 animate-fadeIn font-sans text-xs">
-            <PageHeader
-              icon={Menu}
-              title="More Admin Portals"
-              subtitle="Additional administration workspaces."
-            />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {[
-                { id: "courses", label: "Academic Courses", subtitle: "Degree programs & batches", icon: Network, bg: "bg-indigo-50 text-indigo-600" },
-                { id: "subjects", label: "Subject Database", subtitle: "Course subjects & hours", icon: GraduationCap, bg: "bg-teal-50 text-teal-600" },
-                { id: "students", label: "Student Directory", subtitle: "Universal student roster & 360 profile", icon: GraduationCap, bg: "bg-emerald-50 text-emerald-600" },
-                { id: "interviews", label: "Mock Interviews", subtitle: "Interview drives & evaluation", icon: Award, bg: "bg-violet-50 text-violet-600" },
-                { id: "fees", label: "Fee Collections", subtitle: "Student fees & transaction receipts", icon: Receipt, bg: "bg-cyan-50 text-cyan-600" },
-                { id: "report_insight", label: "Campus Insight", subtitle: "Attendance shortage & monthly report", icon: BarChart3, bg: "bg-indigo-50 text-indigo-600" },
-                { id: "report_skills", label: "Skill Development", subtitle: "Monthly coding skill report", icon: FileSpreadsheet, bg: "bg-emerald-50 text-emerald-600" },
-                { id: "report_mentor_nps", label: "Mentor NPS", subtitle: "Student feedback per mentor", icon: ThumbsUp, bg: "bg-amber-50 text-amber-600" },
-                { id: "report_student_nps", label: "Student NPS", subtitle: "Monthly class feedback & coverage", icon: Smile, bg: "bg-violet-50 text-violet-600" },
-                { id: "report_client_nps", label: "Client NPS", subtitle: "Campus manager satisfaction", icon: Handshake, bg: "bg-teal-50 text-teal-600" },
-                { id: "kams", label: "Key Account Managers", subtitle: "KAM portfolio & metrics", icon: Briefcase, bg: "bg-amber-50 text-amber-600" },
-                { id: "cams", label: "Campus Managers", subtitle: "Campus operations team", icon: Users, bg: "bg-emerald-50 text-emerald-600" },
-                { id: "smes", label: "Subject Matter Experts", subtitle: "Curriculum review leads", icon: BookOpen, bg: "bg-sky-50 text-sky-600" },
-                { id: "users", label: "User Credentials", subtitle: "Passwords & role access", icon: ShieldCheck, bg: "bg-violet-50 text-violet-600" },
-                { id: "oversight", label: "Approvals & Oversight", subtitle: "Consolidated requests", icon: Eye, bg: "bg-purple-50 text-purple-600" },
-                { id: "monitoring", label: "Student Attendance", subtitle: "Live attendance records", icon: Clock, bg: "bg-blue-50 text-blue-600" },
-                { id: "examinations", label: "Examinations", subtitle: "Exam timetable & marks registry", icon: CalendarCheck, bg: "bg-orange-50 text-orange-600" },
-                { id: "holidays", label: "Campus Holidays", subtitle: "Academic calendar dates", icon: Calendar, bg: "bg-rose-50 text-rose-600" },
-                { id: "announcements", label: "Campus Broadcasts", subtitle: "Announcements & notifications", icon: Megaphone, bg: "bg-pink-50 text-pink-600" },
-                { id: "hierarchy", label: "Reporting Hierarchy", subtitle: "Organizational structure", icon: Network, bg: "bg-indigo-50 text-indigo-600" },
-                { id: "sessions", label: "Login Sessions", subtitle: "Active device logs", icon: History, bg: "bg-slate-100 text-slate-700" },
-                { id: "feedback", label: "User Feedback", subtitle: "Bug reports & support", icon: MessageSquare, bg: "bg-yellow-50 text-yellow-700" },
-                { id: "logs", label: "Audit Logs", subtitle: "Security events & history", icon: History, bg: "bg-slate-100 text-slate-700" },
-                { id: "settings", label: "Global Settings", subtitle: "System & mailing controls", icon: Sliders, bg: "bg-fuchsia-50 text-fuchsia-600" }
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
+        {/* Mobile "More" Menu Hub with Categorized Filter Pills & Search */}
+        {activeTab === "more_menu" && (() => {
+          const ALL_PORTALS = [
+            // Academics
+            { id: "courses", label: "Academic Courses", subtitle: "Degree programs & batches", icon: Network, bg: "bg-indigo-50 text-indigo-600", category: "academics" },
+            { id: "subjects", label: "Subject Catalog", subtitle: "Course subjects & hours", icon: GraduationCap, bg: "bg-teal-50 text-teal-600", category: "academics" },
+            { id: "students", label: "Student Directory", subtitle: "Universal student roster & 360 profile", icon: GraduationCap, bg: "bg-emerald-50 text-emerald-600", category: "academics" },
+            { id: "examinations", label: "Examinations", subtitle: "Exam timetable & marks registry", icon: CalendarCheck, bg: "bg-orange-50 text-orange-600", category: "academics" },
+            { id: "holidays", label: "Campus Holidays", subtitle: "Academic calendar dates", icon: Calendar, bg: "bg-rose-50 text-rose-600", category: "academics" },
+
+            // Reports & NPS
+            { id: "report_insight", label: "Campus Insight", subtitle: "Attendance shortage & monthly report", icon: BarChart3, bg: "bg-indigo-50 text-indigo-600", category: "reports" },
+            { id: "report_skills", label: "Skill Development", subtitle: "Monthly coding skill report", icon: FileSpreadsheet, bg: "bg-emerald-50 text-emerald-600", category: "reports" },
+            { id: "report_mentor_nps", label: "Mentor NPS", subtitle: "Student feedback per mentor", icon: ThumbsUp, bg: "bg-amber-50 text-amber-600", category: "reports" },
+            { id: "report_student_nps", label: "Student NPS", subtitle: "Monthly class feedback & coverage", icon: Smile, bg: "bg-violet-50 text-violet-600", category: "reports" },
+            { id: "report_client_nps", label: "Client NPS", subtitle: "Campus manager satisfaction", icon: Handshake, bg: "bg-teal-50 text-teal-600", category: "reports" },
+
+            // Staff & Roles
+            { id: "kams", label: "Key Account Managers", subtitle: "KAM portfolio & metrics", icon: Briefcase, bg: "bg-amber-50 text-amber-600", category: "roles" },
+            { id: "cams", label: "Campus Managers", subtitle: "Campus operations team", icon: Users, bg: "bg-emerald-50 text-emerald-600", category: "roles" },
+            { id: "smes", label: "Subject Matter Experts", subtitle: "Curriculum review leads", icon: BookOpen, bg: "bg-sky-50 text-sky-600", category: "roles" },
+            { id: "hierarchy", label: "Reporting Hierarchy", subtitle: "Organizational structure", icon: Network, bg: "bg-indigo-50 text-indigo-600", category: "roles" },
+
+            // Ops & Finance
+            { id: "interviews", label: "Mock Interviews", subtitle: "Interview drives & evaluation", icon: Award, bg: "bg-violet-50 text-violet-600", category: "ops" },
+            { id: "fees", label: "Fee Collections", subtitle: "Student fees & transaction receipts", icon: Receipt, bg: "bg-cyan-50 text-cyan-600", category: "ops" },
+            { id: "oversight", label: "Approvals & Oversight", subtitle: "Consolidated requests", icon: Eye, bg: "bg-purple-50 text-purple-600", category: "ops" },
+            { id: "monitoring", label: "Student Attendance", subtitle: "Live attendance records", icon: Clock, bg: "bg-blue-50 text-blue-600", category: "ops" },
+
+            // System & Admin
+            { id: "users", label: "User Credentials", subtitle: "Passwords & role access", icon: ShieldCheck, bg: "bg-violet-50 text-violet-600", category: "system" },
+            { id: "announcements", label: "Campus Broadcasts", subtitle: "Announcements & notifications", icon: Megaphone, bg: "bg-pink-50 text-pink-600", category: "system" },
+            { id: "sessions", label: "Login Sessions", subtitle: "Active device logs", icon: History, bg: "bg-slate-100 text-slate-700", category: "system" },
+            { id: "feedback", label: "User Feedback", subtitle: "Bug reports & support", icon: MessageSquare, bg: "bg-yellow-50 text-yellow-700", category: "system" },
+            { id: "logs", label: "Audit Logs", subtitle: "Security events & history", icon: History, bg: "bg-slate-100 text-slate-700", category: "system" },
+            { id: "settings", label: "Global Settings", subtitle: "System & mailing controls", icon: Sliders, bg: "bg-fuchsia-50 text-fuchsia-600", category: "system" }
+          ];
+
+          const CATEGORIES = [
+            { id: "all", label: "All" },
+            { id: "academics", label: "Academics" },
+            { id: "reports", label: "Reports" },
+            { id: "roles", label: "Staff" },
+            { id: "ops", label: "Operations" },
+            { id: "system", label: "System" }
+          ];
+
+          const filteredPortals = ALL_PORTALS.filter((item) => {
+            const matchesCategory = moreMenuCategory === "all" || item.category === moreMenuCategory;
+            const q = moreMenuSearch.trim().toLowerCase();
+            const matchesSearch = !q || item.label.toLowerCase().includes(q) || item.subtitle.toLowerCase().includes(q);
+            return matchesCategory && matchesSearch;
+          });
+
+          return (
+            <div className="space-y-4 animate-fadeIn font-sans text-xs">
+              <PageHeader
+                icon={Menu}
+                title="More Admin Portals"
+              />
+
+              {/* Search Bar & Category Pills */}
+              <div className="space-y-2.5">
+                <div className="relative">
+                  <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    value={moreMenuSearch}
+                    onChange={(e) => setMoreMenuSearch(e.target.value)}
+                    placeholder="Search portals (e.g. fees, attendance, mentors)..."
+                    className="w-full pl-9 pr-8 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 placeholder-slate-400 outline-none focus:ring-1 focus:ring-amber-500 shadow-2xs"
+                  />
+                  {moreMenuSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setMoreMenuSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600 rounded-md cursor-pointer"
+                      title="Clear search"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Categorized Pill Strip */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+                  {CATEGORIES.map((cat) => {
+                    const count = cat.id === "all" ? ALL_PORTALS.length : ALL_PORTALS.filter((p) => p.category === cat.id).length;
+                    const isActive = moreMenuCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setMoreMenuCategory(cat.id)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isActive
+                            ? "bg-slate-900 text-white shadow-xs"
+                            : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>{cat.label}</span>
+                        <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? "bg-slate-700 text-white" : "bg-slate-100 text-slate-500"}`}>
+                          {count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {filteredPortals.length === 0 ? (
+                <div className="p-8 text-center bg-white border border-dashed border-slate-200 rounded-2xl space-y-2">
+                  <p className="text-xs font-bold text-slate-500">No admin portals matched "{moreMenuSearch}".</p>
                   <button
-                    key={item.id}
                     type="button"
-                    onClick={() => setActiveTab(item.id as AdminTab)}
-                    className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
+                    onClick={() => { setMoreMenuSearch(""); setMoreMenuCategory("all"); }}
+                    className="px-3.5 py-1.5 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold cursor-pointer hover:bg-amber-100"
                   >
-                    <div className={`h-10 w-10 rounded-xl ${item.bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <span className="block text-xs font-bold text-slate-800">{item.label}</span>
-                      <span className="text-[10px] text-slate-400 font-medium">{item.subtitle}</span>
-                    </div>
+                    Clear Filter
                   </button>
-                );
-              })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {filteredPortals.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => setActiveTab(item.id as AdminTab)}
+                        className="p-4 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center gap-3.5 shadow-card cursor-pointer group"
+                      >
+                        <div className={`h-10 w-10 rounded-xl ${item.bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block text-xs font-bold text-slate-800 truncate">{item.label}</span>
+                          <span className="text-[10px] text-slate-400 font-medium truncate block">{item.subtitle}</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Tab Renderers */}
         {activeTab === "overview" && (
@@ -455,6 +556,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {activeTab === "monitoring" && <MonitoringTab />}
 
+        {activeTab === "mentor_tasks" && <MentorTaskAssignmentStudio role="admin" />}
+
         {activeTab === "examinations" && <ExaminationsTab />}
 
         {activeTab === "interviews" && (
@@ -470,7 +573,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminInsightTab
             subTab="attendance"
             title="Campus Insight"
-            subtitle="Attendance shortage and the printable monthly report, one campus at a time."
             icon={BarChart3}
           />
         )}
@@ -479,7 +581,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminInsightTab
             subTab="skill_report"
             title="Skill Development"
-            subtitle="Monthly coding-skill report per campus, downloadable as PPTX."
             icon={FileSpreadsheet}
           />
         )}
@@ -488,7 +589,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminInsightTab
             subTab="mentor_nps"
             title="Mentor NPS"
-            subtitle="Student feedback scored against each faculty mentor."
             icon={ThumbsUp}
           />
         )}
@@ -499,7 +599,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <AdminInsightTab
             subTab="client_nps"
             title="Client NPS"
-            subtitle="Campus manager satisfaction with the engagement."
             icon={Handshake}
           />
         )}

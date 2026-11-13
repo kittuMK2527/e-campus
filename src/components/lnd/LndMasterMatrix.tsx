@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { X } from "lucide-react";
 
 /** Campus day order for one date, exactly as the dashboard resolves it from the CM's daily configs. */
@@ -58,7 +58,12 @@ export default function LndMasterMatrix({
   onAllocate,
   onOpenSession
 }: LndMasterMatrixProps) {
+  const [mobileSelectedDate, setMobileSelectedDate] = useState<string>("all");
   const columnCount = slots.length + 1;
+
+  const visibleWeekDates = mobileSelectedDate === "all"
+    ? weekDates
+    : weekDates.filter(d => d.dateStr === mobileSelectedDate);
 
   return (
     <div className="bg-white/90 dark:bg-[#131317]/90 border border-slate-100 dark:border-slate-800/80 rounded-2xl shadow-card overflow-hidden backdrop-blur-md">
@@ -75,6 +80,46 @@ export default function LndMasterMatrix({
           {smes.length} evaluator row{smes.length === 1 ? "" : "s"} per day · {slots.length} window
           {slots.length === 1 ? "" : "s"}
         </span>
+      </div>
+
+      {/* Mobile Day Selector Pill Strip */}
+      <div className="flex md:hidden items-center gap-1.5 overflow-x-auto p-3 bg-slate-50/70 dark:bg-slate-900/50 border-b border-slate-200/80 dark:border-slate-800 no-scrollbar">
+        <button
+          type="button"
+          onClick={() => setMobileSelectedDate("all")}
+          className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+            mobileSelectedDate === "all"
+              ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-xs"
+              : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+          }`}
+        >
+          All Days
+        </button>
+        {weekDates.map(d => {
+          const info = dayOrderFor(d.dateStr, d.day, 0, collegeId);
+          const isSelected = mobileSelectedDate === d.dateStr;
+          return (
+            <button
+              key={d.dateStr}
+              type="button"
+              onClick={() => setMobileSelectedDate(d.dateStr)}
+              className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 ${
+                isSelected
+                  ? "bg-indigo-600 text-white shadow-xs"
+                  : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
+              }`}
+            >
+              <span>{d.day.slice(0, 3)}</span>
+              {info.dayOrder && (
+                <span className={`text-[9.5px] px-1 py-0.2 rounded font-black ${
+                  isSelected ? "bg-indigo-700 text-white" : "bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300"
+                }`}>
+                  {info.dayOrder}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="overflow-x-auto max-h-[70vh] no-scrollbar">
@@ -99,7 +144,7 @@ export default function LndMasterMatrix({
             </tr>
           </thead>
           <tbody>
-            {weekDates.map((date, dayIdx) => {
+            {visibleWeekDates.map((date, dayIdx) => {
               const info = dayOrderFor(date.dateStr, date.day, dayIdx, collegeId);
               // Period counts only exist once a campus is picked; the all-campus view runs on SME windows.
               const closed = info.isHoliday || (collegeId !== undefined && info.periods === 0);

@@ -18,11 +18,16 @@ import {
   AlertCircle,
   FileSpreadsheet,
   CheckCircle2,
-  Building2
+  Building2,
+  ChevronRight,
+  Info,
+  BookOpenCheck,
+  X
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/Pagination";
+import { Dialog } from "@/components/ui/dialog";
 import { useToast } from "@/context/ToastContext";
 
 interface SubjectDeliveryItem {
@@ -33,15 +38,11 @@ interface SubjectDeliveryItem {
   collegeId: string;
   collegeName: string;
   weeklyHours: number;
-  targetTopics: number;
   completedTopics: number;
   conductedHours: number;
   lastConductedDate: string | null;
   mentors: string[];
-  completionPct: number;
-  expectedPct: number;
-  gapPct: number;
-  status: "On Track" | "Moderate" | "Lagging";
+  status: "Active" | "Pending" | string;
 }
 
 interface ConductionLogItem {
@@ -63,9 +64,10 @@ interface ConductionLogItem {
 interface KAMAcademicTrackerViewProps {
   collegeId?: string;
   allowedColleges?: Array<{ id: string; name: string }>;
+  onCollegeChange?: (collegeId: string) => void;
 }
 
-export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: KAMAcademicTrackerViewProps) {
+export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges, onCollegeChange }: KAMAcademicTrackerViewProps) {
   const { currentKAM, colleges: rawColleges } = useApp();
   const { toast } = useToast();
 
@@ -86,15 +88,16 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
 
   // Sub-Tab State
   const [activeSubTab, setActiveSubTab] = useState<"syllabus" | "sessions">("syllabus");
+  const [selectedSubjectForTopics, setSelectedSubjectForTopics] = useState<SubjectDeliveryItem | null>(null);
 
   // Pagination States
   const [syllabusPage, setSyllabusPage] = useState<number>(1);
   const [sessionPage, setSessionPage] = useState<number>(1);
   const PAGE_SIZE = 12;
 
-  // Sync external collegeId prop if provided and not "all"
+  // Sync external collegeId prop if provided
   React.useEffect(() => {
-    if (collegeId && collegeId !== "all") {
+    if (collegeId) {
       setSelectedCollegeId(collegeId);
     }
   }, [collegeId]);
@@ -202,36 +205,23 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
 
   // Dynamically Recalculated Infographics (computed strictly from the filtered slice)
   const computedInfographics = useMemo(() => {
-    if (filteredSubjects.length === 0) {
-      return {
-        avgPace: 0,
-        totalTeachingHours: 0,
-        onTrackCount: 0,
-        laggingCount: 0,
-      };
-    }
-
     let totalCompleted = 0;
-    let totalTarget = 0;
     let totalHours = 0;
-    let onTrack = 0;
-    let lagging = 0;
+    let activeCount = 0;
+    let pendingCount = 0;
 
     filteredSubjects.forEach(s => {
       totalCompleted += s.completedTopics;
-      totalTarget += s.targetTopics;
       totalHours += s.conductedHours;
-      if (s.status === "On Track") onTrack += 1;
-      else if (s.status === "Lagging") lagging += 1;
+      if (s.completedTopics > 0) activeCount += 1;
+      else pendingCount += 1;
     });
 
-    const avgPace = totalTarget > 0 ? Math.round((totalCompleted / totalTarget) * 100) : 0;
-
     return {
-      avgPace,
+      totalDeliveredTopics: totalCompleted,
       totalTeachingHours: totalHours,
-      onTrackCount: onTrack,
-      laggingCount: lagging,
+      activeModulesCount: activeCount,
+      pendingModulesCount: pendingCount,
     };
   }, [filteredSubjects]);
 
@@ -246,6 +236,16 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
     return filteredSessions.slice(start, start + PAGE_SIZE);
   }, [filteredSessions, sessionPage]);
 
+  // Matching session logs for selected subject drilldown modal
+  const matchingTopicsForSubject = useMemo(() => {
+    if (!selectedSubjectForTopics) return [];
+    return rawSessionLogs.filter(log => {
+      const nameMatch = (log.subject || "").toLowerCase().trim() === selectedSubjectForTopics.name.toLowerCase().trim();
+      const collegeMatch = !selectedSubjectForTopics.collegeId || selectedSubjectForTopics.collegeId === "general" || !log.college_id || log.college_id === selectedSubjectForTopics.collegeId;
+      return nameMatch && collegeMatch;
+    });
+  }, [selectedSubjectForTopics, rawSessionLogs]);
+
   // Excel Export Handler
   const handleExportExcel = async () => {
     try {
@@ -258,9 +258,7 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
           "Semester",
           "Supervised Campus",
           "Assigned Faculty",
-          "Completed Topics",
-          "Target Topics",
-          "Completion %",
+          "Topics Delivered",
           "Conducted Hours",
           "Last Taught Date",
           "Status",
@@ -273,8 +271,6 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
           s.collegeName,
           (s.mentors || []).join(", ") || "Unassigned",
           s.completedTopics,
-          s.targetTopics,
-          `${s.completionPct}%`,
           s.conductedHours,
           s.lastConductedDate || "Pending",
           s.status,
@@ -329,9 +325,11 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
               aria-label="Filter Campus"
               value={selectedCollegeId}
               onChange={e => {
-                setSelectedCollegeId(e.target.value);
+                const val = e.target.value;
+                setSelectedCollegeId(val);
                 setSyllabusPage(1);
                 setSessionPage(1);
+                onCollegeChange?.(val);
               }}
               className="bg-transparent text-xs font-bold text-slate-800 dark:text-slate-100 outline-none"
             >
@@ -449,43 +447,43 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
       {/* ── FILTER-DRIVEN RECALCULATED INFOGRAPHICS ── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KAMKpiCard
-          label="Syllabus Completion Pace"
-          value={`${computedInfographics.avgPace}%`}
+          label="Topics Delivered"
+          value={`${computedInfographics.totalDeliveredTopics} Topics`}
           badge={{
-            text: computedInfographics.avgPace >= 65 ? "On Track" : "Lagging",
-            type: computedInfographics.avgPace >= 65 ? "positive" : "negative"
+            text: `${filteredSubjects.length} Modules`,
+            type: "neutral"
           }}
-          accentColor={computedInfographics.avgPace >= 65 ? "emerald" : "rose"}
-          icon={TrendingUp}
+          accentColor="amber"
+          icon={BookOpen}
         />
         <KAMKpiCard
           label="Conducted Teaching Hours"
           value={`${computedInfographics.totalTeachingHours} Hours`}
           badge={{
-            text: `${filteredSubjects.length} Modules`,
+            text: "Recorded Time",
             type: "neutral"
           }}
           accentColor="indigo"
           icon={Clock}
         />
         <KAMKpiCard
-          label="On-Track Modules"
-          value={computedInfographics.onTrackCount}
+          label="Active Subject Modules"
+          value={computedInfographics.activeModulesCount}
           badge={{
-            text: "≥65% Benchmark",
+            text: "In Progress",
             type: "positive"
           }}
           accentColor="emerald"
           icon={CheckCircle2}
         />
         <KAMKpiCard
-          label="Lagging Modules"
-          value={computedInfographics.laggingCount}
+          label="Pending Modules"
+          value={computedInfographics.pendingModulesCount}
           badge={{
-            text: computedInfographics.laggingCount > 0 ? "Review Needed" : "Optimal",
-            type: computedInfographics.laggingCount > 0 ? "warning" : "positive"
+            text: "Awaiting Classes",
+            type: computedInfographics.pendingModulesCount > 0 ? "warning" : "positive"
           }}
-          accentColor={computedInfographics.laggingCount > 0 ? "amber" : "emerald"}
+          accentColor={computedInfographics.pendingModulesCount > 0 ? "amber" : "emerald"}
           icon={AlertCircle}
         />
       </div>
@@ -503,7 +501,7 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
             }`}
           >
             <BookOpen className="w-3.5 h-3.5 text-amber-500" />
-            <span>Syllabus Progress Ledger ({filteredSubjects.length})</span>
+            <span>Academic Subject Delivery ({filteredSubjects.length})</span>
           </button>
           <button
             type="button"
@@ -531,23 +529,22 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
                   <TableHead className="py-3 px-3">Subject / Module</TableHead>
                   <TableHead className="py-3 px-3">Campus & Dept</TableHead>
                   <TableHead className="py-3 px-3">Assigned Faculty (Who Taught)</TableHead>
-                  <TableHead className="py-3 px-3 text-center">Topics Completed</TableHead>
-                  <TableHead className="py-3 px-3 text-center">Progress %</TableHead>
+                  <TableHead className="py-3 px-3 text-center">Topics Delivered</TableHead>
                   <TableHead className="py-3 px-3 text-center">Teaching Hours</TableHead>
-                  <TableHead className="py-3 px-3">Last Taught</TableHead>
+                  <TableHead className="py-3 px-3 text-center">Last Taught</TableHead>
                   <TableHead className="py-3 px-3 text-right">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {deliveryQuery.isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-12 text-center text-slate-400 font-bold">
+                    <TableCell colSpan={8} className="py-12 text-center text-slate-400 font-bold">
                       Loading syllabus delivery ledger...
                     </TableCell>
                   </TableRow>
                 ) : paginatedSubjects.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="py-12 text-center text-slate-400 font-bold">
+                    <TableCell colSpan={8} className="py-12 text-center text-slate-400 font-bold">
                       No academic delivery records found matching the active filters.
                     </TableCell>
                   </TableRow>
@@ -584,46 +581,27 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
                           )}
                         </div>
                       </TableCell>
-                      <TableCell className="py-3 px-3 text-center font-bold text-slate-900 dark:text-white">
-                        <span className="text-amber-600 dark:text-amber-400">{s.completedTopics}</span>
-                        <span className="text-slate-400"> / {s.targetTopics} Topics</span>
-                      </TableCell>
                       <TableCell className="py-3 px-3 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="w-20 bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
-                            <div
-                              className={`h-full rounded-full transition-all ${
-                                s.completionPct >= 65
-                                  ? "bg-emerald-500"
-                                  : s.completionPct >= 50
-                                  ? "bg-amber-500"
-                                  : "bg-rose-500"
-                              }`}
-                              style={{ width: `${Math.min(100, s.completionPct)}%` }}
-                            />
-                          </div>
-                          <span className="font-extrabold text-slate-800 dark:text-slate-200 text-xs">
-                            {s.completionPct}%
-                          </span>
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSubjectForTopics(s)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-200 border border-amber-200/80 dark:border-amber-800/60 transition-all cursor-pointer group font-extrabold text-xs"
+                          title="Click to view detailed delivered topics list"
+                        >
+                          <BookOpen className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                          <span>{s.completedTopics} {s.completedTopics === 1 ? "Topic" : "Topics"}</span>
+                          <ChevronRight className="w-3 h-3 text-amber-500 transition-transform group-hover:translate-x-0.5 ml-0.5" />
+                        </button>
                       </TableCell>
                       <TableCell className="py-3 px-3 text-center font-bold text-slate-700 dark:text-slate-300">
                         {s.conductedHours} hrs
                       </TableCell>
-                      <TableCell className="py-3 px-3 text-slate-500 font-mono text-[11px]">
+                      <TableCell className="py-3 px-3 text-center text-slate-500 font-mono text-[11px]">
                         {s.lastConductedDate || "—"}
                       </TableCell>
                       <TableCell className="py-3 px-3 text-right">
-                        <Badge
-                          variant={
-                            s.status === "On Track"
-                              ? "success"
-                              : s.status === "Moderate"
-                              ? "warning"
-                              : "destructive"
-                          }
-                        >
-                          {s.status}
+                        <Badge variant={s.completedTopics > 0 ? "success" : "outline"}>
+                          {s.completedTopics > 0 ? "Active" : "Pending"}
                         </Badge>
                       </TableCell>
                     </TableRow>
@@ -729,6 +707,139 @@ export function KAMAcademicTrackerView({ collegeId = "all", allowedColleges }: K
             </div>
           )}
         </div>
+      )}
+
+      {/* ── TOPIC BREAKDOWN & SYLLABUS DRILLDOWN MODAL ── */}
+      {selectedSubjectForTopics && (
+        <Dialog
+          open={Boolean(selectedSubjectForTopics)}
+          onOpenChange={open => !open && setSelectedSubjectForTopics(null)}
+          panelClassName="max-w-3xl w-full bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-800 max-h-[85vh] flex flex-col overflow-hidden"
+        >
+          {/* Header */}
+          <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-start justify-between gap-4 shrink-0 bg-slate-50/50 dark:bg-slate-800/40">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-extrabold text-slate-900 dark:text-white">
+                  {selectedSubjectForTopics.name}
+                </h3>
+                <Badge variant="outline" className="text-[10px] font-bold">
+                  {selectedSubjectForTopics.semester}
+                </Badge>
+              </div>
+              <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                {selectedSubjectForTopics.collegeName} • {selectedSubjectForTopics.department}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSelectedSubjectForTopics(null)}
+              className="p-1.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-6 space-y-5 overflow-y-auto custom-scrollbar flex-1">
+            {/* Subject Delivery Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60">
+                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">
+                  Topics Delivered
+                </span>
+                <span className="text-xl font-black text-amber-950 dark:text-amber-200 mt-0.5 block">
+                  {selectedSubjectForTopics.completedTopics} {selectedSubjectForTopics.completedTopics === 1 ? "Topic" : "Topics"}
+                </span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Teaching Hours
+                </span>
+                <span className="text-xl font-black text-slate-900 dark:text-white mt-0.5 block">
+                  {selectedSubjectForTopics.conductedHours} Hours
+                </span>
+              </div>
+              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200/80 dark:border-slate-700">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Conducted Status
+                </span>
+                <span className="text-sm font-extrabold text-slate-800 dark:text-slate-200 mt-1 block">
+                  {selectedSubjectForTopics.completedTopics > 0 ? "Active Conduction" : "Pending First Class"}
+                </span>
+              </div>
+            </div>
+
+            {/* List of Delivered Topics */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">
+                  Delivered Topics Audit Trail ({matchingTopicsForSubject.length})
+                </h4>
+                {matchingTopicsForSubject.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearchQuery(selectedSubjectForTopics.name);
+                      setActiveSubTab("sessions");
+                      setSelectedSubjectForTopics(null);
+                    }}
+                    className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                  >
+                    View in Conduction Logs →
+                  </button>
+                )}
+              </div>
+
+              {matchingTopicsForSubject.length === 0 ? (
+                <div className="p-8 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 text-center space-y-2">
+                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mx-auto">
+                    <Info className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div className="text-xs font-extrabold text-slate-800 dark:text-slate-200">
+                    No Topics Logged Yet for this Subject
+                  </div>
+                  <p className="text-[11px] text-slate-400 max-w-md mx-auto font-medium">
+                    When faculty mentors conduct a class and submit their period log via <strong>Mentor Dashboard → Academic Tracker → "+ Log Period"</strong> (or confirm topics during Timetable Attendance), the conducted unit and topic title will appear here automatically.
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="bg-slate-50 dark:bg-slate-800/60 text-slate-400 font-extrabold uppercase text-[10px] border-b border-slate-100 dark:border-slate-800">
+                        <th className="py-2.5 px-3">Date & Slot</th>
+                        <th className="py-2.5 px-3">Unit</th>
+                        <th className="py-2.5 px-3">Topic Delivered</th>
+                        <th className="py-2.5 px-3">Conducted By</th>
+                        <th className="py-2.5 px-3 text-right">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                      {matchingTopicsForSubject.map((t, idx) => (
+                        <tr key={t.id || idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
+                          <td className="py-2.5 px-3 font-mono text-[11px] text-slate-600 dark:text-slate-300">
+                            <span className="font-bold text-slate-900 dark:text-white block">{t.date}</span>
+                            <span className="text-[10px] text-slate-400">{t.period_slot || "Regular"}</span>
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-500 font-semibold">{t.unit || "Unit 1"}</td>
+                          <td className="py-2.5 px-3 font-bold text-slate-900 dark:text-white">
+                            <div>{t.topic || "Regular Lecture"}</div>
+                            {t.comments && <div className="text-[10px] text-slate-400 font-normal mt-0.5">{t.comments}</div>}
+                          </td>
+                          <td className="py-2.5 px-3 text-slate-600 dark:text-slate-300 font-medium">{t.mentor_name || "Faculty Mentor"}</td>
+                          <td className="py-2.5 px-3 text-right">
+                            <Badge variant="success">Completed</Badge>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </Dialog>
       )}
     </div>
   );

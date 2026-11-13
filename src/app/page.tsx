@@ -249,13 +249,10 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <img src="/E-Campus.png" alt="FACE Prep E-Campus Logo" className="h-9 w-auto object-contain" />
           </div>
-          <span className="px-2.5 py-0.5 rounded-full bg-slate-100 border border-slate-200 text-[9px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-1">
-            <Sparkles className="h-2.5 w-2.5 text-amber-500" /> Live Database
-          </span>
         </div>
 
         {/* Scrollable login form wrapper */}
-        <div className="flex-1 overflow-y-auto flex items-center justify-center p-6 md:p-12 z-10">
+        <div className="flex-1 overflow-y-auto flex items-center justify-center p-4 sm:p-6 md:p-12 z-10">
           <div className="w-full max-w-md space-y-6">
 
             {/* Welcome text */}
@@ -271,7 +268,7 @@ export default function Home() {
             </div>
 
             {/* Form Card */}
-            <div className="bg-white border border-slate-100 rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.02)] p-8 space-y-6">
+            <div className="bg-white border border-slate-100 rounded-xl shadow-[0_15px_30px_rgba(0,0,0,0.02)] p-5 sm:p-8 space-y-5 sm:space-y-6">
               {isSignupMode ? (
                 // --- SIGNUP FORM ---
                 <form onSubmit={handleSignupSubmit} className="space-y-4">
@@ -291,7 +288,7 @@ export default function Home() {
 
                   {/* Name Input */}
                   <div className="space-y-1">
-                    <label htmlFor="signup-name" className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                    <label htmlFor="signup-name" className="text-xs font-black text-slate-600 uppercase tracking-wider block">
                       Full Name
                     </label>
                     <input
@@ -309,7 +306,7 @@ export default function Home() {
 
                   {/* Email Input */}
                   <div className="space-y-1">
-                    <label htmlFor="signup-email" className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                    <label htmlFor="signup-email" className="text-xs font-black text-slate-600 uppercase tracking-wider block">
                       Email address
                     </label>
                     <input
@@ -327,7 +324,7 @@ export default function Home() {
 
                   {/* Password Input */}
                   <div className="space-y-1">
-                    <label htmlFor="signup-password" className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                    <label htmlFor="signup-password" className="text-xs font-black text-slate-600 uppercase tracking-wider block">
                       Password
                     </label>
                     <input
@@ -345,7 +342,7 @@ export default function Home() {
 
                   {/* Re-enter Password Input */}
                   <div className="space-y-1">
-                    <label htmlFor="signup-confirm-password" className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                    <label htmlFor="signup-confirm-password" className="text-xs font-black text-slate-600 uppercase tracking-wider block">
                       Re-enter Password
                     </label>
                     <input
@@ -398,7 +395,7 @@ export default function Home() {
                   <form onSubmit={handleLoginSubmit} className="space-y-5">
                     {/* Email Input */}
                     <div className="space-y-1.5">
-                      <label htmlFor="login-email" className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                      <label htmlFor="login-email" className="text-xs font-black text-slate-700 uppercase tracking-wider block">
                         Email address or Roll number
                       </label>
                       <div className="relative group">
@@ -409,7 +406,7 @@ export default function Home() {
                           placeholder="e.g. your.name@faceprep.in"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
+                          className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl pl-10 pr-4 py-3 min-h-[44px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
                           disabled={loginLoading}
                           autoComplete="email"
                           aria-invalid={Boolean(loginError)}
@@ -420,7 +417,7 @@ export default function Home() {
 
                     {/* Password Input */}
                     <div className="space-y-1.5">
-                      <label htmlFor="login-password" className="text-[10px] font-black text-slate-600 uppercase tracking-wider block">
+                      <label htmlFor="login-password" className="text-xs font-black text-slate-700 uppercase tracking-wider block">
                         Password
                       </label>
                       <div className="relative group">
@@ -431,7 +428,7 @@ export default function Home() {
                           placeholder="••••••••"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl pl-10 pr-11 py-2.5 text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
+                          className="w-full bg-slate-50/80 border border-slate-200/90 rounded-xl pl-10 pr-11 py-3 min-h-[44px] text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-slate-900 focus:ring-4 focus:ring-slate-900/5 transition-all shadow-2xs"
                           disabled={loginLoading}
                           autoComplete="current-password"
                           aria-invalid={Boolean(loginError)}
@@ -496,7 +493,7 @@ export default function Home() {
             </div>
 
             {/* Footer */}
-            <p className="text-center text-[10px] text-slate-500 font-semibold tracking-wide">
+            <p className="text-center text-xs text-slate-600 font-semibold tracking-wide text-pretty">
               © 2026 FACE Prep E-Campus · Enterprise Scheduling Platform
             </p>
           </div>

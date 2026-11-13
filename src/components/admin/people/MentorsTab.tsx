@@ -1,4 +1,5 @@
 "use client";
+import { BulkOperationDialog, useBulkOperation } from "@/components/ui/bulk-operation";
 
 import React, { useState, useMemo } from "react";
 import { useApp, Mentor } from "@/context/AppContext";
@@ -377,22 +378,23 @@ export const MentorsTab: React.FC = () => {
     e.target.value = "";
   };
 
+  const bulk = useBulkOperation();
   const handleBulkImportConfirm = async () => {
-    if (!facultyImportPreview || facultyImportPreview.parsed.length === 0) return;
+    if (!facultyImportPreview?.parsed.length) return;
+    const validRows = facultyImportPreview.parsed.filter((f: any) => f.name.trim() && f.email.trim());
+    if (!bulk.begin({ title: "Faculty import", campus: colleges.find(c => c.id === importTargetCollegeId)?.name || "Selected campus", detail: `Saving ${validRows.length} valid faculty rows.` })) return;
     setIsImporting(true);
     try {
-      const validRows = facultyImportPreview.parsed.filter((f: any) => f.name.trim() && f.email.trim());
       const res = await bulkImportMentors(validRows, importTargetCollegeId);
       if (res.success) {
-        toast(`Successfully imported ${validRows.length} faculty mentors.`, "success");
+        bulk.finish(res.message);
         setShowImportPreview(false);
         setFacultyImportPreview(null);
-        await refreshData(true);
       } else {
-        toast(res.message || "Bulk import failed.", "error");
+        bulk.finish(res.message || "Faculty import was not confirmed.", true);
       }
     } catch (err: any) {
-      toast(err.message || "An unexpected error occurred during import.", "error");
+      bulk.finish(err.message || "Check the directory before retrying.", true);
     } finally {
       setIsImporting(false);
     }
@@ -662,8 +664,9 @@ export const MentorsTab: React.FC = () => {
       />
 
       {/* Bulk Import Preview Dialog */}
+      <BulkOperationDialog operation={bulk} />
       <FacultyImportDialog
-        open={showImportPreview}
+        open={showImportPreview && !bulk.state}
         onOpenChange={setShowImportPreview}
         preview={facultyImportPreview}
         targetCollegeName={colleges.find(c => c.id === importTargetCollegeId)?.name || "Selected College"}

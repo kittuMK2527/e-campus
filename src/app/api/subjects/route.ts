@@ -31,7 +31,10 @@ export async function GET(request: Request) {
 
     const subjects = await db.all(sql, ...args);
 
-    return NextResponse.json({ success: true, count: subjects.length, subjects });
+    return NextResponse.json(
+      { success: true, count: subjects.length, subjects },
+      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" } }
+    );
   } catch (error: any) {
     console.error("API GET Subjects error:", error);
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });

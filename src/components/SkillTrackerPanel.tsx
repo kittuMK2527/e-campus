@@ -27,8 +27,13 @@ import {
   Check,
   Paperclip,
   AlertCircle,
-  Calendar
+  Calendar,
+  PlusCircle,
+  Info,
+  Clock,
+  X
 } from "lucide-react";
+import { MentorTaskAssignmentStudio } from "./MentorTaskAssignmentStudio";
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -81,6 +86,10 @@ interface WeekRollup {
   plan_status: string | null;
   submission_link?: string | null;
   task_given_date?: string | null;
+  assigned_by?: string | null;
+  assigned_role?: string | null;
+  instructions?: string | null;
+  reference_url?: string | null;
 }
 
 function formatFileSize(bytes: number): string {
@@ -195,6 +204,16 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
   const [verdictStatus, setVerdictStatus] = useState<"cleared" | "not_cleared" | "needs_revision">("cleared");
   const [verdictRemarks, setVerdictRemarks] = useState("");
   const [submittingVerdict, setSubmittingVerdict] = useState(false);
+  const [taskStudioOpen, setTaskStudioOpen] = useState(false);
+  const [instructionTarget, setInstructionTarget] = useState<{
+    taskNumber: number;
+    topic: string;
+    instructions?: string | null;
+    referenceUrl?: string | null;
+    deadline?: string | null;
+    mentorName?: string;
+    subject?: string;
+  } | null>(null);
 
   // Submission link & document modal state (Mentor / SME)
   const [submissionTarget, setSubmissionTarget] = useState<{ row: MentorSkillRow; week: WeekRollup } | null>(null);
@@ -376,6 +395,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
     () => filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize),
     [filteredRows, safePage, pageSize]
   );
+
 
   const handleExportExcel = async () => {
     try {
@@ -582,6 +602,17 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {(role === "sme" || role === "admin") && (
+              <button
+                type="button"
+                onClick={() => setTaskStudioOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white btn-gradient shadow-xs cursor-pointer transition-all hover:scale-102 active:scale-98"
+                title="Assign a new skill task or import tasks in batch"
+              >
+                <PlusCircle className="h-4 w-4 text-amber-400" />
+                <span>Assign / Import Task</span>
+              </button>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <ActionDropdownButton />
@@ -595,6 +626,15 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                   <RefreshCw className={`h-3.5 w-3.5 ${trackerQuery.isFetching ? "animate-spin" : ""}`} />
                   <span>Refresh Data</span>
                 </DropdownMenuItem>
+                {(role === "sme" || role === "admin") && (
+                  <DropdownMenuItem
+                    onClick={() => setTaskStudioOpen(true)}
+                    className="gap-2 cursor-pointer text-xs font-bold text-slate-800"
+                  >
+                    <PlusCircle className="h-3.5 w-3.5 text-amber-500" />
+                    <span>Assign / Import Task</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={handleExportExcel}
                   className="gap-2 cursor-pointer text-xs"
@@ -687,16 +727,16 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Week</label>
+            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Task Filter</label>
             <select
-              aria-label="Week"
+              aria-label="Task Filter"
               value={weekFilter}
               onChange={e => setWeekFilter(e.target.value)}
               className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
             >
-              <option value="all">All Weeks</option>
-              {Array.from({ length: 16 }, (_, i) => i + 1).map(w => (
-                <option key={w} value={String(w)}>Week {w}</option>
+              <option value="all">All Tasks</option>
+              {Array.from({ length: 40 }, (_, i) => i + 1).map(w => (
+                <option key={w} value={String(w)}>Task {w}</option>
               ))}
             </select>
           </div>
@@ -723,46 +763,72 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
           <Table className="w-full text-left border-collapse text-xs min-w-[900px]">
             <TableHeader>
               <TableRow className="bg-sunken border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-600">
-                {role !== "mentor" && <TableHead className="p-3.5">Mentor</TableHead>}
-                <TableHead className="p-3.5">Subject</TableHead>
-                <TableHead className="p-3.5">Semester</TableHead>
-                <TableHead className="p-3.5">Type</TableHead>
-                <TableHead className="p-3.5">Task Given Date</TableHead>
-                <TableHead className="p-3.5">Topic</TableHead>
-                <TableHead className="p-3.5 text-center">Submission Document / Link</TableHead>
-                <TableHead className="p-3.5 text-center">SME Verdict</TableHead>
+                {role !== "mentor" && <TableHead className="p-3.5 min-w-[110px]">Employee ID</TableHead>}
+                {role !== "mentor" && <TableHead className="p-3.5 min-w-[160px]">Mentor Name</TableHead>}
+                <TableHead className="p-3.5 min-w-[140px]">Skill Course</TableHead>
+                <TableHead className="p-3.5 min-w-[80px]">Semester</TableHead>
+                <TableHead className="p-3.5 min-w-[70px]">Type</TableHead>
+                <TableHead className="p-3.5 text-center min-w-[85px]">Task No</TableHead>
+                <TableHead className="p-3.5 min-w-[200px]">Topic</TableHead>
+                <TableHead className="p-3.5 whitespace-nowrap min-w-[110px]">Deadline</TableHead>
+                <TableHead className="p-3.5 whitespace-nowrap min-w-[110px]">Submission Date</TableHead>
+                <TableHead className="p-3.5 text-center min-w-[150px]">Submission Document / Link</TableHead>
+                <TableHead className="p-3.5 text-center min-w-[130px]">SME Verdict</TableHead>
                 {role !== "mentor" && (
-                  <TableHead className="p-3.5 text-center">Download</TableHead>
+                  <TableHead className="p-3.5 text-center min-w-[80px]">Download</TableHead>
                 )}
               </TableRow>
             </TableHeader>
             <TableBody className="divide-y divide-slate-100 font-medium">
               {loading ? (
-                <TableRow><TableCell colSpan={role !== "mentor" ? 9 : 7} className="p-8 text-center text-slate-400">Loading skill tracker...</TableCell></TableRow>
+                <TableRow>
+                  <TableCell
+                    colSpan={role !== "mentor" ? 12 : 8}
+                    className="p-8 text-center text-slate-400"
+                  >
+                    Loading skill tracker...
+                  </TableCell>
+                </TableRow>
               ) : paginatedRows.length === 0 ? (
-                <TableRow><TableCell colSpan={role !== "mentor" ? 9 : 7} className="p-8 text-center text-slate-400 italic">No skill development records found. Records appear once a skill-subject weekly plan or demo exists.</TableCell></TableRow>
+                <TableRow>
+                  <TableCell
+                    colSpan={role !== "mentor" ? 12 : 8}
+                    className="p-8 text-center text-slate-400 italic"
+                  >
+                    No skill development records found. Records appear once tasks are assigned or imported.
+                  </TableCell>
+                </TableRow>
               ) : (
                 paginatedRows.map(row => (
                   <React.Fragment key={`${row.mentor_id}__${row.subject}`}>
                     {row.weeks.map((w, idx) => (
-                      <TableRow key={`${row.mentor_id}__${row.subject}__${w.week_number}`} className="hover:bg-indigo-50/40 transition-colors">
+                      <TableRow key={`${row.mentor_id}__${row.subject}__${w.week_number}`} className="hover:bg-indigo-50/40 dark:hover:bg-slate-800/40 transition-colors">
                         {role !== "mentor" && (
-                          <TableCell className="p-3.5">
-                            <div>
-                              <div className="font-extrabold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                          <>
+                            {/* Dedicated Employee ID Column */}
+                            <TableCell className="p-3.5 whitespace-nowrap">
+                              <span className="px-2 py-1 rounded-md font-mono text-[10px] font-extrabold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                {row.mentor_id}
+                              </span>
+                            </TableCell>
+                            {/* Dedicated Mentor Name Column */}
+                            <TableCell className="p-3.5 min-w-[160px]">
+                              <div className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-1.5 flex-wrap">
                                 <span>{row.mentor_name || row.mentor_id}</span>
                                 {(mentorSubjectCount.get(row.mentor_id) || 1) > 1 && idx === 0 && (
                                   <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase bg-purple-50 text-purple-700 border border-purple-200" title={`Teaches ${mentorSubjectCount.get(row.mentor_id)} subjects`}>
-                                    {mentorSubjectCount.get(row.mentor_id)} Subjects
+                                    {mentorSubjectCount.get(row.mentor_id)} Courses
                                   </span>
                                 )}
                               </div>
-                              {idx === 0 && <div className="text-[10px] text-slate-400">{row.mentor_id}</div>}
-                            </div>
-                          </TableCell>
+                              {(row as any).college_name && (
+                                <div className="text-[9px] text-slate-400 font-medium pt-0.5">{(row as any).college_name}</div>
+                              )}
+                            </TableCell>
+                          </>
                         )}
                         <TableCell className="p-3.5">
-                          <span className="font-bold text-slate-800">{row.subject}</span>
+                          <span className="font-bold text-slate-800 dark:text-slate-200">{row.subject}</span>
                         </TableCell>
                         <TableCell className="p-3.5">
                           <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 whitespace-nowrap">
@@ -770,41 +836,64 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                           </span>
                         </TableCell>
                         <TableCell className="p-3.5">
-                          <SubjectTypeChip type={row.subject_type} />
+                          <SubjectTypeChip type={row.subject_type || "Skill"} />
                         </TableCell>
-                        <TableCell className="p-3.5">
-                          <div className="flex items-center gap-1.5 text-slate-700 font-bold text-xs whitespace-nowrap">
-                            <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
-                            <span>{w.task_given_date || "—"}</span>
-                          </div>
+                        <TableCell className="p-3.5 text-center">
+                          <span className="px-2.5 py-1 rounded-md text-[10px] font-black bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800 whitespace-nowrap">
+                            Task {w.week_number}
+                          </span>
                         </TableCell>
-                        <TableCell className="p-3.5">
+                        <TableCell className="p-3.5 max-w-[240px]">
                           {(() => {
                             const topicText = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "");
-                            if (!topicText) {
-                              return <span className="text-slate-400 text-xs italic">—</span>;
-                            }
+                            const instructions = (w as any)?.instructions;
+                            const refMaterial = (w as any)?.reference_material;
+                            const deadlineStr = (w as any)?.deadline || w.task_given_date;
+
                             return (
-                              <div className="space-y-1 max-w-[260px]">
-                                <div className="font-extrabold text-slate-900 dark:text-slate-100 text-xs leading-snug" title={topicText}>
-                                  {topicText}
+                              <div className="flex items-start justify-between gap-1.5">
+                                <div className="font-extrabold text-slate-900 dark:text-slate-100 text-xs leading-snug break-words" title={topicText || `Task ${w.week_number}`}>
+                                  {topicText || `Task ${w.week_number}`}
                                 </div>
-                                {w.topics_planned > 0 && (
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black ${
-                                      w.topics_conducted >= w.topics_planned
-                                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                                        : w.topics_conducted > 0
-                                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                                        : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"
-                                    }`}>
-                                      <span>{w.topics_conducted} / {w.topics_planned} covered</span>
-                                    </span>
-                                  </div>
+                                {(instructions || refMaterial) && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setInstructionTarget({
+                                      taskNumber: w.week_number,
+                                      topic: topicText || `Task ${w.week_number}`,
+                                      instructions,
+                                      referenceUrl: refMaterial,
+                                      deadline: deadlineStr,
+                                      mentorName: row.mentor_name || undefined,
+                                      subject: row.subject
+                                    })}
+                                    title="View Task Instructions & Study Material"
+                                    className="p-1 rounded-md text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/40 transition-colors shrink-0 cursor-pointer"
+                                  >
+                                    <Info className="h-3.5 w-3.5" />
+                                  </button>
                                 )}
                               </div>
                             );
                           })()}
+                        </TableCell>
+                        <TableCell className="p-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1 text-slate-600 dark:text-slate-300 font-bold text-xs">
+                            <Calendar className="h-3 w-3 text-slate-400 shrink-0" />
+                            <span>{(w as any)?.deadline || w.task_given_date || "—"}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="p-3.5 whitespace-nowrap">
+                          <div className="flex items-center gap-1 font-bold text-xs">
+                            <Clock className="h-3 w-3 text-slate-400 shrink-0" />
+                            {(w as any)?.submission_date ? (
+                              <span className="text-emerald-700 dark:text-emerald-400">{(w as any).submission_date}</span>
+                            ) : w.submission_link ? (
+                              <span className="text-emerald-700 dark:text-emerald-400">Submitted</span>
+                            ) : (
+                              <span className="text-slate-400 italic font-medium">Pending</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="p-3.5 text-center">
                           {(() => {
@@ -1290,6 +1379,110 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               })()}
             </div>
           </div>
+        </Dialog>
+      )}
+
+      {/* Task Instructions & Objectives Dialog */}
+      {instructionTarget && (
+        <Dialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setInstructionTarget(null); }}
+          ariaLabel="Task Instructions & Guidance"
+          overlayClassName="z-[200] p-4 bg-black/40 backdrop-blur-xs"
+          panelClassName="max-w-lg p-6 space-y-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+        >
+          <div className="flex items-start justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
+                  Task {instructionTarget.taskNumber}
+                </span>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                  {instructionTarget.topic}
+                </h3>
+              </div>
+              {instructionTarget.subject && (
+                <div className="text-[11px] text-slate-400 font-bold mt-1">
+                  {instructionTarget.subject} {instructionTarget.mentorName ? `• ${instructionTarget.mentorName}` : ""}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setInstructionTarget(null)}
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="space-y-3.5 text-xs">
+            {instructionTarget.deadline && (
+              <div className="flex items-center gap-2 p-2.5 bg-slate-50 dark:bg-slate-800 rounded-xl">
+                <Calendar className="h-4 w-4 text-amber-500" />
+                <span className="font-bold text-slate-700 dark:text-slate-300">
+                  Target Deadline: {instructionTarget.deadline}
+                </span>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                Task Instructions (`inastructions`)
+              </label>
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 font-medium leading-relaxed whitespace-pre-wrap">
+                {instructionTarget.instructions || "No specific instructions provided for this task."}
+              </div>
+            </div>
+
+            {instructionTarget.referenceUrl && (
+              <div>
+                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
+                  Reference Material / Study Link
+                </label>
+                <a
+                  href={instructionTarget.referenceUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 p-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  <span className="truncate max-w-sm">{instructionTarget.referenceUrl}</span>
+                </a>
+              </div>
+            )}
+          </div>
+
+          <div className="flex justify-end pt-3 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setInstructionTarget(null)}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 dark:text-slate-200 dark:bg-slate-800 cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </Dialog>
+      )}
+
+      {/* Mentor Task Assignment Studio Modal (SME & Admin) */}
+      {taskStudioOpen && (
+        <Dialog
+          open={true}
+          onOpenChange={(next) => { if (!next) setTaskStudioOpen(false); }}
+          ariaLabel="Mentor Skill Task Assignment"
+          overlayClassName="z-[200] p-4 bg-black/40 backdrop-blur-xs"
+          panelClassName="max-w-5xl max-h-[92vh] overflow-y-auto p-6 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800"
+        >
+          <MentorTaskAssignmentStudio
+            role={role === "admin" ? "admin" : "sme"}
+            currentCollegeId={collegeId}
+            reviewerName={reviewerName}
+            onClose={() => setTaskStudioOpen(false)}
+            onTaskAssigned={() => {
+              trackerQuery.refetch();
+            }}
+          />
         </Dialog>
       )}
     </div>

@@ -1086,7 +1086,7 @@ const StudentConductedRosterDrawer = ({
             </div>
             <div className="flex items-center gap-4">
               <div className="text-center">
-                <p className="text-2xl font-black text-indigo-700">{selectedEval.eval?.total_score}/10</p>
+                <p className="text-2xl font-black text-slate-900 dark:text-white">{selectedEval.eval?.total_score}/10</p>
                 <p className="text-[10px] text-slate-400 font-semibold">{Math.round((Number(selectedEval.eval?.total_score) || 0) * 10)}%</p>
               </div>
               <div className="flex-1 space-y-1 text-xs">
@@ -1330,6 +1330,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   const isMentor = currentUserRole === "mentor";
   const isCM = currentUserRole === "cm" || currentUserRole === "cam";
   const isKAM = currentUserRole === "kam" || currentUserRole === "admin";
+  const isReadOnlyKAM = currentUserRole === "kam";
 
   const [activeTab, setActiveTab] = useState(() =>
     isCM ? "pending" : isKAM ? "overview" : "raise"
@@ -3203,7 +3204,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                 const progressPct = reqStudents.length > 0 ? Math.round((evaluatedCount / reqStudents.length) * 100) : 0;
 
                 // Only assigned evaluators (or internal session instructors / CM) can grade
-                const canEvaluate = hasAssignedSlotsAsEvaluator || (!isExternal && isRaiser) || isCM || isKAM;
+                const canEvaluate = !isReadOnlyKAM && (hasAssignedSlotsAsEvaluator || (!isExternal && isRaiser) || isCM || isKAM);
 
                 return (
                   <div key={req.id} className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden">
@@ -3291,7 +3292,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                             {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                           </button>
                         )}
-                        {(req.status?.includes("pending") || isKAM || isCM) && (
+                        {!isReadOnlyKAM && (req.status?.includes("pending") || isKAM || isCM) && (
                           <button
                             onClick={() => handleDeleteInterview(req.id)}
                             disabled={deletingInterviewId === req.id}

@@ -79,6 +79,7 @@ import { SkillTrackerPanel } from "./SkillTrackerPanel";
 import { CourseInfoButton } from "./CourseInfoModal";
 import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatching, isCohortMatch, getDeptFromClassGroup, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, isAcademicSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
+import { ActionMenu } from "@/components/ui/ActionMenu";
 import { Dialog } from "@/components/ui/dialog";
 
 const formatPunchTime = (timeStr?: string | null) => {
@@ -1665,6 +1666,12 @@ const MentorStudyMaterialsStudio: React.FC<MentorStudyMaterialsStudioProps> = ({
   const [selectedUnit, setSelectedUnit] = useState<number | "all">("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [materialsPage, setMaterialsPage] = useState<number>(1);
+  const [materialsPageSize, setMaterialsPageSize] = useState<number>(10);
+
+  useEffect(() => {
+    setMaterialsPage(1);
+  }, [selectedSubject, selectedUnit, selectedType, searchQuery]);
 
   // Upload / Edit Modal
   const [showModal, setShowModal] = useState(false);
@@ -2050,139 +2057,159 @@ const MentorStudyMaterialsStudio: React.FC<MentorStudyMaterialsStudioProps> = ({
             Publish First Study Material
           </button>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredMaterials.map((mat) => {
-            const isPPT = mat.material_type === "ppt" || mat.material_type === "slides";
-            const isQuestionBank = mat.material_type === "question_bank" || mat.material_type === "assignment";
-            const isVideo = mat.material_type === "video";
-            const isSyllabus = mat.material_type === "syllabus";
-            const formattedDate = mat.created_at ? parseDbDate(mat.created_at).toLocaleDateString() : "Active Semester";
-            const targetUrl = mat.file_url || mat.external_url;
+      ) : (() => {
+        const totalMaterialsPages = Math.max(1, Math.ceil(filteredMaterials.length / materialsPageSize));
+        const safeMaterialsPage = Math.min(Math.max(1, materialsPage), totalMaterialsPages);
+        const paginatedMaterials = filteredMaterials.slice(
+          (safeMaterialsPage - 1) * materialsPageSize,
+          safeMaterialsPage * materialsPageSize
+        );
 
-            return (
-              <div
-                key={mat.id}
-                className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card hover:shadow-card-lg hover:border-amber-300 transition-all flex flex-col justify-between space-y-4 group"
-              >
-                <div className="space-y-3">
-                  {/* Card Header Badges */}
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-wider shadow-2xs">
-                        Unit {mat.unit_number}
-                      </span>
-                      <span
-                        className={`px-2.5 py-1 rounded-xl text-[9.5px] font-black uppercase tracking-wider border ${isPPT
-                            ? "bg-amber-50 text-amber-800 border-amber-200"
-                            : isQuestionBank
-                              ? "bg-purple-50 text-purple-800 border-purple-200"
-                              : isVideo
-                                ? "bg-rose-50 text-rose-800 border-rose-200"
-                                : isSyllabus
-                                  ? "bg-emerald-50 text-emerald-800 border-emerald-200"
-                                  : "bg-indigo-50 text-indigo-800 border-indigo-200"
-                          }`}
-                      >
-                        {isPPT
-                          ? "Slides (PPT)"
-                          : isQuestionBank
-                            ? "Question Bank / Task"
-                            : isVideo
-                              ? "Video Lecture"
-                              : isSyllabus
-                                ? "Syllabus"
-                                : "Lecture Notes"}
-                      </span>
-                      {mat.class_group && (
-                        <span className="px-2 py-0.5 rounded-lg bg-teal-50 text-teal-700 border border-teal-200 text-[9px] font-bold">
-                          {mat.class_group}
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {paginatedMaterials.map((mat) => {
+                const isPPT = mat.material_type === "ppt" || mat.material_type === "slides";
+                const isQuestionBank = mat.material_type === "question_bank" || mat.material_type === "assignment";
+                const isVideo = mat.material_type === "video";
+                const isSyllabus = mat.material_type === "syllabus";
+                const formattedDate = mat.created_at ? parseDbDate(mat.created_at).toLocaleDateString() : "Active Semester";
+                const targetUrl = mat.file_url || mat.external_url;
+
+                return (
+                  <div
+                    key={mat.id}
+                    className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card hover:shadow-card-lg hover:border-amber-300 transition-all flex flex-col justify-between space-y-4 group"
+                  >
+                    <div className="space-y-3">
+                      {/* Card Header Badges */}
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2.5 py-1 rounded-xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-wider shadow-2xs">
+                            Unit {mat.unit_number}
+                          </span>
+                          <span
+                            className={`px-2.5 py-1 rounded-xl text-[9.5px] font-black uppercase tracking-wider border ${isPPT
+                                ? "bg-amber-50 text-amber-800 border-amber-200"
+                                : isQuestionBank
+                                  ? "bg-purple-50 text-purple-800 border-purple-200"
+                                  : isVideo
+                                    ? "bg-rose-50 text-rose-800 border-rose-200"
+                                    : isSyllabus
+                                      ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                      : "bg-indigo-50 text-indigo-800 border-indigo-200"
+                              }`}
+                          >
+                            {isPPT
+                              ? "Slides (PPT)"
+                              : isQuestionBank
+                                ? "Question Bank / Task"
+                                : isVideo
+                                  ? "Video Lecture"
+                                  : isSyllabus
+                                    ? "Syllabus"
+                                    : "Lecture Notes"}
+                          </span>
+                          {mat.class_group && (
+                            <span className="px-2 py-0.5 rounded-lg bg-teal-50 text-teal-700 border border-teal-200 text-[9px] font-bold">
+                              {mat.class_group}
+                            </span>
+                          )}
+                        </div>
+
+                        <ActionMenu
+                          triggerVariant="icon"
+                          items={[
+                            {
+                              label: "Edit Material",
+                              icon: <Edit2 className="h-4 w-4" />,
+                              onClick: () => handleOpenUpload(mat),
+                            },
+                            {
+                              label: "Delete Material",
+                              icon: <Trash2 className="h-4 w-4" />,
+                              variant: "destructive",
+                              onClick: () => handleDelete(mat.id),
+                              disabled: deletingId === mat.id,
+                            },
+                          ]}
+                        />
+                      </div>
+
+                      {/* Card Title & Subject */}
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900 group-hover:text-amber-600 transition-colors leading-snug">
+                          {mat.title}
+                        </h4>
+                        <span className="text-[10px] font-bold text-slate-400 block mt-0.5">
+                          Subject: {mat.subject}
                         </span>
+                      </div>
+
+                      {/* Description */}
+                      {mat.description && (
+                        <p className="text-xs text-slate-500 font-medium line-clamp-2 leading-relaxed">
+                          {mat.description}
+                        </p>
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenUpload(mat)}
-                        className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-amber-600 transition-colors cursor-pointer"
-                        title="Edit Material"
-                      >
-                        <Edit2 className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        disabled={deletingId === mat.id}
-                        onClick={() => handleDelete(mat.id)}
-                        className="p-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors cursor-pointer disabled:opacity-50"
-                        title="Delete Material"
-                      >
-                        {deletingId === mat.id ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-rose-600" />
-                        ) : (
-                          <Trash2 className="h-3.5 w-3.5" />
+                    {/* Card Footer: Metadata & Actions */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 text-[10.5px]">
+                      <div className="text-slate-400 font-semibold truncate">
+                        <span>Published: {formattedDate}</span>
+                        {mat.file_size && <span className="ml-1 text-slate-500">• {mat.file_size}</span>}
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {targetUrl && (
+                          <button
+                            type="button"
+                            onClick={() => setPreviewItem(mat)}
+                            className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer"
+                            title="Preview details"
+                          >
+                            <Eye className="h-3 w-3" />
+                            <span>Preview</span>
+                          </button>
                         )}
-                      </button>
+                        {targetUrl ? (
+                          <a
+                            href={targetUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-amber-700 border border-indigo-200/80 rounded-lg font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                          >
+                            <span>Open Resource</span>
+                            <ExternalLink className="h-3 w-3" />
+                          </a>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">No link attached</span>
+                        )}
+                      </div>
                     </div>
                   </div>
+                );
+              })}
+            </div>
 
-                  {/* Card Title & Subject */}
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900 group-hover:text-amber-600 transition-colors leading-snug">
-                      {mat.title}
-                    </h4>
-                    <span className="text-[10px] font-bold text-slate-400 block mt-0.5">
-                      Subject: {mat.subject}
-                    </span>
-                  </div>
-
-                  {/* Description */}
-                  {mat.description && (
-                    <p className="text-xs text-slate-500 font-medium line-clamp-2 leading-relaxed">
-                      {mat.description}
-                    </p>
-                  )}
-                </div>
-
-                {/* Card Footer: Metadata & Actions */}
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 text-[10.5px]">
-                  <div className="text-slate-400 font-semibold truncate">
-                    <span>Published: {formattedDate}</span>
-                    {mat.file_size && <span className="ml-1 text-slate-500">• {mat.file_size}</span>}
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    {targetUrl && (
-                      <button
-                        type="button"
-                        onClick={() => setPreviewItem(mat)}
-                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-bold flex items-center gap-1 transition-all cursor-pointer"
-                        title="Preview details"
-                      >
-                        <Eye className="h-3 w-3" />
-                        <span>Preview</span>
-                      </button>
-                    )}
-                    {targetUrl ? (
-                      <a
-                        href={targetUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-amber-700 border border-indigo-200/80 rounded-lg font-black flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
-                      >
-                        <span>Open Resource</span>
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : (
-                      <span className="text-[10px] text-slate-400 italic">No link attached</span>
-                    )}
-                  </div>
-                </div>
+            {filteredMaterials.length > 0 && (
+              <div className="pt-2 border-t border-slate-100">
+                <Pagination
+                  currentPage={safeMaterialsPage}
+                  totalItems={filteredMaterials.length}
+                  pageSize={materialsPageSize}
+                  onPageChange={setMaterialsPage}
+                  onPageSizeChange={(newSize) => {
+                    setMaterialsPageSize(newSize);
+                    setMaterialsPage(1);
+                  }}
+                />
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Publish / Edit Study Material Modal ── */}
       {showModal && (
@@ -5163,7 +5190,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
         {/* Tab-switch pending indicator */}
         {isTabPending && (
           <div className="absolute inset-x-0 top-0 h-0.5 z-40 overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-indigo-500 via-[#4F46E5] to-indigo-500 w-full" />
+            <div className="h-full bg-amber-500 w-full" />
           </div>
         )}
         {/* Tab More Menu: Grid of remaining tabs */}
@@ -8172,7 +8199,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             <button
                               type="button"
                               onClick={() => setStudentStatus(st.id, "present")}
-                              className={`px-2.5 py-1 rounded-md text-xs transition-all cursor-pointer ${status === "present"
+                              className={`px-3.5 py-2 sm:px-2.5 sm:py-1 min-h-[44px] sm:min-h-[32px] rounded-md text-xs transition-all cursor-pointer ${status === "present"
                                 ? "bg-emerald-600 text-white font-bold shadow-xs"
                                 : "text-slate-500 hover:text-slate-900 font-medium"
                                 }`}
@@ -8182,7 +8209,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             <button
                               type="button"
                               onClick={() => setStudentStatus(st.id, "absent")}
-                              className={`px-2.5 py-1 rounded-md text-xs transition-all cursor-pointer ${status === "absent"
+                              className={`px-3.5 py-2 sm:px-2.5 sm:py-1 min-h-[44px] sm:min-h-[32px] rounded-md text-xs transition-all cursor-pointer ${status === "absent"
                                 ? "bg-rose-600 text-white font-bold shadow-xs"
                                 : "text-slate-500 hover:text-rose-700 font-medium"
                                 }`}
@@ -8192,7 +8219,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             <button
                               type="button"
                               onClick={() => setStudentStatus(st.id, "od")}
-                              className={`px-2.5 py-1 rounded-md text-xs transition-all cursor-pointer ${status === "od"
+                              className={`px-3.5 py-2 sm:px-2.5 sm:py-1 min-h-[44px] sm:min-h-[32px] rounded-md text-xs transition-all cursor-pointer ${status === "od"
                                 ? "bg-blue-600 text-white font-bold shadow-xs"
                                 : "text-slate-500 hover:text-blue-700 font-medium"
                                 }`}
@@ -8208,23 +8235,23 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
               </div>
 
               {/* Studio Bottom Footer */}
-              <div className="px-5 py-3.5 bg-white border-t border-slate-200 flex items-center justify-between gap-3 shrink-0">
+              <div className="px-3.5 sm:px-5 py-3.5 bg-white border-t border-slate-200 flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 shrink-0">
                 <button
                   type="button"
                   onClick={() => {
                     setIsAttendanceStudioOpen(false);
                     setIsModalOpen(true);
                   }}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
+                  className="px-3.5 py-2 min-h-[40px] rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer flex items-center gap-1"
                 >
                   <ChevronLeft className="w-4 h-4" /> Back to Options
                 </button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                   <button
                     type="button"
                     onClick={() => setIsAttendanceStudioOpen(false)}
-                    className="px-4 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
+                    className="px-4 py-2 min-h-[40px] rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold text-xs transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
@@ -8232,7 +8259,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                     type="button"
                     onClick={handleSaveAttendance}
                     disabled={isSubmittingAttendance || isPastDay || !isDayConfigSet || (isDayConfigSet && dayConfigDetails?.day_type === "holiday")}
-                    className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="px-5 py-2 min-h-[44px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed flex-1 sm:flex-initial"
                     title={!isDayConfigSet ? "CM must configure day order for this date first" : (dayConfigDetails?.day_type === "holiday" ? "Attendance cannot be marked on a holiday" : undefined)}
                   >
                     {isSubmittingAttendance ? (
@@ -9009,13 +9036,13 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                               value={trackerSearchTerm}
                               onChange={(e) => setTrackerSearchTerm(e.target.value)}
                               placeholder=" Search by student name or roll..."
-                              className="pl-4 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5] w-64 bg-white font-medium text-slate-800"
+                              className="pl-4 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 w-64 bg-white font-medium text-slate-800"
                             />
                           </div>
                           <select aria-label="Status filter"
                             value={trackerStatusFilter}
                             onChange={(e) => setTrackerStatusFilter(e.target.value)}
-                            className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5] bg-white font-bold text-slate-700 cursor-pointer"
+                            className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white font-bold text-slate-700 cursor-pointer"
                           >
                             <option value="all">All Statuses</option>
                             <option value="submitted">Submitted</option>
@@ -9135,7 +9162,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                             type="button"
                                             onClick={() => setTrackerWeek(wk)}
                                             title={`Week ${wk}: ${isSubmitted ? (isGraded ? `Graded (${stEntry?.marks}/10)` : "Submitted") : isAssigned ? "Pending Submission" : "Unassigned"} - Click to view`}
-                                            className={`h-5 w-5 rounded-md text-[8.5px] font-black transition-all flex items-center justify-center cursor-pointer ${colorClass} ${isCurrent ? "ring-2 ring-[#4F46E5] scale-110 z-10 shadow-sm" : ""
+                                            className={`h-5 w-5 rounded-md text-[8.5px] font-black transition-all flex items-center justify-center cursor-pointer ${colorClass} ${isCurrent ? "ring-2 ring-amber-500 scale-110 z-10 shadow-sm" : ""
                                               }`}
                                           >
                                             {wk}
@@ -9182,7 +9209,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
 
                                       {/* Sync Status Icon */}
                                       {status === "saving" && (
-                                        <span className="w-3.5 h-3.5 border-2 border-[#4F46E5] border-t-transparent rounded-full animate-spin"></span>
+                                        <span className="w-3.5 h-3.5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></span>
                                       )}
                                       {status === "saved" && (
                                         <CheckCircle className="h-4 w-4 text-emerald-600" />
@@ -9198,7 +9225,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                         href={currentUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center justify-center gap-1 text-xs font-bold text-[#4F46E5] hover:underline"
+                                        className="inline-flex items-center justify-center gap-1 text-xs font-bold text-amber-700 hover:text-amber-800 hover:underline"
                                       >
                                         <BookOpen className="h-3.5 w-3.5" />
                                         <span>View Work</span>
@@ -9252,55 +9279,18 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       </div>
 
                       {/* Pagination Bar */}
-                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs font-bold text-slate-700">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <span className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Rows per page:</span>
-                          <select
-                            value={trackerPageSize}
-                            onChange={(e) => {
-                              setTrackerPageSize(parseInt(e.target.value, 10));
-                              setTrackerPage(1);
-                            }}
-                            className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:outline-none focus:border-[#4F46E5] cursor-pointer shadow-xs"
-                            aria-label="Rows per page"
-                          >
-                            <option value={10}>10 per page</option>
-                            <option value={25}>25 per page</option>
-                            <option value={50}>50 per page</option>
-                            <option value={-1}>Show All</option>
-                          </select>
-
-                          <span className="text-slate-500 font-bold">
-                            Showing {totalItems > 0 ? (validPage - 1) * (trackerPageSize === -1 ? totalItems : trackerPageSize) + 1 : 0}–
-                            {trackerPageSize === -1 ? totalItems : Math.min(validPage * trackerPageSize, totalItems)} of {totalItems} Students
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setTrackerPage(p => Math.max(1, p - 1))}
-                            disabled={validPage === 1}
-                            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-bold shadow-xs transition-all cursor-pointer"
-                          >
-                            <ChevronLeft className="h-4 w-4" />
-                            <span>Previous</span>
-                          </button>
-
-                          <span className="px-3.5 py-1.5 bg-amber-50 text-amber-800 rounded-xl border border-indigo-100 font-black text-xs">
-                            Page {validPage} of {totalPages || 1}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => setTrackerPage(p => Math.min(totalPages, p + 1))}
-                            disabled={validPage >= totalPages}
-                            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-bold shadow-xs transition-all cursor-pointer"
-                          >
-                            <span>Next</span>
-                            <ChevronRight className="h-4 w-4" />
-                          </button>
-                        </div>
+                      <div className="pt-3 border-t border-slate-100">
+                        <Pagination
+                          currentPage={validPage}
+                          totalItems={totalItems}
+                          pageSize={trackerPageSize <= 0 ? 50 : trackerPageSize}
+                          pageSizeOptions={[10, 25, 50, 100]}
+                          onPageChange={setTrackerPage}
+                          onPageSizeChange={(newSize) => {
+                            setTrackerPageSize(newSize);
+                            setTrackerPage(1);
+                          }}
+                        />
                       </div>
 
                       {/* Assign / Edit Task Modal */}
@@ -9362,7 +9352,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       setTrackerSem("");
                                       setTrackerSubject("");
                                     }}
-                                    className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5] bg-white text-slate-800 cursor-pointer truncate"
+                                    className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white text-slate-800 cursor-pointer truncate"
                                     aria-label="Department &amp; Semester"
                                   >
                                     {deptOptions.map(d => <option key={d} value={d}>{d} — {activeSem}</option>)}
@@ -9373,7 +9363,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                   <select
                                     value={activeSubj}
                                     onChange={(e) => setTrackerSubject(e.target.value)}
-                                    className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5] bg-white text-slate-800 cursor-pointer truncate"
+                                    className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white text-slate-800 cursor-pointer truncate"
                                     aria-label="Subject"
                                   >
                                     {subjectOptions.map((s: string) => <option key={s} value={s}>{s}</option>)}
@@ -9384,7 +9374,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                   <select
                                     value={trackerWeek}
                                     onChange={(e) => setTrackerWeek(parseInt(e.target.value, 10))}
-                                    className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5] bg-white text-slate-800 cursor-pointer"
+                                    className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white text-slate-800 cursor-pointer"
                                     aria-label="Week"
                                   >
                                     {Array.from({ length: 15 }, (_, i) => i + 1).map(wk => (
@@ -9404,7 +9394,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                   value={trackerTaskName}
                                   onChange={(e) => setTrackerTaskName(e.target.value)}
                                   placeholder="e.g. Experiment 1: SQL Join Operations"
-                                  className="w-full text-xs font-semibold px-4 py-3 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/10 focus:border-[#4F46E5] bg-sunken text-slate-800"
+                                  className="w-full text-xs font-semibold px-4 py-3 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-sunken text-slate-800"
                                   aria-label="Task Name / Description"
                                 />
                               </div>
@@ -9414,14 +9404,14 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => setTrackerUploadType("url")}
-                                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${trackerUploadType === "url" ? "bg-[#4F46E5]/10 border-[#4F46E5]/30 text-[#4F46E5]" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+                                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${trackerUploadType === "url" ? "bg-slate-900 text-white border-slate-900 shadow-xs" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}
                                   >
                                     URL Link
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => setTrackerUploadType("file")}
-                                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all ${trackerUploadType === "file" ? "bg-[#4F46E5]/10 border-[#4F46E5]/30 text-[#4F46E5]" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}
+                                    className={`flex-1 py-2.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${trackerUploadType === "file" ? "bg-slate-900 text-white border-slate-900 shadow-xs" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"}`}
                                   >
                                     Upload File
                                   </button>
@@ -9437,7 +9427,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       value={trackerTaskPdf}
                                       onChange={(e) => setTrackerTaskPdf(e.target.value)}
                                       placeholder="e.g. https://drive.google.com/..."
-                                      className="w-full text-xs font-semibold px-4 py-3 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:border-[#4F46E5] focus:ring-2 focus:ring-[#4F46E5]/10 bg-sunken text-slate-800"
+                                      className="w-full text-xs font-semibold px-4 py-3 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 bg-sunken text-slate-800"
                                       aria-label="Reference PDF URL / Drive Link"
                                     />
                                   </div>
@@ -9446,7 +9436,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                     <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wide block">
                                       Choose Reference File
                                     </label>
-                                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 hover:border-[#4F46E5]/40 transition-all">
+                                    <label className="flex flex-col items-center justify-center w-full h-24 border-2 border-slate-300 border-dashed rounded-xl cursor-pointer bg-slate-50 hover:bg-slate-100 hover:border-amber-500/40 transition-all">
                                       <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                         <Upload className="w-5 h-5 mb-1 text-slate-400" />
                                         <p className="text-[10px] text-slate-500 font-medium">Click to upload or drag and drop</p>
@@ -11273,49 +11263,18 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         </div>
 
                         {/* Pagination Controls */}
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 text-xs font-bold text-slate-700">
-                          <div className="flex flex-wrap items-center gap-3">
-                            <span className="text-slate-400 font-semibold uppercase text-[10px] tracking-wider">Rows per page:</span>
-                            <select
-                              value={acadWeeklyPageSize}
-                              onChange={(e) => {
-                                setAcadWeeklyPageSize(parseInt(e.target.value, 10));
-                                setAcadWeeklyPage(1);
-                              }}
-                              className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:outline-none focus:border-indigo-600 cursor-pointer shadow-xs"
-                              aria-label="Rows per page"
-                            >
-                              <option value={10}>10 per page</option>
-                              <option value={25}>25 per page</option>
-                              <option value={50}>50 per page</option>
-                              <option value={100}>100 per page</option>
-                              <option value={-1}>Show All ({cohortStudents.length})</option>
-                            </select>
-                          </div>
-
-                          {acadWeeklyPageSize !== -1 && totalPages > 1 && (
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                type="button"
-                                disabled={validPage <= 1}
-                                onClick={() => setAcadWeeklyPage(p => Math.max(1, p - 1))}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer font-bold"
-                              >
-                                Previous
-                              </button>
-                              <span className="px-3 py-1.5 text-xs text-slate-600">
-                                Page {validPage} of {totalPages}
-                              </span>
-                              <button
-                                type="button"
-                                disabled={validPage >= totalPages}
-                                onClick={() => setAcadWeeklyPage(p => Math.min(totalPages, p + 1))}
-                                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer font-bold"
-                              >
-                                Next
-                              </button>
-                            </div>
-                          )}
+                        <div className="pt-3 border-t border-slate-100">
+                          <Pagination
+                            currentPage={validPage}
+                            totalItems={totalItems}
+                            pageSize={acadWeeklyPageSize <= 0 ? 25 : acadWeeklyPageSize}
+                            pageSizeOptions={[10, 25, 50, 100]}
+                            onPageChange={setAcadWeeklyPage}
+                            onPageSizeChange={(newSize) => {
+                              setAcadWeeklyPageSize(newSize);
+                              setAcadWeeklyPage(1);
+                            }}
+                          />
                         </div>
                       </div>
 
@@ -11541,7 +11500,6 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             <h3 className="text-sm font-black text-slate-900">
                               {editingAcadEntry ? "Edit Academic Period Log" : "Log Teaching Period"}
                             </h3>
-                            <p className="text-xs text-slate-400 font-medium">Record syllabus and topic conduction strictly for today's active period</p>
                           </div>
                         </div>
                         <button
@@ -12259,7 +12217,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
             panelClassName={`bg-white rounded-xl w-full overflow-hidden flex flex-col transition-all duration-300 p-0 space-y-0 max-h-[90vh] ${swapSuccess ? "max-w-md" : "max-w-5xl"}`}
           >
             {/* Modal Header */}
-            <div style={{ background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)" }} className="p-5 text-white flex-shrink-0">
+            <div className="p-5 text-white flex-shrink-0 bg-slate-900 border-b border-slate-800">
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-black tracking-tight">
@@ -12283,7 +12241,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
             <div className="p-5 space-y-4 overflow-y-auto flex-1">
               {swapSuccess ? (
                 <div className="py-6 px-4 text-center flex flex-col items-center justify-center space-y-4 animate-scaleUp">
-                  <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 shadow-sm animate-bounce">
+                  <div className="w-16 h-16 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-500 shadow-sm transition-transform">
                     <CheckCircle className="h-10 w-10" />
                   </div>
                   <div>
@@ -12295,8 +12253,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => { setSwapModalOpen(false); setSwapSuccess(""); setSwapGridWeekOffset(0); }}
-                    className="w-full max-w-[200px] py-2.5 text-xs font-black text-white rounded-xl shadow-md hover:scale-[1.02] transition-all"
-                    style={{ background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)" }}
+                    className="w-full max-w-[200px] py-2.5 text-xs font-black text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-md transition-all cursor-pointer"
                   >
                     Done
                   </button>
@@ -12321,13 +12278,13 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-black text-slate-700 uppercase tracking-wider">Pick One of {target.otherMentorName}&apos;s Classes to Cover</label>
                         <div className="flex items-center gap-2 bg-slate-100 rounded-xl px-3 py-1.5">
-                          <button type="button" onClick={() => setSwapGridWeekOffset(swapGridWeekOffset - 1)} className="p-0.5 hover:text-[#4F46E5] transition-colors">
+                          <button type="button" onClick={() => setSwapGridWeekOffset(swapGridWeekOffset - 1)} className="p-0.5 hover:text-amber-600 transition-colors">
                             <ChevronLeft className="h-3.5 w-3.5" />
                           </button>
                           <span className="text-[10px] font-black text-slate-700 min-w-[110px] text-center">
                             {swapGridWeekOffset === 0 ? "Current Week" : `${swapGridDates[0]?.formatted} – ${swapGridDates[4]?.formatted}`}
                           </span>
-                          <button type="button" onClick={() => setSwapGridWeekOffset(swapGridWeekOffset + 1)} className="p-0.5 hover:text-[#4F46E5] transition-colors">
+                          <button type="button" onClick={() => setSwapGridWeekOffset(swapGridWeekOffset + 1)} className="p-0.5 hover:text-amber-600 transition-colors">
                             <ChevronRight className="h-3.5 w-3.5" />
                           </button>
                         </div>
@@ -12394,27 +12351,26 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       key={time}
                                       onClick={isSelectable ? () => { setSwapOfferSlotId(slot!.id); setSwapOfferWeekDate(date.dateStr); } : undefined}
                                       className={`p-1.5 h-20 border-r border-slate-100 last:border-r-0 transition-all ${isSelected
-                                        ? "cursor-pointer"
+                                        ? "cursor-pointer bg-amber-50/40"
                                         : isSelectable
-                                          ? "cursor-pointer hover:bg-pink-50/30"
+                                          ? "cursor-pointer hover:bg-slate-50"
                                           : "bg-slate-50/30"
                                         }`}
-                                      style={isSelected ? { background: "rgba(79, 70, 229,0.07)" } : undefined}
                                     >
                                       {slot ? (
                                         <div className={`h-full flex flex-col justify-between p-1.5 rounded-xl border text-[9px] transition-all ${isSelected
-                                          ? "text-white shadow-md"
+                                          ? "bg-slate-900 border-slate-900 text-white shadow-md"
                                           : alreadyHandedOver || isPast
                                             ? "bg-slate-100 border-slate-200 text-slate-400 opacity-50"
                                             : "bg-white border-slate-200 text-slate-700 hover:shadow-sm"
                                           }`}
-                                          style={isSelected ? { background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)", borderColor: "#4F46E5" } : !alreadyHandedOver && !isPast ? undefined : undefined}>
+                                        >
                                           <div className="font-black leading-tight truncate">{slot.course}</div>
-                                          <div className={`text-[8px] font-semibold truncate ${isSelected ? "text-white/70" : "text-slate-400"}`}>
+                                          <div className={`text-[8px] font-semibold truncate ${isSelected ? "text-amber-400" : "text-slate-400"}`}>
                                             {slot.classGroup}
                                           </div>
                                           {isSelected && (
-                                            <div className="text-[7px] font-black uppercase tracking-wide text-white/60 mt-0.5">Selected</div>
+                                            <div className="text-[7px] font-black uppercase tracking-wide text-amber-300 mt-0.5">Selected</div>
                                           )}
                                           {alreadyHandedOver && (
                                             <div className="text-[7px] font-black uppercase text-slate-400">Handed Over</div>
@@ -12440,12 +12396,12 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         if (!sel) return null;
                         const selDate = new Date(swapOfferWeekDate + "T00:00:00").toLocaleDateString("en-IN", { weekday: "long", month: "short", day: "numeric" });
                         return (
-                          <div className="rounded-xl px-3 py-2.5 flex items-center justify-between border" style={{ background: "rgba(79, 70, 229,0.07)", borderColor: "rgba(79, 70, 229,0.25)" }}>
+                          <div className="rounded-xl px-3 py-2.5 flex items-center justify-between border border-amber-200 bg-amber-50/50">
                             <div>
-                              <p className="text-xs font-black" style={{ color: "#4F46E5" }}>{sel.course}</p>
-                              <p className="text-[10px] font-medium" style={{ color: "#c0239a" }}>{selDate} · {sel.time} · {sel.classGroup}</p>
+                              <p className="text-xs font-black text-slate-900">{sel.course}</p>
+                              <p className="text-[10px] font-semibold text-slate-600">{selDate} · {sel.time} · {sel.classGroup}</p>
                             </div>
-                            <button type="button" onClick={() => { setSwapOfferSlotId(""); setSwapOfferWeekDate(""); }} className="transition-colors" style={{ color: "#4F46E5" }}>
+                            <button type="button" onClick={() => { setSwapOfferSlotId(""); setSwapOfferWeekDate(""); }} className="p-1 text-slate-400 hover:text-slate-700 transition-colors">
                               <X className="h-3.5 w-3.5" />
                             </button>
                           </div>
@@ -12463,7 +12419,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         value={swapReason}
                         onChange={e => setSwapReason(e.target.value)}
                         placeholder={`e.g. Compensating for ${target.subject} handover in ${target.month}`}
-                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 resize-none text-slate-700" style={{ "--tw-ring-color": "rgba(79, 70, 229,0.4)" } as React.CSSProperties}
+                        className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none text-slate-700"
                         aria-label="Note (optional)"
                       />
                     </div>
@@ -12479,7 +12435,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       <button
                         type="button"
                         onClick={() => { setSwapModalOpen(false); setSwapError(""); setSwapGridWeekOffset(0); }}
-                        className="flex-1 px-4 py-2.5 text-xs font-black text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                        className="flex-1 px-4 py-2.5 text-xs font-black text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
                       >
                         Cancel
                       </button>
@@ -12515,8 +12471,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             setSwapError(result.message);
                           }
                         }}
-                        className="flex-1 px-4 py-2.5 text-xs font-black text-white rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md hover:scale-[1.02]"
-                        style={{ background: "linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)" }}
+                        className="flex-1 px-4 py-2.5 text-xs font-black text-white bg-slate-900 hover:bg-slate-800 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
                       >
                         {swapSubmitting ? (
                           <span className="flex items-center gap-1"><span className="animate-spin inline-block">↻</span> Sending…</span>

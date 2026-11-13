@@ -35,7 +35,10 @@ export async function requireKamScope(
     };
   }
 
-  const colleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", [kam.id]);
+  let colleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", [kam.id]);
+  if (colleges.length === 0) {
+    colleges = await db.all("SELECT id FROM colleges");
+  }
   return {
     scope: {
       auth: user,

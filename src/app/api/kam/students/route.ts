@@ -30,7 +30,10 @@ export async function GET(request: Request) {
       whereClause += " AND st.college_id = ?";
       params.push(collegeId);
     } else if (kamId) {
-      const kamColleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", kamId);
+      let kamColleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", kamId);
+      if (kamColleges.length === 0) {
+        kamColleges = await db.all("SELECT id FROM colleges");
+      }
       const kamCollegeIds = kamColleges.map((c: any) => c.id);
       if (kamCollegeIds.length === 0) {
         return NextResponse.json({
@@ -74,7 +77,10 @@ export async function GET(request: Request) {
       attWhere = "WHERE studentId IN (SELECT id FROM students WHERE college_id = ?)";
       attParams.push(collegeId);
     } else if (kamId) {
-      const kamColleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", kamId);
+      let kamColleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", kamId);
+      if (kamColleges.length === 0) {
+        kamColleges = await db.all("SELECT id FROM colleges");
+      }
       const kamCollegeIds = kamColleges.map((c: any) => c.id);
       if (kamCollegeIds.length > 0) {
         const inClause = `(${kamCollegeIds.map(() => "?").join(",")})`;

@@ -79,7 +79,6 @@ export async function GET(request: Request) {
           collegeId: sub.college_id || "general",
           collegeName: sub.college_name || "Institution",
           weeklyHours: sub.weekly_hours || 4,
-          targetTopics: 45, // baseline semester syllabus target
           completedTopics: 0,
           conductedHours: 0,
           lastConductedDate: null,
@@ -135,7 +134,6 @@ export async function GET(request: Request) {
             collegeId: t.college_id,
             collegeName: t.college_name || "Campus",
             weeklyHours: 4,
-            targetTopics: 45,
             completedTopics: 1,
             conductedHours: 1,
             lastConductedDate: t.date,
@@ -146,21 +144,14 @@ export async function GET(request: Request) {
     });
 
     const subjectDelivery = Array.from(subjectMap.values()).map(s => {
-      const completionPct = Math.min(100, Math.round((s.completedTopics / s.targetTopics) * 100));
-      // Expected progress benchmark: ~60% mid-semester
-      const expectedPct = 65;
-      const gapPct = completionPct - expectedPct;
-      const status = completionPct >= 65 ? "On Track" : completionPct >= 50 ? "Moderate" : "Lagging";
+      const status = s.completedTopics > 0 ? "Active" : "Pending";
 
       return {
         ...s,
         mentors: Array.from(s.mentors),
-        completionPct,
-        expectedPct,
-        gapPct,
         status
       };
-    }).sort((a, b) => a.completionPct - b.completionPct);
+    }).sort((a, b) => b.completedTopics - a.completedTopics);
 
     // Group by campus
     const campusMap = new Map<string, any>();
@@ -171,9 +162,7 @@ export async function GET(request: Request) {
         code: c.code || c.id,
         totalSubjects: 0,
         completedTopicsSum: 0,
-        targetTopicsSum: 0,
         totalConductedHours: 0,
-        laggingSubjectsCount: 0
       });
     });
 
@@ -182,53 +171,37 @@ export async function GET(request: Request) {
       if (c) {
         c.totalSubjects += 1;
         c.completedTopicsSum += s.completedTopics;
-        c.targetTopicsSum += s.targetTopics;
         c.totalConductedHours += s.conductedHours;
-        if (s.status === "Lagging") c.laggingSubjectsCount += 1;
       }
     });
 
-    const campusDelivery = Array.from(campusMap.values()).map(c => {
-      const avgCompletionPct = c.targetTopicsSum > 0
-        ? Math.round((c.completedTopicsSum / c.targetTopicsSum) * 100)
-        : 0;
-      return {
-        ...c,
-        avgCompletionPct,
-        status: avgCompletionPct >= 65 ? "Optimal" : avgCompletionPct >= 50 ? "At Risk" : "Critical"
-      };
-    });
+    const campusDelivery = Array.from(campusMap.values());
 
     let totalCompletedTopics = 0;
-    let totalTargetTopics = 0;
     let totalConductedHours = 0;
-    let laggingCount = 0;
-    let onTrackCount = 0;
+    let activeSubjectsCount = 0;
+    let pendingSubjectsCount = 0;
 
     subjectDelivery.forEach(s => {
       totalCompletedTopics += s.completedTopics;
-      totalTargetTopics += s.targetTopics;
       totalConductedHours += s.conductedHours;
-      if (s.status === "Lagging") laggingCount += 1;
-      else onTrackCount += 1;
+      if (s.completedTopics > 0) activeSubjectsCount += 1;
+      else pendingSubjectsCount += 1;
     });
-
-    const avgCompletionPct = totalTargetTopics > 0
-      ? Math.round((totalCompletedTopics / totalTargetTopics) * 100)
-      : 0;
 
     return NextResponse.json({
       success: true,
+      subjects: subjectDelivery,
+      subjectDelivery,
+      campuses: campusDelivery,
+      campusDelivery,
       summary: {
         totalSubjects: subjectDelivery.length,
-        avgCompletionPct,
-        expectedBenchmark: 65,
-        onTrackCount,
-        laggingCount,
-        totalTeachingHours: totalConductedHours
-      },
-      campusDelivery,
-      subjectDelivery
+        totalCompletedTopics,
+        totalConductedHours,
+        activeSubjectsCount,
+        pendingSubjectsCount
+      }
     });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

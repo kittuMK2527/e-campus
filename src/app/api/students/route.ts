@@ -430,7 +430,7 @@ export async function DELETE(request: Request) {
     const placeholders = cleanIds.map(() => "?").join(",");
 
     // Atomic batch delete — child tables deleted first to satisfy foreign keys, then users and students
-    await db.client.batch([
+    const statements = [
       {
         sql: `DELETE FROM student_attendance WHERE studentId IN (${placeholders})`,
         args: cleanIds
@@ -479,12 +479,18 @@ export async function DELETE(request: Request) {
         sql: `DELETE FROM students WHERE id IN (${placeholders})`,
         args: cleanIds
       }
-    ], "write");
+    ];
+    const count = await db.transaction(async tx => {
+      let changes = 0;
+      for (const stmt of statements) changes = (await tx.run(stmt.sql, ...stmt.args)).changes;
+      // The last statement deletes student rows, not their linked records.
+      return changes;
+    });
 
     return NextResponse.json({
       success: true,
-      message: `${cleanIds.length} student record(s) deleted successfully.`,
-      count: cleanIds.length
+      message: `${count} student record(s) deleted. ${cleanIds.length - count} already absent.`,
+      count
     });
   } catch (error: any) {
     console.error("API DELETE Students error:", error);

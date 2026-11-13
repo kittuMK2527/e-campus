@@ -982,7 +982,6 @@ export function LndAllocationDashboard() {
         {/* Page Top Header — the only place these four actions exist */}
         <PageHeader
           title="L&D Console"
-          subtitle="Multi-campus mentor and SME session allocations."
           icon={Sparkles}
           meta={
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
@@ -1199,7 +1198,7 @@ export function LndAllocationDashboard() {
                     onClick={() => setQuotaOpen(open => !open)}
                     aria-expanded={quotaOpen}
                     aria-controls="lnd-quota-panel"
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:border-[#4F46E5]/50 transition-colors cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 hover:border-slate-900/50 dark:hover:border-amber-500/50 transition-colors cursor-pointer"
                   >
                     {quotaOpen ? "Hide" : "Show"} {displayedQuotaMentors.length} faculty
                     <ChevronDown className={`h-3.5 w-3.5 transition-transform ${quotaOpen ? "rotate-180" : ""}`} aria-hidden="true" />

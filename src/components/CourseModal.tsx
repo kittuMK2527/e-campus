@@ -369,9 +369,6 @@ export const CourseModal: React.FC<CourseModalProps> = ({
               <h3 className="font-extrabold text-slate-900 text-sm">
                 {editingCourse ? "Edit Course & Batch Details" : "Add Course / Department"}
               </h3>
-              <p className="text-[10.5px] text-slate-500 font-medium">
-                Configure curriculum duration, codes, and campus room allocations
-              </p>
             </div>
           </div>
           <button

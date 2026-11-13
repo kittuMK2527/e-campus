@@ -42,13 +42,14 @@ import {
   SlidersHorizontal,
   CheckSquare,
   CalendarRange,
-  GraduationCap
+  GraduationCap,
+  Menu
 } from "lucide-react";
 import { WeeklyPlanViewer } from "./WeeklyPlanStudio";
 import { SkillTrackerPanel } from "./SkillTrackerPanel";
 import { DemoEvalCriteriaPanel, EvaluationChecklist, ChecklistEntry } from "./DemoEvalCriteriaPanel";
 
-type TabKey = "overview" | "demo_list" | "weekly_plans" | "skill_approvals" | "availability" | "reallocation" | "history" | "calendar" | "reallocation_hub" | "eval_criteria";
+type TabKey = "overview" | "demo_list" | "weekly_plans" | "skill_approvals" | "availability" | "reallocation" | "history" | "calendar" | "reallocation_hub" | "eval_criteria" | "more_menu";
 
 interface SMEDashboardProps {
   activeTab?: TabKey;
@@ -731,54 +732,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
       </aside>
 
       {/* ── Main Content Body Area ── */}
-      <main className="flex-1 w-full overflow-y-auto h-full pb-20 md:pb-12 scroll-touch">
+      <main className="flex-1 w-full overflow-y-auto h-full pb-24 md:pb-12 scroll-touch">
         <div className="p-3 md:p-6 space-y-6 max-w-[1400px] mx-auto animate-scaleUp">
 
-          {/* Top Header Banner & Profile Card */}
-          {activeTab !== "skill_approvals" && (
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-card">
-              <div className="flex items-center gap-3.5">
-                <div className="h-10 w-10 rounded-lg bg-pink-50 dark:bg-pink-950/30 flex items-center justify-center text-pink-600 dark:text-pink-400 shrink-0 border border-pink-100 dark:border-pink-900">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div>
-                  <h1 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
-                    SME Dashboard
-                  </h1>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-                    Mentor demos, availability schedule, and reallocation requests.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 shrink-0">
-                {activeTab === "demo_list" && (
-                  <button
-                    onClick={handleExportCSV}
-                    className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-extrabold border border-slate-200 dark:border-slate-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <Download className="h-3.5 w-3.5" /> Export CSV
-                  </button>
-                )}
-                <button
-                  onClick={async () => { await refreshData(); toast("Data refreshed successfully!", "success"); }}
-                  className="p-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-2xs"
-                  title="Refresh Data"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                </button>
-                <div className="flex items-center gap-2.5 px-3 py-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shrink-0">
-                  <div className="h-7 w-7 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xs font-black">
-                    {currentSME.name?.charAt(0) || "S"}
-                  </div>
-                  <div className="text-left hidden sm:block">
-                    <span className="text-[10px] font-black text-slate-900 dark:text-white block leading-tight">{currentSME.name}</span>
-                    <span className="text-[8.5px] text-pink-600 dark:text-pink-400 font-bold block">Profile</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* System Alerts */}
           {successMsg && (
@@ -893,7 +849,6 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
               {/* Compact Today's Schedule & Action Indicators */}
               <Panel
                 title="TODAY'S SCHEDULE"
-                subtitle="Faculty demos set for today requiring evaluation or attendance"
               >
                 {todayDemos.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -935,7 +890,6 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
           {activeTab === "demo_list" && (
             <Panel
               title="MY L&D SESSIONS"
-              subtitle="View and manage faculty L&D sessions assigned to your subject stream"
             >
               <div className="space-y-5">
                 {/* Sub-tab Status Filters */}
@@ -1121,6 +1075,81 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
             />
           )}
 
+          {/* ═══════════════ TAB: MORE TOOLS & PORTALS (MOBILE HUB) ═══════════════ */}
+          {activeTab === "more_menu" && (
+            <div className="space-y-4 animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <Menu className="h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-slate-900 dark:text-white">More SME Workspaces</h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Additional evaluation and tracking portals.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                {[
+                  {
+                    id: "skill_approvals",
+                    label: "Skill Approvals",
+                    subtitle: "Verify & approve student coding milestones",
+                    icon: GraduationCap,
+                    bg: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
+                  },
+                  {
+                    id: "eval_criteria",
+                    label: "Evaluation Criteria",
+                    subtitle: "Rubrics, scoring parameters & checklist",
+                    icon: SlidersHorizontal,
+                    bg: "bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400"
+                  },
+                  {
+                    id: "reallocation",
+                    label: "Reallocation Requests",
+                    subtitle: "Manage demo swaps and leave requests",
+                    icon: RefreshCw,
+                    bg: "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400",
+                    count: pendingInboundRequests.length + affectedCount
+                  },
+                  {
+                    id: "history",
+                    label: "Evaluation History",
+                    subtitle: "Archives of completed demo evaluations",
+                    icon: FileText,
+                    bg: "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400",
+                    count: completedCount
+                  }
+                ].map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleTabChange(item.id as any)}
+                      className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl text-left hover:border-amber-400 hover:ring-2 hover:ring-amber-500/20 transition-all flex items-center justify-between gap-3 shadow-card cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <div className={`h-10 w-10 rounded-xl ${item.bg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
+                          <Icon className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="block text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{item.label}</span>
+                          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium block truncate">{item.subtitle}</span>
+                        </div>
+                      </div>
+                      {Boolean(item.count) && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-rose-500 text-white shrink-0">
+                          {item.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ═══════════════ TAB 2: AVAILABILITY ═══════════════ */}
           {activeTab === "availability" && (
             <div className="space-y-6">
@@ -1128,7 +1157,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
               <div className="p-5 bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="space-y-1">
                   <h3 className="text-base font-black text-slate-900 dark:text-white flex items-center gap-2">
-                    <SlidersHorizontal className="h-5 w-5 text-[#4F46E5]" />
+                    <SlidersHorizontal className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                     SME Working Windows & Schedule Settings
                   </h3>
                   <p className="text-xs text-slate-500 font-medium max-w-2xl">
@@ -1151,7 +1180,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           className="px-2.5 py-1 bg-sunken dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-800 rounded-lg border border-slate-200 inset-shadow-well/80 dark:border-slate-700 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5 cursor-pointer transition-all"
                           title="Click to configure this day"
                         >
-                          <span className="font-extrabold text-[#4F46E5]">{d.slice(0, 3)}:</span>
+                          <span className="font-extrabold text-slate-900 dark:text-amber-400">{d.slice(0, 3)}:</span>
                           {wins.length === 0 ? (
                             <span className="text-slate-400">9–5:30 (Default)</span>
                           ) : (
@@ -1170,7 +1199,6 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
               {/* Central Dynamic Matrix Grid */}
               <Panel
                 title="SME AVAILABILITY & TIMETABLE MATRIX"
-                subtitle="Live central calendar displaying L&D Evaluation slots, Training slots, Confirmed Bookings, and Leaves"
               >
                 <div className="space-y-6">
                   {/* Legend & Action Bar */}
@@ -1187,7 +1215,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <button
                       type="button"
                       onClick={() => setShowAvailModal(true)}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-[#4F46E5] text-white hover:bg-[#b81d89] shadow-xs flex items-center gap-2 cursor-pointer transition-all shrink-0 ml-auto"
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 shadow-xs flex items-center gap-2 cursor-pointer transition-all shrink-0 ml-auto"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       Edit My Timings & Windows
@@ -1288,7 +1316,6 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
           {activeTab === "reallocation" && (
             <Panel
               title="REALLOCATION REQUESTS"
-              subtitle="Review leave-affected demo proposals and process SME reallocations"
             >
               <div className="space-y-6">
                 {/* Quick Action Bar to initiate swap */}
@@ -1428,7 +1455,6 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
           {activeTab === "history" && (
             <Panel
               title="EVALUATION HISTORY LOG"
-              subtitle="Completed L&D evaluations, 100-mark scorecards, and recorded feedback"
             >
               <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
@@ -1781,7 +1807,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 {/* Modal Header */}
                 <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
                   <div className="flex items-center gap-3">
-                    <div className="p-2.5 bg-[#4F46E5]/10 text-[#4F46E5] rounded-xl">
+                    <div className="p-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl">
                       <SlidersHorizontal className="h-5 w-5" />
                     </div>
                     <div>
@@ -1814,8 +1840,8 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         onClick={() => setSelectedAvailDay("ALL")}
                         className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                           selectedAvailDay === "ALL"
-                            ? "bg-[#4F46E5] text-white shadow-xs"
-                            : "text-slate-700 dark:text-slate-300 hover:text-[#4F46E5]"
+                            ? "bg-slate-900 text-white dark:bg-amber-500 dark:text-slate-950 shadow-xs"
+                            : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
                         }`}
                       >
                         All Weekdays (Mon - Fri)
@@ -1830,7 +1856,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           onClick={() => setSelectedAvailDay(d)}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                             selectedAvailDay === d
-                              ? "bg-white dark:bg-slate-900 text-[#4F46E5] shadow-xs font-black"
+                              ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-amber-400 shadow-xs font-black"
                               : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
                           }`}
                         >
@@ -1934,7 +1960,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                                     copy[idx].startTime = to12Hour(e.target.value);
                                     setDayWindows(copy);
                                   }}
-                                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
+                                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-slate-900 dark:focus:ring-amber-500 cursor-pointer"
                                 />
                               </div>
                               <span className="text-slate-400 font-black mt-4">→</span>
@@ -1948,7 +1974,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                                     copy[idx].endTime = to12Hour(e.target.value);
                                     setDayWindows(copy);
                                   }}
-                                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
+                                  className="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-slate-900 dark:focus:ring-amber-500 cursor-pointer"
                                 />
                               </div>
                             </div>
@@ -1975,7 +2001,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         onClick={() => {
                           setDayWindows([...dayWindows, { startTime: "01:30 PM", endTime: "05:30 PM", slotType: "training" }]);
                         }}
-                        className="w-full p-3.5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-[#4F46E5] text-slate-600 dark:text-slate-400 hover:text-[#4F46E5] flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer"
+                        className="w-full p-3.5 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 hover:border-slate-900 dark:hover:border-amber-500 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-amber-400 flex items-center justify-center gap-2 text-xs font-bold transition-all cursor-pointer"
                       >
                         <Plus className="h-4 w-4" />
                         Add Another Time Window
@@ -2059,7 +2085,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           }
                         }
                       }}
-                      className="px-6 py-2.5 rounded-xl text-xs font-black bg-[#4F46E5] text-white hover:bg-[#b81d89] shadow-md flex items-center gap-2 transition-all cursor-pointer"
+                      className="px-6 py-2.5 rounded-xl text-xs font-bold bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 shadow-md flex items-center gap-2 transition-all cursor-pointer"
                     >
                       <Save className="h-4 w-4" />
                       {isSavingAvail
@@ -2075,6 +2101,52 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
 
         </div>
       </main>
+
+      {/* ── Mobile Bottom Navigation Bar (Persistent 1-Tap Thumb Navigation) ── */}
+      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom" aria-label="SME sections">
+        <div className="flex w-full items-stretch justify-around px-1 py-1">
+          {[
+            { id: "overview" as const, label: "Home", icon: Sparkles },
+            { id: "demo_list" as const, label: "Demos", icon: ClipboardList, count: totalAssigned },
+            { id: "weekly_plans" as const, label: "Plans", icon: CalendarRange },
+            { id: "availability" as const, label: "Schedule", icon: Calendar },
+            {
+              id: "more_menu" as const,
+              label: "More",
+              icon: Menu,
+              count: (pendingInboundRequests.length + affectedCount)
+            }
+          ].map((t) => {
+            const Icon = t.icon;
+            const isMoreTab = ["skill_approvals", "eval_criteria", "reallocation", "history"].includes(activeTab);
+            const isActive = t.id === "more_menu" ? isMoreTab : activeTab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => handleTabChange(t.id as any)}
+                aria-current={isActive ? "page" : undefined}
+                className={`relative flex min-h-[3.5rem] flex-1 flex-col items-center justify-center gap-1 rounded-xl transition-colors cursor-pointer ${
+                  isActive ? "text-zinc-950 dark:text-white" : "text-slate-400 dark:text-slate-500"
+                }`}
+              >
+                <div className="relative">
+                  <Icon className={`h-4.5 w-4.5 transition-transform ${isActive ? "scale-110 text-amber-500 dark:text-amber-400" : ""}`} />
+                  {Boolean(t.count) && (t.count ?? 0) > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[1rem] h-3.5 px-1 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center tabular-nums">
+                      {t.count}
+                    </span>
+                  )}
+                </div>
+                <span className={`text-[10px] font-bold leading-none tracking-tight ${isActive ? "text-zinc-950 dark:text-white font-black" : "text-slate-500 dark:text-slate-400"}`}>
+                  {t.label}
+                </span>
+                {isActive && <span className="absolute top-0 inset-x-2 h-0.5 rounded-full bg-amber-500" />}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 }

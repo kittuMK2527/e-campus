@@ -511,7 +511,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
       {subTab === "benchmark" && (
         <div className="space-y-6">
           {/* Side-by-Side Recharts BarChart */}
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-card space-y-4">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-card space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <h3 className="text-sm font-black text-slate-900 tracking-tight">
@@ -531,7 +531,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
               </div>
             </div>
 
-            <div className="h-72 w-full pt-4">
+            <div className="h-60 sm:h-72 w-full pt-2 sm:pt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={benchmarkChartData} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -712,7 +712,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
       {/* ── 5. SUB-TAB 2: PORTFOLIO ATTENDANCE TRENDS ── */}
       {subTab === "trends" && (
         <div className="space-y-6">
-          <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-card space-y-4">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-card space-y-4">
             <div>
               <h3 className="text-sm font-black text-slate-900 tracking-tight">
                 Daily Portfolio Attendance Progression &amp; Compliance Curve
@@ -722,7 +722,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
               </p>
             </div>
 
-            <div className="h-72 w-full pt-4">
+            <div className="h-60 sm:h-72 w-full pt-2 sm:pt-4">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={effectiveTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 10 }}>
                   <defs>
@@ -788,7 +788,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
         <div className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Pie Chart Card */}
-            <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-card flex flex-col justify-between">
+            <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-100 shadow-card flex flex-col justify-between">
               <div>
                 <h3 className="text-sm font-black text-slate-900 tracking-tight">
                   Portfolio Student Risk Tiers
@@ -798,7 +798,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
                 </p>
               </div>
 
-              <div className="h-56 w-full my-auto">
+              <div className="h-52 sm:h-56 w-full my-auto">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie

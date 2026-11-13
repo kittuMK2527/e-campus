@@ -122,7 +122,7 @@ export async function POST(request: Request) {
         collegeId: requestor.college_id,
         title: `Class Swap Offered by ${requestor.name}`,
         message: `${requestor.name} offered to cover "${offerSlot.course}" on ${offerDateFormatted} as compensation.`,
-        link: "/mentor/handover",
+        link: "/mentor?tab=handovers",
         type: "info",
         domain: "notifications",
         action: "created",

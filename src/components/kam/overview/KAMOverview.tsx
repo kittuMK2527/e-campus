@@ -164,7 +164,6 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-black text-slate-900 tracking-tight">Portfolio Attendance Trend (30-Day Moving Average)</h3>
-              <p className="text-xs font-medium text-slate-400">Daily student presence rate across all active campuses</p>
             </div>
             <button
               onClick={() => onNavigateTab("attendance")}
@@ -189,7 +188,6 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-sm font-black text-slate-900">Student Risk Stratification</h3>
-                <p className="text-xs font-medium text-slate-400">Compliance tiers based on attendance</p>
               </div>
               <button
                 onClick={() => onNavigateTab("students")}
@@ -266,7 +264,6 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-sm font-black text-slate-900 tracking-tight">Campus Health & CM Direct Reports</h3>
-            <p className="text-xs font-medium text-slate-400">Real-time status of each supervised college and assigned Campus Manager</p>
           </div>
           <button
             onClick={() => onNavigateTab("reports")}

@@ -930,7 +930,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const run = async () => {
       setIsDataLoading(true);
       if (!silent) {
-        startLoading("Fetching live database data…");
+        startLoading("Loading academic records…");
       }
     try {
       let role: Role;
@@ -2480,11 +2480,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return next;
           });
         }
-        await refreshData(true);
+        try { await refreshData(true); }
+        catch { data.message += " Reload the directory to see the changes."; }
       }
       return data;
-    } catch (e: any) {
-      return { success: false, message: e.message || "Bulk import failed." };
+    } catch {
+      return { success: false, message: "Faculty import not confirmed. Check the directory before retrying." };
     }
   };
 
@@ -3132,7 +3133,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const bulkDeleteStudents = async (ids: string[]) => {
     if (!ids || ids.length === 0) return { success: false, message: "No student IDs provided." };
-    startLoading(`Deleting ${ids.length} student records...`);
     try {
       const res = await fetch("/api/students", {
         method: "DELETE",
@@ -3145,10 +3145,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setStudents(prev => prev.filter(s => !idSet.has(s.id)));
       }
       return data;
-    } catch (e: any) {
-      return { success: false, message: e.message };
-    } finally {
-      stopLoading();
+    } catch {
+      return { success: false, message: "Deletion not confirmed. Refresh before retrying." };
     }
   };
 

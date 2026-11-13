@@ -1,0 +1,27 @@
+# Live progress for bulk import and delete
+
+Scope: CAM student and attendance imports, CAM/Admin faculty import, and CAM student deletion (selected rows or all filtered results). This is a source review and implementation plan, not a runtime UI test. The interview module's individual delete confirmation and evaluation percentage are separate flows.
+
+## What users see today
+
+| Flow | Evidence in source | Gap |
+| --- | --- | --- |
+| Attendance import | `src/components/CAMDashboard.tsx:10019` sends sequential batches of 500 attendance entries. | The handler accumulates a local count rather than updating the popup. Its fallback treats a returned zero as a fully saved batch. The unit is attendance entries, not students. |
+| Student import | `src/components/CAMDashboard.tsx:9598` submits the preview in one POST, closes the popup and refreshes the list. | The success toast uses the payload length. The popup receives no intermediate server counts. |
+| Faculty import | `src/components/admin/people/MentorsTab.tsx:380` and `src/components/CAMDashboard.tsx:10528` use the same context operation; `src/app/api/mentors/bulk/route.ts:95` loops inside a transaction. | The API returns the count at the end. A row visited is not a row committed. Both previews need the same behavior. |
+| Student delete | `src/components/CAMDashboard.tsx:9249` confirms once, then shows loading and a toast. `src/context/AppContext.tsx:3133` sends all IDs together. `src/app/api/students/route.ts:423` rejects more than 500; line 487 reports requested IDs rather than affected student rows. | A large filtered selection can be confirmed and then rejected. A missing student can count as deleted. The global loader can compete with the popup. |
+
+## Implementation order
+
+1. **Build one progress view inside the existing dialogs.** Keep the operation name, campus, frozen selection count and unit visible from confirmation through result. States: preview/confirm, submitting, processing, refreshing list, result. Disable repeat submission immediately. Keep the result visible until Done. Use the existing `src/components/ui/progress.tsx` for known totals; add an indeterminate mode with no numeric ARIA value for unknown progress. Announce phase and batch changes politely; support keyboard focus and reduced motion. Do not use a timer to simulate completion.
+2. **Ship attendance first.** Publish a state update after each successful batch response. Example: “500 of 1,200 attendance entries processed; saving batch 2 of 3.” Track acknowledged inputs separately from actual saved/skipped counts. Preserve explicit zero; if the server does not supply an affected count, do not label it saved. On failure show the last acknowledged batch and unresolved entries. A lost response means outcome unknown, not necessarily failed.
+3. **Preserve single-request semantics for student and faculty imports.** Initially show “Saving 240 validated rows” with indeterminate progress, then the server-confirmed result. For live updates *within* these requests, add an operation ID, a durable worker and a campus/owner-authorized status endpoint. Poll while the dialog is open (e.g. once per second with backoff); resume by ID on reconnect. Publish processed counts independently of the data transaction, label them “processed, not yet committed,” and mark saved only after commit. Track skipped/failed separately. Verify deployment supports durable execution before enabling this path. Do not split a transaction just to animate a bar.
+4. **Fix deletion scope and counts before adding percentages.** Snapshot unique IDs at confirmation and distinguish “selected” from “all filtered.” Enforce the existing 500 limit before submission; keep the server guard. State that related attendance, marks, fee and interview records are affected. Return affected student rows from the transaction, distinguish already absent IDs, and reconcile selection/list with that result. Keep one popup rather than a blocking global loader over it. Show “Deleting linked records for 320 students” until commit. If finer feedback is needed, report actual cleanup stages through the operation status endpoint, not a fictional student counter. Supporting more than 500 via independently committed batches is a separate product decision: it allows partial permanent deletion and needs explicit confirmation.
+5. **Handle interruptions honestly.** Disable dismissal during a non-resumable request; do not offer Cancel after submission unless the server supports it. With durable jobs, offer Hide and reopen, deduplicate submissions by operation key, and check status before retrying an ambiguous write. If saving succeeds but list refresh fails, offer “Reload list,” not “Retry import/delete.”
+
+## Acceptance checks
+
+- Import 1,201 attendance entries: show acknowledged totals 500, 1,000, 1,201; if batch two fails, retain 500 confirmed and do not report completion.
+- For both faculty screens and student import: double-click sends one operation; skipped rows and rollback never appear as saved. Refresh failure does not replay writes.
+- Delete 0, 1, 500 and 501 selected/filtered IDs. Zero cannot submit; 501 is blocked before the request; already absent IDs do not inflate the result. Changing the underlying filter does not change the confirmed target.
+- Verify slow responses, lost responses and keyboard/mobile behavior. For durable jobs also verify reconnect, access isolation and terminal status after rollback. No percentage should advance solely because time passed.

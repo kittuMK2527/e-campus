@@ -421,9 +421,6 @@ export const ClassObservationView: React.FC<{
               <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
                 Classroom Observation Log ({collegeName})
               </h3>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
-                Log classroom visits with photo evidence, dimension ratings, and satisfaction status. Not-satisfied entries escalate to senior management automatically.
-              </p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -453,20 +450,20 @@ export const ClassObservationView: React.FC<{
       {/* KPIs */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="p-3.5 bg-white border border-slate-100 rounded-2xl shadow-card">
-          <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 block">Total Observations</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block">Total Observations</span>
           <div className="text-2xl font-black text-slate-900 mt-1">{observations.length}</div>
         </div>
-        <div className="p-3.5 bg-indigo-50 border border-indigo-200 rounded-xl shadow-2xs">
-          <span className="text-[9px] font-black uppercase tracking-wider text-indigo-700 block">This Month</span>
-          <div className="text-2xl font-black text-indigo-900 mt-1">{thisMonthCount}</div>
+        <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl shadow-2xs">
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 block">This Month</span>
+          <div className="text-2xl font-black text-slate-900 mt-1">{thisMonthCount}</div>
         </div>
         <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl shadow-2xs">
-          <span className="text-[9px] font-black uppercase tracking-wider text-emerald-700 block">Avg Overall Rating</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-700 block">Avg Overall Rating</span>
           <div className="text-2xl font-black text-emerald-900 mt-1">{avgObs ?? "—"}</div>
           <span className="text-[10px] text-emerald-700 font-medium">out of 5</span>
         </div>
         <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl shadow-2xs">
-          <span className="text-[9px] font-black uppercase tracking-wider text-rose-700 block">Not Satisfied Flags</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 block">Not Satisfied Flags</span>
           <div className="text-2xl font-black text-rose-900 mt-1">{notSatisfiedCount}</div>
           <span className="text-[10px] text-rose-700 font-medium">escalated</span>
         </div>
@@ -517,7 +514,7 @@ export const ClassObservationView: React.FC<{
                   <select
                     value={fRatings[d.key] ?? ""}
                     onChange={(e) => setFRatings(prev => ({ ...prev, [d.key]: Number(e.target.value) }))}
-                    className="bg-white border border-slate-200 rounded-lg text-[11px] font-black px-1.5 py-0.5 cursor-pointer focus:outline-hidden"
+                    className="bg-white border border-slate-200 rounded-lg text-xs font-black min-h-[38px] px-2.5 py-1 cursor-pointer focus:outline-hidden"
                   >
                     <option value="">—</option>
                     {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
@@ -530,10 +527,10 @@ export const ClassObservationView: React.FC<{
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider block mb-2">Overall Rating *</span>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 {[1, 2, 3, 4, 5].map(n => (
                   <button key={n} type="button" onClick={() => setFOverall(n)} aria-label={`Rate ${n} out of 5`}
-                    className={`p-1 cursor-pointer transition-transform hover:scale-110 ${n <= fOverall ? "text-amber-400" : "text-slate-300"}`}>
+                    className={`min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer transition-transform hover:scale-110 ${n <= fOverall ? "text-amber-400" : "text-slate-300"}`}>
                     <Star className={`h-7 w-7 ${n <= fOverall ? "fill-amber-400" : ""}`} />
                   </button>
                 ))}
@@ -544,13 +541,13 @@ export const ClassObservationView: React.FC<{
               <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider block mb-2">Satisfaction Status *</span>
               <div className="flex gap-2">
                 <button type="button" onClick={() => setFSatisfaction("satisfied")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                  className={`flex-1 min-h-[44px] py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
                     fSatisfaction === "satisfied" ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-600 border-slate-200 hover:border-emerald-400"
                   }`}>
                   ✓ Satisfied
                 </button>
                 <button type="button" onClick={() => setFSatisfaction("not_satisfied")}
-                  className={`flex-1 py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
+                  className={`flex-1 min-h-[44px] py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
                     fSatisfaction === "not_satisfied" ? "bg-rose-600 text-white border-rose-600" : "bg-white text-slate-600 border-slate-200 hover:border-rose-400"
                   }`}>
                   ✗ Not Satisfied
@@ -1764,7 +1761,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                     <button
                       type="button"
                       onClick={() => item.set(!item.val)}
-                      className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer ${
+                      className={`min-h-[44px] min-w-[70px] px-3.5 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                         item.val ? "bg-emerald-600 text-white" : "bg-rose-100 text-rose-700"
                       }`}
                     >
@@ -1852,7 +1849,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                     <button
                       type="button"
                       onClick={() => item.set(!item.val)}
-                      className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer ${
+                      className={`min-h-[44px] min-w-[70px] px-3.5 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                         item.val ? "bg-emerald-600 text-white" : "bg-rose-100 text-rose-700"
                       }`}
                     >
@@ -1916,7 +1913,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                     <button
                       type="button"
                       onClick={() => item.set(!item.val)}
-                      className={`px-3 py-1 text-xs font-extrabold rounded-lg transition-all cursor-pointer ${
+                      className={`min-h-[44px] min-w-[70px] px-3.5 py-2 text-xs font-extrabold rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                         item.val ? "bg-emerald-600 text-white" : "bg-rose-100 text-rose-700"
                       }`}
                     >
@@ -1944,7 +1941,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-700" />
                   <span className="text-xs font-black text-emerald-900 uppercase tracking-wider">
-                    Automated Database Intra-KAM Peer Dispatch
+                    Automated Intra-KAM Peer Dispatch
                   </span>
                 </div>
                 <p className="text-xs text-emerald-800">

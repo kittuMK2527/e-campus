@@ -62,11 +62,13 @@ interface ExamMark {
 
 interface KAMExamsViewProps {
   scopedColleges: College[];
+  collegeId?: string;
+  onCollegeChange?: (collegeId: string) => void;
 }
 
-export function KAMExamsView({ scopedColleges }: KAMExamsViewProps) {
+export function KAMExamsView({ scopedColleges, collegeId = "all", onCollegeChange }: KAMExamsViewProps) {
   // Page-internal College Selector Filter
-  const [selectedCampus, setSelectedCampus] = useState<string>("all");
+  const [selectedCampus, setSelectedCampus] = useState<string>(collegeId);
   const [selectedDept, setSelectedDept] = useState<string>("all");
   const [selectedSem, setSelectedSem] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -74,6 +76,10 @@ export function KAMExamsView({ scopedColleges }: KAMExamsViewProps) {
   
   const [page, setPage] = useState<number>(1);
   const PAGE_SIZE = 12;
+
+  React.useEffect(() => {
+    setSelectedCampus(collegeId);
+  }, [collegeId]);
 
   const assignedCollegeIds = useMemo(() => {
     return new Set(scopedColleges.map(c => c.id.toLowerCase()));
@@ -294,7 +300,12 @@ export function KAMExamsView({ scopedColleges }: KAMExamsViewProps) {
             <select
               aria-label="Filter Campus"
               value={selectedCampus}
-              onChange={e => { setSelectedCampus(e.target.value); setPage(1); }}
+              onChange={e => {
+                const val = e.target.value;
+                setSelectedCampus(val);
+                setPage(1);
+                onCollegeChange?.(val);
+              }}
               className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="all">All Supervised Campuses ({scopedColleges.length})</option>

@@ -47,7 +47,7 @@ import {
   Percent,
   AlertTriangle
 } from "lucide-react";
-import { formatTimeLabel, calculateShiftSchedule, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatch, isCohortMatching, getDeptFromClassGroup, isSubjectNameMatch, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow } from "@/lib/utils";
+import { formatTimeLabel, calculateShiftSchedule, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatch, isCohortMatching, getDeptFromClassGroup, isSubjectNameMatch, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { CourseInfoButton } from "./CourseInfoModal";
@@ -322,6 +322,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [examSubTab, setExamSubTab] = useState<"schedule" | "results">("results");
   const [marksTypeFilter, setMarksTypeFilter] = useState<string>("all");
   const [marksSearchTerm, setMarksSearchTerm] = useState<string>("");
+  const [selectedMobileDayDateStr, setSelectedMobileDayDateStr] = useState<string>("");
 
   const studentExamScope = `${currentStudent?.department || ""}|${currentStudent?.classGroup || ""}|${currentStudent?.semester || ""}`;
   const studentExamsQuery = useQuery({
@@ -1229,6 +1230,82 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     }));
   }, [studentSubjects, subjectsList]);
 
+  // ─── Today's Schedule & Up-Next Class Summary ───
+  const todayScheduleInfo = useMemo(() => {
+    const todayStr = getLocalDateStr();
+    const todayDate = new Date();
+    const dayName = todayDate.toLocaleDateString("en-US", { weekday: "long" });
+    const dayConfig = dailyConfigsList.find((c: any) => c.dateStr === todayStr);
+
+    if (dayConfig?.day_type === "holiday") {
+      return {
+        isHoliday: true,
+        holidayName: dayConfig.notes || "Campus Holiday",
+        slots: [],
+        activeSlot: null,
+        isCurrent: false,
+        totalSlotsToday: 0,
+        dayOrder: null,
+        dayFormatted: todayDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+      };
+    }
+
+    const slotCols = rows.filter((r): r is { type: "slot"; time: string; index?: number } => r.type === "slot");
+    let pNum = 0;
+    const todaySlotsWithData = slotCols.map((col) => {
+      pNum++;
+      const cell = getAttendanceForCell(dayName, todayStr, col.time);
+      if (!cell || !cell.slot) return null;
+      const mentorName = cell.handover?.coverStaffName || (mentors.find((m) => m.id === cell.slot!.mentorId)?.name) || "Faculty";
+      return {
+        periodNumber: pNum,
+        time: col.time,
+        cell,
+        course: cell.handover?.course || cell.slot.course,
+        mentor: mentorName,
+        location: cell.slot.location,
+        attendanceStatus: cell.attendance?.status || null
+      };
+    }).filter((s): s is NonNullable<typeof s> => !!s && !!s.course);
+
+    const now = new Date();
+    const currentMins = now.getHours() * 60 + now.getMinutes();
+
+    let currentSlot: typeof todaySlotsWithData[0] | null = null;
+    let nextSlot: typeof todaySlotsWithData[0] | null = null;
+
+    for (const s of todaySlotsWithData) {
+      const parts = s.time.split(/\s*-\s*/);
+      if (parts.length >= 2) {
+        const startMins = parseTimeToMinutes(parts[0].trim());
+        const endMins = parseTimeToMinutes(parts[1].trim());
+        if (startMins && endMins) {
+          if (currentMins >= startMins && currentMins <= endMins) {
+            currentSlot = s;
+            break;
+          } else if (currentMins < startMins && !nextSlot) {
+            nextSlot = s;
+          }
+        }
+      }
+    }
+
+    const activeOrNext = currentSlot || nextSlot || (todaySlotsWithData.length > 0 ? todaySlotsWithData[0] : null);
+    const isCurrent = !!currentSlot;
+
+    return {
+      isHoliday: false,
+      holidayName: null,
+      dayOrder: dayConfig?.day_order && dayConfig.day_order !== "None" ? dayConfig.day_order : null,
+      dayFormatted: todayDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" }),
+      slots: todaySlotsWithData,
+      activeSlot: activeOrNext,
+      isCurrent,
+      totalSlotsToday: todaySlotsWithData.length
+    };
+  }, [dailyConfigsList, rows, getAttendanceForCell, mentors]);
+
+
   // Filter OPAC Books based on query
   const filteredBooks = libraryBooks.filter((book) => {
     const q = librarySearch.toLowerCase();
@@ -1260,6 +1337,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [materialTypeFilter, setMaterialTypeFilter] = useState<string>("all");
   const [materialSearchQuery, setMaterialSearchQuery] = useState("");
   const [previewMaterial, setPreviewMaterial] = useState<any | null>(null);
+
+  // Study Materials & Mock Interviews Pagination
+  const [materialsPage, setMaterialsPage] = useState<number>(1);
+  const [materialsPageSize, setMaterialsPageSize] = useState<number>(12);
+  const [interviewsPage, setInterviewsPage] = useState<number>(1);
+  const [interviewsPageSize, setInterviewsPageSize] = useState<number>(6);
+
+  useEffect(() => {
+    setMaterialsPage(1);
+  }, [selectedMaterialSubject, selectedMaterialUnit, materialTypeFilter, materialSearchQuery]);
 
   const materialsQuery = useQuery<any[]>({
     queryKey: qk.studentMaterials(currentStudent?.college_id || "all", selectedMaterialSubject || "none"),
@@ -1632,6 +1719,114 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             {/* Left Columns (Col Span 2) */}
             <div className="lg:col-span-2 space-y-6">
 
+              {/* Up-Next / Today's Schedule Glance Hero Card */}
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 relative overflow-hidden transition-all hover:shadow-card-lg">
+                <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
+                      <Clock className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-400 font-extrabold uppercase tracking-widest block">
+                          Today's Schedule • {todayScheduleInfo.dayFormatted}
+                        </span>
+                        {todayScheduleInfo.dayOrder && (
+                          <span className="px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 text-[9.5px] font-black uppercase">
+                            {todayScheduleInfo.dayOrder}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-sm font-black text-slate-900 leading-snug">
+                        {todayScheduleInfo.isHoliday
+                          ? todayScheduleInfo.holidayName || "Campus Holiday"
+                          : todayScheduleInfo.activeSlot
+                            ? todayScheduleInfo.activeSlot.course
+                            : todayScheduleInfo.totalSlotsToday > 0
+                              ? "Classes Completed for Today"
+                              : "No Scheduled Classes Today"}
+                      </h3>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {todayScheduleInfo.activeSlot && !todayScheduleInfo.isHoliday && (
+                      <span
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${todayScheduleInfo.isCurrent
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                          }`}
+                      >
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${todayScheduleInfo.isCurrent
+                            ? "bg-emerald-500 animate-pulse"
+                            : "bg-indigo-500"
+                            }`}
+                        />
+                        {todayScheduleInfo.isCurrent ? "In Progress" : "Up Next"}
+                      </span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("schedule")}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      <span>Timetable</span>
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {todayScheduleInfo.activeSlot && !todayScheduleInfo.isHoliday ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3 pt-1 text-xs">
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Period</span>
+                      <span className="font-extrabold text-slate-800">
+                        Period {todayScheduleInfo.activeSlot.periodNumber}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Timing</span>
+                      <span className="font-bold text-slate-700">
+                        {formatTimeLabel(todayScheduleInfo.activeSlot.time)}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Faculty Mentor</span>
+                      <span className="font-bold text-slate-700 truncate block">
+                        {todayScheduleInfo.activeSlot.mentor || "Assigned Faculty"}
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Location / Status</span>
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-slate-700 truncate">
+                          {todayScheduleInfo.activeSlot.location || "Classroom"}
+                        </span>
+                        {todayScheduleInfo.activeSlot.attendanceStatus && (
+                          <span
+                            className={`px-1.5 py-0.5 rounded text-[9.5px] font-bold uppercase shrink-0 ${todayScheduleInfo.activeSlot.attendanceStatus === "present"
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-rose-100 text-rose-800"
+                              }`}
+                          >
+                            {todayScheduleInfo.activeSlot.attendanceStatus}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 text-xs text-slate-500 font-medium">
+                    {todayScheduleInfo.isHoliday
+                      ? "Enjoy your holiday! Check the weekly timetable for upcoming class schedules."
+                      : todayScheduleInfo.totalSlotsToday > 0
+                        ? `All ${todayScheduleInfo.totalSlotsToday} periods for today have concluded. Great job!`
+                        : "No lecture periods are scheduled for your cohort today. Use this time for study materials or mock interviews."}
+                  </div>
+                )}
+              </div>
+
               {/* Real-Time Overview Cards Row */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
@@ -1716,7 +1911,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <div className="flex items-center justify-between border-b border-slate-100/80 pb-4">
                   <div>
                     <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Curriculum Tasks & Submissions</h2>
-                    <p className="text-[11px] text-slate-400 font-semibold mt-0.5">Assigned weekly practicals, lab exercises, and term evaluations</p>
                   </div>
                   <button
                     type="button"
@@ -1752,10 +1946,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         >
                           <div className="flex items-start gap-3.5 min-w-0">
                             <div className={`h-8 w-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5 text-[10px] font-black uppercase ${isGraded
-                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                                : isSubmitted
-                                  ? "bg-zinc-100 text-zinc-900 border border-zinc-200"
-                                  : "bg-amber-100 text-amber-800 border border-amber-200"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                              : isSubmitted
+                                ? "bg-zinc-100 text-zinc-900 border border-zinc-200"
+                                : "bg-amber-100 text-amber-800 border border-amber-200"
                               }`}>
                               W{task.week_number}
                             </div>
@@ -1778,10 +1972,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                           <div className="flex items-center gap-3 shrink-0">
                             <span className={`px-2.5 py-1 rounded-full text-[9px] font-extrabold uppercase tracking-wider select-none ${isGraded
-                                ? "bg-emerald-100 text-emerald-800 border border-emerald-200/50"
-                                : isSubmitted
-                                  ? "bg-amber-50 text-amber-800 border border-amber-200/50"
-                                  : "bg-amber-50 text-amber-700 border border-amber-200/50"
+                              ? "bg-emerald-100 text-emerald-800 border border-emerald-200/50"
+                              : isSubmitted
+                                ? "bg-amber-50 text-amber-800 border border-amber-200/50"
+                                : "bg-amber-50 text-amber-700 border border-amber-200/50"
                               }`}>
                               {isGraded ? `Score: ${studentSub.marks}/10` : isSubmitted ? "Submitted" : "Pending"}
                             </span>
@@ -1850,8 +2044,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       type="button"
                       onClick={() => setAttendanceMonthOffset(0)}
                       className={`px-2 py-1 text-[9px] font-black rounded-lg border transition-all cursor-pointer ${attendanceMonthOffset === 0
-                          ? "bg-slate-900 text-white border-slate-900"
-                          : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                        ? "bg-slate-900 text-white border-slate-900"
+                        : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
                         }`}
                     >
                       Current
@@ -2089,350 +2283,604 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
 
         {/* Tab 2: e-Campus Timetable */}
-        {activeTab === "schedule" && (
-          <div className="bg-white border border-slate-100 rounded-2xl p-6 space-y-4 shadow-card">
-            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3">
-              <div>
-                <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Weekly Class Timetable</h2>
-                <p className="text-[11px] text-slate-400 mt-1">Displays scheduled courses and period attendance status for the selected week.</p>
+        {activeTab === "schedule" && (() => {
+          const activeMobileDate = effectiveWeekDates.find(d => d.dateStr === selectedMobileDayDateStr)
+            || effectiveWeekDates.find(d => d.dateStr === getLocalDateStr())
+            || effectiveWeekDates[0];
+
+          return (
+            <div className="bg-white dark:bg-[#101015] border border-slate-100 dark:border-white/5 rounded-2xl p-4 md:p-6 space-y-4 shadow-card">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 dark:border-white/5 pb-3">
+                <div>
+                  <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Weekly Class Timetable</h2>
+                </div>
+
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-white/5 p-1 rounded-xl border border-slate-200/60 dark:border-white/10 shadow-inner shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset(weekOffset - 1)}
+                    className="min-h-[36px] min-w-[36px] p-2 hover:bg-white dark:hover:bg-white/10 rounded-lg text-slate-600 dark:text-slate-300 hover:text-amber-600 transition-all cursor-pointer flex items-center justify-center"
+                    title="Previous Week"
+                    aria-label="Previous Week"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="text-xs font-bold text-slate-800 dark:text-slate-200 px-3 min-w-[130px] text-center select-none font-sans">
+                    {weekOffset === 0 ? "Current Week" : `${effectiveWeekDates[0]?.formatted} – ${effectiveWeekDates[effectiveWeekDates.length - 1]?.formatted}`}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setWeekOffset(weekOffset + 1)}
+                    className="min-h-[36px] min-w-[36px] p-2 hover:bg-white dark:hover:bg-white/10 rounded-lg text-slate-600 dark:text-slate-300 hover:text-amber-600 transition-all cursor-pointer flex items-center justify-center"
+                    title="Next Week"
+                    aria-label="Next Week"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200/60 shadow-inner shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setWeekOffset(weekOffset - 1)}
-                  className="p-1 hover:bg-white rounded-lg text-slate-600 hover:text-amber-600 transition-all cursor-pointer"
-                  title="Previous Week"
-                >
-                  <ChevronLeft className="h-3.5 w-3.5" />
-                </button>
-                <span className="text-[10px] font-bold text-slate-800 px-2 min-w-[130px] text-center select-none font-sans">
-                  {weekOffset === 0 ? "Current Week" : `${effectiveWeekDates[0]?.formatted} – ${effectiveWeekDates[effectiveWeekDates.length - 1]?.formatted}`}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setWeekOffset(weekOffset + 1)}
-                  className="p-1 hover:bg-white rounded-lg text-slate-600 hover:text-amber-600 transition-all cursor-pointer"
-                  title="Next Week"
-                >
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="overflow-auto max-h-[70vh] rounded-xl border border-slate-200 shadow-sm relative no-scrollbar">
-              <table className="w-full table-fixed border-collapse text-left min-w-[800px]">
-                <thead>
-                  <tr className="text-xs text-slate-500 dark:text-slate-300 font-bold uppercase">
-                    <th className="sticky top-0 left-0 z-30 p-4 w-[12%] text-slate-700 dark:text-slate-200 bg-slate-100/95 dark:bg-[#141419] backdrop-blur-xs border-r border-b border-slate-200 dark:border-white/5">Day / Date</th>
-                    {(() => {
-                      let slotCounter = 0;
-                      return rows.map((col, idx) => {
-                        if (col.type === "break" || col.type === "lunch") {
-                          return (
-                            <th key={idx} className="sticky top-0 z-20 p-4 text-xs font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider text-center select-none bg-slate-50/95 dark:bg-[#0f0f14] backdrop-blur-xs border-b border-slate-200 dark:border-white/5 w-[8%]">
-                              <div>{col.label}</div>
-                              <div className="text-[9px] text-slate-400 dark:text-slate-400 font-normal mt-0.5">{formatTimeLabel(col.timeRange)}</div>
-                            </th>
-                          );
-                        }
-                        if (col.type === "slot") {
-                          slotCounter++;
-                          return (
-                            <th key={col.time} className="sticky top-0 z-20 p-4 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-50/95 dark:bg-[#141419] backdrop-blur-xs border-b border-slate-200 dark:border-white/5 w-[12%]">
-                              <div>Period {slotCounter}</div>
-                              <div className="text-[10px] text-slate-400 dark:text-slate-400 font-normal mt-0.5">{formatTimeLabel(col.time)}</div>
-                            </th>
-                          );
-                        }
-                        return null;
-                      });
-                    })()}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-white dark:bg-[#101015]">
+              {/* Mobile Day Selector & Daily Period Cards (block md:hidden) */}
+              <div className="block md:hidden space-y-4">
+                {/* Horizontal Day Tabs */}
+                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
                   {effectiveWeekDates.map((date) => {
+                    const isSelected = activeMobileDate?.dateStr === date.dateStr;
+                    const isToday = date.dateStr === getLocalDateStr();
                     const dayConfig = dailyConfigsList.find((c: any) => c.dateStr === date.dateStr);
-                    const isHighlighted = highlightedDate === date.dateStr;
+                    const isHoliday = dayConfig?.day_type === "holiday";
+                    const isExam = dayConfig?.day_type === "exam_day" || dayConfig?.day_type === "exam";
 
                     return (
-                      <tr
-                        key={date.day}
-                        id={`date-row-${date.dateStr}`}
-                        className={`h-24 transition-all duration-500 ${isHighlighted
-                            ? "bg-amber-500/10 dark:bg-amber-950/30 ring-2 ring-amber-500 ring-inset shadow-md"
-                            : "hover:bg-slate-50/10 dark:hover:bg-white/[0.02]"
-                          }`}
+                      <button
+                        key={date.dateStr}
+                        type="button"
+                        onClick={() => setSelectedMobileDayDateStr(date.dateStr)}
+                        className={`flex-1 min-w-[62px] min-h-[50px] py-2 px-1.5 rounded-xl flex flex-col items-center justify-center text-center transition-all cursor-pointer border ${
+                          isSelected
+                            ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+                            : isToday
+                            ? "bg-amber-50 text-amber-900 border-amber-300 dark:bg-amber-950/30 dark:text-amber-200 dark:border-amber-800"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 dark:bg-[#141419] dark:text-slate-300 dark:border-white/10"
+                        }`}
                       >
-                        {/* First Cell: Day / Date */}
-                        <td className="sticky left-0 z-10 p-3 text-xs font-bold text-slate-700 border-r border-slate-200 bg-slate-50/95 dark:bg-[#141419] dark:border-white/5 backdrop-blur-xs align-middle">
-                          <div className="flex flex-col justify-center items-center">
-                            <span className="text-sm font-black text-slate-900 leading-none">{date.day}</span>
-                            <span className="text-[9px] text-slate-400 font-extrabold uppercase mt-1 leading-none">{date.formatted}</span>
-                            {dayConfig?.day_type === "holiday" && (
-                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-200 shrink-0" title={dayConfig.notes || "Holiday"}>
-                                Holiday
-                              </span>
-                            )}
-                            {dayConfig?.day_type === "event" && (
-                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-amber-100 text-amber-700 border border-amber-200 shrink-0" title={dayConfig.notes || "Campus Event"}>
-                                Event
-                              </span>
-                            )}
-                            {(dayConfig?.day_type === "exam_day" || dayConfig?.day_type === "exam") && (
-                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-purple-100 text-purple-700 border border-purple-200 shrink-0" title={dayConfig.notes || "Exam Day"}>
-                                Exam Day
-                              </span>
-                            )}
-                            {dayConfig?.day_order && dayConfig.day_order !== "None" && dayConfig.day_type !== "holiday" && (
-                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
-                                {dayConfig.day_order}
-                              </span>
-                            )}
-                            {(!dayConfig?.day_order || dayConfig?.day_order === "None") && dayConfig?.day_type !== "holiday" && (
-                              <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 shrink-0" title="Day order not configured">
-                                No Order
-                              </span>
-                            )}
-                            {studentInterviews.some((inv: any) => inv.target_date === date.dateStr) && (
-                              <span className="mt-1 px-1.5 py-0.5 rounded-full text-[7.5px] font-black uppercase bg-purple-100 text-purple-700 border border-purple-200 shrink-0">
-                                Interview
-                              </span>
-                            )}
-                          </div>
-                        </td>
+                        <span className={`text-xs font-extrabold uppercase leading-none ${isSelected ? "text-white" : "text-slate-900 dark:text-white"}`}>
+                          {date.day.slice(0, 3)}
+                        </span>
+                        <span className={`text-[10px] font-bold mt-1 leading-none ${isSelected ? "text-amber-100" : "text-slate-500"}`}>
+                          {date.formatted}
+                        </span>
+                        {isHoliday && (
+                          <span className={`mt-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-rose-500"}`} />
+                        )}
+                        {isExam && !isHoliday && (
+                          <span className={`mt-1 h-1.5 w-1.5 rounded-full ${isSelected ? "bg-white" : "bg-purple-500"}`} />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                        {/* Columns */}
-                        {rows.map((col, cIdx) => {
-                          if (col.type === "break" || col.type === "lunch") {
-                            return (
-                              <td
-                                key={`break-${cIdx}`}
-                                className="p-2 text-center text-xs font-extrabold text-slate-500 bg-slate-50/5 uppercase tracking-widest italic select-none border-r border-slate-100 last:border-r-0 align-middle"
-                              >
-                                {col.label}
-                              </td>
-                            );
-                          }
+                {/* Selected Day Content */}
+                {(() => {
+                  if (!activeMobileDate) return null;
+                  const dayConfig = dailyConfigsList.find((c: any) => c.dateStr === activeMobileDate.dateStr);
+                  const isHoliday = dayConfig?.day_type === "holiday";
+                  const isExamDay = dayConfig?.day_type === "exam_day" || dayConfig?.day_type === "exam";
 
-                          if (col.type !== "slot") return null;
-                          const time = col.time;
-                          const cellData = getAttendanceForCell(date.day, date.dateStr, time);
+                  return (
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between px-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-slate-900 dark:text-white">
+                            {activeMobileDate.day}
+                          </span>
+                          <span className="text-xs text-slate-500 font-semibold">
+                            {activeMobileDate.formatted}
+                          </span>
+                        </div>
+                        {dayConfig?.day_order && dayConfig.day_order !== "None" && !isHoliday && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-black uppercase bg-amber-50 text-amber-800 border border-amber-200">
+                            {dayConfig.day_order}
+                          </span>
+                        )}
+                      </div>
 
-                          // Check for student's scheduled interview session on this date & period
-                          const interviewForSlot = studentInterviews?.find((inv: any) => {
-                            if (inv.target_date !== date.dateStr) return false;
-                            const prefTime = inv.preferred_start_time || "08:20 AM - 09:10 AM";
-                            const slotTimeNorm = time.replace(/\s+/g, "").toLowerCase();
-                            const prefTimeNorm = prefTime.replace(/\s+/g, "").toLowerCase();
-                            if (slotTimeNorm.includes(prefTimeNorm) || prefTimeNorm.includes(slotTimeNorm)) return true;
+                      {isHoliday && (
+                        <div className="p-4 rounded-xl border border-dashed border-rose-200 bg-rose-50/60 dark:bg-rose-950/20 text-center">
+                          <p className="text-xs font-black uppercase text-rose-700 dark:text-rose-400">Campus Holiday</p>
+                          <p className="text-xs text-rose-600 mt-1">{dayConfig?.notes || "No Classes Scheduled"}</p>
+                        </div>
+                      )}
 
-                            // Check student slots
-                            if (inv.student_slots && inv.student_slots.some((s: any) =>
-                              (s.student_id === currentStudent?.id || s.roll_number === currentStudent?.roll_number) &&
-                              (s.slot_start_time?.includes(time) || time.includes(s.slot_start_time))
-                            )) return true;
+                      {!isHoliday && (
+                        <div className="space-y-2.5">
+                          {rows.map((col, idx) => {
+                            if (col.type === "break" || col.type === "lunch") {
+                              return (
+                                <div key={`m-break-${idx}`} className="py-2 px-3 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-dashed border-slate-200 dark:border-slate-700/50 flex items-center justify-between text-xs text-slate-500">
+                                  <span className="font-bold uppercase tracking-wider">{col.label}</span>
+                                  <span className="text-[11px] font-medium">{formatTimeLabel(col.timeRange)}</span>
+                                </div>
+                              );
+                            }
+                            if (col.type !== "slot") return null;
 
-                            // Match by start hour
-                            const startHourMin = prefTime.split("-")[0].trim().toLowerCase().replace(".", ":");
-                            const cellStartHourMin = time.split("-")[0].trim().toLowerCase().replace(".", ":");
-                            if (startHourMin && cellStartHourMin && (startHourMin.includes(cellStartHourMin) || cellStartHourMin.includes(startHourMin))) return true;
+                            const time = col.time;
+                            const cellData = getAttendanceForCell(activeMobileDate.day, activeMobileDate.dateStr, time);
 
-                            // If assigned and Period 1:
-                            if ((time.startsWith("8.20") || time.startsWith("08:20") || time.startsWith("9.00") || time.startsWith("09:00")) && (inv.status === "assigned" || inv.status === "completed" || inv.status === "pending_verification")) return true;
+                            // Interview check
+                            const interviewForSlot = studentInterviews?.find((inv: any) => {
+                              if (inv.target_date !== activeMobileDate.dateStr) return false;
+                              const prefTime = inv.preferred_start_time || "08:20 AM - 09:10 AM";
+                              const slotTimeNorm = time.replace(/\s+/g, "").toLowerCase();
+                              const prefTimeNorm = prefTime.replace(/\s+/g, "").toLowerCase();
+                              if (slotTimeNorm.includes(prefTimeNorm) || prefTimeNorm.includes(slotTimeNorm)) return true;
+                              if (inv.student_slots && inv.student_slots.some((s: any) =>
+                                (s.student_id === currentStudent?.id || s.roll_number === currentStudent?.roll_number) &&
+                                (s.slot_start_time?.includes(time) || time.includes(s.slot_start_time))
+                              )) return true;
+                              const startHourMin = prefTime.split("-")[0].trim().toLowerCase().replace(".", ":");
+                              const cellStartHourMin = time.split("-")[0].trim().toLowerCase().replace(".", ":");
+                              if (startHourMin && cellStartHourMin && (startHourMin.includes(cellStartHourMin) || cellStartHourMin.includes(startHourMin))) return true;
+                              if ((time.startsWith("8.20") || time.startsWith("08:20") || time.startsWith("9.00") || time.startsWith("09:00")) && (inv.status === "assigned" || inv.status === "completed" || inv.status === "pending_verification")) return true;
+                              return false;
+                            });
 
-                            return false;
-                          });
+                            if (interviewForSlot) {
+                              const isCompleted = interviewForSlot.status === "completed";
+                              const mySlot = (interviewForSlot.student_slots || []).find((s: any) =>
+                                s.student_id === currentStudent?.id || s.roll_number === currentStudent?.roll_number
+                              );
+                              const isInternal = interviewForSlot.type === "internal" || mySlot?.mode === "in_person";
+                              const meetLink = !isInternal ? (mySlot?.gmeet_link || interviewForSlot.gmeet_link) : null;
+                              const evaluatorName = mySlot?.mentor_name || interviewForSlot.mentor_name || "Faculty Evaluator";
 
-                          if (interviewForSlot) {
-                            const isCompleted = interviewForSlot.status === "completed";
-                            const mySlot = (interviewForSlot.student_slots || []).find((s: any) =>
-                              s.student_id === currentStudent?.id || s.roll_number === currentStudent?.roll_number
-                            );
-                            const isInternal = interviewForSlot.type === "internal" || mySlot?.mode === "in_person";
-                            const meetLink = !isInternal ? (mySlot?.gmeet_link || interviewForSlot.gmeet_link) : null;
-                            const evaluatorName = mySlot?.mentor_name || interviewForSlot.mentor_name || "Faculty Evaluator";
-                            const slotTiming = mySlot?.slot_start_time || interviewForSlot.preferred_start_time || "Time TBA";
-
-                            return (
-                              <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-top bg-white dark:bg-[#101015]">
-                                <div className={`h-full flex flex-col justify-between p-2 rounded-xl border text-xs shadow-xs transition-all ${isCompleted
-                                    ? "bg-emerald-50/80 border-emerald-300 text-emerald-950"
-                                    : "bg-purple-50/80 border-purple-300 text-purple-950 hover:shadow-sm"
-                                  }`}>
-                                  <div>
-                                    <div className="flex flex-wrap items-center gap-1 mb-1 max-w-full">
-                                      <span className="px-1.5 py-0.5 rounded bg-purple-200/80 border border-purple-300 text-[7.5px] font-black text-purple-800 uppercase tracking-wide">
-                                        INTERVIEW ({interviewForSlot.type?.toUpperCase() || "EXTERNAL"})
-                                      </span>
-                                    </div>
-                                    <div className="font-extrabold text-[10px] leading-tight mb-1 text-purple-950 line-clamp-1" title={interviewForSlot.subject}>
-                                      {interviewForSlot.subject}
-                                    </div>
-                                    <div className="text-[8px] text-purple-700 font-semibold truncate leading-none">
-                                      Evaluator: {evaluatorName}
-                                    </div>
+                              return (
+                                <div key={`m-slot-${time}`} className="p-3.5 rounded-xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/70 dark:bg-purple-950/30 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-purple-700 dark:text-purple-300 font-mono">
+                                      {formatTimeLabel(time)}
+                                    </span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-200 text-purple-900 border border-purple-300">
+                                      Interview ({interviewForSlot.type?.toUpperCase() || "EXTERNAL"})
+                                    </span>
                                   </div>
-
-                                  <div className="flex items-center justify-between text-[8px] mt-1 pt-1.5 border-t border-purple-200/60 font-black uppercase">
+                                  <div>
+                                    <p className="text-sm font-extrabold text-purple-950 dark:text-purple-100">{interviewForSlot.subject}</p>
+                                    <p className="text-xs text-purple-700 dark:text-purple-300 font-medium mt-0.5">Evaluator: {evaluatorName}</p>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-2 border-t border-purple-200/60">
                                     {!isInternal && meetLink ? (
                                       <a
                                         href={meetLink}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-amber-600 hover:underline inline-flex items-center gap-0.5 font-bold"
+                                        className="min-h-[44px] px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-bold inline-flex items-center gap-1.5 cursor-pointer shadow-xs"
                                       >
-                                        <Video className="w-2.5 h-2.5" /> GMeet
+                                        <Video className="w-3.5 h-3.5" /> Join GMeet
                                       </a>
                                     ) : (
-                                      <span className="text-purple-600 font-mono">{isInternal ? "In-Person" : slotTiming}</span>
+                                      <span className="text-xs font-medium text-purple-700 dark:text-purple-300 font-mono">
+                                        {isInternal ? "In-Person Campus Session" : (mySlot?.slot_start_time || "Time TBA")}
+                                      </span>
                                     )}
-                                    <span className={`px-1.5 py-0.5 rounded text-[7.5px] ${isCompleted
-                                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                        : "bg-purple-100 text-purple-800 border border-purple-300"
-                                      }`}>
+                                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                      isCompleted ? "bg-emerald-100 text-emerald-800 border border-emerald-300" : "bg-purple-100 text-purple-800 border border-purple-300"
+                                    }`}>
                                       {isCompleted ? "Evaluated" : "Scheduled"}
                                     </span>
                                   </div>
                                 </div>
-                              </td>
-                            );
-                          }
+                              );
+                            }
 
-                          if (cellData?.type === "holiday") {
-                            return (
-                              <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-middle bg-rose-50/10 dark:bg-rose-950/5">
-                                <div className="h-full flex flex-col items-center justify-center p-2 rounded-xl border border-dashed border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 text-center">
-                                  <span className="text-[8.5px] font-black uppercase text-rose-700 dark:text-rose-400">College Holiday</span>
-                                  <span className="text-[8px] text-rose-500 font-medium truncate max-w-full mt-0.5">{cellData.config?.notes || "No Classes Scheduled"}</span>
-                                </div>
-                              </td>
-                            );
-                          }
-
-                          if (cellData?.type === "event") {
-                            return (
-                              <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-top bg-amber-50/15 dark:bg-amber-950/5">
-                                <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 shadow-xs">
-                                  <div>
-                                    <span className="px-1.5 py-0.5 rounded bg-amber-200/80 border border-amber-300 text-[7.5px] font-black text-amber-800 uppercase tracking-wide">
-                                      CAMPUS EVENT
-                                    </span>
-                                    <div className="text-[9.5px] font-bold text-amber-950 dark:text-amber-200 mt-1 line-clamp-1">
-                                      {cellData.config?.notes || "Campus Activity"}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center justify-between text-[8px] mt-1 pt-1 border-t border-amber-200/60 font-black uppercase">
-                                    <span className="text-amber-700">Event Session</span>
-                                    {cellData.attendance ? (
-                                      <span className={`px-1.5 py-0.5 rounded ${cellData.attendance.status === "present"
-                                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                          : "bg-rose-100 text-rose-800 border border-rose-300"
-                                        }`}>
-                                        {cellData.attendance.status}
-                                      </span>
-                                    ) : (
-                                      <span className="text-amber-600/70 italic">Unmarked</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </td>
-                            );
-                          }
-
-                          if (cellData?.type === "exam") {
-                            const examInfo = cellData.exam;
-                            return (
-                              <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-top bg-purple-50/20 dark:bg-purple-950/10">
-                                <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-purple-300 dark:border-purple-800/60 bg-purple-50/70 dark:bg-purple-950/30 shadow-xs">
-                                  <div>
-                                    <div className="flex items-center justify-between gap-1 mb-1">
-                                      <span className="px-1.5 py-0.5 rounded bg-purple-600 text-[7.5px] font-black text-white uppercase tracking-wider">
-                                        📝 {examInfo?.exam_type || "EXAMINATION"}
-                                      </span>
-                                      {examInfo?.hall_room && (
-                                        <span className="text-[7.5px] font-bold text-purple-700 dark:text-purple-300 truncate max-w-[80px]">
-                                          📍 {examInfo.hall_room}
-                                        </span>
-                                      )}
-                                    </div>
-                                    <div className="text-[10px] font-extrabold text-purple-950 dark:text-purple-100 line-clamp-1 leading-tight">
-                                      {examInfo?.subject_name || cellData.config?.notes || "Assessment Session"}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center justify-between text-[8px] mt-1 pt-1 border-t border-purple-200/60 dark:border-purple-800/40 font-black uppercase">
-                                    <span className="text-purple-700 dark:text-purple-300 font-mono">
+                            if (cellData?.type === "exam") {
+                              const examInfo = cellData.exam;
+                              return (
+                                <div key={`m-slot-${time}`} className="p-3.5 rounded-xl border border-purple-300 dark:border-purple-800 bg-purple-50/70 dark:bg-purple-950/30 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold text-purple-700 dark:text-purple-300 font-mono">
                                       {examInfo?.session_time || formatTimeLabel(time)}
                                     </span>
-                                    {cellData.attendance ? (
-                                      <span className={`px-1.5 py-0.5 rounded text-[7.5px] ${cellData.attendance.status === "present"
-                                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
-                                          : "bg-rose-100 text-rose-800 border border-rose-300"
-                                        }`}>
-                                        {cellData.attendance.status}
-                                      </span>
-                                    ) : (
-                                      <span className="text-purple-600/70 italic text-[7.5px]">Exam Mode</span>
+                                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-600 text-white">
+                                      Exam: {examInfo?.exam_type || "Assessment"}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-extrabold text-purple-950 dark:text-purple-100">
+                                      {examInfo?.subject_name || cellData.config?.notes || "Assessment Session"}
+                                    </p>
+                                    {examInfo?.hall_room && (
+                                      <p className="text-xs text-purple-700 dark:text-purple-300 font-medium mt-0.5">
+                                        Room: {examInfo.hall_room}
+                                      </p>
                                     )}
                                   </div>
+                                  {cellData.attendance && (
+                                    <div className="pt-2 border-t border-purple-200/60 flex justify-end">
+                                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                                        cellData.attendance.status === "present" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-rose-800"
+                                      }`}>
+                                        {cellData.attendance.status}
+                                      </span>
+                                    </div>
+                                  )}
                                 </div>
-                              </td>
+                              );
+                            }
+
+                            if (!cellData || !cellData.slot) {
+                              return (
+                                <div key={`m-slot-${time}`} className="p-3 rounded-xl border border-dashed border-slate-200 dark:border-white/10 bg-slate-50/50 dark:bg-white/[0.02] flex items-center justify-between text-xs text-slate-400">
+                                  <span className="font-mono font-medium">{formatTimeLabel(time)}</span>
+                                  <span className="italic font-medium">Free Period</span>
+                                </div>
+                              );
+                            }
+
+                            const subjectTitle = cellData.handover?.course || cellData.slot.course;
+                            const mentorName = cellData.handover ? cellData.handover.coverStaffName : (mentors.find((m) => m.id === cellData.slot.mentorId)?.name || "Faculty");
+                            const locationStr = cellData.slot.location ? cellData.slot.location : "Classroom";
+
+                            return (
+                              <div key={`m-slot-${time}`} className="p-3.5 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#1c1c26] shadow-xs space-y-2">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400 font-mono">
+                                    {formatTimeLabel(time)}
+                                  </span>
+                                  <span className="flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300 font-semibold bg-slate-100 dark:bg-white/5 border border-slate-200 dark:border-white/10 px-2 py-0.5 rounded-md">
+                                    <MapPin className="h-3 w-3 shrink-0 text-slate-400" />
+                                    {locationStr}
+                                  </span>
+                                </div>
+                                <div>
+                                  <h3 className="text-sm font-extrabold text-amber-600 dark:text-amber-400 leading-snug">
+                                    {subjectTitle}
+                                  </h3>
+                                  <p className="text-xs text-slate-600 dark:text-slate-400 font-medium mt-0.5">
+                                    Faculty: {mentorName}
+                                  </p>
+                                </div>
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-white/5">
+                                  <span className="text-[11px] text-slate-400">Attendance</span>
+                                  {cellData.attendance ? (
+                                    <span className={`px-2 py-0.5 rounded text-xs font-black uppercase ${
+                                      cellData.attendance.status === "present"
+                                        ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
+                                        : "bg-rose-50 border border-rose-200 text-rose-700"
+                                    }`}>
+                                      {cellData.attendance.status}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-slate-400 italic">Unmarked</span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Desktop Timetable Matrix (hidden md:block) */}
+              <div className="hidden md:block overflow-auto max-h-[70vh] rounded-xl border border-slate-200 dark:border-white/10 shadow-sm relative no-scrollbar">
+                <table className="w-full table-fixed border-collapse text-left min-w-[800px]">
+                  <thead>
+                    <tr className="text-xs text-slate-500 dark:text-slate-300 font-bold uppercase">
+                      <th className="sticky top-0 left-0 z-30 p-4 w-[12%] text-slate-700 dark:text-slate-200 bg-slate-100/95 dark:bg-[#141419] backdrop-blur-xs border-r border-b border-slate-200 dark:border-white/5">Day / Date</th>
+                      {(() => {
+                        let slotCounter = 0;
+                        return rows.map((col, idx) => {
+                          if (col.type === "break" || col.type === "lunch") {
+                            return (
+                              <th key={idx} className="sticky top-0 z-20 p-4 text-xs font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider text-center select-none bg-slate-50/95 dark:bg-[#0f0f14] backdrop-blur-xs border-b border-slate-200 dark:border-white/5 w-[8%]">
+                                <div>{col.label}</div>
+                                <div className="text-[10px] text-slate-400 dark:text-slate-400 font-normal mt-0.5">{formatTimeLabel(col.timeRange)}</div>
+                              </th>
                             );
                           }
+                          if (col.type === "slot") {
+                            slotCounter++;
+                            return (
+                              <th key={col.time} className="sticky top-0 z-20 p-4 text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-50/95 dark:bg-[#141419] backdrop-blur-xs border-b border-slate-200 dark:border-white/5 w-[12%]">
+                                <div>Period {slotCounter}</div>
+                                <div className="text-[11px] text-slate-400 dark:text-slate-400 font-normal mt-0.5">{formatTimeLabel(col.time)}</div>
+                              </th>
+                            );
+                          }
+                          return null;
+                        });
+                      })()}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-white/5 bg-white dark:bg-[#101015]">
+                    {effectiveWeekDates.map((date) => {
+                      const dayConfig = dailyConfigsList.find((c: any) => c.dateStr === date.dateStr);
+                      const isHighlighted = highlightedDate === date.dateStr;
 
-                          return (
-                            <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-top bg-white dark:bg-[#101015]">
-                              {!cellData || !cellData.slot ? (
-                                <div className="h-full flex items-center justify-center text-[9px] text-slate-400 italic border border-dashed border-slate-100 rounded-xl bg-slate-50/30">
-                                  Free Period
-                                </div>
-                              ) : (
-                                <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-slate-100 dark:border-white/8 bg-slate-50/20 dark:bg-[#1c1c26] shadow-sm relative overflow-hidden">
-                                  <div className="space-y-1">
-                                    <div className="text-[9px] font-extrabold text-amber-600 truncate" title={cellData.handover?.course || cellData.slot.course}>
-                                      {cellData.handover?.course || cellData.slot.course}
+                      return (
+                        <tr
+                          key={date.day}
+                          id={`date-row-${date.dateStr}`}
+                          className={`h-24 transition-all duration-500 ${isHighlighted
+                            ? "bg-amber-500/10 dark:bg-amber-950/30 ring-2 ring-amber-500 ring-inset shadow-md"
+                            : "hover:bg-slate-50/10 dark:hover:bg-white/[0.02]"
+                            }`}
+                        >
+                          {/* First Cell: Day / Date */}
+                          <td className="sticky left-0 z-10 p-3 text-xs font-bold text-slate-700 dark:text-slate-200 border-r border-slate-200 dark:border-white/5 bg-slate-50/95 dark:bg-[#141419] backdrop-blur-xs align-middle">
+                            <div className="flex flex-col justify-center items-center">
+                              <span className="text-sm font-black text-slate-900 dark:text-white leading-none">{date.day}</span>
+                              <span className="text-[10px] text-slate-400 font-extrabold uppercase mt-1 leading-none">{date.formatted}</span>
+                              {dayConfig?.day_type === "holiday" && (
+                                <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-700 border border-rose-200 shrink-0" title={dayConfig.notes || "Holiday"}>
+                                  Holiday
+                                </span>
+                              )}
+                              {dayConfig?.day_type === "event" && (
+                                <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-700 border border-amber-200 shrink-0" title={dayConfig.notes || "Campus Event"}>
+                                  Event
+                                </span>
+                              )}
+                              {(dayConfig?.day_type === "exam_day" || dayConfig?.day_type === "exam") && (
+                                <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-700 border border-purple-200 shrink-0" title={dayConfig.notes || "Exam Day"}>
+                                  Exam Day
+                                </span>
+                              )}
+                              {dayConfig?.day_order && dayConfig.day_order !== "None" && dayConfig.day_type !== "holiday" && (
+                                <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200 shrink-0">
+                                  {dayConfig.day_order}
+                                </span>
+                              )}
+                              {(!dayConfig?.day_order || dayConfig?.day_order === "None") && dayConfig?.day_type !== "holiday" && (
+                                <span className="mt-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200 shrink-0" title="Day order not configured">
+                                  No Order
+                                </span>
+                              )}
+                              {studentInterviews.some((inv: any) => inv.target_date === date.dateStr) && (
+                                <span className="mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-700 border border-purple-200 shrink-0">
+                                  Interview
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Columns */}
+                          {rows.map((col, cIdx) => {
+                            if (col.type === "break" || col.type === "lunch") {
+                              return (
+                                <td
+                                  key={`break-${cIdx}`}
+                                  className="p-2 text-center text-xs font-extrabold text-slate-500 bg-slate-50/5 uppercase tracking-widest italic select-none border-r border-slate-100 dark:border-white/5 last:border-r-0 align-middle"
+                                >
+                                  {col.label}
+                                </td>
+                              );
+                            }
+
+                            if (col.type !== "slot") return null;
+                            const time = col.time;
+                            const cellData = getAttendanceForCell(date.day, date.dateStr, time);
+
+                            // Check for student's scheduled interview session on this date & period
+                            const interviewForSlot = studentInterviews?.find((inv: any) => {
+                              if (inv.target_date !== date.dateStr) return false;
+                              const prefTime = inv.preferred_start_time || "08:20 AM - 09:10 AM";
+                              const slotTimeNorm = time.replace(/\s+/g, "").toLowerCase();
+                              const prefTimeNorm = prefTime.replace(/\s+/g, "").toLowerCase();
+                              if (slotTimeNorm.includes(prefTimeNorm) || prefTimeNorm.includes(slotTimeNorm)) return true;
+
+                              // Check student slots
+                              if (inv.student_slots && inv.student_slots.some((s: any) =>
+                                (s.student_id === currentStudent?.id || s.roll_number === currentStudent?.roll_number) &&
+                                (s.slot_start_time?.includes(time) || time.includes(s.slot_start_time))
+                              )) return true;
+
+                              // Match by start hour
+                              const startHourMin = prefTime.split("-")[0].trim().toLowerCase().replace(".", ":");
+                              const cellStartHourMin = time.split("-")[0].trim().toLowerCase().replace(".", ":");
+                              if (startHourMin && cellStartHourMin && (startHourMin.includes(cellStartHourMin) || cellStartHourMin.includes(startHourMin))) return true;
+
+                              // If assigned and Period 1:
+                              if ((time.startsWith("8.20") || time.startsWith("08:20") || time.startsWith("9.00") || time.startsWith("09:00")) && (inv.status === "assigned" || inv.status === "completed" || inv.status === "pending_verification")) return true;
+
+                              return false;
+                            });
+
+                            if (interviewForSlot) {
+                              const isCompleted = interviewForSlot.status === "completed";
+                              const mySlot = (interviewForSlot.student_slots || []).find((s: any) =>
+                                s.student_id === currentStudent?.id || s.roll_number === currentStudent?.roll_number
+                              );
+                              const isInternal = interviewForSlot.type === "internal" || mySlot?.mode === "in_person";
+                              const meetLink = !isInternal ? (mySlot?.gmeet_link || interviewForSlot.gmeet_link) : null;
+                              const evaluatorName = mySlot?.mentor_name || interviewForSlot.mentor_name || "Faculty Evaluator";
+                              const slotTiming = mySlot?.slot_start_time || interviewForSlot.preferred_start_time || "Time TBA";
+
+                              return (
+                                <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-top bg-white dark:bg-[#101015]">
+                                  <div className={`h-full flex flex-col justify-between p-2 rounded-xl border text-xs shadow-xs transition-all ${isCompleted
+                                    ? "bg-emerald-50/80 border-emerald-300 text-emerald-950"
+                                    : "bg-purple-50/80 border-purple-300 text-purple-950 hover:shadow-sm"
+                                    }`}>
+                                    <div>
+                                      <div className="flex flex-wrap items-center gap-1 mb-1 max-w-full">
+                                        <span className="px-1.5 py-0.5 rounded bg-purple-200/80 border border-purple-300 text-[10px] font-black text-purple-800 uppercase tracking-wide">
+                                          INTERVIEW ({interviewForSlot.type?.toUpperCase() || "EXTERNAL"})
+                                        </span>
+                                      </div>
+                                      <div className="font-extrabold text-xs leading-tight mb-1 text-purple-950 line-clamp-1" title={interviewForSlot.subject}>
+                                        {interviewForSlot.subject}
+                                      </div>
+                                      <div className="text-[10px] text-purple-700 font-semibold truncate leading-none">
+                                        Evaluator: {evaluatorName}
+                                      </div>
                                     </div>
-                                    <div className="text-[8px] text-slate-400 dark:text-slate-300 font-bold truncate">
-                                      {cellData.handover ? (
-                                        <span className="text-slate-700 font-extrabold">{cellData.handover.coverStaffName}</span>
+
+                                    <div className="flex items-center justify-between text-[10px] mt-1 pt-1.5 border-t border-purple-200/60 font-black uppercase">
+                                      {!isInternal && meetLink ? (
+                                        <a
+                                          href={meetLink}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-amber-600 hover:underline inline-flex items-center gap-0.5 font-bold"
+                                        >
+                                          <Video className="w-2.5 h-2.5" /> GMeet
+                                        </a>
                                       ) : (
-                                        mentors.find((m) => m.id === cellData.slot.mentorId)?.name || "Faculty"
+                                        <span className="text-purple-600 font-mono">{isInternal ? "In-Person" : slotTiming}</span>
+                                      )}
+                                      <span className={`px-1.5 py-0.5 rounded text-[10px] ${isCompleted
+                                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                        : "bg-purple-100 text-purple-800 border border-purple-300"
+                                        }`}>
+                                        {isCompleted ? "Evaluated" : "Scheduled"}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </td>
+                              );
+                            }
+
+                            if (cellData?.type === "holiday") {
+                              return (
+                                <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-middle bg-rose-50/10 dark:bg-rose-950/5">
+                                  <div className="h-full flex flex-col items-center justify-center p-2 rounded-xl border border-dashed border-rose-200 dark:border-rose-900/40 bg-rose-50/50 dark:bg-rose-950/20 text-center">
+                                    <span className="text-[10px] font-black uppercase text-rose-700 dark:rose-400">College Holiday</span>
+                                    <span className="text-[10px] text-rose-500 font-medium truncate max-w-full mt-0.5">{cellData.config?.notes || "No Classes Scheduled"}</span>
+                                  </div>
+                                </td>
+                              );
+                            }
+
+                            if (cellData?.type === "event") {
+                              return (
+                                <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-top bg-amber-50/15 dark:bg-amber-950/5">
+                                  <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-amber-200 dark:border-amber-900/40 bg-amber-50/60 dark:bg-amber-950/20 shadow-xs">
+                                    <div>
+                                      <span className="px-1.5 py-0.5 rounded bg-amber-200/80 border border-amber-300 text-[10px] font-black text-amber-800 uppercase tracking-wide">
+                                        CAMPUS EVENT
+                                      </span>
+                                      <div className="text-[11px] font-bold text-amber-950 dark:text-amber-200 mt-1 line-clamp-1">
+                                        {cellData.config?.notes || "Campus Activity"}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-amber-200/60 font-black uppercase">
+                                      <span className="text-amber-700">Event Session</span>
+                                      {cellData.attendance ? (
+                                        <span className={`px-1.5 py-0.5 rounded ${cellData.attendance.status === "present"
+                                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                          : "bg-rose-100 text-rose-800 border border-rose-300"
+                                          }`}>
+                                          {cellData.attendance.status}
+                                        </span>
+                                      ) : (
+                                        <span className="text-amber-600/70 italic">Unmarked</span>
                                       )}
                                     </div>
                                   </div>
+                                </td>
+                              );
+                            }
 
-                                  <div className="flex justify-between items-center text-[8.5px] mt-2 border-t border-slate-100 pt-1.5">
-                                    <span className="flex items-center gap-0.5 text-slate-500 dark:text-slate-300 font-semibold bg-white dark:bg-[#1c1c26] border border-slate-200 dark:border-white/10 px-1 rounded">
-                                      <MapPin className="h-2 w-2 shrink-0" />
-                                      {cellData.slot.location ? cellData.slot.location.split(" ")[0] : "Class"}
-                                    </span>
+                            if (cellData?.type === "exam") {
+                              const examInfo = cellData.exam;
+                              return (
+                                <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-top bg-purple-50/20 dark:bg-purple-950/10">
+                                  <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-purple-300 dark:border-purple-800/60 bg-purple-50/70 dark:bg-purple-950/30 shadow-xs">
+                                    <div>
+                                      <div className="flex items-center justify-between gap-1 mb-1">
+                                        <span className="px-1.5 py-0.5 rounded bg-purple-600 text-[10px] font-black text-white uppercase tracking-wider">
+                                          📝 {examInfo?.exam_type || "EXAMINATION"}
+                                        </span>
+                                        {examInfo?.hall_room && (
+                                          <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 truncate max-w-[80px]">
+                                            📍 {examInfo.hall_room}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="text-xs font-extrabold text-purple-950 dark:text-purple-100 line-clamp-1 leading-tight">
+                                        {examInfo?.subject_name || cellData.config?.notes || "Assessment Session"}
+                                      </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] mt-1 pt-1 border-t border-purple-200/60 dark:border-purple-800/40 font-black uppercase">
+                                      <span className="text-purple-700 dark:text-purple-300 font-mono">
+                                        {examInfo?.session_time || formatTimeLabel(time)}
+                                      </span>
+                                      {cellData.attendance ? (
+                                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${cellData.attendance.status === "present"
+                                          ? "bg-emerald-100 text-emerald-800 border border-emerald-300"
+                                          : "bg-rose-100 text-rose-800 border border-rose-300"
+                                          }`}>
+                                          {cellData.attendance.status}
+                                        </span>
+                                      ) : (
+                                        <span className="text-purple-600/70 italic text-[10px]">Exam Mode</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </td>
+                              );
+                            }
 
-                                    {cellData.attendance ? (
-                                      <span
-                                        className={`px-1 py-0.5 rounded text-[8px] font-black uppercase ${cellData.attendance.status === "present"
+                            return (
+                              <td key={time} className="p-1.5 h-24 border-r border-slate-100 dark:border-white/5 last:border-r-0 align-top bg-white dark:bg-[#101015]">
+                                {!cellData || !cellData.slot ? (
+                                  <div className="h-full flex items-center justify-center text-xs text-slate-400 italic border border-dashed border-slate-100 rounded-xl bg-slate-50/30">
+                                    Free Period
+                                  </div>
+                                ) : (
+                                  <div className="h-full flex flex-col justify-between p-2 rounded-xl border border-slate-100 dark:border-white/8 bg-slate-50/20 dark:bg-[#1c1c26] shadow-sm relative overflow-hidden">
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-extrabold text-amber-600 truncate" title={cellData.handover?.course || cellData.slot.course}>
+                                        {cellData.handover?.course || cellData.slot.course}
+                                      </div>
+                                      <div className="text-[10px] text-slate-400 dark:text-slate-300 font-bold truncate">
+                                        {cellData.handover ? (
+                                          <span className="text-slate-700 font-extrabold">{cellData.handover.coverStaffName}</span>
+                                        ) : (
+                                          mentors.find((m) => m.id === cellData.slot.mentorId)?.name || "Faculty"
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center text-[10px] mt-2 border-t border-slate-100 pt-1.5">
+                                      <span className="flex items-center gap-0.5 text-slate-500 dark:text-slate-300 font-semibold bg-white dark:bg-[#1c1c26] border border-slate-200 dark:border-white/10 px-1 rounded">
+                                        <MapPin className="h-2 w-2 shrink-0" />
+                                        {cellData.slot.location ? cellData.slot.location.split(" ")[0] : "Class"}
+                                      </span>
+
+                                      {cellData.attendance ? (
+                                        <span
+                                          className={`px-1 py-0.5 rounded text-[10px] font-black uppercase ${cellData.attendance.status === "present"
                                             ? "bg-emerald-50 border border-emerald-200 text-emerald-700"
                                             : "bg-rose-50 border border-rose-200 text-rose-700"
-                                          }`}
-                                      >
-                                        {cellData.attendance.status}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[8px] text-slate-400 dark:text-slate-300 italic">Unmarked</span>
-                                    )}
+                                            }`}
+                                        >
+                                          {cellData.attendance.status}
+                                        </span>
+                                      ) : (
+                                        <span className="text-[10px] text-slate-400 dark:text-slate-300 italic">Unmarked</span>
+                                      )}
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
 
 
@@ -2468,9 +2916,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   );
                 }
 
+                const totalInterviewsPages = Math.max(1, Math.ceil(myCohortInterviews.length / interviewsPageSize));
+                const safeInterviewsPage = Math.min(Math.max(1, interviewsPage), totalInterviewsPages);
+                const paginatedInterviews = myCohortInterviews.slice(
+                  (safeInterviewsPage - 1) * interviewsPageSize,
+                  safeInterviewsPage * interviewsPageSize
+                );
+
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {myCohortInterviews.map((inv: any) => {
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {paginatedInterviews.map((inv: any) => {
                       const mySlot = (inv.student_slots || []).find(
                         (s: any) => s.student_id === currentStudent.id
                       );
@@ -2550,8 +3006,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             <div className="bg-white p-3.5 rounded-2xl border border-slate-100 space-y-2.5 shadow-card">
                               <div className="flex items-center justify-between">
                                 <span className={`text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full ${myEval.status === "Cleared" ? "bg-emerald-50 text-emerald-700 border border-emerald-200" :
-                                    myEval.status === "Needs Improvement" ? "bg-amber-50 text-amber-700 border border-amber-200" :
-                                      "bg-rose-50 text-rose-700 border border-rose-200"
+                                  myEval.status === "Needs Improvement" ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                                    "bg-rose-50 text-rose-700 border border-rose-200"
                                   }`}>
                                   {isVerified ? `✓ Conducted & Verified — ${myEval.status}` : `Conducted — Pending CM Verification`}
                                 </span>
@@ -2570,7 +3026,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 try {
                                   const parsed = typeof myEval.questions_asked === "string" ? JSON.parse(myEval.questions_asked) : myEval.questions_asked;
                                   if (Array.isArray(parsed)) qList = parsed;
-                                } catch (_) {}
+                                } catch (_) { }
 
                                 if (qList.length > 0) {
                                   return (
@@ -2613,8 +3069,24 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       );
                     })}
                   </div>
-                );
-              })()}
+
+                  {myCohortInterviews.length > 0 && (
+                    <div className="pt-2 border-t border-slate-100">
+                      <Pagination
+                        currentPage={safeInterviewsPage}
+                        totalItems={myCohortInterviews.length}
+                        pageSize={interviewsPageSize}
+                        onPageChange={setInterviewsPage}
+                        onPageSizeChange={(newSize) => {
+                          setInterviewsPageSize(newSize);
+                          setInterviewsPage(1);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             </div>
           </div>
         )}
@@ -2774,8 +3246,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         type="button"
                         onClick={() => setExamSubTab("results")}
                         className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${examSubTab === "results"
-                            ? "bg-zinc-900 text-white shadow-xs"
-                            : "text-slate-500 hover:text-slate-800"
+                          ? "bg-zinc-900 text-white shadow-xs"
+                          : "text-slate-500 hover:text-slate-800"
                           }`}
                       >
                         Test Marks & Scorecard ({displayMarks.length})
@@ -2784,8 +3256,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         type="button"
                         onClick={() => setExamSubTab("schedule")}
                         className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${examSubTab === "schedule"
-                            ? "bg-zinc-900 text-white shadow-xs"
-                            : "text-slate-500 hover:text-slate-800"
+                          ? "bg-zinc-900 text-white shadow-xs"
+                          : "text-slate-500 hover:text-slate-800"
                           }`}
                       >
                         Upcoming Tests Schedule ({upcomingExams.length})
@@ -2856,11 +3328,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <button
                           type="button"
                           onClick={() => setMarksTypeFilter("all")}
-                          className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                            marksTypeFilter === "all"
-                              ? "bg-zinc-900 text-white shadow-2xs ring-1 ring-zinc-800"
-                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                          }`}
+                          className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${marksTypeFilter === "all"
+                            ? "bg-zinc-900 text-white shadow-2xs ring-1 ring-zinc-800"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            }`}
                         >
                           All ({displayMarks.length})
                         </button>
@@ -2871,11 +3342,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               key={t}
                               type="button"
                               onClick={() => setMarksTypeFilter(t)}
-                              className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                                marksTypeFilter === t
-                                  ? "bg-zinc-900 text-white shadow-2xs ring-1 ring-zinc-800"
-                                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-                              }`}
+                              className={`px-2.5 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${marksTypeFilter === t
+                                ? "bg-zinc-900 text-white shadow-2xs ring-1 ring-zinc-800"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                }`}
                             >
                               {t} ({count})
                             </button>
@@ -2946,13 +3416,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   </span>
                                   {group.pct !== null && (
                                     <span
-                                      className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                        parseFloat(group.pct) >= 75
-                                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                          : parseFloat(group.pct) >= 40
+                                      className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${parseFloat(group.pct) >= 75
+                                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                        : parseFloat(group.pct) >= 40
                                           ? "bg-amber-50 text-amber-800 border border-amber-200"
                                           : "bg-rose-50 text-rose-700 border border-rose-200"
-                                      }`}
+                                        }`}
                                     >
                                       Avg {group.pct}%
                                     </span>
@@ -2983,9 +3452,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 <div className="text-right">
                                   <div className="text-[9px] font-black uppercase text-slate-400">Pass Rate</div>
                                   <div
-                                    className={`font-mono font-black ${
-                                      group.arrearCount === 0 ? "text-emerald-600" : "text-amber-600"
-                                    }`}
+                                    className={`font-mono font-black ${group.arrearCount === 0 ? "text-emerald-600" : "text-amber-600"
+                                      }`}
                                   >
                                     {group.evalCount > 0 ? `${group.passCount}/${group.evalCount}` : "—"}
                                   </div>
@@ -3040,9 +3508,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                         ) : marksNum !== null ? (
                                           <div className="inline-flex items-baseline gap-1 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-lg">
                                             <span
-                                              className={`font-mono text-sm font-black ${
-                                                isPass ? "text-slate-900" : "text-rose-600"
-                                              }`}
+                                              className={`font-mono text-sm font-black ${isPass ? "text-slate-900" : "text-rose-600"
+                                                }`}
                                             >
                                               {marksNum}
                                             </span>
@@ -3060,13 +3527,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                             <span className="font-black text-slate-800 text-[11px]">{pct}%</span>
                                             <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                               <div
-                                                className={`h-full rounded-full transition-all ${
-                                                  pct >= 75
-                                                    ? "bg-emerald-500"
-                                                    : pct >= passM
+                                                className={`h-full rounded-full transition-all ${pct >= 75
+                                                  ? "bg-emerald-500"
+                                                  : pct >= passM
                                                     ? "bg-indigo-500"
                                                     : "bg-rose-500"
-                                                }`}
+                                                  }`}
                                                 style={{ width: `${Math.min(pct, 100)}%` }}
                                               />
                                             </div>
@@ -3075,30 +3541,28 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                       </td>
                                       <td className="p-3 text-center">
                                         <span
-                                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
-                                            isAbs
-                                              ? "bg-slate-100 text-slate-600"
-                                              : m.grade === "O" || m.grade === "A+" || m.grade === "A"
+                                          className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${isAbs
+                                            ? "bg-slate-100 text-slate-600"
+                                            : m.grade === "O" || m.grade === "A+" || m.grade === "A"
                                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                               : m.grade === "B+" || m.grade === "B"
-                                              ? "bg-amber-50 text-amber-800 border border-amber-200"
-                                              : isPass
-                                              ? "bg-amber-50 text-amber-700 border border-amber-200"
-                                              : "bg-rose-50 text-rose-700 border border-rose-200"
-                                          }`}
+                                                ? "bg-amber-50 text-amber-800 border border-amber-200"
+                                                : isPass
+                                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                                  : "bg-rose-50 text-rose-700 border border-rose-200"
+                                            }`}
                                         >
                                           {isAbs ? "AB" : m.grade || (isPass ? "PASS" : "RA")}
                                         </span>
                                       </td>
                                       <td className="p-3 text-center">
                                         <span
-                                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[9.5px] font-black uppercase ${
-                                            isAbs
-                                              ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                              : isPass
+                                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[9.5px] font-black uppercase ${isAbs
+                                            ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                            : isPass
                                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                               : "bg-rose-50 text-rose-700 border border-rose-200"
-                                          }`}
+                                            }`}
                                         >
                                           {isAbs ? "Absent" : isPass ? "Passed" : "Re-Appear"}
                                         </span>
@@ -3362,8 +3826,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         type="button"
                         onClick={() => setSelectedMaterialSubject(subj.name)}
                         className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border shadow-xs ${isSelected
-                            ? "bg-slate-900 border-slate-900 text-white ring-2 ring-amber-500/40 scale-105"
-                            : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          ? "bg-slate-900 border-slate-900 text-white ring-2 ring-amber-500/40 scale-105"
+                          : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                           }`}
                       >
                         <GraduationCap className={`h-3.5 w-3.5 shrink-0 ${isSelected ? "text-amber-400" : "text-slate-400"}`} />
@@ -3384,8 +3848,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     type="button"
                     onClick={() => setSelectedMaterialUnit("all")}
                     className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${selectedMaterialUnit === "all"
-                        ? "bg-white text-slate-900 shadow-xs"
-                        : "text-slate-500 hover:text-slate-900"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-500 hover:text-slate-900"
                       }`}
                   >
                     All Units
@@ -3396,8 +3860,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       type="button"
                       onClick={() => setSelectedMaterialUnit(unitNum)}
                       className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${selectedMaterialUnit === unitNum
-                          ? "bg-zinc-900 text-white shadow-xs"
-                          : "text-slate-500 hover:text-slate-900"
+                        ? "bg-zinc-900 text-white shadow-xs"
+                        : "text-slate-500 hover:text-slate-900"
                         }`}
                     >
                       Unit {unitNum}
@@ -3432,8 +3896,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     type="button"
                     onClick={() => setMaterialTypeFilter(t.id)}
                     className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${materialTypeFilter === t.id
-                        ? "bg-indigo-50 border-indigo-200 text-amber-700"
-                        : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
+                      ? "bg-indigo-50 border-indigo-200 text-amber-700"
+                      : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
                       }`}
                   >
                     {t.label}
@@ -3482,9 +3946,17 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 );
               }
 
+              const totalMaterialsPages = Math.max(1, Math.ceil(filteredList.length / materialsPageSize));
+              const safeMaterialsPage = Math.min(Math.max(1, materialsPage), totalMaterialsPages);
+              const paginatedMaterials = filteredList.slice(
+                (safeMaterialsPage - 1) * materialsPageSize,
+                safeMaterialsPage * materialsPageSize
+              );
+
               return (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {filteredList.map((mat) => {
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {paginatedMaterials.map((mat) => {
                     const isPPT = mat.material_type === "ppt";
                     const isQuestionBank = mat.material_type === "question_bank";
                     const formattedDate = mat.created_at ? parseDbDate(mat.created_at).toLocaleDateString() : "Active Semester";
@@ -3501,10 +3973,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 Unit {mat.unit_number}
                               </span>
                               <span className={`px-2.5 py-1 rounded-xl text-[9.5px] font-black uppercase tracking-wider border ${isPPT
-                                  ? "bg-amber-50 text-amber-800 border-amber-200"
-                                  : isQuestionBank
-                                    ? "bg-purple-50 text-purple-800 border-purple-200"
-                                    : "bg-indigo-50 text-amber-800 border-indigo-200"
+                                ? "bg-amber-50 text-amber-800 border-amber-200"
+                                : isQuestionBank
+                                  ? "bg-purple-50 text-purple-800 border-purple-200"
+                                  : "bg-indigo-50 text-amber-800 border-indigo-200"
                                 }`}>
                                 {isPPT ? "Lecture PPT" : isQuestionBank ? "Question Bank" : "PDF Notes"}
                               </span>
@@ -3558,8 +4030,24 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     );
                   })}
                 </div>
-              );
-            })()}
+
+                {filteredList.length > 0 && (
+                  <div className="pt-2 border-t border-slate-100">
+                    <Pagination
+                      currentPage={safeMaterialsPage}
+                      totalItems={filteredList.length}
+                      pageSize={materialsPageSize}
+                      onPageChange={setMaterialsPage}
+                      onPageSizeChange={(newSize) => {
+                        setMaterialsPageSize(newSize);
+                        setMaterialsPage(1);
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           </div>
         )}
 
@@ -3573,7 +4061,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             <div className="bg-white border border-slate-100 rounded-2xl p-6 space-y-4 shadow-card font-sans">
               <h2 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Fees & Online Payments</h2>
               <p className="text-[11px] text-slate-400 mt-1">Could not load fee data. Try refreshing.</p>
-              <button onClick={() => feeQuery.refetch()} className="px-4 py-2 rounded-xl btn-gradient text-white text-xs font-bold cursor-pointer">Retry</button>
+              <button onClick={() => feeQuery.refetch()} className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold cursor-pointer transition-colors">Retry</button>
             </div>
           );
 
@@ -3584,9 +4072,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 {[
                   { label: "Total Fees", value: fmtR(stats.totalFees), color: "text-slate-800", bg: "bg-slate-50" },
-                  { label: "Paid", value: fmtR(stats.totalPaid), color: "text-[#4F46E5]", bg: "bg-slate-50" },
+                  { label: "Paid", value: fmtR(stats.totalPaid), color: "text-emerald-700", bg: "bg-slate-50" },
                   { label: "Due", value: fmtR(stats.totalOutstanding), color: "text-slate-500", bg: "bg-slate-50" },
-                  { label: "Status", value: stats.unpaidCount > 0 ? `${stats.unpaidCount} Unpaid` : "All Clear", color: stats.unpaidCount > 0 ? "text-[#4F46E5]" : "text-[#7C3AED]", bg: "bg-slate-50" },
+                  { label: "Status", value: stats.unpaidCount > 0 ? `${stats.unpaidCount} Unpaid` : "All Clear", color: stats.unpaidCount > 0 ? "text-amber-700" : "text-emerald-700", bg: "bg-slate-50" },
                 ].map(({ label, value, color, bg }) => (
                   <div key={label} className={`rounded-xl p-3.5 border border-slate-100 ${bg}`}>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
@@ -3598,7 +4086,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="bg-white border border-slate-100 rounded-2xl p-5 space-y-3 shadow-card">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs font-bold text-slate-600 uppercase tracking-wider">Fee Breakdown</h3>
-                  <button onClick={() => feeQuery.refetch()} className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-[#4F46E5] cursor-pointer transition-colors"><RefreshCw className="h-3 w-3" /></button>
+                  <button onClick={() => feeQuery.refetch()} className="p-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-amber-600 cursor-pointer transition-colors"><RefreshCw className="h-3 w-3" /></button>
                 </div>
                 {fees.map((fee: any) => (
                   <div key={fee.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-slate-100 bg-slate-50/50 gap-3">
@@ -3613,16 +4101,16 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     </div>
                     <div className="flex items-center gap-2.5 shrink-0 self-end sm:self-center">
                       {fee.status === "paid" ? (
-                        <span className="px-3 py-1 rounded-xl bg-[#4F46E5]/10 text-[#4F46E5] text-[10px] font-extrabold flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5" /> Paid</span>
+                        <span className="px-3 py-1 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" /> Paid</span>
                       ) : (
                         <>
-                          {fee.status === "partial" && <span className="px-2 py-0.5 rounded-full bg-[#7C3AED]/10 text-[#7C3AED] text-[10px] font-bold">Partial</span>}
+                          {fee.status === "partial" && <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold">Partial</span>}
                           {fee.pay_link ? (
                             <a
                               href={fee.pay_link}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="py-1.5 px-4 btn-gradient text-white rounded-xl text-[10px] font-extrabold shadow-sm transition-all cursor-pointer inline-block text-center"
+                              className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[11px] font-extrabold shadow-xs transition-all cursor-pointer inline-block text-center"
                             >
                               Pay Now
                             </a>
@@ -3634,7 +4122,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 setFeePayAmount(String(fee.amount - fee.paid_amount));
                                 setFeePaySuccess(null);
                               }}
-                              className="py-1.5 px-4 btn-gradient text-white rounded-xl text-[10px] font-extrabold shadow-sm transition-all cursor-pointer inline-block text-center"
+                              className="py-2 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[11px] font-extrabold shadow-xs transition-all cursor-pointer inline-block text-center"
                             >
                               Pay Now
                             </button>
@@ -3657,7 +4145,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           <p className="font-bold text-slate-700">{p.receipt_no}</p>
                           <p className="text-[10px] text-slate-400 font-mono mt-0.5">{p.reference_no}</p>
                         </div>
-                        <span className="px-2 py-0.5 rounded-full bg-[#4F46E5]/10 text-[#4F46E5] text-[9px] font-bold capitalize">{p.payment_method}</span>
+                        <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-[9px] font-bold capitalize">{p.payment_method}</span>
                         <div className="text-right">
                           <p className="font-extrabold text-slate-800">{fmtR(p.amount)}</p>
                           <p className="text-[10px] text-slate-400">{new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</p>
@@ -3676,50 +4164,50 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   overlayClassName="bg-slate-950/60 backdrop-blur-sm"
                   panelClassName="max-w-md max-h-[90vh] p-6 space-y-0"
                 >
-                    {feePaySuccess ? (
-                      <div className="text-center space-y-4">
-                        <div className="h-14 w-14 rounded-full bg-slate-100 flex items-center justify-center mx-auto">
-                          <CheckCircle2 className="h-8 w-8 text-[#4F46E5]" />
-                        </div>
-                        <h3 className="text-lg font-extrabold text-slate-800">Payment Successful!</h3>
-                        <p className="text-sm text-slate-500">Receipt No: <span className="font-bold text-[#4F46E5]">{feePaySuccess}</span></p>
-                        <button onClick={() => setFeePayModal(null)} className="w-full py-3 rounded-xl btn-gradient text-white font-bold cursor-pointer transition-colors">Close</button>
+                  {feePaySuccess ? (
+                    <div className="text-center space-y-4">
+                      <div className="h-14 w-14 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+                        <CheckCircle2 className="h-8 w-8 text-emerald-600" />
                       </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center justify-between mb-5">
-                          <div>
-                            <h3 className="text-base font-extrabold text-slate-800">Pay Fee Online</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">{feePayModal.term_name}</p>
-                          </div>
-                          <button onClick={() => setFeePayModal(null)} aria-label="Close payment dialog" className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-slate-200"><X className="h-4 w-4 text-slate-500" /></button>
+                      <h3 className="text-lg font-extrabold text-slate-800">Payment Successful!</h3>
+                      <p className="text-sm text-slate-500">Receipt No: <span className="font-bold text-slate-900">{feePaySuccess}</span></p>
+                      <button onClick={() => setFeePayModal(null)} className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold cursor-pointer transition-colors">Close</button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center justify-between mb-5">
+                        <div>
+                          <h3 className="text-base font-extrabold text-slate-800">Pay Fee Online</h3>
+                          <p className="text-xs text-slate-500 mt-0.5">{feePayModal.term_name}</p>
                         </div>
-                        <div className="space-y-4">
-                          <div className="flex justify-between text-sm p-3 rounded-xl bg-slate-50 border border-slate-100">
-                            <span className="font-semibold text-slate-600">Outstanding Balance</span>
-                            <span className="font-extrabold text-[#4F46E5]">{"₹" + (feePayModal.amount - feePayModal.paid_amount).toLocaleString("en-IN")}</span>
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-bold text-slate-600 block mb-1">Amount (₹)</label>
-                            <input aria-label="Amount (₹)" type="number" value={feePayAmount} onChange={e => setFeePayAmount(e.target.value)} max={feePayModal.amount - feePayModal.paid_amount} placeholder="Enter amount" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-sunken dark:bg-[#181820] inset-shadow-well text-sm font-medium focus:outline-none focus:bg-white dark:focus:bg-[#131317] focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-bold text-slate-600 block mb-1">Payment Method</label>
-                            <div className="grid grid-cols-2 gap-2">
-                              {["online", "card"].map(m => (
-                                <button key={m} type="button" onClick={() => setFeePayMethod(m)} className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border capitalize ${feePayMethod === m ? "btn-gradient text-white border-transparent" : "bg-sunken text-slate-600 border-slate-200 inset-shadow-well hover:bg-white dark:hover:bg-[#131317]"}`}>{m === "online" ? "UPI / Net Banking" : "Card Payment"}</button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="flex gap-3 pt-1">
-                            <button onClick={() => setFeePayModal(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-50">Cancel</button>
-                            <button onClick={handleFeePayment} disabled={!feePayAmount || feePaySubmitting} className="flex-1 py-2.5 rounded-xl btn-gradient text-white text-sm font-bold cursor-pointer disabled:opacity-50">
-                              {feePaySubmitting ? "Processing…" : "Confirm Payment"}
-                            </button>
+                        <button onClick={() => setFeePayModal(null)} aria-label="Close payment dialog" className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center cursor-pointer hover:bg-slate-200"><X className="h-4 w-4 text-slate-500" /></button>
+                      </div>
+                      <div className="space-y-4">
+                        <div className="flex justify-between text-sm p-3 rounded-xl bg-slate-50 border border-slate-100">
+                          <span className="font-semibold text-slate-600">Outstanding Balance</span>
+                          <span className="font-extrabold text-slate-900">{"₹" + (feePayModal.amount - feePayModal.paid_amount).toLocaleString("en-IN")}</span>
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-1">Amount (₹)</label>
+                          <input aria-label="Amount (₹)" type="number" value={feePayAmount} onChange={e => setFeePayAmount(e.target.value)} max={feePayModal.amount - feePayModal.paid_amount} placeholder="Enter amount" className="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-sunken dark:bg-[#181820] inset-shadow-well text-sm font-medium focus:outline-none focus:bg-white dark:focus:bg-[#131317] focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500" />
+                        </div>
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-600 block mb-1">Payment Method</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            {["online", "card"].map(m => (
+                              <button key={m} type="button" onClick={() => setFeePayMethod(m)} className={`py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border capitalize ${feePayMethod === m ? "bg-slate-900 text-white border-slate-900 shadow-xs" : "bg-sunken text-slate-600 border-slate-200 inset-shadow-well hover:bg-white dark:hover:bg-[#131317]"}`}>{m === "online" ? "UPI / Net Banking" : "Card Payment"}</button>
+                            ))}
                           </div>
                         </div>
-                      </>
-                    )}
+                        <div className="flex gap-3 pt-1">
+                          <button onClick={() => setFeePayModal(null)} className="flex-1 py-2.5 rounded-xl border border-slate-200 text-sm font-bold text-slate-600 cursor-pointer hover:bg-slate-50">Cancel</button>
+                          <button onClick={handleFeePayment} disabled={!feePayAmount || feePaySubmitting} className="flex-1 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold cursor-pointer disabled:opacity-50">
+                            {feePaySubmitting ? "Processing…" : "Confirm Payment"}
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </Dialog>
               )}
             </div>
@@ -3832,8 +4320,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     type="button"
                     onClick={() => setStudentTrackerCategory("academic")}
                     className={`px-4 py-2 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${studentTrackerCategory === "academic"
-                        ? "bg-zinc-900 text-white shadow-xs"
-                        : "text-slate-500 hover:text-slate-800"
+                      ? "bg-zinc-900 text-white shadow-xs"
+                      : "text-slate-500 hover:text-slate-800"
                       }`}
                   >
                     <BookOpen className="h-4 w-4 text-amber-600" />
@@ -3844,8 +4332,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     type="button"
                     onClick={() => setStudentTrackerCategory("skill")}
                     className={`px-4 py-2 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${studentTrackerCategory === "skill"
-                        ? "bg-white text-slate-900 shadow-xs"
-                        : "text-slate-500 hover:text-slate-800"
+                      ? "bg-white text-slate-900 shadow-xs"
+                      : "text-slate-500 hover:text-slate-800"
                       }`}
                   >
                     <GraduationCap className="h-4 w-4 text-amber-600" />
@@ -3885,8 +4373,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             type="button"
                             onClick={() => setStudentAcadSubject(sub.name)}
                             className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-2 border ${isSelected
-                                ? "bg-zinc-900 border-zinc-900 text-white shadow-xs"
-                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                              ? "bg-zinc-900 border-zinc-900 text-white shadow-xs"
+                              : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                               }`}
                           >
                             <BookOpen className={`h-3.5 w-3.5 ${isSelected ? "text-white" : "text-slate-400"}`} />
@@ -3939,8 +4427,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           key={`acad_wk_${wk}`}
                           id={`acad-task-week-${wk}`}
                           className={`bg-white border rounded-xl p-5 shadow-card space-y-4 hover:shadow-card transition-all duration-300 scroll-mt-24 ${highlightedWeek === wk
-                              ? "border-amber-500 ring-4 ring-amber-500/20 shadow-md scale-[1.01]"
-                              : "border-slate-200"
+                            ? "border-amber-500 ring-4 ring-amber-500/20 shadow-md scale-[1.01]"
+                            : "border-slate-200"
                             }`}
                         >
                           {/* Week Card Header */}
@@ -3973,12 +4461,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                                     return (
                                       <span className={`px-2 py-0.5 rounded text-[8.5px] font-black uppercase border ${liveAtt === "Absent"
-                                          ? "bg-rose-50 text-rose-700 border-rose-200"
-                                          : liveAtt === "OD"
-                                            ? "bg-blue-50 text-blue-700 border-blue-200"
-                                            : liveAtt === "Present"
-                                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                              : "bg-slate-100 text-slate-500 border-slate-200"
+                                        ? "bg-rose-50 text-rose-700 border-rose-200"
+                                        : liveAtt === "OD"
+                                          ? "bg-blue-50 text-blue-700 border-blue-200"
+                                          : liveAtt === "Present"
+                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                            : "bg-slate-100 text-slate-500 border-slate-200"
                                         }`}>
                                         {liveAtt}
                                       </span>
@@ -3994,10 +4482,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 <div className="flex items-center gap-2">
                                   <span className="text-[9px] text-slate-400 font-extrabold uppercase tracking-wide">Evaluated</span>
                                   <span className={`inline-flex items-center px-3 py-1 rounded-lg border text-xs font-black ${totalMarks! >= 24
-                                      ? "bg-emerald-50 border-emerald-200 text-emerald-800"
-                                      : totalMarks! >= 15
-                                        ? "bg-amber-50 border-amber-200 text-amber-800"
-                                        : "bg-rose-50 border-rose-200 text-rose-800"
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                                    : totalMarks! >= 15
+                                      ? "bg-amber-50 border-amber-200 text-amber-800"
+                                      : "bg-rose-50 border-rose-200 text-rose-800"
                                     }`}>
                                     Total Score: {totalMarks} / 30
                                   </span>
@@ -4217,8 +4705,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 setStudentTrackerSubject(subName);
                               }}
                               className={`relative px-4 py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 border shadow-xs ${isSelected
-                                  ? "bg-slate-900 border-slate-900 text-white ring-2 ring-amber-500/40 scale-105"
-                                  : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                                ? "bg-slate-900 border-slate-900 text-white ring-2 ring-amber-500/40 scale-105"
+                                : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
                                 }`}
                             >
                               <GraduationCap className={`h-4 w-4 shrink-0 ${isSelected ? "text-amber-400" : "text-slate-400"}`} />
@@ -4294,10 +4782,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           key={wk}
                           id={`skill-task-week-${wk}`}
                           className={`bg-white border rounded-xl p-5 shadow-card space-y-4 transition-all duration-300 scroll-mt-24 ${highlightedWeek === wk
-                              ? "border-amber-500 ring-4 ring-amber-500/20 shadow-md scale-[1.01]"
-                              : isNewTask
-                                ? "border-rose-300 ring-1 ring-rose-100"
-                                : "border-slate-200"
+                            ? "border-amber-500 ring-4 ring-amber-500/20 shadow-md scale-[1.01]"
+                            : isNewTask
+                              ? "border-rose-300 ring-1 ring-rose-100"
+                              : "border-slate-200"
                             }`}
                         >
                           {/* Task Card Header */}
@@ -4329,10 +4817,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 <div className="flex items-center gap-2">
                                   <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wide">Evaluated</span>
                                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-lg border text-xs font-bold uppercase tracking-wider ${entry.marks! >= 8
-                                      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                                      : entry.marks! >= 5
-                                        ? "bg-amber-50 border-amber-200 text-amber-700"
-                                        : "bg-rose-50 border-rose-200 text-rose-700"
+                                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                                    : entry.marks! >= 5
+                                      ? "bg-amber-50 border-amber-200 text-amber-700"
+                                      : "bg-rose-50 border-rose-200 text-rose-700"
                                     }`}>
                                     Score: {entry.marks} / 10
                                   </span>
@@ -4460,8 +4948,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                               disabled={isSubmitting}
                                               onClick={() => setStudentUploadType(prev => ({ ...prev, [wk]: "url" }))}
                                               className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${(studentUploadType[wk] || "url") === "url"
-                                                  ? "bg-indigo-50 border-indigo-300 text-amber-700"
-                                                  : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                                                ? "bg-indigo-50 border-indigo-300 text-amber-700"
+                                                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                                                 }`}
                                             >
                                               Web Link / URL
@@ -4471,8 +4959,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                               disabled={isSubmitting}
                                               onClick={() => setStudentUploadType(prev => ({ ...prev, [wk]: "file" }))}
                                               className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${studentUploadType[wk] === "file"
-                                                  ? "bg-indigo-50 border-indigo-300 text-amber-700"
-                                                  : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                                                ? "bg-indigo-50 border-indigo-300 text-amber-700"
+                                                : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                                                 }`}
                                             >
                                               Upload Document
@@ -5075,7 +5563,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <span>💻 Live Coding &amp; Contest Performance</span>
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          Live DB Synchronized
+                          Verified Standing
                         </span>
                       </h3>
                       <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
@@ -5155,7 +5643,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <span className="text-[10px] text-slate-400 font-medium">
                           {codingStatsData?.leetcode?.lastSyncedAt
                             ? `Last Synced: ${new Date(codingStatsData.leetcode.lastSyncedAt).toLocaleDateString()}`
-                            : "Auto-synced with college database"}
+                            : "Auto-synced with institutional records"}
                         </span>
                         <a
                           href={codingStatsData?.leetcode?.profileUrl || contestData?.leetcode?.contestUrl || "https://leetcode.com"}
@@ -5252,7 +5740,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <div>
                       <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <span>🏆 Honors, Accolades &amp; Achievements</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-pink-50 text-[#4F46E5] border border-pink-100">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100">
                           {studentAchievements.length} Verified
                         </span>
                       </h3>
@@ -5296,15 +5784,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           <div className="space-y-2.5">
                             <div className="flex items-start justify-between gap-2">
                               <span
-                                className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wide border ${
-                                  isTopPrize
-                                    ? "bg-amber-100 text-amber-800 border-amber-300"
-                                    : ach.badge === "Runner-Up" || ach.badge === "2nd Place" || ach.badge === "Silver Medalist"
-                                      ? "bg-slate-100 text-slate-800 border-slate-300"
-                                      : ach.badge === "Paper Published" || ach.badge === "Certification"
-                                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                        : "bg-indigo-100 text-amber-800 border-indigo-300"
-                                }`}
+                                className={`px-2.5 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wide border ${isTopPrize
+                                  ? "bg-amber-100 text-amber-800 border-amber-300"
+                                  : ach.badge === "Runner-Up" || ach.badge === "2nd Place" || ach.badge === "Silver Medalist"
+                                    ? "bg-slate-100 text-slate-800 border-slate-300"
+                                    : ach.badge === "Paper Published" || ach.badge === "Certification"
+                                      ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                      : "bg-indigo-100 text-amber-800 border-indigo-300"
+                                  }`}
                               >
                                 {ach.badge || "Accolade"}
                               </span>
@@ -5331,7 +5818,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                             {ach.event_name && (
                               <div className="p-2 rounded-xl bg-slate-100/70 border border-slate-200/60 text-xs font-semibold text-slate-700 flex items-center gap-1.5">
-                                <Sparkles className="h-3.5 w-3.5 text-[#4F46E5] shrink-0" />
+                                <Sparkles className="h-3.5 w-3.5 text-amber-600 shrink-0" />
                                 <span className="truncate">Event: <strong className="text-slate-900">{ach.event_name}</strong></span>
                               </div>
                             )}
@@ -5452,7 +5939,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               {/* Header Card */}
               <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-card flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-2xl bg-gradient-to-tr from-indigo-500 to-[#4F46E5] text-white flex items-center justify-center shadow-sm shrink-0">
+                  <div className="h-12 w-12 rounded-2xl bg-slate-900 text-amber-500 flex items-center justify-center shadow-sm shrink-0 border border-slate-800">
                     <Award className="h-6 w-6" />
                   </div>
                   <div>
@@ -5568,16 +6055,15 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           key={slot.id || `${slot.interview_id}_${slot.slot_start_time}`}
                           className="bg-white rounded-2xl border border-slate-100 shadow-card hover:shadow-card-lg transition-all duration-200 p-5 space-y-4 flex flex-col justify-between relative overflow-hidden group"
                         >
-                          <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-indigo-500 via-[#4F46E5] to-teal-400" />
+                          <div className="absolute top-0 inset-x-0 h-1 bg-amber-500" />
 
                           <div className="space-y-3">
                             <div className="flex items-start justify-between gap-2">
                               <div>
-                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mb-1.5 border ${
-                                  isInternal
-                                    ? "bg-teal-50 text-teal-700 border-teal-200/80"
-                                    : "bg-amber-50 text-amber-800 border-indigo-200/80"
-                                }`}>
+                                <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mb-1.5 border ${isInternal
+                                  ? "bg-teal-50 text-teal-700 border-teal-200/80"
+                                  : "bg-amber-50 text-amber-800 border-indigo-200/80"
+                                  }`}>
                                   {isInternal ? "Internal Campus Evaluation (In-Person)" : "External Zone Panel (Virtual)"}
                                 </span>
                                 <h3 className="text-sm font-black text-slate-900 line-clamp-1">{slot.subject || "Technical Interview"}</h3>
@@ -5597,7 +6083,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               </div>
 
                               <div className="flex items-center gap-2 text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
-                                <Clock className="h-4 w-4 text-[#4F46E5] shrink-0" />
+                                <Clock className="h-4 w-4 text-amber-600 shrink-0" />
                                 <div>
                                   <span className="text-[9px] font-extrabold text-slate-400 uppercase block">Allocated Slot</span>
                                   <span className="font-bold text-slate-800 truncate block">
@@ -5682,7 +6168,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 <div className="flex items-center justify-between">
                   <div>
                     <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-[#4F46E5]" />
+                      <Sparkles className="h-4 w-4 text-amber-500" />
                       Interview Performance & Rubric Evaluations
                     </h2>
                     <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
@@ -5734,13 +6220,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   {isAbsent ? "0" : ev.total_score} <span className="text-xs text-slate-400 font-bold">/ 10</span>
                                 </span>
                               </div>
-                              <span className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider ${
-                                isAbsent
-                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
-                                  : isCleared
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                    : "bg-amber-50 text-amber-700 border border-amber-200"
-                              }`}>
+                              <span className={`px-3 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider ${isAbsent
+                                ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                : isCleared
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-amber-50 text-amber-700 border border-amber-200"
+                                }`}>
                                 {isAbsent ? "Absent" : isCleared ? "Cleared" : "Needs Work"}
                               </span>
                             </div>

@@ -84,7 +84,7 @@ export function cmNavGroups(isKAMView: boolean): CmNavGroup[] {
       title: "Students",
       icon: GraduationCap,
       items: [
-        { id: "students_list", label: "Students Data", icon: Users, hint: "Enrolled student directory" },
+        { id: "students_list", label: isKAMView ? "Students Registry" : "Students Data", icon: isKAMView ? GraduationCap : Users, hint: isKAMView ? "Comprehensive student roster, attendance, exam marks & fee ledger" : "Enrolled student directory" },
         { id: "tracker", label: "Skill Development Tracker", icon: GraduationCap, hint: "Weekly submissions ledger" },
         { id: "profile_edits", label: "Student Profile Edit Requests", icon: UserCheck, hint: "Review student edit requests" },
       ],

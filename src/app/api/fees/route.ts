@@ -25,7 +25,7 @@ export async function GET(request: Request) {
     // Opt-in portfolio reads; leave the legacy GET contracts below unchanged.
     const mode = new URL(request.url).searchParams.get("mode");
     if (mode !== null) {
-      if (auth!.user.role !== "fee_manager" && auth!.user.role !== "admin") {
+      if (auth!.user.role !== "fee_manager" && auth!.user.role !== "admin" && auth!.user.role !== "kam") {
         return NextResponse.json({ success: false, message: "Fee data is not available for this role." }, { status: 403 });
       }
       if (!["summary", "students", "payments"].includes(mode)) {
@@ -314,6 +314,49 @@ export async function GET(request: Request) {
           paidCount: fees.filter((f: any) => f.status === 'paid').length,
           partialCount: fees.filter((f: any) => f.status === 'partial').length,
           unpaidCount: fees.filter((f: any) => f.status === 'unpaid').length
+        }
+      }, {
+        headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }
+      });
+    }
+
+    if (sessionRole === "kam") {
+      const kam = await db.get("SELECT id FROM kam_users WHERE id = ? OR LOWER(email) = ? LIMIT 1", sessionRef, String(auth!.user.email || "").toLowerCase());
+      const colleges = kam ? await db.all("SELECT id, name FROM colleges WHERE kam_id = ?", kam.id) : [];
+      const collegeIds = colleges.map((c: any) => c.id);
+
+      const failedSlices: QueryFailure[] = [];
+      const [students, fees, payments] = collegeIds.length ? await db.multiQuery([
+        {
+          sql: `SELECT id, name, email, classGroup, department, college_id, batch_start_year, batch_end_year, semester, batch_start_year as year FROM students WHERE college_id IN (${collegeIds.map(() => "?").join(",")}) ORDER BY name`,
+          params: collegeIds
+        },
+        {
+          sql: `SELECT * FROM student_fees WHERE student_id IN (SELECT id FROM students WHERE college_id IN (${collegeIds.map(() => "?").join(",")})) ${dateFilterFees} ORDER BY created_at DESC`,
+          params: [...collegeIds, ...dateParams]
+        },
+        {
+          sql: `SELECT * FROM fee_payments WHERE student_id IN (SELECT id FROM students WHERE college_id IN (${collegeIds.map(() => "?").join(",")})) ${dateFilterPayments} ORDER BY payment_date DESC`,
+          params: [...collegeIds, ...dateParams]
+        }
+      ], failedSlices) : [[], [], []];
+
+      const totalFees = fees.reduce((s: number, f: any) => s + (Number(f.amount) || 0), 0);
+      const totalPaid = fees.reduce((s: number, f: any) => s + (Number(f.paid_amount) || 0), 0);
+      const paidCount = fees.filter((f: any) => f.status === 'paid').length;
+      const partialCount = fees.filter((f: any) => f.status === 'partial').length;
+      const unpaidCount = fees.filter((f: any) => f.status === 'unpaid').length;
+
+      return NextResponse.json({
+        success: true,
+        colleges,
+        students, fees, payments,
+        stats: {
+          totalFees, totalPaid,
+          totalOutstanding: Math.max(totalFees - totalPaid, 0),
+          paidCount, partialCount, unpaidCount,
+          totalStudents: students.length,
+          collectionRate: totalFees > 0 ? Math.min(Math.round((totalPaid / totalFees) * 100), 100) : 0
         }
       }, {
         headers: { "Cache-Control": "no-store, no-cache, must-revalidate" }

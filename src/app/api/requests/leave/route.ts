@@ -133,7 +133,7 @@ export async function POST(request: Request) {
 
     try {
       await dispatchSystemNotification(db, {
-        roles: ["cm", "mentor", "admin"],
+        roles: ["cm", "admin"],
         collegeId: studentCollegeId,
         title: `New ${type.toUpperCase()} Request: ${studentName}`,
         message: `${studentName} (${classGroup}) submitted ${type.toUpperCase()} request for ${dateStr}: "${reason.slice(0, 80)}"`,
@@ -148,7 +148,7 @@ export async function POST(request: Request) {
     notifyRealtimeEvent({
       domain: "requests",
       action: "leave_requested",
-      targetRoles: ["cm", "mentor", "admin"],
+      targetRoles: ["cm", "admin"],
       payload: { requestId: newId, studentId, studentName, classGroup, type, dateStr }
     });
 
@@ -279,7 +279,7 @@ export async function PUT(request: Request) {
       domain: "requests",
       action: "leave_resolved",
       targetUserIds: [leaveReq.studentId],
-      targetRoles: ["student", "cm", "mentor", "admin"],
+      targetRoles: ["student", "cm", "admin"],
       payload: { requestId, status, studentId: leaveReq.studentId, dateStr: leaveReq.dateStr }
     });
     if (status === "approved") {

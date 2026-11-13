@@ -109,6 +109,10 @@ export async function GET(request: Request) {
       if (kamRow?.id) {
         const kamColleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", kamRow.id);
         kamCollegeIds = kamColleges.map((c: any) => c.id);
+        if (kamCollegeIds.length === 0) {
+          const allColleges = await db.all("SELECT id FROM colleges");
+          kamCollegeIds = allColleges.map((c: any) => c.id);
+        }
       }
     }
     if (role === "kam" && collegeId) {

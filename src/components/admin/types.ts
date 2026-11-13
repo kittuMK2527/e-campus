@@ -22,6 +22,7 @@ export type AdminTab =
   | "students"
   | "fees"
   | "examinations"
+  | "mentor_tasks"
   | "report_insight"
   | "report_skills"
   | "report_mentor_nps"

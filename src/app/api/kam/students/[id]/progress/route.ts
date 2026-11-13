@@ -56,7 +56,7 @@ export async function GET(
     const validIds = Array.from(new Set([studentId, rollNo, regNo].filter(Boolean)));
     const placeholders = validIds.map(() => "?").join(",");
     const progressFailures: QueryFailure[] = [];
-    const [attendanceRecords, interviews, leaveRequests, tracker] = await db.multiQuery(
+    const [attendanceRecords, interviews, leaveRequests, tracker, feeRows, paymentRows] = await db.multiQuery(
       [
         {
           sql: `SELECT sa.id, sa.dateStr, sa.status, sa.markedBy, sa.timestamp,
@@ -70,6 +70,8 @@ export async function GET(
         { sql: "SELECT * FROM student_interviews WHERE student_id = ? ORDER BY created_at DESC LIMIT 10", params: [studentId] },
         { sql: "SELECT * FROM leave_requests WHERE studentId = ? ORDER BY timestamp DESC LIMIT 10", params: [studentId] },
         { sql: "SELECT * FROM student_tracker WHERE student_id = ? ORDER BY updated_at DESC LIMIT 10", params: [studentId] },
+        { sql: "SELECT * FROM student_fees WHERE student_id = ? ORDER BY created_at DESC LIMIT 20", params: [studentId] },
+        { sql: "SELECT * FROM fee_payments WHERE student_id = ? ORDER BY payment_date DESC LIMIT 20", params: [studentId] },
       ],
       progressFailures
     );
@@ -163,6 +165,13 @@ export async function GET(
     if (overallAttendancePct < 60) risk = "CRITICAL";
     else if (overallAttendancePct < 75) risk = "AT RISK";
 
+    // Fee calculations
+    const safeFeeRows = (feeRows || []) as any[];
+    const safePaymentRows = (paymentRows || []) as any[];
+    const totalFees = safeFeeRows.reduce((sum, f) => sum + (Number(f.amount) || 0), 0);
+    const totalPaid = safeFeeRows.reduce((sum, f) => sum + (Number(f.paid_amount) || 0), 0);
+    const feeStatus = totalFees === 0 ? "cleared" : totalPaid >= totalFees ? "cleared" : totalPaid > 0 ? "partial" : "unpaid";
+
     return NextResponse.json({
       success: true,
       student: {
@@ -191,6 +200,14 @@ export async function GET(
       subjectAnalytics,
       progressTrend,
       timeline,
+      fees: safeFeeRows,
+      payments: safePaymentRows,
+      feeSummary: {
+        totalFees,
+        totalPaid,
+        totalOutstanding: Math.max(0, totalFees - totalPaid),
+        status: feeStatus
+      },
       dailyAttendance: attendanceRecords.slice(-60) // recent 60 period marks
     });
   } catch (error: any) {

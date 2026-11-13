@@ -495,7 +495,7 @@ export async function POST(request: Request) {
         roles: ["admin"],
         title: decisionTitle,
         message: decisionMessage,
-        link: "/mentor/handover",
+        link: "/mentor?tab=handovers",
         type: status === "approved" ? "success" : "error",
         domain: "notifications",
         action: "created",

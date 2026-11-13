@@ -26,7 +26,6 @@ import { QueryPrefetcher } from "./QueryPrefetcher";
 import {
   LogOut,
   ChevronDown,
-  ChevronRight,
   ArrowLeft,
   KeyRound,
   Eye,
@@ -847,7 +846,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
         <div className="sticky top-0 z-[60] w-full bg-rose-50 border-b border-rose-200 px-4 py-2 flex items-center justify-center gap-3">
           <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
           <span className="text-xs font-bold text-rose-700" role="alert">
-            {dataLoadMessage || "Working offline — showing cached data. Couldn't reach the database."}
+            {dataLoadMessage || "Working offline — displaying latest saved records. Server temporarily unreachable."}
           </span>
           <button
             type="button"
@@ -863,12 +862,12 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
       {/* Floating Application-Style Notification Permission Banner */}
       {showPromptBanner && devicePermission === "default" && (
-        <div className="sticky top-0 z-[65] w-full bg-gradient-to-r from-indigo-900 via-slate-900 to-indigo-950 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 border-b border-indigo-500/20 animate-fadeIn">
+        <div className="sticky top-0 z-[65] w-full bg-slate-900 text-white px-4 py-2.5 shadow-md flex items-center justify-between gap-3 border-b border-slate-800 animate-fadeIn">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-7 w-7 rounded-lg bg-indigo-500/30 border border-indigo-400/40 flex items-center justify-center shrink-0">
-              <Bell className="h-4 w-4 text-indigo-200 animate-bounce" />
+            <div className="h-7 w-7 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <Bell className="h-4 w-4 text-amber-300" />
             </div>
-            <p className="text-xs font-semibold text-indigo-100 truncate">
+            <p className="text-xs font-semibold text-slate-200 truncate">
               Enable website notifications for real-time day order changes, approvals, and emergency alerts.
             </p>
           </div>
@@ -877,14 +876,14 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
               type="button"
               onClick={handleEnableNotifications}
               disabled={isActivatingPush}
-              className="px-3 py-1 bg-indigo-500 hover:bg-indigo-400 text-white text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+              className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold rounded-lg shadow-xs transition-colors cursor-pointer disabled:opacity-50"
             >
               {isActivatingPush ? "Activating..." : "Turn On Notifications"}
             </button>
             <button
               type="button"
               onClick={handleDismissPrompt}
-              className="px-2.5 py-1 text-indigo-300 hover:text-white text-xs font-medium rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+              className="px-2.5 py-1 text-slate-400 hover:text-white text-xs font-medium rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
             >
               Later
             </button>
@@ -996,7 +995,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
             {/* Dropdown Panel */}
             {showNotifications && (
-              <div className="absolute right-0 mt-2.5 w-[380px] sm:w-[420px] max-w-[92vw] max-h-[70vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-card-lg z-[60] overflow-hidden flex flex-col animate-fadeIn">
+              <div className="fixed inset-x-3 top-16 sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2.5 w-auto sm:w-[420px] max-w-none sm:max-w-[92vw] max-h-[75vh] sm:max-h-[70vh] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl shadow-card-lg z-[70] overflow-hidden flex flex-col animate-fadeIn">
               {/* Header */}
               <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1236,38 +1235,6 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
     </div>
 
-      {/* Global Interactive Breadcrumb Bar (WF-P02) */}
-      <div className="w-[96%] sm:w-[94%] md:w-[92%] lg:w-[88%] xl:w-[85%] max-w-7xl mx-auto self-center px-3.5 sm:px-6 py-1.5 flex items-center justify-between text-[11px] font-semibold text-slate-500 z-20 shrink-0">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            type="button"
-            onClick={() => router.push(getRoleHomePath(currentRole))}
-            className="hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer font-bold text-slate-600 dark:text-slate-400 flex items-center gap-1"
-          >
-            <span>Home</span>
-          </button>
-          <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
-          <span className="text-slate-800 dark:text-slate-200 font-extrabold uppercase tracking-wider text-[10px] px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
-            {normalizeRoleValue(currentRole) === "admin" && "Super Admin Central"}
-            {normalizeRoleValue(currentRole) === "cm" && "Campus Operations"}
-            {normalizeRoleValue(currentRole) === "kam" && "Institutional Portfolio"}
-            {normalizeRoleValue(currentRole) === "mentor" && (currentMentor?.name ? `Faculty · ${currentMentor.name}` : "Faculty Workspace")}
-            {normalizeRoleValue(currentRole) === "student" && (currentStudent?.name ? `Student · ${currentStudent.name}` : "Student Portal")}
-            {normalizeRoleValue(currentRole) === "fee_manager" && "Fee Collections"}
-            {normalizeRoleValue(currentRole) === "sme" && "SME Evaluation Hub"}
-            {normalizeRoleValue(currentRole) === "L and D" && "Learning & Development"}
-          </span>
-          {Boolean(currentCAM?.college_name || (currentUser?.college_id && colleges?.find(c => c.id === currentUser?.college_id)?.name)) && (
-            <>
-              <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600 shrink-0" />
-              <span className="text-slate-700 dark:text-slate-300 font-bold truncate max-w-[200px]">
-                {currentCAM?.college_name || colleges?.find(c => c.id === currentUser?.college_id)?.name}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
       {/* Main Workspace Dashboard Content */}
       <main className="flex-grow flex flex-col relative overflow-hidden min-h-0">
         {/* Modern Dot Grid Background Pattern Overlay */}
@@ -1275,7 +1242,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
         {children}
 
         {/* Global Floating Feedback Button — clears the mobile bottom navigation */}
-        <div className="fixed bottom-20 md:bottom-4 right-4 z-40">
+        <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 z-40">
           <button
             type="button"
             onClick={() => {

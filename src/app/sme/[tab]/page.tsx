@@ -13,7 +13,7 @@ export default function SMETabPage() {
   return (
     <DashboardLayout requiredRole="sme">
       <SMEDashboard
-        activeTab={tab}
+        activeTab={tab as any}
         onTabChange={(newTab) => router.push(`/sme/${newTab}`)}
       />
     </DashboardLayout>

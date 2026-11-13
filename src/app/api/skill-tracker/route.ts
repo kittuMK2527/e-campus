@@ -197,7 +197,7 @@ export async function GET(request: Request) {
       clearancesBySubjectWeek.get(key)!.push(c);
     });
 
-    const weeksFilter = weekNumber && weekNumber !== "all" ? [parseInt(weekNumber, 10)] : Array.from({ length: 16 }, (_, i) => i + 1);
+    const weeksFilter = weekNumber && weekNumber !== "all" ? [parseInt(weekNumber, 10)] : Array.from({ length: 40 }, (_, i) => i + 1);
 
     const mentors: any[] = mentorRoster || [];
 
@@ -454,7 +454,7 @@ export async function POST(request: Request) {
         mentorId,
         title,
         message,
-        "/mentor/skill-tracker",
+        "/mentor?tab=my_skill_tracker",
         "skill_verdict_revision",
         nowStr
       ).catch(() => {});
@@ -469,7 +469,7 @@ export async function POST(request: Request) {
         mentorId,
         title,
         message,
-        "/mentor/skill-tracker",
+        "/mentor?tab=my_skill_tracker",
         "skill_verdict_cleared",
         nowStr
       ).catch(() => {});

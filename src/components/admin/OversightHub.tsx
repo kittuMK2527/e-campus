@@ -40,7 +40,7 @@ function ChartCard({
   accent = "bg-indigo-50 text-indigo-600"
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: any;
   children: React.ReactNode;
   accent?: string;
@@ -53,7 +53,7 @@ function ChartCard({
         </div>
         <div>
           <h3 className="text-sm font-black text-gray-900 leading-tight">{title}</h3>
-          <p className="text-[10px] text-gray-400 font-semibold">{subtitle}</p>
+          {subtitle && <p className="text-[10px] text-gray-400 font-semibold">{subtitle}</p>}
         </div>
       </div>
       {children}
@@ -962,7 +962,6 @@ export function OversightHub() {
 
             <ChartCard
               title="Faculty Workload Distribution"
-              subtitle="Weekly slot-hours per mentor (top 15)"
               icon={Users}
               accent="bg-teal-50 text-teal-600"
             >
@@ -993,7 +992,6 @@ export function OversightHub() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <ChartCard
               title="Syllabus Completion Pace"
-              subtitle="% of 15-week semester target conducted (lowest first)"
               icon={BookOpen}
               accent="bg-indigo-50 text-indigo-600"
             >
@@ -1018,7 +1016,6 @@ export function OversightHub() {
 
             <ChartCard
               title="Skill Development Progress"
-              subtitle="Average score & entry volume per cohort"
               icon={GraduationCap}
               accent="bg-emerald-50 text-emerald-600"
             >

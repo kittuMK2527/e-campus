@@ -403,7 +403,7 @@ export async function POST(request: Request) {
         collegeId: requestor.college_id,
         title: isEmergency ? `EMERGENCY Handover: ${requestor.name}` : `Class Handover Request`,
         message: `${requestor.name} requested you to cover "${subjectName || slot.course}" on ${dateFormatted}.`,
-        link: "/mentor/handover",
+        link: "/mentor?tab=handovers",
         type: isEmergency ? "warning" : "info",
         domain: "notifications",
         action: "created",

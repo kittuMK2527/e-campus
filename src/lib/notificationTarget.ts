@@ -204,16 +204,16 @@ export function resolveNotificationDestination(
     }
     if (role === "mentor") {
       return {
-        url: "/mentor/leaves",
+        url: "/mentor?tab=handovers",
         isExternal: false,
         targetDate,
         action: "approvals",
-        actionLabel: "View Leaves",
+        actionLabel: "View Handovers",
       };
     }
     if (role === "cm") {
       return {
-        url: "/cm/leave-approvals",
+        url: "/cm/approvals",
         isExternal: false,
         targetDate,
         action: "approvals",
@@ -316,6 +316,22 @@ export function resolveNotificationDestination(
     fullText.includes("submission") ||
     fullText.includes("assignment")
   ) {
+    // Skill task assigned to mentor — route directly to My Skill Tracker tab
+    const isSkillTask =
+      notification.type === "skill_task" ||
+      fullText.includes("skill task") ||
+      fullText.includes("skill tracker") ||
+      fullText.includes("my skill tracker");
+
+    if (role === "mentor" && isSkillTask) {
+      return {
+        url: "/mentor?tab=my_skill_tracker",
+        isExternal: false,
+        targetDate: null,
+        action: "tasks",
+        actionLabel: "Open My Skill Tracker",
+      };
+    }
     if (role === "student") {
       return {
         url: "/student/tracker",

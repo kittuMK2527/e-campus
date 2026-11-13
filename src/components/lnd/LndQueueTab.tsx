@@ -39,7 +39,6 @@ export default function LndQueueTab({
   return (
     <Panel
       title="Reallocation Queue & Diagnostics"
-      subtitle="Review pending swap proposals and session reallocation requests."
     >
       <div className="space-y-6">
         {/* ── Session outcomes that need a decision, kept next to the lists they point at ── */}

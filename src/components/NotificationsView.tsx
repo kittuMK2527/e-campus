@@ -251,9 +251,6 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
                 </span>
               )}
             </h1>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">
-              Real-time alerts, class schedule changes, approvals, and system notifications.
-            </p>
           </div>
         </div>
 
