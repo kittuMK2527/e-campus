@@ -88,6 +88,19 @@ export const ClearAttendanceSection: React.FC<ClearAttendanceSectionProps> = ({
       const res = await fetch(`/api/attendance?${params.toString()}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
+        try {
+          await fetch("/api/audit-log", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "CLEAR_ATTENDANCE_RANGE",
+              entity: "student_attendance",
+              range: { startDate, endDate, collegeId, dept, classGroup },
+              deletedCount: data.deletedCount ?? 0,
+              reason: `Attendance cleared for range ${startDate} to ${endDate}`
+            })
+          });
+        } catch (_) {}
         toast(`Cleared ${data.deletedCount ?? 0} attendance record(s) from ${startDate} to ${endDate}.`, "success");
         setPreviewCount(null);
         await onAttendanceCleared(collegeId !== "all" ? collegeId : undefined);

@@ -25805,7 +25805,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 shrink-0">
+          <div className="sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 mt-auto flex shrink-0 justify-end gap-2 border-t border-slate-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 dark:border-slate-800 dark:bg-slate-900 sm:px-6">
             <button
               type="button"
               onClick={() => {
@@ -26199,7 +26199,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 setShowStudentImportModal(false);
                 setStudentImportPreview(null);
               }}
-              className="px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all font-bold cursor-pointer"
+              className="min-h-10 px-4 py-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all font-bold cursor-pointer"
             >
               Cancel
             </button>
@@ -26207,7 +26207,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               type="button"
               onClick={handleConfirmStudentImportSubmit}
               disabled={isStudentImportSubmitting || studentImportPreview.parsed.length === 0}
-              className={`px-5 py-2 text-white rounded-xl shadow-sm transition-all font-bold cursor-pointer border border-amber-500 flex items-center justify-center gap-2 ${isStudentImportSubmitting || studentImportPreview.parsed.length === 0
+              className={`min-h-10 px-4 sm:px-5 py-2 text-white rounded-xl shadow-sm transition-all font-bold cursor-pointer border border-amber-500 flex items-center justify-center gap-2 ${isStudentImportSubmitting || studentImportPreview.parsed.length === 0
                 ? "bg-slate-300 border-slate-300 text-slate-400 cursor-not-allowed opacity-80"
                 : "btn-gradient hover:opacity-95 active:scale-95"
                 }`}
@@ -26578,14 +26578,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 shrink-0">
+          <div className="sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 mt-auto flex shrink-0 items-center justify-end gap-2 border-t border-slate-100 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 dark:border-slate-800 dark:bg-slate-900 sm:px-6">
             <button
               type="button"
               onClick={() => {
                 setShowAttendanceImportModal(false);
                 setAttendanceImportPreview(null);
               }}
-              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+              className="min-h-10 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
             >
               Cancel
             </button>
@@ -26593,7 +26593,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               type="button"
               disabled={isAttendanceImportSubmitting}
               onClick={handleConfirmAttendanceImportSubmit}
-              className="px-4 py-2 rounded-xl btn-gradient text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5 active:scale-95 disabled:opacity-60"
+              className="min-h-10 px-4 py-2 rounded-xl btn-gradient text-white text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1.5 active:scale-95 disabled:opacity-60"
             >
               {isAttendanceImportSubmitting ? (
                 <>
@@ -27917,15 +27917,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             </Table>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-800">
+          <div className="sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 mt-auto flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between sm:px-6">
             <p className="text-xs text-gray-500 dark:text-slate-400 font-medium">
               Initial default password for all imported faculty will be set to <code className="bg-gray-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono font-bold">the institution default</code>
             </p>
-            <div className="flex items-center gap-3">
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:gap-3">
               <button
                 type="button"
                 onClick={() => setShowFacultyImportModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-gray-600 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                className="min-h-10 flex-1 px-4 py-2 rounded-xl text-xs font-bold text-gray-600 dark:text-slate-400 bg-gray-100 dark:bg-slate-800 hover:bg-gray-200 dark:hover:bg-slate-700 transition-all cursor-pointer sm:flex-none"
               >
                 Cancel
               </button>
@@ -27933,7 +27933,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 type="button"
                 disabled={isImportingFaculty}
                 onClick={handleConfirmFacultyImport}
-                className="px-5 py-2 rounded-xl text-xs font-extrabold btn-gradient text-white shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                className="min-h-10 flex-1 whitespace-nowrap px-4 sm:px-5 py-2 rounded-xl text-xs font-extrabold btn-gradient text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 sm:flex-none"
               >
                 {isImportingFaculty ? "Importing..." : `Confirm & Import (${facultyImportPreview.parsed.length}) →`}
               </button>

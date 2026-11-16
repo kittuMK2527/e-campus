@@ -39,6 +39,7 @@ import {
 import { MentorDialog, type MentorFormState } from "@/components/admin/dialogs/MentorDialog";
 import { FacultyImportDialog } from "@/components/admin/dialogs/FacultyImportDialog";
 import { MentorProfileModal } from "@/components/MentorProfileModal";
+import { BulkRangeDeleteModal, BulkRangeDeleteButton } from "@/components/ui/BulkRangeDeleteModal";
 
 export const MentorsTab: React.FC = () => {
   const {
@@ -82,6 +83,7 @@ export const MentorsTab: React.FC = () => {
 
   // Bulk import state
   const [showImportPreview, setShowImportPreview] = useState(false);
+  const [rangeDeleteOpen, setRangeDeleteOpen] = useState(false);
   const [facultyImportPreview, setFacultyImportPreview] = useState<{ parsed: any[]; warnings: string[] } | null>(null);
   const [importTargetCollegeId, setImportTargetCollegeId] = useState(colleges[0]?.id || "");
   const [isImporting, setIsImporting] = useState(false);
@@ -407,6 +409,10 @@ export const MentorsTab: React.FC = () => {
         title="Faculty Mentors"
         actions={
           <div className="flex items-center gap-2">
+            <BulkRangeDeleteButton
+              onClick={() => setRangeDeleteOpen(true)}
+              label="Delete Mentors by Range"
+            />
             <Button
               variant="ghost"
               onClick={() => handleOpenMentorModal()}
@@ -686,6 +692,25 @@ export const MentorsTab: React.FC = () => {
           mentor={selectedProfileMentor}
         />
       )}
+
+      <BulkRangeDeleteModal
+        open={rangeDeleteOpen}
+        onOpenChange={setRangeDeleteOpen}
+        title="Delete Faculty Mentors by Row / Range"
+        entityName="mentors"
+        items={mentors}
+        mode="index"
+        getItemLabel={m => `${m.name} (${m.email || ""})`}
+        onDeleteRange={async (itemsToDelete) => {
+          for (const m of itemsToDelete) {
+            try {
+              await deleteMentor(m.id);
+            } catch (_) {}
+          }
+          await refreshData(true);
+          return { success: true };
+        }}
+      />
     </div>
   );
 };

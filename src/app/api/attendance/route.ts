@@ -12,6 +12,29 @@ export const maxDuration = 60; // seconds — bulk imports need breathing room
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+function hasMatchingVerifiedPlan(plans: any[], slot: any, dateStr: string): boolean {
+  const normalize = (value: unknown) => String(value || "").toLowerCase().replace(/\s+/g, "");
+  return plans.some(plan => {
+    if (normalize(plan.subject) !== normalize(slot.course)) return false;
+    const planClass = normalize(plan.class_group).replace(/[^a-z0-9]/g, "");
+    const slotClass = normalize(slot.classGroup || slot.classgroup).replace(/[^a-z0-9]/g, "");
+    if (!planClass || planClass !== slotClass) return false;
+    let tasks: any[] = [];
+    try {
+      tasks = typeof plan.session_plan === "string" ? JSON.parse(plan.session_plan) : (plan.session_plan || []);
+    } catch {
+      return false;
+    }
+    return tasks.some(task => {
+      const taskDate = task.date ? String(task.date).slice(0, 10) : "";
+      const inRange = taskDate
+        ? taskDate === dateStr
+        : plan.start_date && plan.end_date && dateStr >= String(plan.start_date).slice(0, 10) && dateStr <= String(plan.end_date).slice(0, 10);
+      return Boolean(inRange && normalize(task.periodSlot) === normalize(slot.time) && String(task.topic || "").trim());
+    });
+  });
+}
+
 const noCacheHeaders = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
   "Pragma": "no-cache",
@@ -607,6 +630,20 @@ export async function POST(request: Request) {
         );
       }
 
+      const isRegularOwnSession = ownsSlot && (type || "Regular") === "Regular";
+      if (isRegularOwnSession) {
+        const verifiedPlans = await db.all(
+          "SELECT subject, class_group, start_date, end_date, session_plan FROM mentor_weekly_plans WHERE mentor_id = ? AND college_id = ? AND status = 'Verified'",
+          actor.reference_id || actor.id, slot.college_id
+        );
+        if (!hasMatchingVerifiedPlan(verifiedPlans, slot, dateStr)) {
+          return NextResponse.json(
+            { success: false, message: "A matching SME-verified weekly plan is required before marking attendance for this regular class." },
+            { status: 422 }
+          );
+        }
+      }
+
       // Past-date lock (server side). Same-day period windows stay enforced in the UI;
       // the server blocks earlier dates unless the CM approved a late-attendance request.
       if (dateStr < getInstitutionDateStr()) {
@@ -710,7 +747,21 @@ export async function POST(request: Request) {
 
     // Clearing the period and re-writing it are one unit. Autocommitted, an insert
     // that failed after the DELETE left the whole period's attendance erased.
+    let alreadySubmitted = false;
     const insertedCount = await db.transaction(async (tx) => {
+      if (actorRole === "mentor") {
+        // Serialize submissions for this period so a retry cannot overwrite a
+        // previously submitted roster.
+        await tx.get("SELECT id FROM slots WHERE id = ? FOR UPDATE", slotId);
+        const existingRows = await tx.all(
+          "SELECT id FROM student_attendance WHERE slotId = ? AND dateStr = ? LIMIT 1",
+          slotId, dateStr
+        );
+        if (existingRows.length > 0) {
+          alreadySubmitted = true;
+          return 0;
+        }
+      }
       await tx.run("DELETE FROM student_attendance WHERE slotId = ? AND dateStr = ?", [slotId, dateStr]);
 
       if (coveredSubject) {
@@ -755,6 +806,13 @@ export async function POST(request: Request) {
 
       return validItems.length;
     });
+
+    if (alreadySubmitted) {
+      return NextResponse.json(
+        { success: false, message: "Attendance has already been submitted for this period and is locked. Contact the CM if a correction is required." },
+        { status: 409 }
+      );
+    }
 
     // DATA_FLOW_AUDIT D6: return the authoritative stored rows (real DB ids, markedBy,
     // timestamp) so the client patches state instead of synthesizing fake ids.

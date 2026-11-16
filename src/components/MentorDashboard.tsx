@@ -2672,10 +2672,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
   const [attendanceFilterStatus, setAttendanceFilterStatus] = useState<"all" | "present" | "absent" | "od">("all");
 
   // ── Weekly Plan ↔ Attendance Verification ────────────────────────────
-  // Approved weekly plans are fetched once per session for this mentor; when the
-  // attendance studio opens for a period, the matching planned task (same date,
-  // period, class & subject) is offered for soft confirmation. Writes one
-  // academic_tracker provenance entry after attendance saves — never gates marking.
+  // A matching SME-verified weekly plan is required before regular own-class
+  // attendance can be submitted. Attendance is separately locked after its first save.
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [selectedCell, setSelectedCell] = useState<{
     day: string;
@@ -7714,6 +7712,12 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
 
           // Allow editing if: lock is disabled OR window is open OR has CM approval for late edit. Block future periods unconditionally.
           const isPastDay = isFuture || (attendanceLockEnabled && ((selectedCell.dateStr < todayStr || isLocked) && !hasCMApproval));
+          const hasSessionAttendance = studentAttendance.some(
+            a => a.slotId === selectedCell.slot!.id && a.dateStr === selectedCell.dateStr
+          );
+          const isRegularOwnSession = selectedCell.type !== "covering" && attendanceType === "Regular";
+          const hasVerifiedWeeklyPlan = !isRegularOwnSession || !!matchedPlannedTask;
+          const attendanceIsReadOnly = isPastDay || hasSessionAttendance;
 
           const presentCount = classStudents.filter(s => (localAttendance[s.id] || "present") === "present").length;
           const absentCount = classStudents.filter(s => localAttendance[s.id] === "absent").length;
@@ -7722,7 +7726,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           const filteredStudents = memoizedFilteredStudents;
 
           const setStudentStatus = (studentId: string, status: "present" | "absent" | "od") => {
-            if (isPastDay) return;
+            if (attendanceIsReadOnly) return;
             setLocalAttendance(prev => ({
               ...prev,
               [studentId]: status
@@ -7730,7 +7734,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           };
 
           const handleToggleStudent = (studentId: string) => {
-            if (isPastDay) return;
+            if (attendanceIsReadOnly) return;
             setLocalAttendance(prev => {
               const cur = prev[studentId] || "present";
               let next: "present" | "absent" | "od" = "absent";
@@ -7742,7 +7746,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           };
 
           const handleMarkAll = (status: "present" | "absent" | "od") => {
-            if (isPastDay) return;
+            if (attendanceIsReadOnly) return;
             const updated: Record<string, "present" | "absent" | "od" | "not_marked"> = {};
             classStudents.forEach(s => {
               updated[s.id] = status;
@@ -7751,6 +7755,18 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           };
 
           const handleSaveAttendance = async () => {
+            if (hasSessionAttendance) {
+              setFormError("Attendance has already been submitted for this period and is locked. Contact the CM if a correction is required.");
+              return;
+            }
+            if (isRegularOwnSession && !weeklyPlansLoaded) {
+              setFormError("Checking the SME-verified weekly plan. Please wait and try again.");
+              return;
+            }
+            if (!hasVerifiedWeeklyPlan) {
+              setFormError("A matching SME-verified weekly plan is required before marking attendance for this regular class.");
+              return;
+            }
             // ── Day config pre-flight guard ──────────────────────────────
             if (!isDayConfigSet) {
               setFormError("Day order/type has not been configured for this date. The CM must set the day schedule before you can mark attendance.");
@@ -7883,9 +7899,9 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       <h3 className="text-base font-bold text-slate-900 leading-tight">
                         Attendance — {selectedCell.slot.course}
                       </h3>
-                      {isPastDay && (
+                          {(isPastDay || hasSessionAttendance) && (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-100 text-amber-700 border border-amber-200 uppercase tracking-wider">
-                          View Only
+                            {hasSessionAttendance ? "Submitted · Locked" : "View Only"}
                         </span>
                       )}
                       {!isPastDay && hasCMApproval && (
@@ -8002,7 +8018,23 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                 </div>
               )}
 
-              {/* ── Weekly Plan Verification Panel (soft confirm — never blocks marking) ── */}
+              {/* A matching verified plan is required before marking regular own classes. */}
+              {isRegularOwnSession && !matchedPlannedTask && (
+                <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200 flex items-start gap-2.5 shrink-0">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-900">
+                    <p className="font-bold">{weeklyPlansLoaded ? "Attendance is locked until the weekly plan is SME-verified." : "Checking for an SME-verified weekly plan…"}</p>
+                    {weeklyPlansLoaded && <p className="text-[11px] mt-0.5">A verified plan must match this subject, class, date, and period.</p>}
+                  </div>
+                </div>
+              )}
+              {hasSessionAttendance && (
+                <div className="px-5 py-2.5 bg-slate-100 border-b border-slate-200 flex items-start gap-2.5 shrink-0">
+                  <Lock className="w-4 h-4 text-slate-600 shrink-0 mt-0.5" />
+                  <p className="text-xs text-slate-700"><strong>Attendance submitted and locked.</strong> Contact the CM if a correction is required.</p>
+                </div>
+              )}
+              {/* ── Weekly Plan Verification Panel ── */}
               {matchedPlannedTask && selectedCell.type !== "covering" && (
                 <div className="px-5 py-2.5 bg-emerald-50/60 border-b border-emerald-100 flex items-start gap-2.5 shrink-0">
                   <CalendarRange className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
@@ -8031,7 +8063,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         <button
                           key={val}
                           type="button"
-                          disabled={isPastDay}
+                          disabled={attendanceIsReadOnly}
                           onClick={() => setPlanVerificationChoice(val)}
                           className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer border disabled:opacity-50 disabled:cursor-not-allowed ${planVerificationChoice === val
                               ? val === "not_conducted"
@@ -8066,7 +8098,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   </div>
                 </div>
               )}
-              {!matchedPlannedTask && weeklyPlansLoaded && selectedCell.type !== "covering" && !isPastDay && (
+              {!matchedPlannedTask && weeklyPlansLoaded && selectedCell.type !== "covering" && !isPastDay && !hasSessionAttendance && (
                 <div className="px-5 py-1.5 bg-slate-50/60 border-b border-slate-100 flex items-center gap-2 shrink-0">
                   <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">No approved Weekly Plan match for this period</span>
                 </div>
@@ -8133,7 +8165,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       </button>
                     )}
                   </div>
-                  {!isPastDay && (
+                  {!attendanceIsReadOnly && (
                     <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
@@ -8182,7 +8214,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         <div
                           key={st.id}
                           onClick={() => handleToggleStudent(st.id)}
-                          className="px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white transition-all flex items-center justify-between gap-3 cursor-pointer select-none shadow-2xs"
+                          className={`px-3.5 py-2.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-white transition-all flex items-center justify-between gap-3 select-none shadow-2xs ${attendanceIsReadOnly ? "cursor-not-allowed opacity-80" : "cursor-pointer"}`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <span className="w-6 h-6 rounded-md bg-slate-100 text-slate-600 font-mono text-[10px] font-bold flex items-center justify-center shrink-0">
@@ -8198,6 +8230,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200/70 shrink-0" onClick={(e) => e.stopPropagation()}>
                             <button
                               type="button"
+                              disabled={attendanceIsReadOnly}
                               onClick={() => setStudentStatus(st.id, "present")}
                               className={`px-3.5 py-2 sm:px-2.5 sm:py-1 min-h-[44px] sm:min-h-[32px] rounded-md text-xs transition-all cursor-pointer ${status === "present"
                                 ? "bg-emerald-600 text-white font-bold shadow-xs"
@@ -8208,6 +8241,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             </button>
                             <button
                               type="button"
+                              disabled={attendanceIsReadOnly}
                               onClick={() => setStudentStatus(st.id, "absent")}
                               className={`px-3.5 py-2 sm:px-2.5 sm:py-1 min-h-[44px] sm:min-h-[32px] rounded-md text-xs transition-all cursor-pointer ${status === "absent"
                                 ? "bg-rose-600 text-white font-bold shadow-xs"
@@ -8218,6 +8252,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             </button>
                             <button
                               type="button"
+                              disabled={attendanceIsReadOnly}
                               onClick={() => setStudentStatus(st.id, "od")}
                               className={`px-3.5 py-2 sm:px-2.5 sm:py-1 min-h-[44px] sm:min-h-[32px] rounded-md text-xs transition-all cursor-pointer ${status === "od"
                                 ? "bg-blue-600 text-white font-bold shadow-xs"
@@ -8258,9 +8293,9 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   <button
                     type="button"
                     onClick={handleSaveAttendance}
-                    disabled={isSubmittingAttendance || isPastDay || !isDayConfigSet || (isDayConfigSet && dayConfigDetails?.day_type === "holiday")}
+                    disabled={isSubmittingAttendance || attendanceIsReadOnly || !hasVerifiedWeeklyPlan || (isRegularOwnSession && !weeklyPlansLoaded) || !isDayConfigSet || (isDayConfigSet && dayConfigDetails?.day_type === "holiday")}
                     className="px-5 py-2 min-h-[44px] rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed flex-1 sm:flex-initial"
-                    title={!isDayConfigSet ? "CM must configure day order for this date first" : (dayConfigDetails?.day_type === "holiday" ? "Attendance cannot be marked on a holiday" : undefined)}
+                    title={hasSessionAttendance ? "Attendance has already been submitted for this period" : !hasVerifiedWeeklyPlan ? "A matching SME-verified weekly plan is required" : !isDayConfigSet ? "CM must configure day order for this date first" : (dayConfigDetails?.day_type === "holiday" ? "Attendance cannot be marked on a holiday" : undefined)}
                   >
                     {isSubmittingAttendance ? (
                       <>

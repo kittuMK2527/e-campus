@@ -500,7 +500,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["mentor", "sme", "cm", "kam", "admin"] });
+    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["mentor", "sme", "cm", "kam", "admin"] });
     if (errorResponse) return errorResponse;
     const db = await getDb();
     await ensureMigration("mentor_skill_clearances");
@@ -519,12 +519,34 @@ export async function PATCH(request: Request) {
     const cleanLink = (submissionLink || "").trim();
     const nowStr = new Date().toISOString();
     const wk = parseInt(String(weekNumber), 10);
-
-    // 1. Update weekly plan if found
     const plan = await db.get(
-      "SELECT id FROM mentor_weekly_plans WHERE mentor_id = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ? ORDER BY updated_at DESC LIMIT 1",
+      "SELECT id, submission_link FROM mentor_weekly_plans WHERE mentor_id = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ? ORDER BY updated_at DESC LIMIT 1",
       mentorId, subject, wk
     );
+
+    // A mentor may submit their own work once; only an explicit reviewer
+    // revision request unlocks a replacement submission.
+    if (auth?.user.role === "mentor") {
+      if (auth.user.reference_id !== mentorId) {
+        return NextResponse.json({ success: false, message: "You can only submit work for your own mentor account." }, { status: 403 });
+      }
+      const existingSubmission = await db.get(
+        "SELECT status, submission_link FROM mentor_skill_clearances WHERE mentor_id = ? AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ? AND scope = 'week'",
+        mentorId, subject, wk
+      );
+      const revisionRequested = existingSubmission?.status === "not_cleared" || existingSubmission?.status === "needs_revision";
+      if ((existingSubmission?.submission_link || plan?.submission_link) && !revisionRequested) {
+        return NextResponse.json(
+          { success: false, message: "This work has already been submitted and is locked until an SME requests a revision." },
+          { status: 409 }
+        );
+      }
+      if (!cleanLink) {
+        return NextResponse.json({ success: false, message: "A submission link or document is required." }, { status: 400 });
+      }
+    }
+
+    // 1. Update weekly plan if found
     if (plan?.id) {
       await db.run(
         "UPDATE mentor_weekly_plans SET submission_link = ?, material_url = ?, updated_at = ? WHERE id = ?",

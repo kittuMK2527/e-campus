@@ -25,6 +25,7 @@ import { HolidayFormState } from "@/components/admin/types";
 import { useToast } from "@/context/ToastContext";
 import { useAdminCampusScope } from "@/components/admin/useAdminCampusScope";
 import { SundayScheduleCard } from "@/components/admin/operations/SundayScheduleCard";
+import { BulkRangeDeleteModal, BulkRangeDeleteButton } from "@/components/ui/BulkRangeDeleteModal";
 
 export interface Holiday {
   id: string;
@@ -55,6 +56,7 @@ export const HolidaysTab: React.FC<HolidaysTabProps> = ({
   const colleges = propColleges ?? app.colleges ?? [];
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [rangeDeleteOpen, setRangeDeleteOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState<Record<string, boolean>>({});
   const loadingActions = propLoadingActions ?? localLoading;
@@ -146,14 +148,20 @@ export const HolidaysTab: React.FC<HolidaysTabProps> = ({
         icon={Calendar}
         title="Campus Holidays"
         actions={
-          <Button
-            variant="ghost"
-            onClick={handleOpenSchedule}
-            className="h-auto btn-gradient shadow-sm text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 composition-btn cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Schedule Holiday
-          </Button>
+          <div className="flex items-center gap-2">
+            <BulkRangeDeleteButton
+              onClick={() => setRangeDeleteOpen(true)}
+              label="Delete Holidays by Range"
+            />
+            <Button
+              variant="ghost"
+              onClick={handleOpenSchedule}
+              className="h-auto btn-gradient shadow-sm text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 composition-btn cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Schedule Holiday
+            </Button>
+          </div>
         }
       />
 
@@ -258,6 +266,27 @@ export const HolidaysTab: React.FC<HolidaysTabProps> = ({
           isSubmitting={isSubmitting}
         />
       )}
+
+      <BulkRangeDeleteModal
+        open={rangeDeleteOpen}
+        onOpenChange={setRangeDeleteOpen}
+        title="Delete Holidays by Date Range"
+        entityName="holidays"
+        items={holidays}
+        mode="date"
+        getDate={h => h.date}
+        getItemLabel={h => `${h.title} (${h.date})`}
+        onDeleteRange={async (itemsToDelete) => {
+          for (const hol of itemsToDelete) {
+            try {
+              await fetch(`/api/holidays?id=${hol.id}`, { method: "DELETE" });
+            } catch (_) {}
+          }
+          app.refreshData();
+          app.notifyDataChanged("holidays");
+          return { success: true };
+        }}
+      />
     </div>
   );
 };

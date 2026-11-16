@@ -22,6 +22,7 @@ import {
 import { AnnouncementDialog } from "@/components/admin/dialogs/AnnouncementDialog";
 import { AnnouncementFormState } from "@/components/admin/types";
 import { useToast } from "@/context/ToastContext";
+import { BulkRangeDeleteModal, BulkRangeDeleteButton } from "@/components/ui/BulkRangeDeleteModal";
 
 export interface Announcement {
   id: string;
@@ -66,6 +67,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
   const isLoading = propIsLoading ?? annQuery.isLoading;
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [rangeDeleteOpen, setRangeDeleteOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localLoading, setLocalLoading] = useState<Record<string, boolean>>({});
   const loadingActions = propLoadingActions ?? localLoading;
@@ -156,14 +158,20 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
         icon={Megaphone}
         title="Campus Announcements"
         actions={
-          <Button
-            variant="ghost"
-            onClick={handleOpenCompose}
-            className="h-auto btn-gradient shadow-sm text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Compose Announcement
-          </Button>
+          <div className="flex items-center gap-2">
+            <BulkRangeDeleteButton
+              onClick={() => setRangeDeleteOpen(true)}
+              label="Delete Announcements by Range"
+            />
+            <Button
+              variant="ghost"
+              onClick={handleOpenCompose}
+              className="h-auto btn-gradient shadow-sm text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Compose Announcement
+            </Button>
+          </div>
         }
       />
 
@@ -257,6 +265,27 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
           isSubmitting={isSubmitting}
         />
       )}
+
+      <BulkRangeDeleteModal
+        open={rangeDeleteOpen}
+        onOpenChange={setRangeDeleteOpen}
+        title="Delete Announcements by Date Range"
+        entityName="announcements"
+        items={announcements}
+        mode="date"
+        getDate={a => a.created_at}
+        getItemLabel={a => `${a.title} (${a.created_at ? a.created_at.slice(0, 10) : "N/A"})`}
+        onDeleteRange={async (itemsToDelete) => {
+          for (const item of itemsToDelete) {
+            try {
+              await fetch(`/api/announcements?id=${item.id}`, { method: "DELETE" });
+            } catch (_) {}
+          }
+          annQuery.refetch();
+          app.notifyDataChanged("announcements");
+          return { success: true };
+        }}
+      />
     </div>
   );
 };

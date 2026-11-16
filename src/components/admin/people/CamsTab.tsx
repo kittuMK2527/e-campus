@@ -29,6 +29,7 @@ import { useQuery } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
 import { normalizeRoleValue } from "@/lib/utils";
 import { apiFetch } from "@/lib/apiFetch";
+import { BulkRangeDeleteModal, BulkRangeDeleteButton } from "@/components/ui/BulkRangeDeleteModal";
 
 export interface CamsTabProps {
   camList?: CAMUserFromDB[];
@@ -116,6 +117,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
   const actionParam = searchParams?.get("action") || null;
 
   const [localLoading, setLocalLoading] = useState<Record<string, boolean>>({});
+  const [rangeDeleteOpen, setRangeDeleteOpen] = useState(false);
   const loadingActions = propLoadingActions ?? localLoading;
 
   const handleDeleteCam = async (id: string) => {
@@ -263,14 +265,20 @@ export const CamsTab: React.FC<CamsTabProps> = ({
         icon={Users}
         title="Campus Managers"
         actions={
-          <Button
-            variant="ghost"
-            onClick={handleOpenAdd}
-            className="h-auto btn-gradient shadow-sm text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            Add Campus Manager
-          </Button>
+          <div className="flex items-center gap-2">
+            <BulkRangeDeleteButton
+              onClick={() => setRangeDeleteOpen(true)}
+              label="Delete CMs by Range"
+            />
+            <Button
+              variant="ghost"
+              onClick={handleOpenAdd}
+              className="h-auto btn-gradient shadow-sm text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              Add Campus Manager
+            </Button>
+          </div>
         }
       />
 
@@ -550,6 +558,25 @@ export const CamsTab: React.FC<CamsTabProps> = ({
           </form>
         </Dialog>
       )}
+
+      <BulkRangeDeleteModal
+        open={rangeDeleteOpen}
+        onOpenChange={setRangeDeleteOpen}
+        title="Delete Campus Managers by Row / Range"
+        entityName="campus managers"
+        items={camList}
+        mode="index"
+        getItemLabel={c => `${c.name} (${c.email || ""})`}
+        onDeleteRange={async (itemsToDelete) => {
+          for (const c of itemsToDelete) {
+            try {
+              await app.deleteCAM(c.id);
+            } catch (_) {}
+          }
+          await app.refreshData();
+          return { success: true };
+        }}
+      />
     </div>
   );
 };

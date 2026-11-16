@@ -34,7 +34,7 @@ export const FacultyImportDialog: React.FC<FacultyImportDialogProps> = ({
       onOpenChange={onOpenChange}
       ariaLabel="Faculty Bulk Import Preview"
       overlayClassName="p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn"
-      panelClassName="max-w-4xl p-6 space-y-5 max-h-[90vh] flex flex-col"
+      panelClassName="max-w-4xl p-4 sm:p-6 space-y-5 max-h-[90dvh] flex flex-col"
     >
       <div className="flex items-center justify-between border-b border-gray-100 pb-4">
         <div className="flex items-center gap-3">
@@ -141,17 +141,17 @@ export const FacultyImportDialog: React.FC<FacultyImportDialogProps> = ({
         </Table>
       </div>
 
-      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+      <div className="sticky bottom-0 -mx-4 -mb-4 sm:-mx-6 sm:-mb-6 mt-auto flex shrink-0 flex-col gap-3 border-t border-gray-100 bg-white px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 dark:border-slate-800 dark:bg-slate-900 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <p className="text-xs text-gray-500 font-medium">
           Initial default password for all imported faculty will be set to{" "}
           <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono font-bold">the institution default</code>
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex w-full items-center justify-end gap-2 sm:w-auto sm:gap-3">
           <Button
             variant="ghost"
             type="button"
             onClick={() => onOpenChange(false)}
-            className="h-auto px-4 py-2 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all cursor-pointer"
+            className="min-h-10 flex-1 px-4 py-2 rounded-xl text-xs font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-all cursor-pointer sm:flex-none"
           >
             Cancel
           </Button>
@@ -160,7 +160,7 @@ export const FacultyImportDialog: React.FC<FacultyImportDialogProps> = ({
             type="button"
             disabled={isImporting}
             onClick={onConfirmImport}
-            className="h-auto px-5 py-2 rounded-xl text-xs font-extrabold btn-gradient text-white shadow-sm flex items-center gap-2 cursor-pointer disabled:opacity-50"
+            className="min-h-10 flex-1 whitespace-nowrap px-4 sm:px-5 py-2 rounded-xl text-xs font-extrabold btn-gradient text-white shadow-sm flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 sm:flex-none"
           >
             {isImporting ? "Importing..." : `Confirm & Import (${preview.parsed.length}) →`}
           </Button>

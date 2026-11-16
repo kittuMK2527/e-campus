@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { CampusWizardDialog } from "@/components/admin/dialogs/CampusWizardDialog";
 import { AdminTabSkeleton } from "@/components/admin/AdminTabSkeleton";
+import { BulkRangeDeleteModal, BulkRangeDeleteButton } from "@/components/ui/BulkRangeDeleteModal";
 
 const CAMDashboard = dynamic(() => import("@/components/CAMDashboard").then(m => m.CAMDashboard), {
   ssr: false,
@@ -79,6 +80,7 @@ export const CampusesTab: React.FC<CampusesTabProps> = ({ onDrillDownCampus }) =
 
   const [showCampusModal, setShowCampusModal] = useState(false);
   const [editingCampus, setEditingCampus] = useState<College | null>(null);
+  const [rangeDeleteOpen, setRangeDeleteOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
 
   const setAction = (key: string, val: boolean) => {
@@ -252,14 +254,20 @@ export const CampusesTab: React.FC<CampusesTabProps> = ({ onDrillDownCampus }) =
         icon={Building2}
         title="Campuses"
         actions={
-          <Button
-            variant="ghost"
-            onClick={() => handleOpenCampusModal()}
-            className="h-auto btn-gradient px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Add Campus
-          </Button>
+          <div className="flex items-center gap-2">
+            <BulkRangeDeleteButton
+              onClick={() => setRangeDeleteOpen(true)}
+              label="Delete Campuses by Range"
+            />
+            <Button
+              variant="ghost"
+              onClick={() => handleOpenCampusModal()}
+              className="h-auto btn-gradient px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer shadow-sm text-white"
+            >
+              <Plus className="h-4 w-4" />
+              Add Campus
+            </Button>
+          </div>
         }
       />
 
@@ -543,6 +551,25 @@ export const CampusesTab: React.FC<CampusesTabProps> = ({ onDrillDownCampus }) =
           </SheetContent>
         </Sheet>
       )}
+
+      <BulkRangeDeleteModal
+        open={rangeDeleteOpen}
+        onOpenChange={setRangeDeleteOpen}
+        title="Delete Campuses by Row / Range"
+        entityName="campuses"
+        items={colleges}
+        mode="index"
+        getItemLabel={c => `${c.name} (${c.code || "Campus"})`}
+        onDeleteRange={async (itemsToDelete) => {
+          for (const c of itemsToDelete) {
+            try {
+              await deleteCollege(c.id);
+            } catch (_) {}
+          }
+          await refreshData(true);
+          return { success: true };
+        }}
+      />
     </div>
   );
 };

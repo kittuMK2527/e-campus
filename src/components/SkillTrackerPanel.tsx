@@ -759,10 +759,10 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
 
       {/* Rows */}
       <div className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table className="w-full text-left border-collapse text-xs min-w-[900px]">
-            <TableHeader>
-              <TableRow className="bg-sunken border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-600">
+        <div className="max-h-[min(65dvh,720px)] overflow-auto overscroll-contain scroll-touch">
+          <Table className="w-full text-left border-collapse text-xs min-w-[900px]" containerClassName="overflow-visible">
+              <TableHeader>
+              <TableRow className="sticky top-0 z-10 bg-sunken border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-600">
                 {role !== "mentor" && <TableHead className="p-3.5 min-w-[110px]">Employee ID</TableHead>}
                 {role !== "mentor" && <TableHead className="p-3.5 min-w-[160px]">Mentor Name</TableHead>}
                 <TableHead className="p-3.5 min-w-[140px]">Skill Course</TableHead>
@@ -783,7 +783,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={role !== "mentor" ? 12 : 8}
+                    colSpan={role !== "mentor" ? 12 : 9}
                     className="p-8 text-center text-slate-400"
                   >
                     Loading skill tracker...
@@ -792,7 +792,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               ) : paginatedRows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={role !== "mentor" ? 12 : 8}
+                    colSpan={role !== "mentor" ? 12 : 9}
                     className="p-8 text-center text-slate-400 italic"
                   >
                     No skill development records found. Records appear once tasks are assigned or imported.
@@ -925,7 +925,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                                       <RotateCcw className="h-2.5 w-2.5" />
                                       <span>Re-submit</span>
                                     </button>
-                                  ) : (role === "mentor" || canMark) ? (
+                                  ) : canMark ? (
                                     <button
                                       type="button"
                                       onClick={() => openSubmissionModal(row, w)}
@@ -1320,7 +1320,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
 
           {/* Dialog Action Buttons */}
           <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-100">
-            {submissionTarget.week.submission_link ? (
+            {submissionTarget.week.submission_link && role !== "mentor" ? (
               <button
                 type="button"
                 disabled={submittingLink}

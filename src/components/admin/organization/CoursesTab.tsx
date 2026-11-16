@@ -34,6 +34,7 @@ import { CourseInfoButton } from "@/components/CourseInfoModal";
 import { CourseModal } from "@/components/CourseModal";
 import { SubjectDialog, type SubjectFormState, type DynamicSubjectRow } from "@/components/admin/dialogs/SubjectDialog";
 import { AdminTabSkeleton } from "@/components/admin/AdminTabSkeleton";
+import { BulkRangeDeleteModal, BulkRangeDeleteButton } from "@/components/ui/BulkRangeDeleteModal";
 import {
   formatYearWiseRooms,
   isMentorInProgram,
@@ -80,6 +81,7 @@ export const CoursesTab: React.FC = () => {
   const [isCourseModalOpen, setIsCourseModalOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Department | null>(null);
   const [targetCollegeId, setTargetCollegeId] = useState<string | undefined>(undefined);
+  const [rangeDeleteOpen, setRangeDeleteOpen] = useState(false);
 
   // SubjectModal state (for "Add Subject" from inside a course year)
   const [showSubjectModal, setShowSubjectModal] = useState(false);
@@ -382,6 +384,11 @@ export const CoursesTab: React.FC = () => {
                 </button>
               )}
             </div>
+
+            <BulkRangeDeleteButton
+              onClick={() => setRangeDeleteOpen(true)}
+              label="Delete Courses by Range"
+            />
 
             <Button
               variant="outline"
@@ -849,6 +856,25 @@ export const CoursesTab: React.FC = () => {
         lockDeptAndYear={lockDeptAndYear}
         dynamicSubjects={dynamicSubjects}
         onDynamicSubjectsChange={setDynamicSubjects}
+      />
+
+      <BulkRangeDeleteModal
+        open={rangeDeleteOpen}
+        onOpenChange={setRangeDeleteOpen}
+        title="Delete Courses by Row / Range"
+        entityName="courses"
+        items={coursesList}
+        mode="index"
+        getItemLabel={c => `${c.name} (${c.code || "Course"})`}
+        onDeleteRange={async (itemsToDelete) => {
+          for (const c of itemsToDelete) {
+            try {
+              await deleteCourse(c.id);
+            } catch (_) {}
+          }
+          await refreshData();
+          return { success: true };
+        }}
       />
     </div>
   );

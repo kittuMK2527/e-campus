@@ -43,6 +43,7 @@ import {
   DropdownMenuItem,
   ActionDropdownButton
 } from "@/components/ui/dropdown-menu";
+import { BulkRangeDeleteModal } from "@/components/ui/BulkRangeDeleteModal";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import { Dialog } from "@/components/ui/dialog";
@@ -124,6 +125,7 @@ export const ExamScheduleManager: React.FC<{
 
   // Accordion open/close state for dashboard groups
   const [openAccordions, setOpenAccordions] = useState<Record<string, boolean>>({});
+  const [rangeDeleteBatch, setRangeDeleteBatch] = useState<{ title: string; slots: any[] } | null>(null);
 
   // Modal: Batch Timetable Creator Popup
   const [isPopupOpen, setIsPopupOpen] = useState(false);
@@ -747,6 +749,20 @@ export const ExamScheduleManager: React.FC<{
       } else {
         toast(`Deleted exam timetable with ${failed} warnings`, "warning");
       }
+      try {
+        await fetch("/api/audit-log", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "DELETE_EXAM_BATCH",
+            entity: "exams",
+            range: { batchTitle, batchKey },
+            deletedCount: examIds.length - failed,
+            items: examIds,
+            reason: `Deleted exam timetable batch "${batchTitle}"`
+          })
+        });
+      } catch (_) {}
       await queryClient.invalidateQueries({ queryKey: qk.exams(collegeId) });
       if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("fp_exams_updated", { detail: { college_id: collegeId } }));
@@ -1383,6 +1399,15 @@ export const ExamScheduleManager: React.FC<{
                       </div>
 
                       <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => setRangeDeleteBatch({ title: batchTitle, slots: batch.slots })}
+                          className="px-2 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-extrabold flex items-center gap-1 cursor-pointer transition-colors"
+                          title="Delete Exams in Range"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 text-amber-600" />
+                          <span>Range Delete</span>
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleDeleteBatch(batch.key, batchTitle, allIds)}
@@ -2306,6 +2331,36 @@ export const ExamScheduleManager: React.FC<{
               </div>
             </form>
         </Dialog>
+      )}
+
+      {rangeDeleteBatch && (
+        <BulkRangeDeleteModal
+          open={Boolean(rangeDeleteBatch)}
+          onOpenChange={open => { if (!open) setRangeDeleteBatch(null); }}
+          title={`Delete Exams in Range - ${rangeDeleteBatch.title}`}
+          entityName="exam slots"
+          items={rangeDeleteBatch.slots}
+          mode="date"
+          getDate={slot => slot.date}
+          getItemLabel={slot => `${slot.subject_name || "Exam"} (${slot.date || ""})`}
+          onDeleteRange={async (itemsToDelete) => {
+            let failed = 0;
+            for (const item of itemsToDelete) {
+              try {
+                const res = await fetch(`/api/exams?id=${item.id}`, { method: "DELETE" });
+                const d = await res.json();
+                if (!d.success) failed++;
+              } catch (_) {
+                failed++;
+              }
+            }
+            await queryClient.invalidateQueries({ queryKey: qk.exams(collegeId) });
+            if (typeof window !== "undefined") {
+              window.dispatchEvent(new CustomEvent("fp_exams_updated", { detail: { college_id: collegeId } }));
+            }
+            return { success: failed === 0 };
+          }}
+        />
       )}
     </div>
   );

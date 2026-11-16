@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { SubjectDialog, type SubjectFormState, type DynamicSubjectRow } from "@/components/admin/dialogs/SubjectDialog";
 import { MentorGroupDialog, type MentorGroupFormState } from "@/components/admin/dialogs/MentorGroupDialog";
+import { BulkRangeDeleteModal, BulkRangeDeleteButton } from "@/components/ui/BulkRangeDeleteModal";
 
 export const SubjectsTab: React.FC = () => {
   const {
@@ -62,6 +63,7 @@ export const SubjectsTab: React.FC = () => {
   const [subjectSearchQuery, setSubjectSearchQuery] = useState("");
   const [subjectCollegeFilter, setSubjectCollegeFilter] = useState(() => campusParam || "all");
   const [subjectSemesterFilter, setSubjectSemesterFilter] = useState("all");
+  const [rangeDeleteOpen, setRangeDeleteOpen] = useState(false);
 
   useEffect(() => {
     if (campusParam) {
@@ -392,14 +394,20 @@ export const SubjectsTab: React.FC = () => {
         title="Subjects Master Directory"
         actions={
           subjectsSubTab === "catalog" && (
-            <Button
-              variant="ghost"
-              onClick={() => handleOpenSubjectModal()}
-              className="h-auto btn-gradient shadow-sm text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border-none"
-            >
-              <Plus className="h-4 w-4" />
-              Add Subject
-            </Button>
+            <div className="flex items-center gap-2">
+              <BulkRangeDeleteButton
+                onClick={() => setRangeDeleteOpen(true)}
+                label="Delete Subjects by Range"
+              />
+              <Button
+                variant="ghost"
+                onClick={() => handleOpenSubjectModal()}
+                className="h-auto btn-gradient shadow-sm text-white px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shrink-0 cursor-pointer border-none"
+              >
+                <Plus className="h-4 w-4" />
+                Add Subject
+              </Button>
+            </div>
           )
         }
       />
@@ -739,6 +747,25 @@ export const SubjectsTab: React.FC = () => {
         error={groupModalError}
         isSubmitting={isSubmittingGroup}
         smes={smes}
+      />
+
+      <BulkRangeDeleteModal
+        open={rangeDeleteOpen}
+        onOpenChange={setRangeDeleteOpen}
+        title="Delete Subjects by Row / Range"
+        entityName="subjects"
+        items={subjectsList}
+        mode="index"
+        getItemLabel={s => `${s.name} (${s.department || "No Dept"} · ${s.semester || ""})`}
+        onDeleteRange={async (itemsToDelete) => {
+          for (const s of itemsToDelete) {
+            try {
+              await deleteSubject(s.id);
+            } catch (_) {}
+          }
+          await refreshData(true);
+          return { success: true };
+        }}
       />
     </div>
   );

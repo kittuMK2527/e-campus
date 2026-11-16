@@ -24,6 +24,7 @@ import { Select } from "@/components/ui/select";
 import { LoadingButton } from "@/components/ui/LoadingButton";
 import { useToast } from "@/context/ToastContext";
 import { useApp } from "@/context/AppContext";
+import { BulkRangeDeleteModal, BulkRangeDeleteButton } from "@/components/ui/BulkRangeDeleteModal";
 
 export interface SmeUser {
   id: string;
@@ -55,6 +56,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
   const subjectGroups = propSubjectGroups ?? app.subjectGroups ?? [];
 
   const [localLoading, setLocalLoading] = useState<Record<string, boolean>>({});
+  const [rangeDeleteOpen, setRangeDeleteOpen] = useState(false);
   const loadingActions = propLoadingActions ?? localLoading;
 
   const handleDeleteSme = async (id: string) => {
@@ -162,14 +164,20 @@ export const SmesTab: React.FC<SmesTabProps> = ({
         icon={BookOpen}
         title="Subject Matter Experts"
         actions={
-          <Button
-            variant="ghost"
-            onClick={handleOpenAdd}
-            className="h-auto btn-gradient px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer text-white"
-          >
-            <Plus className="h-4 w-4" />
-            Add SME
-          </Button>
+          <div className="flex items-center gap-2">
+            <BulkRangeDeleteButton
+              onClick={() => setRangeDeleteOpen(true)}
+              label="Delete SMEs by Range"
+            />
+            <Button
+              variant="ghost"
+              onClick={handleOpenAdd}
+              className="h-auto btn-gradient px-4 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer text-white"
+            >
+              <Plus className="h-4 w-4" />
+              Add SME
+            </Button>
+          </div>
         }
       />
 
@@ -351,6 +359,25 @@ export const SmesTab: React.FC<SmesTabProps> = ({
           </div>
         </Dialog>
       )}
+
+      <BulkRangeDeleteModal
+        open={rangeDeleteOpen}
+        onOpenChange={setRangeDeleteOpen}
+        title="Delete Subject Matter Experts by Row / Range"
+        entityName="SMEs"
+        items={smes}
+        mode="index"
+        getItemLabel={s => `${s.name} (${s.email || ""})`}
+        onDeleteRange={async (itemsToDelete) => {
+          for (const s of itemsToDelete) {
+            try {
+              await app.deleteSmeUser(s.id);
+            } catch (_) {}
+          }
+          await app.refreshData();
+          return { success: true };
+        }}
+      />
     </div>
   );
 };
