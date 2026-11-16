@@ -54,7 +54,24 @@ const TABLE_PK_MAP: Record<string, string> = {
   schema_migrations: "version"
 };
 
+// Latency #15: every query used to run ~10 regex rewrites on every call. The
+// rewrite depends only on the SQL text, so remember it (bounded, FIFO eviction).
+const ADAPTED_SQL_CACHE = new Map<string, string>();
+const ADAPTED_SQL_CACHE_MAX = 2000;
+
 export function adaptQueryForPostgres(sql: string, params: any[]): { sql: string; params: any[] } {
+  const cached = ADAPTED_SQL_CACHE.get(sql);
+  if (cached !== undefined) return { sql: cached, params: normalizeParams(params) };
+  const result = adaptSqlText(sql, params);
+  if (ADAPTED_SQL_CACHE.size >= ADAPTED_SQL_CACHE_MAX) {
+    const oldest = ADAPTED_SQL_CACHE.keys().next().value;
+    if (oldest !== undefined) ADAPTED_SQL_CACHE.delete(oldest);
+  }
+  ADAPTED_SQL_CACHE.set(sql, result.sql);
+  return result;
+}
+
+function adaptSqlText(sql: string, params: any[]): { sql: string; params: any[] } {
   let pIdx = 0;
   let convertedSql = sql.replace(/\?/g, () => {
     pIdx++;
@@ -365,7 +382,7 @@ export function createPostgresAdapter(pool: pg.Pool): PostgresDbAdapter {
             }
             nonNoopIndices.push(i);
             const inlined = inlineQueryParams(q.sql, q.params);
-            const adapted = adaptQueryForPostgres(inlined, []);
+            const adapted = adaptSqlText(inlined, []); // inlined literals: unique text, keep out of the cache
             stmts.push(adapted.sql.trim().replace(/;+$/, '') + ';');
           }
 

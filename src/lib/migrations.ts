@@ -950,6 +950,49 @@ const migrations: Migration[] = [
         CREATE INDEX IF NOT EXISTS idx_handover_requests_slot_date ON handover_requests (slotId, dateStr);
       `).catch((err: any) => console.warn("[migrations] latency_indexes_2026_11:", err?.message || err));
     }
+  },
+  {
+    // Latency audit #6/#7: the dashboard bundle filters on LOWER(TRIM(col)) and
+    // on tracker/task columns that had no index, so those slices scanned whole
+    // tables on every refresh. Each index is created on its own so one missing
+    // table/column cannot block the rest.
+    name: "latency_indexes_2026_11_b",
+    run: async (db) => {
+      const stmts = [
+        "CREATE INDEX IF NOT EXISTS idx_students_college_norm ON students (LOWER(TRIM(college_id)))",
+        "CREATE INDEX IF NOT EXISTS idx_mentors_college_norm ON mentors (LOWER(TRIM(college_id)))",
+        "CREATE INDEX IF NOT EXISTS idx_mentors_group_norm ON mentors (LOWER(TRIM(mentor_group)))",
+        "CREATE INDEX IF NOT EXISTS idx_cma_college_norm ON class_mentor_assignments (LOWER(TRIM(college_id)))",
+        "CREATE INDEX IF NOT EXISTS idx_leave_requests_class_norm ON leave_requests (LOWER(TRIM(classGroup)))",
+        "CREATE INDEX IF NOT EXISTS idx_academic_tracker_college_date ON academic_tracker (college_id, date DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_weekly_academic_tasks_mentor ON weekly_academic_tasks (mentor_id)",
+        "CREATE INDEX IF NOT EXISTS idx_weekly_academic_tasks_class ON weekly_academic_tasks (class_group)",
+        "CREATE INDEX IF NOT EXISTS idx_weekly_tasks_mentor ON weekly_tasks (mentor_id)",
+        "CREATE INDEX IF NOT EXISTS idx_weekly_tasks_class ON weekly_tasks (class_group)",
+        "CREATE INDEX IF NOT EXISTS idx_student_tracker_student ON student_tracker (student_id, updated_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_student_tracker_graded ON student_tracker (graded_by)",
+        "CREATE INDEX IF NOT EXISTS idx_sat_graded ON student_academic_tracker (graded_by)",
+        "CREATE INDEX IF NOT EXISTS idx_handover_requests_requestor ON handover_requests (requestorId, timestamp DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_handover_requests_target ON handover_requests (targetStaffId, timestamp DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_demo_sessions_mentor ON demo_sessions (mentorId, created_at DESC)",
+        "CREATE INDEX IF NOT EXISTS idx_demo_sessions_sme ON demo_sessions (smeId, created_at DESC)"
+      ];
+      for (const sql of stmts) {
+        await db.exec(sql).catch((err: any) => console.warn("[migrations] latency_indexes_2026_11_b:", sql, err?.message || err));
+      }
+    }
+  },
+  {
+    name: "mentor_plans_and_clearances_submission_link",
+    run: async (db) => {
+      await db.exec(`
+        ALTER TABLE mentor_weekly_plans ADD COLUMN IF NOT EXISTS submission_link TEXT;
+        ALTER TABLE mentor_skill_clearances ADD COLUMN IF NOT EXISTS submission_link TEXT;
+      `).catch(async () => {
+        await db.exec("ALTER TABLE mentor_weekly_plans ADD COLUMN submission_link TEXT").catch(() => {});
+        await db.exec("ALTER TABLE mentor_skill_clearances ADD COLUMN submission_link TEXT").catch(() => {});
+      });
+    }
   }
 ];
 

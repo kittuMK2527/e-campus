@@ -30,27 +30,23 @@ describe("login data wave", () => {
     expect(ctx).toContain("const refreshDataImpl = async (");
     expect(ctx).toContain("const refreshData = useStableCallback(refreshDataImpl);");
     // The fix only matters while the consumer keeps that handle in its dependency array.
-    expect(layout).toContain("}, [refreshData]);");
-    expect(layout.split("scheduleRefresh").length - 1).toBeGreaterThanOrEqual(10);
+    expect(layout).toMatch(/\}, \[canLoadWorkspace, refreshData, /);
+    expect(layout.split(/schedule(Full)?Refresh/).length - 1).toBeGreaterThanOrEqual(10);
     // weekDates is the other context dep that was re-created every render.
     expect(ctx).toContain("const weekDates = useMemo(");
   });
 
-  it("reads the college fallback through a ref, not a frozen closure", () => {
+  it("loadRoleWorkspace no longer reads colleges through a frozen closure", () => {
     const workspace = region(ctx, "const loadRoleWorkspace = useCallback", "}, []);", "loadRoleWorkspace");
-    expect(workspace).toContain("collegesRef.current[0]?.id");
     expect(workspace).not.toContain("colleges.length > 0 ? colleges[0].id");
-    expect(ctx).toContain("const collegesRef = useRef(colleges);");
   });
 
-  it("drops the workspace reads whose rows the bundle or the reference pre-warm already set", () => {
-    const adminBranch = region(ctx, '} else if (role === "admin") {', '} else if (role === "sme") {', "admin workspace branch");
-    expect(adminBranch).toContain("/api/admin/signup-requests");
-    expect(adminBranch).not.toContain('apiFetch("/api/colleges")');
-
-    const kamBranch = region(ctx, '} else if (role === "kam") {', '} else if (role === "admin") {', "kam workspace branch");
-    expect(kamBranch).not.toContain("/api/kam?id=");
-    expect(kamBranch).toContain('apiFetch("/api/colleges")');
+  it("drops the workspace reads whose rows the /api/data bundle already returns", () => {
+    const workspace = region(ctx, "const loadRoleWorkspace = useCallback", "}, []);", "loadRoleWorkspace");
+    // Only mentor (own slots/requests) and SME (availability) still read extra slices.
+    expect(workspace).not.toContain('apiFetch("/api/colleges")');
+    expect(workspace).not.toContain("/api/admin/signup-requests");
+    expect(workspace).not.toContain("/api/kam?id=");
   });
 
   it("issues one full-bundle GET, and fires it once per login", () => {

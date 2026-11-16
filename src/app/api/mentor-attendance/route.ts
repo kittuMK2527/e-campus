@@ -304,21 +304,28 @@ export async function POST(request: Request) {
 
       let count = 0;
       if (mentors.length > 0) {
+        // Latency #14: one multi-row upsert per 500 mentors instead of one per mentor.
+        const uniqueMentorIds = Array.from(new Set(mentors.map((m: any) => String(m.id))));
         await db.transaction(async (tx) => {
-          for (const m of mentors) {
-            const id = `att_${m.id}_${dateStr}`;
+          for (let i = 0; i < uniqueMentorIds.length; i += 500) {
+            const chunk = uniqueMentorIds.slice(i, i + 500);
+            const params: any[] = [];
+            const values = chunk.map((mentorId) => {
+              params.push(`att_${mentorId}_${dateStr}`, mentorId, collegeId, dateStr, currentTime, actor.name, actor.reference_id);
+              return "(?, ?, ?, ?, 'Present', ?, ?, ?, CURRENT_TIMESTAMP)";
+            }).join(", ");
             await tx.run(
               `INSERT INTO mentor_attendance (id, mentor_id, college_id, date_str, status, punch_in_time, marked_by, marked_by_id, updated_at)
-               VALUES (?, ?, ?, ?, 'Present', ?, ?, ?, CURRENT_TIMESTAMP)
+               VALUES ${values}
                ON CONFLICT(mentor_id, date_str) DO UPDATE SET
                status = excluded.status,
                punch_in_time = COALESCE(mentor_attendance.punch_in_time, excluded.punch_in_time),
                marked_by = excluded.marked_by,
                marked_by_id = excluded.marked_by_id,
                updated_at = CURRENT_TIMESTAMP`,
-              [id, m.id, collegeId, dateStr, currentTime, actor.name, actor.reference_id]
+              params
             );
-            count++;
+            count += chunk.length;
           }
         });
       }

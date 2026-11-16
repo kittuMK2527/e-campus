@@ -25,7 +25,9 @@ export async function GET(request: Request) {
     // Opt-in portfolio reads; leave the legacy GET contracts below unchanged.
     const mode = new URL(request.url).searchParams.get("mode");
     if (mode !== null) {
-      if (auth!.user.role !== "fee_manager" && auth!.user.role !== "admin" && auth!.user.role !== "kam") {
+      // KAMs are deliberately excluded: these modes read the whole institution, and a
+      // KAM may only see their own colleges (served by the scoped legacy path below).
+      if (auth!.user.role !== "fee_manager" && auth!.user.role !== "admin") {
         return NextResponse.json({ success: false, message: "Fee data is not available for this role." }, { status: 403 });
       }
       if (!["summary", "students", "payments"].includes(mode)) {

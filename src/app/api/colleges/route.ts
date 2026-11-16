@@ -12,13 +12,14 @@ export async function GET(request: Request) {
 
     const CACHE_KEY = "colleges:all";
     const cached = cacheGet(CACHE_KEY);
-    if (cached) return NextResponse.json(cached, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" } });
+    if (cached) return NextResponse.json(cached, { headers: { "Cache-Control": "private, max-age=30" /* login-only data: never let a shared CDN cache it */ } });
 
     const db = await getDb();
 
     // Three parameterless reads, so multiQuery folds them into a single statement batch
     // (one round trip instead of three) and any slice failure throws instead of quietly
     // returning an empty campus list.
+    const sliceFailures: { sql: string; error: string }[] = [];
     const [colleges, campusManagers, kamUsers] = await db.multiQuery([
       {
         // Aggregate counts via GROUP BY instead of 4×N correlated subqueries.
@@ -70,13 +71,15 @@ export async function GET(request: Request) {
     `
       },
       { sql: "SELECT id, name, email, title FROM kam_users ORDER BY name" }
-    ]);
+    ], sliceFailures);
+    // A failed slice comes back as []; never cache or serve that as "no campuses".
+    if (sliceFailures.length > 0) throw new Error(sliceFailures[0].error);
 
     const payload = { success: true, colleges, campusManagers, kamUsers };
     cacheSet("colleges:all", payload, 60);
     return NextResponse.json(
       payload,
-      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" } }
+      { headers: { "Cache-Control": "private, max-age=30" /* login-only data: never let a shared CDN cache it */ } }
     );
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

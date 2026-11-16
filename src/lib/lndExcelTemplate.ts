@@ -31,6 +31,7 @@ export type LndTemplateContext = {
   collegePeriodLabels: (collegeId?: string) => string[];
   collegeTimetablePeriodList: (collegeId?: string, weekdayName?: string) => string[];
   collegeDayStatus: (collegeId: string) => { isReady: boolean; readyCount: number; totalDates: number; missingDates: any[] };
+  subjectGroups?: any[];
   timetableCoverage: { collegesWithTimetable: GridRow[]; collegesSkipped: GridRow[] };
 };
 
@@ -78,6 +79,16 @@ export async function buildLndDemoTemplate(
 
   const targetGroup = targetGroupInput || (selectedGroupId && selectedGroupId !== "All" ? selectedGroupId : "All");
   const isAll = !targetGroup || targetGroup.toLowerCase().trim() === "all";
+  const targetGroupLower = targetGroup.toLowerCase().trim();
+
+  // Admin-created Subject Groups catalog
+  const rawSubjectGroups = ctx.subjectGroups || snap.subjectGroups || [];
+  const adminSubjectGroupNames: string[] = Array.from(new Set(
+    rawSubjectGroups
+      .map((sg: any) => (typeof sg === "string" ? sg : sg?.name))
+      .filter((n: any): n is string => Boolean(n && n.trim()))
+      .map((n: string) => n.trim())
+  ));
 
   const applicableColleges = collegesWithTimetable;
   if (applicableColleges.length === 0) {
@@ -85,12 +96,18 @@ export async function buildLndDemoTemplate(
     return;
   }
 
-  // Filter mentors: if specific group selected, filter by that group, otherwise include all mentors across all colleges
+  // Filter mentors: if specific group selected, filter by that subject group (matching mentor_group, subject_group, or department)
   const relevantMentors = !isAll
-    ? mentors.filter(m => getMentorGroup(m).toLowerCase().trim() === targetGroup.toLowerCase().trim())
+    ? mentors.filter(m => {
+        if (!m) return false;
+        const mg = getMentorGroup(m).toLowerCase().trim();
+        const sg = (m.subject_group || "").toLowerCase().trim();
+        const dept = (m.department || "").toLowerCase().trim();
+        return mg === targetGroupLower || sg === targetGroupLower || dept === targetGroupLower;
+      })
     : mentors;
 
-  // Filter SMEs: if specific group selected, filter by that group, otherwise include all SMEs
+  // Filter SMEs: if specific group selected, filter by that subject group, otherwise include all SMEs
   const relevantSmes = !isAll
     ? getSmesForSubjectGroup(targetGroup)
     : smes;
@@ -496,7 +513,12 @@ export async function buildLndDemoTemplate(
     const colMentors = relevantMentors.filter(m => m.college_id === colObj.id);
 
     colMentors.forEach((m) => {
-      const mGroup = getMentorGroup(m);
+      // Resolve canonical subject group: if a specific group was chosen, pin to targetGroup;
+      // otherwise prefer official admin-created subject group name
+      const matchedAdminGroup = adminSubjectGroupNames.find(
+        ag => ag.toLowerCase().trim() === (m.subject_group || "").toLowerCase().trim()
+      );
+      const mGroup = !isAll ? targetGroup : (matchedAdminGroup || m.subject_group || getMentorGroup(m));
       let freePick: { dateStr: string; day: string; dayOrder: string; slot: string } | null = null;
 
       for (let wIdx = 0; wIdx < currentWeekDates.length && !freePick; wIdx++) {
@@ -554,6 +576,19 @@ export async function buildLndDemoTemplate(
   });
 
   [30, 26, 24, 30, 24, 24, 20, 14].forEach((w, i) => { wsMaster.getColumn(i + 1).width = w; });
+
+  // Add Excel dropdown validation for Department / Subject Group column (C) from Admin-created Subject Groups
+  if (adminSubjectGroupNames.length > 0) {
+    const groupFormula = `"${adminSubjectGroupNames.slice(0, 35).join(",")}"`;
+    const maxRow = Math.max(wsMaster.rowCount, 50);
+    for (let r = 2; r <= maxRow; r++) {
+      wsMaster.getCell(`C${r}`).dataValidation = {
+        type: 'list',
+        allowBlank: true,
+        formulae: [groupFormula]
+      };
+    }
+  }
 
   // ─────────────────────────────────────────────────────────────────────────
   // SHEET: Unified Master Grid — Day Order × Assigned SME across all campuses
@@ -1160,7 +1195,8 @@ export async function buildLndDemoTemplate(
 
   const guideRows = [
     ["Scope", "All Applicable Colleges & Campuses"],
-    ["Target Mentor Group", targetGroup],
+    ["Target Subject Group", targetGroup],
+    ["Configured Admin Subject Groups", adminSubjectGroupNames.join(", ") || "All"],
     ["Active Week Date Range", `${currentWeekDates[0]?.dateStr || "Start"} to ${currentWeekDates[currentWeekDates.length - 1]?.dateStr || "End"}`],
     ["Campus Day Orders & Timetable Coverage", campusDayOrderSummary],
     ["Total Colleges Included", `${applicableColleges.length} colleges (${applicableColleges.map(c => c.name).join(", ")})`],

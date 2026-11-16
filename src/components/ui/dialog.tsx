@@ -31,6 +31,7 @@ const Dialog: React.FC<DialogProps> = ({
   const restoreFocusRef = React.useRef<HTMLElement | null>(null);
   const onOpenChangeRef = React.useRef(onOpenChange);
   const idRef = React.useRef(0);
+  const usesFlexLayout = /(?:^|\s)flex(?:-[\w-]+)?(?:\s|$)/.test(panelClassName || "");
   if (idRef.current === 0) idRef.current = nextDialogId++;
 
   React.useEffect(() => {
@@ -119,7 +120,9 @@ const Dialog: React.FC<DialogProps> = ({
         tabIndex={-1}
         className={cn(
           "relative z-10 w-full max-w-2xl max-h-[90dvh] overflow-y-auto overscroll-contain bg-white dark:bg-[#131317] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-card-lg p-4 sm:p-6 space-y-4 sm:space-y-5 text-slate-800 dark:text-slate-200 focus:outline-none animate-scaleUp before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:bg-gradient-to-r before:from-transparent before:via-amber-500/50 before:to-transparent",
-          panelClassName
+          panelClassName,
+          // Non-flex panels must scroll themselves so their action buttons cannot be clipped on short viewports.
+          !usesFlexLayout && "overflow-auto"
         )}
       >
         {children}

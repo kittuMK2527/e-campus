@@ -572,7 +572,7 @@ interface AppContextProps {
   updateCourse: (course: Course) => Promise<{ success: boolean; message: string }>;
   deleteDepartment: (id: string) => Promise<{ success: boolean; message: string; deletedCounts?: { slots: number; students: number; mentors: number; subjects: number } }>;
   deleteCourse: (id: string) => Promise<{ success: boolean; message: string; deletedCounts?: { slots: number; students: number; mentors: number; subjects: number } }>;
-  refreshData: (silent?: boolean, scope?: { role: Role; userId: string }) => Promise<any>;
+  refreshData: (silent?: boolean, scope?: { role: Role; userId: string }, opts?: { light?: boolean }) => Promise<any>;
   /** Invalidate a change domain and notify every open tab/role to re-read. */
   notifyDataChanged: (domain: string) => void;
   refreshAttendance: (collegeId?: string, options?: { limit?: number; days?: number }) => Promise<void>;
@@ -916,10 +916,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // snapshot would land last, resurrecting deleted records on screen.
   const refreshDataSeq = useRef(0);
   const refreshDataInFlight = useRef<{ key: string; promise: Promise<any> } | null>(null);
-  const refreshDataImpl = async (silent: boolean = true, scope?: { role: Role; userId: string }) => {
+  const refreshDataImpl = async (silent: boolean = true, scope?: { role: Role; userId: string }, opts?: { light?: boolean }) => {
     const sessionUser = sessionUserRef.current;
     if (!sessionUser || sessionUser.mustChangePassword) return;
-    const scopeKey = scope ? `${scope.role}:${scope.userId}` : "auto";
+    const scopeKey = (scope ? `${scope.role}:${scope.userId}` : "auto") + (opts?.light ? ":light" : "");
     // Piggyback only on an identical scope — a scoped caller must not receive
     // an unscoped in-flight response.
     if (refreshDataInFlight.current?.key === scopeKey) {
@@ -955,7 +955,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       }
 
-      const data = await apiFetch(`/api/data?role=${role}&userId=${encodeURIComponent(userId)}`);
+      const data = await apiFetch(`/api/data?role=${role}&userId=${encodeURIComponent(userId)}${opts?.light ? "&light=1" : ""}`);
       if (sessionUserRef.current !== sessionUser) return;
       if (data.success) {
         // Some slices can fail while the rest load — name them, because "couldn't reach
@@ -983,15 +983,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setStudentAttendance(parseAttendancePayload(data));
         setLeaveRequests(data.leaveRequests || []);
         setHolidays(data.holidays || []);
-        setWeeklyTasks(data.weeklyTasks || []);
-        setStudentTracker(data.studentTracker || []);
-        setWeeklyAcademicTasks(data.weeklyAcademicTasks || []);
-        setStudentAcademicTracker(data.studentAcademicTracker || []);
-        setAcademicTracker(data.academicTracker || []);
-        setInterviews(data.interviews || []);
-        setInterviewEvaluations(data.interviewEvaluations || []);
+        if (data.weeklyTasks !== undefined) setWeeklyTasks(data.weeklyTasks);
+        if (data.studentTracker !== undefined) setStudentTracker(data.studentTracker);
+        if (data.weeklyAcademicTasks !== undefined) setWeeklyAcademicTasks(data.weeklyAcademicTasks);
+        if (data.studentAcademicTracker !== undefined) setStudentAcademicTracker(data.studentAcademicTracker);
+        if (data.academicTracker !== undefined) setAcademicTracker(data.academicTracker);
+        if (data.interviews !== undefined) setInterviews(data.interviews);
+        if (data.interviewEvaluations !== undefined) setInterviewEvaluations(data.interviewEvaluations);
         setApprovals(data.approvals || []);
-        setLeaveBalances(data.leaveBalances || []);
+        if (data.leaveBalances !== undefined) setLeaveBalances(data.leaveBalances);
         setSmes(data.smes || []);
         setDemoSessions(data.demoSessions || []);
         setSubjectGroups(data.subjectGroups || []);

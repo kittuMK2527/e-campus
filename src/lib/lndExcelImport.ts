@@ -50,6 +50,32 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
     const parsedSessions: any[] = [];
     const currentTargetGroup = ctx.selectedGroupId && ctx.selectedGroupId !== "All" ? ctx.selectedGroupId : "General";
 
+    // Admin-created Subject Groups catalog from database
+    const rawSubjectGroups = (snap.subjectGroups || []) as any[];
+    const adminSubjectGroupNames: string[] = Array.from(new Set(
+      rawSubjectGroups
+        .map((sg: any) => (typeof sg === "string" ? sg : sg?.name))
+        .filter((n: any): n is string => Boolean(n && n.trim()))
+        .map((n: string) => n.trim())
+    ));
+
+    // Detect if template was generated for a specific Subject Group via System_Reference_Guide
+    let fileTargetGroup = currentTargetGroup;
+    if (wb.SheetNames.includes("System_Reference_Guide")) {
+      try {
+        const gWs = wb.Sheets["System_Reference_Guide"];
+        const gRows: any[] = XLSX.utils.sheet_to_json(gWs, { header: 1 });
+        gRows.forEach(row => {
+          if (Array.isArray(row) && (row[0] === "Target Subject Group" || row[0] === "Target Mentor Group")) {
+            const val = String(row[1] || "").trim();
+            if (val && val.toLowerCase() !== "all") fileTargetGroup = val;
+          }
+        });
+      } catch (e) {
+        // Ignore reference guide parse issues
+      }
+    }
+
     // Day of week / Day Order to dateStr mapping helper
     const dayToDateMap: Record<string, string> = {};
     currentWeekDates.forEach((w, wIdx) => {
@@ -265,6 +291,23 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
         matchedSme = smes.find(s => (s.name || "").toLowerCase().includes(cleanSmeName) || cleanSmeName.includes((s.name || "").toLowerCase()));
       }
 
+      // Normalize subject against official Admin-created Subject Groups
+      let normalizedSubject = rawSubject;
+      if (adminSubjectGroupNames.length > 0) {
+        const matched = adminSubjectGroupNames.find(
+          ag => ag.toLowerCase().trim() === (rawSubject || "").toLowerCase().trim()
+        );
+        if (matched) {
+          normalizedSubject = matched;
+        } else if (fileTargetGroup && fileTargetGroup !== "General") {
+          const matchedFile = adminSubjectGroupNames.find(
+            ag => ag.toLowerCase().trim() === fileTargetGroup.toLowerCase().trim()
+          );
+          if (matchedFile) normalizedSubject = matchedFile;
+        }
+      }
+      const finalSubject = normalizedSubject || fileTargetGroup || currentTargetGroup;
+
       // If SME is not specified in Excel, run Auto-Scheduler Rule Engine for this slot
       if (!matchedSme && matchedMentor && targetDateStr && rawTime) {
         const singleSlotRuleCheck = autoAssignSmes(snap, [{
@@ -273,7 +316,7 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
           collegeName,
           dateStr: targetDateStr,
           timeSlot: rawTime,
-          subject: rawSubject || currentTargetGroup,
+          subject: finalSubject,
           stream: rawStream || "General Stream",
           week: rawWeek
         }], parsedSessions);
@@ -285,7 +328,7 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
       }
 
       if (!matchedSme) {
-        warnings.push(`[${sheetName}] Row ${rowNum}: Could not auto-assign SME for '${rawSubject || currentTargetGroup}' at ${rawTime} on ${targetDateStr}.`);
+        warnings.push(`[${sheetName}] Row ${rowNum}: Could not auto-assign SME for '${finalSubject}' at ${rawTime} on ${targetDateStr}.`);
       }
 
       // Strict validation via evaluateMentorSlotAvailability engine
@@ -335,7 +378,7 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
         collegeName,
         smeId: matchedSme ? matchedSme.id : "",
         smeName: matchedSme ? matchedSme.name : "Unassigned SME",
-        subject: rawSubject || currentTargetGroup,
+        subject: finalSubject,
         stream: rawStream || "General Stream",
         week: rawWeek,
         isValid: !!matchedMentor && !!matchedSme && !hasConflict,
@@ -344,7 +387,13 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
     });
 
     const validCount = parsedSessions.filter(p => p.isValid).length;
-    return { kind: "preview", parsed: parsedSessions, warnings, validCount, targetSubjectGroup: currentTargetGroup };
+    const resolvedTargetGroup = (fileTargetGroup && fileTargetGroup !== "All" && fileTargetGroup !== "General")
+      ? fileTargetGroup
+      : (parsedSessions.length > 0 && parsedSessions[0].subject && parsedSessions[0].subject !== "General"
+          ? parsedSessions[0].subject
+          : currentTargetGroup);
+
+    return { kind: "preview", parsed: parsedSessions, warnings, validCount, targetSubjectGroup: resolvedTargetGroup };
   } catch (err: any) {
     return { kind: "error", message: err.message };
   }

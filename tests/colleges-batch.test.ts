@@ -53,8 +53,10 @@ vi.mock("@/lib/db", () => ({ getDb: async () => h.makeDb() }));
 vi.mock("@/lib/authGuard", () => ({ requireAuth: async () => ({}) }));
 
 const { GET, POST } = await import("@/app/api/colleges/route");
+const { cacheDel } = await import("@/lib/simpleCache");
 
 beforeEach(() => {
+  cacheDel("colleges"); // the route keeps a 60 s in-process cache between tests
   h.batches.length = 0;
   h.singleReads.length = 0;
   h.writes.length = 0;

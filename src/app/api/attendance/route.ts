@@ -240,46 +240,49 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, message: `Status is already ${newStatus}.` });
       }
 
-      if (existing) {
-        // Update existing
-        await db.run(
-          "UPDATE student_attendance SET status = ?, markedBy = ?, timestamp = ? WHERE studentId = ? AND slotId = ? AND dateStr = ?",
-          [newStatus, realActorName, new Date().toISOString(), studentId, slotId, dateStr]
-        );
-      } else {
-        // Insert new
-        const recordId = makeAttendanceId();
-        await db.run(
-          "INSERT INTO student_attendance (id, studentId, slotId, dateStr, status, markedBy, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
-          [recordId, studentId, slotId, dateStr, newStatus, realActorName, new Date().toISOString()]
-        );
-      }
-
-      // Increment student correction counter (only for non-admin standard corrections)
-      if (!isRealAdmin) {
-        await db.run(
-          "UPDATE students SET correction_count = COALESCE(correction_count, 0) + 1 WHERE id = ?",
-          [studentId]
-        );
-      }
-
-      // Log into audit trail with genuine actor details
+      // Latency #12: the status write, correction counter and audit row were three
+      // separate round trips (and could half-apply). One transaction, one connection.
       const logId = generateId("l");
       const description = `Attendance corrected for ${student.name} (${studentId}) on ${dateStr} in slot ${slotId}. Status changed from ${oldStatus.toUpperCase()} to ${newStatus.toUpperCase()}. Reason: "${reason}"`;
+      await db.transaction(async (tx) => {
+        if (existing) {
+          // Update existing
+          await tx.run(
+            "UPDATE student_attendance SET status = ?, markedBy = ?, timestamp = ? WHERE studentId = ? AND slotId = ? AND dateStr = ?",
+            [newStatus, realActorName, new Date().toISOString(), studentId, slotId, dateStr]
+          );
+        } else {
+          // Insert new
+          const recordId = makeAttendanceId();
+          await tx.run(
+            "INSERT INTO student_attendance (id, studentId, slotId, dateStr, status, markedBy, timestamp) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [recordId, studentId, slotId, dateStr, newStatus, realActorName, new Date().toISOString()]
+          );
+        }
 
-      await db.run(
-        `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp, old_status, new_status, reason, changed_by)
-           VALUES (?, 'attendance_correction', ?, ?, ?, ?, ?, ?, ?, ?)`,
-        logId,
-        description,
-        realActorName,
-        isRealAdmin ? "Admin" : (actor.role || "Campus Manager"),
-        new Date().toISOString(),
-        oldStatus,
-        newStatus,
-        reason,
-        realActorName
-      );
+        // Increment student correction counter (only for non-admin standard corrections)
+        if (!isRealAdmin) {
+          await tx.run(
+            "UPDATE students SET correction_count = COALESCE(correction_count, 0) + 1 WHERE id = ?",
+            [studentId]
+          );
+        }
+
+
+        await tx.run(
+          `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp, old_status, new_status, reason, changed_by)
+             VALUES (?, 'attendance_correction', ?, ?, ?, ?, ?, ?, ?, ?)`,
+          logId,
+          description,
+          realActorName,
+          isRealAdmin ? "Admin" : (actor.role || "Campus Manager"),
+          new Date().toISOString(),
+          oldStatus,
+          newStatus,
+          reason,
+          realActorName
+        );
+      });
 
       // DATA_FLOW_AUDIT D9: build the corrected row from what we already know rather
       // than doing a round-trip SELECT after the write. All fields the client needs
@@ -506,16 +509,28 @@ export async function POST(request: Request) {
       // 2. Build attendance write statements
       const batchStatements: { sql: string; args: any[] }[] = [];
 
-      for (const d of deleteItems) {
+      // Latency #13: deletes used to be one statement (one round trip) per record.
+      // Group them into multi-row deletes of up to 500 keys.
+      const DELETES_PER_STMT = 500;
+      for (let i = 0; i < deleteItems.length; i += DELETES_PER_STMT) {
+        const chunk = deleteItems.slice(i, i + DELETES_PER_STMT);
         batchStatements.push({
-          sql: "DELETE FROM student_attendance WHERE studentId = ? AND slotId = ? AND dateStr = ?",
-          args: [d.studentId, d.slotId, d.dateStr]
+          sql: `DELETE FROM student_attendance WHERE (studentId, slotId, dateStr) IN (${chunk.map(() => "(?, ?, ?)").join(", ")})`,
+          args: chunk.flatMap((d) => [d.studentId, d.slotId, d.dateStr])
         });
       }
 
-      const ROWS_PER_INSERT = 200; // 200 rows × 7 params = 1400 params, under SQLite limit
-      for (let i = 0; i < upsertRows.length; i += ROWS_PER_INSERT) {
-        const chunk = upsertRows.slice(i, i + ROWS_PER_INSERT);
+      // Latency #13: the same (student, slot, date) twice in one multi-row upsert makes
+      // Postgres reject the whole statement ("cannot affect row a second time"), which
+      // dropped the import into the slow one-statement-at-a-time fallback. Keep the
+      // last value per key, as the old sequential writes effectively did.
+      const dedupedRows = Array.from(
+        new Map(upsertRows.map((r) => [`${r.studentId}|${r.slotId}|${r.dateStr}`, r])).values()
+      );
+
+      const ROWS_PER_INSERT = 1000; // 1000 rows × 7 params = 7000, well under Postgres's 65535
+      for (let i = 0; i < dedupedRows.length; i += ROWS_PER_INSERT) {
+        const chunk = dedupedRows.slice(i, i + ROWS_PER_INSERT);
         const placeholders = chunk.map(() => "(?, ?, ?, ?, ?, ?, ?)").join(", ");
         const params: any[] = [];
         chunk.forEach(r => {

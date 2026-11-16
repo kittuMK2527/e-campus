@@ -33,7 +33,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json(
       { success: true, count: subjects.length, subjects },
-      { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=120" } }
+      { headers: { "Cache-Control": "private, max-age=30" /* login-only data: never let a shared CDN cache it */ } }
     );
   } catch (error: any) {
     console.error("API GET Subjects error:", error);

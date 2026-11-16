@@ -8,7 +8,7 @@ const loginSource = readFileSync(join(process.cwd(), "src/app/api/login/route.ts
 
 describe("login auto-provisioning verifies the credential already on the roster row", () => {
   it("checks the profile hash instead of hashing whatever was just typed", () => {
-    expect(loginSource).toContain("verifyPassword(password, stored)");
+    expect(loginSource).toContain("verifyPasswordAsync(password, stored)");
     // The bypass this replaces: the submitted password became the stored password.
     expect(loginSource).not.toMatch(/const newHashed = hashPassword\(password\);/);
   });

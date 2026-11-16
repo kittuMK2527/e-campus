@@ -31,6 +31,7 @@ import {
   PlusCircle,
   Info,
   Clock,
+  LockKeyhole,
   X
 } from "lucide-react";
 import { MentorTaskAssignmentStudio } from "./MentorTaskAssignmentStudio";
@@ -760,7 +761,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
       {/* Rows */}
       <div className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden">
         <div className="max-h-[min(65dvh,720px)] overflow-auto overscroll-contain scroll-touch">
-          <Table className="w-full text-left border-collapse text-xs min-w-[900px]" containerClassName="overflow-visible">
+          <Table className="w-full text-left border-collapse text-xs min-w-[900px]" containerClassName="max-h-[65dvh] overflow-auto overscroll-contain scroll-touch">
               <TableHeader>
               <TableRow className="sticky top-0 z-10 bg-sunken border-b border-slate-200 text-[10px] font-black uppercase tracking-wider text-slate-600">
                 {role !== "mentor" && <TableHead className="p-3.5 min-w-[110px]">Employee ID</TableHead>}
@@ -934,6 +935,13 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                                     >
                                       <Edit3 className="h-3 w-3" />
                                     </button>
+                                  ) : role === "mentor" ? (
+                                    <span
+                                      title="Submitted work is locked. An SME revision request is required to submit a replacement."
+                                      className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-[9px] font-black uppercase tracking-wide text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300"
+                                    >
+                                      <LockKeyhole className="h-3 w-3" /> Locked
+                                    </span>
                                   ) : null}
                                 </div>
                               );

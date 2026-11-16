@@ -73,8 +73,9 @@ import dynamic from "next/dynamic";
 const InterviewModule = dynamic(() => import("./InterviewModule").then(m => m.InterviewModule), { ssr: false });
 const MentorProfileModal = dynamic(() => import("./MentorProfileModal").then(m => m.MentorProfileModal), { ssr: false });
 const MentorExamMarksStudio = dynamic(() => import("./MentorExamMarksStudio").then(m => m.MentorExamMarksStudio), { ssr: false });
-import { MentorWeeklyPlanStudio } from "./WeeklyPlanStudio";
-import { SkillTrackerPanel } from "./SkillTrackerPanel";
+// Latency #8: these two tabs are ~3,800 lines; load them only when opened.
+const MentorWeeklyPlanStudio = dynamic(() => import("./WeeklyPlanStudio").then(m => m.MentorWeeklyPlanStudio), { ssr: false });
+const SkillTrackerPanel = dynamic(() => import("./SkillTrackerPanel").then(m => m.SkillTrackerPanel), { ssr: false });
 
 import { CourseInfoButton } from "./CourseInfoModal";
 import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatching, isCohortMatch, getDeptFromClassGroup, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, isAcademicSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes } from "@/lib/utils";
@@ -7596,7 +7597,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                 </div>
               ) : (
                 /* Handover Submission Form */
-                <form onSubmit={submitAction} className="flex-1 flex flex-col min-h-0 space-y-3">
+                <form onSubmit={submitAction} className="flex-1 flex flex-col min-h-0 space-y-3 overflow-y-auto overscroll-contain">
                   <div className="flex items-center justify-between">
                     <button
                       type="button"
@@ -8467,7 +8468,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
               )}
 
               {/* Form */}
-              <form onSubmit={handleSubmitCamRequest} className="space-y-4">
+              <form onSubmit={handleSubmitCamRequest} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain">
                 <div className="space-y-2">
                   <label className="text-xs font-bold text-slate-700 block">
                     Reason for Edit Request <span className="text-red-500">*</span>
@@ -9027,32 +9028,49 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                     }
                     setIsSavingAllSkillMarks(true);
                     let successCount = 0;
+                    const savedStudentIds: string[] = [];
                     try {
                       for (const sId of studentKeys) {
                         const val = skillMarksDraft[sId];
                         const sObj = classStudents.find(s => s.id === sId);
                         if (!sObj) continue;
+                        const entry = studentTracker.find(e => e.student_id === sId && e.subject.toLowerCase().trim() === activeSubj.toLowerCase().trim() && e.week_number === trackerWeek);
+                        if (!entry?.submission_url) continue;
+                        const parsedMarks = val === "" ? null : Number(val);
+                        if (parsedMarks !== null && (!Number.isFinite(parsedMarks) || parsedMarks < 0 || parsedMarks > 10)) {
+                          setSaveStatusMap(prev => ({ ...prev, [sId]: "error" }));
+                          continue;
+                        }
                         setSaveStatusMap(prev => ({ ...prev, [sId]: "saving" }));
                         const res = await gradeStudentTask({
                           studentId: sId,
                           classGroup: sObj.classGroup || activeClassGroup,
                           subject: activeSubj,
                           weekNumber: trackerWeek,
-                          marks: val !== "" && val !== undefined ? parseFloat(val) : null as any,
+                          marks: parsedMarks as any,
                           gradedBy: currentMentor?.id || ""
                         });
                         if (res.success) {
                           successCount++;
+                          savedStudentIds.push(sId);
                           setSaveStatusMap(prev => ({ ...prev, [sId]: "saved" }));
                         } else {
                           setSaveStatusMap(prev => ({ ...prev, [sId]: "error" }));
                         }
                       }
-                      setSkillMarksDraft({});
-                      toast(`Saved marks for ${successCount} student(s) successfully!`, "success");
+                      toast(successCount > 0
+                        ? `Saved marks for ${successCount} student(s). Unsuccessful drafts were kept for retry.`
+                        : "No marks were saved. Check the submitted rows and mark values, then retry.", successCount > 0 ? "success" : "warning");
                     } catch (err: any) {
                       toast("Failed to save marks: " + err.message, "error");
                     } finally {
+                      if (savedStudentIds.length > 0) {
+                        setSkillMarksDraft(prev => {
+                          const next = { ...prev };
+                          savedStudentIds.forEach(id => delete next[id]);
+                          return next;
+                        });
+                      }
                       setIsSavingAllSkillMarks(false);
                       setTimeout(() => {
                         setSaveStatusMap({});
@@ -9063,21 +9081,21 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   return (
                     <div className="space-y-4">
                       {/* Filters Header Bar */}
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100">
                         <div className="flex flex-wrap items-center gap-3">
-                          <div className="relative">
+                          <div className="relative w-full sm:w-auto">
                             <input
                               type="text"
                               value={trackerSearchTerm}
                               onChange={(e) => setTrackerSearchTerm(e.target.value)}
                               placeholder=" Search by student name or roll..."
-                              className="pl-4 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 w-64 bg-white font-medium text-slate-800"
+                              className="pl-4 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 w-full sm:w-64 bg-white font-medium text-slate-800"
                             />
                           </div>
                           <select aria-label="Status filter"
                             value={trackerStatusFilter}
                             onChange={(e) => setTrackerStatusFilter(e.target.value)}
-                            className="px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white font-bold text-slate-700 cursor-pointer"
+                            className="w-full sm:w-auto px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white font-bold text-slate-700 cursor-pointer"
                           >
                             <option value="all">All Statuses</option>
                             <option value="submitted">Submitted</option>
@@ -9085,12 +9103,12 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                           </select>
                         </div>
 
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
                           <button
                             type="button"
                             onClick={handleSaveAllSkillMarks}
-                            disabled={isSavingAllSkillMarks}
-                            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+                            disabled={isSavingAllSkillMarks || Object.keys(skillMarksDraft).length === 0}
+                            className="w-full sm:w-auto justify-center px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {isSavingAllSkillMarks ? (
                               <>
@@ -9100,20 +9118,20 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             ) : (
                               <>
                                 <Save className="w-4 h-4" />
-                                <span>Save All Marks (Week {trackerWeek})</span>
+                                <span>Save {Object.keys(skillMarksDraft).length ? `${Object.keys(skillMarksDraft).length} Mark${Object.keys(skillMarksDraft).length === 1 ? "" : "s"}` : "All Marks"} (Week {trackerWeek})</span>
                               </>
                             )}
                           </button>
 
-                          <div className="text-[10px] text-slate-400 font-extrabold uppercase tracking-wider">
+                          <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider sm:text-right">
                             Showing {paginatedStudents.length} of {filteredClassStudents.length} Filtered ({classStudents.length} Total)
                           </div>
                         </div>
                       </div>
 
-                      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-xs bg-white scroll-touch">
+                      <div className="max-h-[min(62dvh,640px)] overflow-auto overscroll-contain rounded-xl border border-slate-200 shadow-xs bg-white scroll-touch">
                         <table className="w-full border-collapse text-left text-xs font-semibold min-w-[980px]">
-                          <thead>
+                          <thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_0_rgba(226,232,240,1)]">
                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px] whitespace-nowrap">
                               <th className="p-4 w-[50px] text-center border-r border-slate-100/60">S.No</th>
                               <th className="p-4 border-r border-slate-100/60 min-w-[180px]">Student Name / Roll</th>
@@ -9195,9 +9213,16 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                           <button
                                             key={wk}
                                             type="button"
-                                            onClick={() => setTrackerWeek(wk)}
-                                            title={`Week ${wk}: ${isSubmitted ? (isGraded ? `Graded (${stEntry?.marks}/10)` : "Submitted") : isAssigned ? "Pending Submission" : "Unassigned"} - Click to view`}
-                                            className={`h-5 w-5 rounded-md text-[8.5px] font-black transition-all flex items-center justify-center cursor-pointer ${colorClass} ${isCurrent ? "ring-2 ring-amber-500 scale-110 z-10 shadow-sm" : ""
+                                            disabled={!isCurrent && Object.keys(skillMarksDraft).length > 0}
+                                            onClick={() => {
+                                              if (Object.keys(skillMarksDraft).length > 0) {
+                                                toast("Save your mark changes before switching weeks.", "info");
+                                                return;
+                                              }
+                                              setTrackerWeek(wk);
+                                            }}
+                                            title={Object.keys(skillMarksDraft).length > 0 && !isCurrent ? "Save mark changes before switching weeks" : `Week ${wk}: ${isSubmitted ? (isGraded ? `Graded (${stEntry?.marks}/10)` : "Submitted") : isAssigned ? "Pending Submission" : "Unassigned"} - Click to view`}
+                                            className={`h-5 w-5 rounded-md text-[8.5px] font-black transition-all flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${colorClass} ${isCurrent ? "ring-2 ring-amber-500 scale-110 z-10 shadow-sm" : ""
                                               }`}
                                           >
                                             {wk}
@@ -9278,31 +9303,21 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       value={skillMarksDraft[student.id] !== undefined ? skillMarksDraft[student.id] : (currentMarks !== "" ? String(currentMarks) : "")}
                                       onChange={(e) => {
                                         const val = e.target.value;
-                                        setSkillMarksDraft(prev => ({ ...prev, [student.id]: val }));
-                                      }}
-                                      onBlur={async (e) => {
-                                        const val = e.target.value;
-                                        if (val === String(currentMarks)) return;
-                                        if (val !== "" && (parseFloat(val) < 0 || parseFloat(val) > 10)) {
-                                          toast("Marks must be between 0 and 10.", "warning");
-                                          return;
-                                        }
-                                        setSaveStatusMap(prev => ({ ...prev, [student.id]: "saving" }));
-                                        const res = await gradeStudentTask({
-                                          studentId: student.id,
-                                          classGroup: student.classGroup || activeClassGroup,
-                                          subject: activeSubj,
-                                          weekNumber: trackerWeek,
-                                          marks: val !== "" ? parseFloat(val) : null as any,
-                                          gradedBy: currentMentor?.id || ""
+                                        const matchesSavedValue = val === ""
+                                          ? currentMarks === ""
+                                          : Number(val) === Number(currentMarks);
+                                        setSkillMarksDraft(prev => {
+                                          if (matchesSavedValue) {
+                                            const next = { ...prev };
+                                            delete next[student.id];
+                                            return next;
+                                          }
+                                          return { ...prev, [student.id]: val };
                                         });
-                                        setSaveStatusMap(prev => ({ ...prev, [student.id]: res.success ? "saved" : "error" }));
-                                        setTimeout(() => {
-                                          setSaveStatusMap(prev => ({ ...prev, [student.id]: "idle" }));
-                                        }, 2000);
                                       }}
                                       placeholder="—"
-                                      className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-sunken text-slate-800"
+                                      disabled={!currentUrl || isSavingAllSkillMarks}
+                                      className="w-full min-w-16 text-center text-xs font-black px-2 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-sunken text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                                       aria-label="Marks (0-10)"
                                     />
                                   </td>
@@ -9373,7 +9388,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                 toast(res.message || "Failed to save task.", "error");
                               }
                             }}
-                            className="p-6 space-y-5"
+                            className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 space-y-5"
                           >
                             <div className="space-y-4">
                               {/* Interactive Selectors in Modal - Synced directly with main filters */}
@@ -11827,7 +11842,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       </button>
                     </div>
 
-                    <form onSubmit={handleSubmitAcadEditRequest} className="p-5 space-y-4">
+                    <form onSubmit={handleSubmitAcadEditRequest} className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 space-y-4">
                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-3.5 space-y-2 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] uppercase font-black tracking-wider text-slate-400">Current Log Record</span>

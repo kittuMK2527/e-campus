@@ -113,10 +113,13 @@ describe("POST /api/requests/swap", () => {
     expect(h.batches[0][1].params).toEqual(["s1"]);
     expect(h.batches[0][2].params).toEqual(["m2"]);
     expect(h.batches[0][3].params).toEqual(["m1", "s1", "2026-10-25", "m2"]);
-    expect(h.singleReads).toHaveLength(0);
-    expect(h.writes).toHaveLength(2);
-    expect(h.writes[0]).toContain("INSERT INTO handover_requests");
-    expect(h.writes[1]).toContain("INSERT INTO audit_logs");
+    // The availability check (added later) reads the mentor's schedule on its own;
+    // the four verification reads above must still never be repeated one by one.
+    expect(h.singleReads.filter(sql => /FROM (mentors|slots) WHERE id\b|FROM handover_requests/.test(sql))).toHaveLength(0);
+    const coreWrites = h.writes.filter((w: string) => !/INTO (notifications|event_outbox)/.test(w));
+    expect(coreWrites).toHaveLength(2);
+    expect(coreWrites[0]).toContain("INSERT INTO handover_requests");
+    expect(coreWrites[1]).toContain("INSERT INTO audit_logs");
   });
 
   it("refuses a duplicate offer without writing", async () => {

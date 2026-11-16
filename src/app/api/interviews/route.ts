@@ -247,7 +247,7 @@ export async function GET(request: Request) {
         // "Join" button and lands students on Google's invalid-link page.
         let effectiveGmeet: string | null = inv.gmeet_link || null;
         if (!effectiveGmeet && inv.type === "external") {
-          effectiveGmeet = studentSlots.find((s: any) => s.gmeet_link)?.gmeet_link || "https://meet.google.com/new";
+          effectiveGmeet = studentSlots.find((s: any) => s.gmeet_link)?.gmeet_link || null; // no real link yet: show none, never a fresh empty meeting
         }
 
         const enrichedSlots = (studentSlots || []).map((s: any) => ({

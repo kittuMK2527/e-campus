@@ -27,6 +27,10 @@ vi.mock("pg", () => ({
 
 async function freshDbModule(): Promise<typeof import("../src/lib/db")> {
   vi.resetModules();
+  // getDb also keeps its instance on globalThis (survives HMR); clear it so each
+  // test really boots a fresh pool.
+  (globalThis as any).__fpDbInstance = undefined;
+  (globalThis as any).__fpDbPromise = undefined;
   return import("../src/lib/db");
 }
 
@@ -115,7 +119,7 @@ describe("getDb bootstrapping", () => {
     process.env.PG_POOL_MAX = "not-a-number";
     poolQuery.mockResolvedValue({ rows: [], rowCount: 0 });
     await (await freshDbModule()).getDb();
-    expect(poolConfigs[1].max).toBe(20);
+    expect(poolConfigs[1].max).toBe(5); // default lowered from 20 in the latency audit
 
     process.env.PG_POOL_MAX = "5000";
     await (await freshDbModule()).getDb();

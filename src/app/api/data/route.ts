@@ -62,6 +62,22 @@ const ATTENDANCE_WIRE_FIELDS = [
   "coveredSubject"
 ] as const;
 
+/**
+ * Latency #5: the Sunday exclusion used to run in SQL as
+ * EXTRACT(DOW FROM dateStr::date) on every candidate row. The date-range index
+ * already bounds the rows, so drop Sundays (and blank/invalid dates, which the SQL
+ * version also excluded) here instead.
+ */
+function excludeSundays(rows: any[]): any[] {
+  if (!Array.isArray(rows)) return rows;
+  return rows.filter((r) => {
+    const d = String(r?.dateStr ?? r?.datestr ?? "").slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return false;
+    const day = new Date(`${d}T00:00:00Z`).getUTCDay();
+    return Number.isFinite(day) && day !== 0;
+  });
+}
+
 function compactAttendance(rows: any[]): any[][] {
   return (rows || []).map((a: any) => ATTENDANCE_WIRE_FIELDS.map((field) => a?.[field] ?? null));
 }
@@ -74,9 +90,9 @@ function compactAttendance(rows: any[]): any[][] {
 function mentorAttendanceSql(limit: number): string {
   const cols = "sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject";
   return `SELECT * FROM (
-    SELECT ${cols} FROM student_attendance sa WHERE sa.slotId IN (SELECT id FROM slots WHERE mentorId = ?) AND sa.dateStr >= ? AND strftime('%w', sa.dateStr) != '0'
+    SELECT ${cols} FROM student_attendance sa WHERE sa.slotId IN (SELECT id FROM slots WHERE mentorId = ?) AND sa.dateStr >= ?
     UNION
-    SELECT ${cols} FROM student_attendance sa WHERE sa.markedBy = ? AND sa.dateStr >= ? AND strftime('%w', sa.dateStr) != '0'
+    SELECT ${cols} FROM student_attendance sa WHERE sa.markedBy = ? AND sa.dateStr >= ?
   ) mentor_att ORDER BY dateStr DESC LIMIT ${limit}`;
 }
 
@@ -163,22 +179,22 @@ export async function GET(request: Request) {
       let attSql: string;
       let attParams: any[];
       if (role === "student" && userId) {
-        attSql = `SELECT id, studentId, slotId, dateStr, status, type, mode, markedBy, timestamp, attendanceTypeSub, coveredSubject FROM student_attendance WHERE studentId = ? AND strftime('%w', dateStr) != '0' ORDER BY dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+        attSql = `SELECT id, studentId, slotId, dateStr, status, type, mode, markedBy, timestamp, attendanceTypeSub, coveredSubject FROM student_attendance WHERE studentId = ? ORDER BY dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
         attParams = [userId];
       } else if (role === "mentor" && userId) {
         attSql = mentorAttendanceSql(ATTENDANCE_LIMIT);
         attParams = [userId, mentorDateThreshold, userId, mentorDateThreshold];
       } else if (role === "kam") {
-        attSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id IN ${kamInClause} AND sa.dateStr >= ? AND strftime('%w', sa.dateStr) != '0' ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+        attSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id IN ${kamInClause} AND sa.dateStr >= ? ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
         attParams = [...kamCollegeIds, fullDateThreshold];
       } else if (collegeId) {
-        attSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id = ? AND sa.dateStr >= ? AND strftime('%w', sa.dateStr) != '0' ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+        attSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id = ? AND sa.dateStr >= ? ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
         attParams = [collegeId, fullDateThreshold];
       } else {
-        attSql = `SELECT id, studentId, slotId, dateStr, status, type, mode, markedBy, timestamp, attendanceTypeSub, coveredSubject FROM student_attendance WHERE dateStr >= ? AND strftime('%w', dateStr) != '0' ORDER BY dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+        attSql = `SELECT id, studentId, slotId, dateStr, status, type, mode, markedBy, timestamp, attendanceTypeSub, coveredSubject FROM student_attendance WHERE dateStr >= ? ORDER BY dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
         attParams = [fullDateThreshold];
       }
-      const att = await db.all(attSql, ...attParams);
+      const att = excludeSundays(await db.all(attSql, ...attParams));
       return NextResponse.json({
         success: true,
         studentAttendance: compactAttendance(att),
@@ -206,25 +222,29 @@ export async function GET(request: Request) {
       colleges: 200, academicEvents: 300, facultyLeaves: 300,
       demoSessions: 200, demoSwaps: 100
     };
+    // Latency #3: campus/KAM-scoped slices had no ceiling at all. These are safety
+    // caps well above a real campus, reported as truncated if ever reached.
+    const SCOPED_CAPS = { mentors: 2000, slots: 8000, students: 8000 };
+    const KAM_CAPS = { mentors: 6000, slots: 20000, students: 20000 };
 
     // The fee dashboard reads its roster from /api/fees; the shared bundle only
     // supplies colleges and courses to that role.
     const mentorSql = isFeeManager ? "SELECT 1 WHERE 1=0" : isKAM
-      ? `SELECT * FROM mentors WHERE college_id IN ${kamInClause}`
-      : collegeId ? "SELECT * FROM mentors WHERE college_id = ?" : `SELECT * FROM mentors LIMIT ${CAPS.mentors}`;
+      ? `SELECT * FROM mentors WHERE college_id IN ${kamInClause} LIMIT ${KAM_CAPS.mentors}`
+      : collegeId ? `SELECT * FROM mentors WHERE college_id = ? LIMIT ${SCOPED_CAPS.mentors}` : `SELECT * FROM mentors LIMIT ${CAPS.mentors}`;
     const mentorParams = isFeeManager ? [] : isKAM ? [...kamCollegeIds] : collegeId ? [collegeId] : [];
 
     const slotSql = isFeeManager ? "SELECT 1 WHERE 1=0" : isKAM
-      ? `SELECT * FROM slots WHERE college_id IN ${kamInClause}`
-      : collegeId ? "SELECT * FROM slots WHERE college_id = ?" : `SELECT * FROM slots LIMIT ${CAPS.slots}`;
+      ? `SELECT * FROM slots WHERE college_id IN ${kamInClause} LIMIT ${KAM_CAPS.slots}`
+      : collegeId ? `SELECT * FROM slots WHERE college_id = ? LIMIT ${SCOPED_CAPS.slots}` : `SELECT * FROM slots LIMIT ${CAPS.slots}`;
     const slotParams = isFeeManager ? [] : isKAM ? [...kamCollegeIds] : collegeId ? [collegeId] : [];
 
     const studentSql = isFeeManager ? "SELECT 1 WHERE 1=0" : isStudent && userId
       ? "SELECT * FROM students WHERE id = ?"
       : isKAM
-        ? `SELECT * FROM students WHERE college_id IN ${kamInClause}`
+        ? `SELECT * FROM students WHERE college_id IN ${kamInClause} LIMIT ${KAM_CAPS.students}`
         : collegeId
-          ? "SELECT * FROM students WHERE college_id = ?"
+          ? `SELECT * FROM students WHERE college_id = ? LIMIT ${SCOPED_CAPS.students}`
           : `SELECT * FROM students LIMIT ${CAPS.students}`;
     const studentParams = isFeeManager ? [] : (isStudent && userId) ? [userId] : isKAM ? [...kamCollegeIds] : collegeId ? [collegeId] : [];
 
@@ -249,14 +269,14 @@ export async function GET(request: Request) {
     const holidayParams = isKAM ? [...kamCollegeIds] : collegeId ? [collegeId] : [];
 
     // Role-optimized attendance query with strict query limits (User requirement & PERF-02)
-    let attendanceSql = `SELECT id, studentId, slotId, dateStr, status, type, mode, markedBy, timestamp, attendanceTypeSub, coveredSubject FROM student_attendance WHERE dateStr >= ? AND strftime('%w', dateStr) != '0' ORDER BY dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+    let attendanceSql = `SELECT id, studentId, slotId, dateStr, status, type, mode, markedBy, timestamp, attendanceTypeSub, coveredSubject FROM student_attendance WHERE dateStr >= ? ORDER BY dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
     let attendanceParams: any[] = [fullDateThreshold];
 
     if (isStudent && userId) {
-      attendanceSql = `SELECT id, studentId, slotId, dateStr, status, type, mode, markedBy, timestamp, attendanceTypeSub, coveredSubject FROM student_attendance WHERE studentId = ? AND strftime('%w', dateStr) != '0' ORDER BY dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+      attendanceSql = `SELECT id, studentId, slotId, dateStr, status, type, mode, markedBy, timestamp, attendanceTypeSub, coveredSubject FROM student_attendance WHERE studentId = ? ORDER BY dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
       attendanceParams = [userId];
     } else if (isKAM) {
-      attendanceSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id IN ${kamInClause} AND sa.dateStr >= ? AND strftime('%w', sa.dateStr) != '0' ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+      attendanceSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id IN ${kamInClause} AND sa.dateStr >= ? ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
       attendanceParams = [...kamCollegeIds, fullDateThreshold];
     } else if (isMentor && userId) {
       // Mentor only needs attendance for their assigned slots or where they marked attendance
@@ -264,10 +284,10 @@ export async function GET(request: Request) {
       attendanceParams = [userId, mentorDateThreshold, userId, mentorDateThreshold];
     } else if (isCM && collegeId) {
       // CAM monitoring view scopes to attendance window for college
-      attendanceSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id = ? AND sa.dateStr >= ? AND strftime('%w', sa.dateStr) != '0' ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+      attendanceSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id = ? AND sa.dateStr >= ? ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
       attendanceParams = [collegeId, fullDateThreshold];
     } else if (collegeId) {
-      attendanceSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id = ? AND sa.dateStr >= ? AND strftime('%w', sa.dateStr) != '0' ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
+      attendanceSql = `SELECT sa.id, sa.studentId, sa.slotId, sa.dateStr, sa.status, sa.type, sa.mode, sa.markedBy, sa.timestamp, sa.attendanceTypeSub, sa.coveredSubject FROM student_attendance sa JOIN students st ON sa.studentId = st.id WHERE st.college_id = ? AND sa.dateStr >= ? ORDER BY sa.dateStr DESC LIMIT ${ATTENDANCE_LIMIT}`;
       attendanceParams = [collegeId, fullDateThreshold];
     }
 
@@ -443,6 +463,19 @@ export async function GET(request: Request) {
       { sql: "SELECT key, value FROM system_settings", params: [] }
     ];
 
+    // Latency #2/#7: a background refresh (another user's change arriving over
+    // realtime) does not need the tracker / weekly-task / interview slices — they are
+    // the slowest queries in this bundle and rarely change under someone else's hand.
+    // `light=1` turns them into no-ops and leaves their keys out of the response so
+    // the client keeps what it already has.
+    const LIGHT_SKIPPABLE = [16, 17, 28, 29, 31, 33, 34, 35];
+    const light = searchParams.get("light") === "1";
+    if (light) {
+      for (const i of LIGHT_SKIPPABLE) {
+        if (queryDefs[i]) queryDefs[i] = { sql: "SELECT 1 WHERE 1=0", params: [] };
+      }
+    }
+
     const failedSlices: QueryFailure[] = [];
     const [
       mentors, slots, requests, approvedHandovers, auditLogs, subjects,
@@ -487,7 +520,7 @@ export async function GET(request: Request) {
     let filteredSlots = slots;
     let filteredSubjects = subjects;
     let filteredStudents = students;
-    let filteredStudentAttendance = studentAttendance;
+    let filteredStudentAttendance = excludeSundays(studentAttendance);
     let filteredLeaveRequests = leaveRequests;
     let filteredRequests = requests;
     let filteredApprovedHandovers = approvedHandovers;
@@ -505,7 +538,7 @@ export async function GET(request: Request) {
       const studentEmails = new Set(filteredStudents.map((s: any) => s.email?.toLowerCase().trim()).filter(Boolean));
       const studentCohortNames = new Set(filteredStudents.map((s: any) => s.classGroup?.toLowerCase().trim()).filter(Boolean));
 
-      filteredStudentAttendance = studentAttendance.filter((sa: any) => studentIds.has(sa.studentId));
+      filteredStudentAttendance = filteredStudentAttendance.filter((sa: any) => studentIds.has(sa.studentId));
       filteredLeaveRequests = leaveRequests.filter((lr: any) => studentIds.has(lr.studentId) || studentCohortNames.has(lr.classGroup?.toLowerCase().trim()) || !lr.studentId);
       filteredWeeklyTasks = weeklyTasks.filter((t: any) => mentorIds.has(t.mentor_id) || studentCohortNames.has(t.class_group?.toLowerCase().trim()) || (t.mentor_id && t.mentor_id === userId));
       filteredStudentTracker = studentTracker.filter((e: any) => studentIds.has(e.student_id) || (e.graded_by && e.graded_by === userId));
@@ -524,9 +557,10 @@ export async function GET(request: Request) {
     const truncated = (rows: any[] | undefined, cap: number, name: string) => {
       if (Array.isArray(rows) && rows.length >= cap) truncatedSections.push(name);
     };
-    truncated(slots, CAPS.slots, "slots");
-    truncated(students, CAPS.students, "students");
-    truncated(mentors, CAPS.mentors, "mentors");
+    const capFor = (k: "slots" | "students" | "mentors") => isKAM ? KAM_CAPS[k] : collegeId ? SCOPED_CAPS[k] : CAPS[k];
+    truncated(slots, capFor("slots"), "slots");
+    truncated(students, capFor("students"), "students");
+    truncated(mentors, capFor("mentors"), "mentors");
     truncated(studentAttendance, ATTENDANCE_LIMIT, "studentAttendance");
     truncated(leaveRequests, 100, "leaveRequests");
     truncated(signupRequests, 40, "signupRequests");
@@ -592,10 +626,10 @@ export async function GET(request: Request) {
       holidays: filteredHolidays,
       loginHistory,
       users,
-      weeklyTasks: filteredWeeklyTasks,
-      studentTracker: filteredStudentTracker,
-      weeklyAcademicTasks: filteredWeeklyAcademicTasks,
-      studentAcademicTracker: filteredStudentAcademicTracker,
+      weeklyTasks: light ? undefined : filteredWeeklyTasks,
+      studentTracker: light ? undefined : filteredStudentTracker,
+      weeklyAcademicTasks: light ? undefined : filteredWeeklyAcademicTasks,
+      studentAcademicTracker: light ? undefined : filteredStudentAcademicTracker,
       smes: stripSecrets(smes),
       demoSessions,
       subjectGroups,
@@ -606,11 +640,11 @@ export async function GET(request: Request) {
       campusIssues,
       academicYears: academicYears.map((ay: any) => typeof ay === "string" ? ay : ay.year || ay.year_name || ay.name || String(ay)),
       academicEvents,
-      interviews: studentInterviews || [],
-      interviewEvaluations: interviewEvaluations || [],
+      interviews: light ? undefined : studentInterviews || [],
+      interviewEvaluations: light ? undefined : interviewEvaluations || [],
       approvals: approvals || [],
-      leaveBalances: leaveBalances || [],
-      academicTracker: academicTracker || [],
+      leaveBalances: light ? undefined : leaveBalances || [],
+      academicTracker: light ? undefined : academicTracker || [],
       smeAvailability: smeAvailability || [],
       campusManagers: stripSecrets(campusManagers || []),
       kamUsers: stripSecrets(kamUsers || []),

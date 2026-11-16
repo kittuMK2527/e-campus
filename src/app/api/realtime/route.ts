@@ -34,6 +34,7 @@ export async function GET(request: Request) {
 
   const clientId = generateId("rtc");
   let intervalId: any = null;
+  let timeoutId: any = null;
 
   const stream = new ReadableStream({
     start(controller) {
@@ -56,9 +57,20 @@ export async function GET(request: Request) {
           removeRealtimeClient(clientId);
         }
       }, 20000);
+
+      // Gracefully close stream before Vercel's 300s limit so browser EventSource
+      // reconnects cleanly without triggering a 504 / Task timed out log error.
+      timeoutId = setTimeout(() => {
+        try {
+          controller.close();
+        } catch (_) {}
+        if (intervalId) clearInterval(intervalId);
+        removeRealtimeClient(clientId);
+      }, 270000);
     },
     cancel() {
       if (intervalId) clearInterval(intervalId);
+      if (timeoutId) clearTimeout(timeoutId);
       removeRealtimeClient(clientId);
     }
   });

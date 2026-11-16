@@ -699,6 +699,7 @@ export function LndAllocationDashboard() {
       collegePeriodLabels: getCollegePeriodLabels,
       collegeTimetablePeriodList: getCollegeTimetablePeriodList,
       collegeDayStatus: getCollegeTimetableDayStatus,
+      subjectGroups: subjectGroups || [],
       timetableCoverage: {
         collegesWithTimetable: allCollegesTimetableStatus.collegesWithTimetable,
         collegesSkipped: allCollegesTimetableStatus.collegesSkipped
@@ -1486,6 +1487,7 @@ export function LndAllocationDashboard() {
             handleDownloadDemoTemplate={handleDownloadDemoTemplate}
             isTimetableRefreshing={isTimetableRefreshing}
             mentorGroups={mentorGroups}
+            subjectGroups={subjectGroups}
             mentors={mentors}
             refreshTimetableView={refreshTimetableView}
             setShowTemplateModal={setShowTemplateModal}

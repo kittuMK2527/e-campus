@@ -27,7 +27,7 @@ export function AlertDialog({ open, onOpenChange, children }: AlertDialogProps) 
 
   return createPortal(
     <AlertDialogContext.Provider value={{ onOpenChange }}>
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
+      <div className="fixed inset-0 z-50 flex items-start sm:items-center justify-center overflow-y-auto p-4 bg-slate-950/60 backdrop-blur-sm animate-fadeIn">
         {children}
       </div>
     </AlertDialogContext.Provider>,
@@ -41,7 +41,7 @@ export function AlertDialogContent({ className, children, ...props }: React.HTML
       role="alertdialog"
       aria-modal="true"
       className={cn(
-        "relative z-10 w-full max-w-md bg-white dark:bg-[#131317] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-card-lg p-6 space-y-4 animate-scaleUp",
+        "relative z-10 w-full max-w-md max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain bg-white dark:bg-[#131317] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-card-lg p-4 sm:p-6 space-y-4 animate-scaleUp",
         className
       )}
       {...props}

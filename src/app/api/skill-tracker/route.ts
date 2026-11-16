@@ -39,6 +39,7 @@ export async function GET(request: Request) {
     if (errorResponse) return errorResponse;
     const db = await getDb();
     await ensureMigration("mentor_skill_clearances");
+    await ensureMigration("mentor_plans_and_clearances_submission_link").catch(() => {});
 
     const { searchParams } = new URL(request.url);
     const mentorId = searchParams.get("mentorId");
@@ -346,6 +347,7 @@ export async function POST(request: Request) {
     if (errorResponse) return errorResponse;
     const db = await getDb();
     await ensureMigration("mentor_skill_clearances");
+    await ensureMigration("mentor_plans_and_clearances_submission_link").catch(() => {});
 
     const body = await request.json();
     const {
@@ -504,6 +506,7 @@ export async function PATCH(request: Request) {
     if (errorResponse) return errorResponse;
     const db = await getDb();
     await ensureMigration("mentor_skill_clearances");
+    await ensureMigration("mentor_plans_and_clearances_submission_link").catch(() => {});
     await ensureMigration("mentor_weekly_plans");
 
     const body = await request.json();

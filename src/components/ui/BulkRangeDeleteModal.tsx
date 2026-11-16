@@ -4,6 +4,7 @@ import React, { useState, useMemo } from "react";
 import { Trash2, AlertTriangle, ShieldAlert, Check, Calendar, Hash, ArrowRight, Loader2, X } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/apiFetch";
@@ -292,6 +293,15 @@ export function BulkRangeDeleteModal<T = any>({
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {isDeleting && (
+          <div role="status" aria-live="polite" className="space-y-2 rounded-xl border border-rose-500/25 bg-rose-500/5 p-3">
+            <p className="text-[11px] font-bold text-rose-200">
+              Deleting and logging {matchingItems.length} {entityName} in one database transaction. This can take a moment.
+            </p>
+            <Progress indeterminate variant="danger" aria-label="Bulk deletion in progress" />
           </div>
         )}
 

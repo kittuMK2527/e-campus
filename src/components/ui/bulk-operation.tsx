@@ -66,8 +66,18 @@ export function BulkOperationDialog({ operation }: { operation: ReturnType<typeo
         </p>
         <p className="break-words text-sm text-slate-600 dark:text-slate-300">{s.detail}</p>
       </div>
-      {s.total !== undefined && s.total > 0 && s.processed !== undefined && (
-        <Progress value={s.processed} max={s.total} showLabel variant={s.phase === "warning" ? "warning" : busy ? "default" : "success"} />
+      {busy && (
+        <Progress
+          value={s.processed ?? 0}
+          max={s.total ?? 100}
+          indeterminate={s.total === undefined || s.processed === undefined}
+          showLabel
+          aria-label={`${s.title} progress`}
+          variant={s.phase === "warning" ? "warning" : "default"}
+        />
+      )}
+      {!busy && s.total !== undefined && s.total > 0 && s.processed !== undefined && (
+        <Progress value={s.processed} max={s.total} showLabel variant={s.phase === "warning" ? "warning" : "success"} />
       )}
       {!busy && <div className="flex justify-end"><Button size="sm" onClick={operation.close}>Done</Button></div>}
     </Dialog>

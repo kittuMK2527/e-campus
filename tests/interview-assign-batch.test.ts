@@ -162,7 +162,7 @@ describe("interview assignment writes", () => {
   it("writes all student slots as one chunked insert atomically with the clear", async () => {
     await run(payload);
 
-    expect(h.writes.map(w => w.sql)).toEqual([
+    expect(h.writes.map(w => w.sql).filter(sql => !/INTO (notifications|event_outbox)/.test(sql))).toEqual([
       expect.stringContaining("UPDATE student_interviews"),
       expect.stringContaining("DELETE FROM student_interview_slots"),
       expect.stringContaining("INSERT INTO student_interview_slots")

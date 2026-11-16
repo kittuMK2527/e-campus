@@ -232,23 +232,27 @@ export async function dispatchSystemNotification(
       return { success: true, count: 0, notificationIds: [], recipientUserIds: [] };
     }
 
-    // 4. Batch insert into `notifications`
-    const notifValues = uniqueRecipients.map(() => "(?, ?, ?, ?, 0, ?, ?, ?)").join(", ");
-    const notifParams = uniqueRecipients.flatMap((r) => [
-      r.notifId,
-      r.userId,
-      options.title,
-      options.message,
-      options.link || null,
-      options.type || "info",
-      r.createdAt,
-    ]);
-
-    await db.run(
-      `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-       VALUES ${notifValues}`,
-      notifParams
-    );
+    // 4. Batch insert into `notifications`, 1,000 rows per statement. One statement
+    // for everyone broke past ~9,300 recipients (7 params each > Postgres's 65,535).
+    const NOTIF_CHUNK = 1000;
+    for (let i = 0; i < uniqueRecipients.length; i += NOTIF_CHUNK) {
+      const chunk = uniqueRecipients.slice(i, i + NOTIF_CHUNK);
+      const notifValues = chunk.map(() => "(?, ?, ?, ?, 0, ?, ?, ?)").join(", ");
+      const notifParams = chunk.flatMap((r) => [
+        r.notifId,
+        r.userId,
+        options.title,
+        options.message,
+        options.link || null,
+        options.type || "info",
+        r.createdAt,
+      ]);
+      await db.run(
+        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
+         VALUES ${notifValues}`,
+        notifParams
+      );
+    }
 
     // 5. Build envelope payload
     const eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;

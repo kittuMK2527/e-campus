@@ -7,6 +7,7 @@ export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: "default" | "success" | "warning" | "danger" | "brand";
   size?: "xs" | "sm" | "md" | "lg";
   showLabel?: boolean;
+  indeterminate?: boolean;
 }
 
 const variantMap: Record<NonNullable<ProgressProps["variant"]>, string> = {
@@ -33,6 +34,7 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
       variant = "default",
       size = "sm",
       showLabel = false,
+      indeterminate = false,
       ...props
     },
     ref
@@ -47,22 +49,23 @@ const Progress = React.forwardRef<HTMLDivElement, ProgressProps>(
             sizeMap[size]
           )}
           role="progressbar"
-          aria-valuenow={value}
+          aria-valuenow={indeterminate ? undefined : value}
           aria-valuemin={0}
           aria-valuemax={max}
-          aria-label={`${Math.round(pct)}%`}
+          aria-label={indeterminate ? "In progress" : `${Math.round(pct)}%`}
         >
           <div
             className={cn(
               "h-full rounded-full transition-all duration-500 ease-out",
-              variantMap[variant]
+              variantMap[variant],
+              indeterminate && "w-1/3 animate-pulse"
             )}
-            style={{ width: `${pct}%` }}
+            style={indeterminate ? undefined : { width: `${pct}%` }}
           />
         </div>
         {showLabel && (
           <span className="mt-1 block text-right text-[10px] font-bold text-slate-500">
-            {Math.round(pct)}%
+            {indeterminate ? "In progress" : `${Math.round(pct)}%`}
           </span>
         )}
       </div>

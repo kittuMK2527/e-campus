@@ -124,10 +124,10 @@ describe("GET /api/skill-tracker", () => {
     const body = await res.json();
 
     expect(h.batches).toHaveLength(1);
-    expect(h.batches[0]).toHaveLength(6);
+    expect(h.batches[0]).toHaveLength(7); // + timetable slots slice
     expect(h.singleReads).toHaveLength(0);
     expect(h.batches[0][0].params).toEqual(["m1", "c1", SUBJECT]);
-    expect(h.batches[0][5].sql).toContain("FROM mentors WHERE id = ?");
+    expect(h.batches[0][6].sql).toContain("FROM mentors WHERE id = ?"); // after the slots slice
     expect(body.success).toBe(true);
     expect(body.mentors).toHaveLength(1);
     expect(body.mentors[0].weeks[0].verdict).toBe("cleared");
@@ -140,7 +140,7 @@ describe("GET /api/skill-tracker", () => {
 
     expect(res.status).toBe(200);
     expect(h.batches).toHaveLength(1);
-    expect(h.batches[0]).toHaveLength(5);
+    expect(h.batches[0]).toHaveLength(6); // + timetable slots slice
     expect(h.batches[0].some(q => q.sql.includes("FROM mentors"))).toBe(false);
     expect(body.mentors).toEqual([]);
   });
@@ -170,7 +170,7 @@ describe("POST /api/skill-tracker", () => {
 
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(h.writes).toHaveLength(1);
+    expect(h.writes.filter((w: any) => !String(w.sql).includes("INTO notifications"))).toHaveLength(1);
     expect(h.writes[0].sql).toContain("UPDATE mentor_skill_clearances");
     expect(h.writes[0].sql).not.toContain("INSERT INTO");
     expect(h.singleReads.filter(s => s.includes("SELECT * FROM mentor_skill_clearances")).map(s => s)).toHaveLength(1);
@@ -197,7 +197,7 @@ describe("POST /api/skill-tracker", () => {
     expect(res.status).toBe(200);
     expect(body.success).toBe(true);
     expect(body.clearance).toBeNull();
-    expect(h.writes).toHaveLength(1);
+    expect(h.writes.filter((w: any) => !String(w.sql).includes("INTO notifications"))).toHaveLength(1);
     expect(h.writes[0].sql).toContain("INSERT INTO mentor_skill_clearances");
   });
 

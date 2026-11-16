@@ -16,6 +16,7 @@ export async function GET(request: Request) {
     const db = await getDb();
     await ensureMigration("mentor_weekly_plans");
     await ensureMigration("mentor_skill_clearances");
+    await ensureMigration("mentor_plans_and_clearances_submission_link").catch(() => {});
 
     const url = new URL(request.url);
     const collegeId = url.searchParams.get("collegeId");
@@ -136,6 +137,7 @@ export async function POST(request: Request) {
     const db = await getDb();
     await ensureMigration("mentor_weekly_plans");
     await ensureMigration("mentor_skill_clearances");
+    await ensureMigration("mentor_plans_and_clearances_submission_link").catch(() => {});
     await ensureMigration("notifications").catch(() => {});
 
     const body = await request.json();

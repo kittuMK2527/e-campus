@@ -21,7 +21,8 @@ export interface LndTemplateChooserModalProps {
   getSmesForSubjectGroup: (...args: any[]) => any;
   handleDownloadDemoTemplate: (...args: any[]) => any;
   isTimetableRefreshing: boolean;
-  mentorGroups: any[];
+  mentorGroups?: any[];
+  subjectGroups?: Array<{ id: string; name: string; description?: string }>;
   mentors: any[];
   refreshTimetableView: (...args: any[]) => any;
   setShowTemplateModal: (v: any) => void;
@@ -42,6 +43,7 @@ export default function LndTemplateChooserModal({
   handleDownloadDemoTemplate,
   isTimetableRefreshing,
   mentorGroups,
+  subjectGroups,
   mentors,
   refreshTimetableView,
   setShowTemplateModal,
@@ -135,13 +137,35 @@ export default function LndTemplateChooserModal({
             </div>
           )}
   
-          {/* Department / Scope Selector */}
+          {/* Subject Group / Scope Selector (Admin-created Subject Groups) */}
           {(() => {
+            const availableGroups = (() => {
+              const list: string[] = [];
+              if (subjectGroups && Array.isArray(subjectGroups) && subjectGroups.length > 0) {
+                subjectGroups.forEach((sg: any) => {
+                  const name = typeof sg === "string" ? sg : sg?.name;
+                  if (name && name.trim()) list.push(name.trim());
+                });
+              }
+              if (list.length === 0 && mentorGroups && mentorGroups.length > 0) {
+                list.push(...mentorGroups);
+              }
+              return Array.from(new Set(list)).sort((a, b) => a.localeCompare(b));
+            })();
+
             const activeGroup = templateMentorGroup || "All";
             const isAllGroups = activeGroup === "All";
+            const targetLower = activeGroup.toLowerCase().trim();
+
             const groupMentors = isAllGroups
               ? mentors
-              : mentors.filter(m => m && getMentorGroup(m).toLowerCase().trim() === activeGroup.toLowerCase().trim());
+              : mentors.filter(m => {
+                  if (!m) return false;
+                  const mg = getMentorGroup(m).toLowerCase().trim();
+                  const sGroup = (m.subject_group || "").toLowerCase().trim();
+                  const dept = (m.department || "").toLowerCase().trim();
+                  return mg === targetLower || sGroup === targetLower || dept === targetLower;
+                });
             const groupSmes = isAllGroups
               ? smes
               : getSmesForSubjectGroup(activeGroup);
@@ -150,16 +174,16 @@ export default function LndTemplateChooserModal({
               <div className="space-y-3">
                 <div>
                   <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1.5">
-                    Mentor Group
+                    Subject Group
                   </label>
                   <select
                     value={activeGroup}
-                    aria-label="Mentor Group"
+                    aria-label="Subject Group"
                     onChange={(e) => setTemplateMentorGroup(e.target.value)}
                     className="w-full px-3.5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken/50 dark:bg-slate-800/50 text-slate-800 dark:text-white focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
                   >
-                    <option value="All">All Mentor Groups (Comprehensive Multi-College Roster)</option>
-                    {mentorGroups.map(group => (
+                    <option value="All">All Subject Groups (Comprehensive Multi-College Roster)</option>
+                    {availableGroups.map(group => (
                       <option key={group} value={group}>{group}</option>
                     ))}
                   </select>

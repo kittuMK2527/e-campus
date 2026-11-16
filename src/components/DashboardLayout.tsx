@@ -667,11 +667,23 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
     let debounce: ReturnType<typeof setTimeout> | null = null;
     let lastFocusRefresh = Date.now();
 
-    const scheduleRefresh = () => {
+    let pendingFull = false;
+    const scheduleRefresh = (full = false) => {
+      if (full) pendingFull = true;
       if (debounce) clearTimeout(debounce);
       // Debounce bursts of mutations (imports, bulk ops) into a single refresh.
-      debounce = setTimeout(() => { refreshData(true); }, 300);
+      // Latency #1/#11: coalesce bursts (other users' saves, bulk imports) into one
+      // background reload instead of one full /api/data call per event.
+      debounce = setTimeout(() => {
+        // Latency #2/#7: background refreshes skip the heavy tracker slices
+        // unless a tracker/exam change asked for them.
+        const full = pendingFull;
+        pendingFull = false;
+        refreshData(true, undefined, full ? undefined : { light: true });
+      }, 1500);
     };
+
+    const scheduleFullRefresh = () => scheduleRefresh(true);
 
     const handleWindowFocus = () => {
       // Throttle window focus revalidation to once every 10s to stay snappy when switching tabs
@@ -693,6 +705,18 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
     // Real-time synchronization bus: SSE push from server + 0ms local cross-tab BroadcastChannel
     const unsubscribeRealtime = subscribeToRealtimeSync(
       (event) => {
+        // Latency #1: a change on another campus must not make this screen reload.
+        // Admins and KAMs see many campuses, so they still react to every campus.
+        const roleKey = String(currentRole || "").toLowerCase();
+        const seesAllCampuses = roleKey === "admin" || roleKey === "kam" || roleKey === "l and d" || roleKey === "sme";
+        if (
+          !seesAllCampuses &&
+          event.collegeId && effectiveCollegeId &&
+          String(event.collegeId).toLowerCase() !== String(effectiveCollegeId).toLowerCase() &&
+          event.domain !== "notifications"
+        ) {
+          return;
+        }
         if (event.domain === "requests") {
           refreshRequests().catch(() => {});
         } else if (event.domain === "attendance") {
@@ -739,7 +763,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
               return root === "skill-tracker" || root === "student-exams" || root === "exams" || root === "weekly-plan";
             }
           });
-          scheduleRefresh();
+          scheduleRefresh(true);
         } else {
           scheduleRefresh();
         }
@@ -752,17 +776,22 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
     );
 
     const handleDataChanged = (e: Event) => {
-      if ((e as CustomEvent)?.detail?.domain === "requests") {
+      const domain = (e as CustomEvent)?.detail?.domain;
+      if (domain === "requests") {
         refreshRequests().catch(() => {});
+      } else if (domain === "attendance" || domain === "slots") {
+        // Latency #11: this tab's own save already updated state from the server
+        // response (AppContext), so a full /api/data reload here is pure waste.
+        return;
       } else {
-        scheduleRefresh();
+        scheduleRefresh(true);
       }
     };
     window.addEventListener("fp_data_changed", handleDataChanged);
-    window.addEventListener("fp_attendance_updated", scheduleRefresh);
-    window.addEventListener("fp_interviews_updated", scheduleRefresh);
-    window.addEventListener("fp_audits_updated", scheduleRefresh);
-    window.addEventListener("fp_weekly_plan_updated", scheduleRefresh);
+    window.addEventListener("fp_attendance_updated", scheduleFullRefresh);
+    window.addEventListener("fp_interviews_updated", scheduleFullRefresh);
+    window.addEventListener("fp_audits_updated", scheduleFullRefresh);
+    window.addEventListener("fp_weekly_plan_updated", scheduleFullRefresh);
     window.addEventListener("focus", handleWindowFocus);
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
@@ -775,10 +804,10 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
       if (debounce) clearTimeout(debounce);
       unsubscribeRealtime();
       window.removeEventListener("fp_data_changed", handleDataChanged);
-      window.removeEventListener("fp_attendance_updated", scheduleRefresh);
-      window.removeEventListener("fp_interviews_updated", scheduleRefresh);
-      window.removeEventListener("fp_audits_updated", scheduleRefresh);
-      window.removeEventListener("fp_weekly_plan_updated", scheduleRefresh);
+      window.removeEventListener("fp_attendance_updated", scheduleFullRefresh);
+      window.removeEventListener("fp_interviews_updated", scheduleFullRefresh);
+      window.removeEventListener("fp_audits_updated", scheduleFullRefresh);
+      window.removeEventListener("fp_weekly_plan_updated", scheduleFullRefresh);
       window.removeEventListener("focus", handleWindowFocus);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
@@ -852,7 +881,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
         <div className="sticky top-0 z-[60] w-full bg-rose-50 border-b border-rose-200 px-4 py-2 flex items-center justify-center gap-3">
           <AlertTriangle className="h-4 w-4 text-rose-600 shrink-0" />
           <span className="text-xs font-bold text-rose-700" role="alert">
-            {dataLoadMessage || "Working offline — displaying latest saved records. Server temporarily unreachable."}
+            {dataLoadMessage || "Couldn't reach the database. Showing the last data that loaded; retry in a moment."}
           </span>
           <button
             type="button"

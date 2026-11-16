@@ -240,19 +240,24 @@ export async function PUT(request: Request) {
         const markedBy = `Approved by ${resolverName}`;
         const nowIso = new Date().toISOString();
         const toInsert: any[] = [];
+        const toUpdate: string[] = [];
         for (const slotId of slotIds) {
           const existingId = existingBySlot.get(slotId);
           if (existingId) {
-            await db.run(
-              `UPDATE student_attendance SET status = ?, markedBy = ?, timestamp = ? WHERE id = ?`,
-              attendanceStatus,
-              markedBy,
-              nowIso,
-              existingId
-            );
+            toUpdate.push(existingId);
           } else {
             toInsert.push([`att_${leaveReq.studentId}_${slotId}_${leaveReq.dateStr}`, leaveReq.studentId, slotId, leaveReq.dateStr, attendanceStatus, markedBy, nowIso]);
           }
+        }
+        // Latency #14: one UPDATE for every existing period instead of one per slot.
+        if (toUpdate.length > 0) {
+          await db.run(
+            `UPDATE student_attendance SET status = ?, markedBy = ?, timestamp = ? WHERE id IN (${toUpdate.map(() => "?").join(",")})`,
+            attendanceStatus,
+            markedBy,
+            nowIso,
+            ...toUpdate
+          );
         }
         if (toInsert.length > 0) {
           const valueRows = toInsert.map(() => "(?, ?, ?, ?, ?, ?, ?)").join(", ");
