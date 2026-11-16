@@ -77,6 +77,7 @@ export async function buildLndDemoTemplate(
   }
 
   const targetGroup = targetGroupInput || (selectedGroupId && selectedGroupId !== "All" ? selectedGroupId : "All");
+  const isAll = !targetGroup || targetGroup.toLowerCase().trim() === "all";
 
   const applicableColleges = collegesWithTimetable;
   if (applicableColleges.length === 0) {
@@ -85,12 +86,12 @@ export async function buildLndDemoTemplate(
   }
 
   // Filter mentors: if specific group selected, filter by that group, otherwise include all mentors across all colleges
-  const relevantMentors = targetGroup !== "All"
+  const relevantMentors = !isAll
     ? mentors.filter(m => getMentorGroup(m).toLowerCase().trim() === targetGroup.toLowerCase().trim())
     : mentors;
 
   // Filter SMEs: if specific group selected, filter by that group, otherwise include all SMEs
-  const relevantSmes = targetGroup !== "All"
+  const relevantSmes = !isAll
     ? getSmesForSubjectGroup(targetGroup)
     : smes;
 
@@ -342,7 +343,7 @@ export async function buildLndDemoTemplate(
             const mGroup = getMentorGroup(m);
             const eligibleSmes = getSmesForSubjectGroup(mGroup);
             const matchesSme = eligibleSmes.some(e => e.id === sme.id) ||
-              (targetGroup !== "All" && mGroup.toLowerCase().trim() === targetGroup.toLowerCase().trim());
+              (!isAll && mGroup.toLowerCase().trim() === targetGroup.toLowerCase().trim());
             if (!matchesSme) return false;
 
             // 2. Check if mentor's campus is open / not on holiday

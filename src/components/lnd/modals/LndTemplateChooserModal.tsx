@@ -150,15 +150,15 @@ export default function LndTemplateChooserModal({
               <div className="space-y-3">
                 <div>
                   <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1.5">
-                    Department / Mentor Group Scope
+                    Mentor Group
                   </label>
                   <select
                     value={activeGroup}
-                    aria-label="Department / Mentor Group Scope"
+                    aria-label="Mentor Group"
                     onChange={(e) => setTemplateMentorGroup(e.target.value)}
                     className="w-full px-3.5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken/50 dark:bg-slate-800/50 text-slate-800 dark:text-white focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
                   >
-                    <option value="All">All Departments (Comprehensive Multi-College Roster)</option>
+                    <option value="All">All Mentor Groups (Comprehensive Multi-College Roster)</option>
                     {mentorGroups.map(group => (
                       <option key={group} value={group}>{group}</option>
                     ))}

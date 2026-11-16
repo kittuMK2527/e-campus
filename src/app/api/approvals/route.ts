@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     }
 
     if (collegeId) {
-      query += " AND (college_id = ? OR college_id IS NULL OR college_id = '')";
+      query += " AND LOWER(college_id) = LOWER(?)";
       params.push(collegeId);
     }
 

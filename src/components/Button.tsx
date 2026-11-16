@@ -16,5 +16,3 @@ export interface ButtonProps extends ShadcnButtonProps {
 export const Button: React.FC<ButtonProps> = (props) => {
   return <ShadcnButton {...props} />;
 };
-
-export default Button;

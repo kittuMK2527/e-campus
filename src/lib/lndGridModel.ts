@@ -47,34 +47,21 @@ export function calculateWeekNumber(dateStr: string): number {
 }
 
 /** Every department group the roster, SMEs and active rules mention, sorted. */
-export function computeMentorGroups(mentors: any[], smes: any[], subjectGroups: any, demoRules: any): string[] {
+export function computeMentorGroups(mentors: any[], _smes?: any[], _subjectGroups?: any, _demoRules?: any): string[] {
   const groups = new Set<string>();
 
-  // 1. From API subjectGroups
-  if (subjectGroups && Array.isArray(subjectGroups)) {
-    subjectGroups.forEach((g: any) => {
-      const gName = typeof g === "string" ? g : g.name || g.group_name;
-      if (gName && gName.trim()) groups.add(gName.trim());
+  // Only extract authentic mentor group names from registered mentors
+  if (Array.isArray(mentors)) {
+    mentors.forEach(m => {
+      const g = (m.mentor_group || m.subject_group || "").trim();
+      if (g) groups.add(g);
     });
-  }
-
-  // 2. From registered Mentors DB
-  mentors.forEach(m => {
-    const g = mentorGroupOf(m);
-    if (g) groups.add(g);
-  });
-
-  // 3. From registered SMEs DB
-  smes.forEach(s => {
-    if (s.subject && s.subject.trim()) groups.add(s.subject.trim());
-    if (s.head_subject_group && s.head_subject_group.trim()) groups.add(s.head_subject_group.trim());
-  });
-
-  // 4. From active L&D Rules DB
-  if (demoRules && Array.isArray(demoRules)) {
-    demoRules.forEach((r: any) => {
-      if (r.subject && r.subject.trim()) groups.add(r.subject.trim());
-    });
+    if (groups.size === 0) {
+      mentors.forEach(m => {
+        const g = mentorGroupOf(m);
+        if (g) groups.add(g);
+      });
+    }
   }
 
   return Array.from(groups).sort((a, b) => (a || "").localeCompare(b || ""));

@@ -11,9 +11,20 @@ const MentorDashboard = dynamic(() => import("@/components/MentorDashboard").the
   loading: () => <TabPageLoader message="Loading Mentor Workspace…" />
 });
 
+const normalizeMentorTab = (t: string): string => {
+  if (t === "schedule") return "timetable";
+  if (t === "approvals" || t === "leaves" || t === "handover") return "handovers";
+  if (t === "weekly-plan") return "weekly_plan";
+  if (t === "academic-tracker") return "academic_tracker";
+  if (t === "my-skill-tracker" || t === "skill-tracker") return "my_skill_tracker";
+  if (t === "marks") return "exams";
+  return t;
+};
+
 export default function MentorTabPage() {
   const params = useParams();
-  const routeTab = (params?.tab as string) || "home";
+  const rawTab = (params?.tab as string) || "home";
+  const routeTab = normalizeMentorTab(rawTab);
   const [activeTab, setActiveTab] = useState<string>(routeTab);
 
   useEffect(() => {
@@ -23,7 +34,7 @@ export default function MentorTabPage() {
   useEffect(() => {
     const onPopState = () => {
       const parts = window.location.pathname.split("/").filter(Boolean);
-      const tabFromUrl = parts[1] || "home";
+      const tabFromUrl = normalizeMentorTab(parts[1] || "home");
       setActiveTab(tabFromUrl);
     };
     window.addEventListener("popstate", onPopState);

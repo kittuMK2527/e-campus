@@ -1,6 +1,21 @@
 # Knip cleanup review and plan
 
+## First cleanup pass
+
+- Removed `sonner` from the root manifest and lockfile. The app mounts `ToastProvider` in `src/app/layout.tsx`; source/reference checks found no Sonner import or dependent lockfile package. Historical notification docs describe the migration.
+- Removed only the unused default export in `src/components/Button.tsx`. CAM and Student dashboards import its named `Button`; the component implementation was not changed.
+- Retain `public/sw.js`: `src/lib/deviceNotifications.ts` explicitly registers it by URL. Preserve migration/sync scripts, archived files, and role-specific modules pending separate review.
+- Counts below are the pre-cleanup baseline, not a new scan.
+- Verification: project-wide TypeScript check passed (481 configured files; zero diagnostics); runtime dependency declarations match the lockfile. Focused `tests/crud-write-guards.test.ts` passed (6/6). Full offline suite: 925/968 passed, 43 failed across 13 files; failures include pre-existing contract/source expectations in database, API, fee UI, login, skill tracker, and request-swap tests. One import-message assertion was caught and fixed; the focused test now passes. Do not treat the full suite as green.
+- Production build was attempted but blocked because the build could not reach Google Fonts for Geist, Geist Mono, Outfit, and Plus Jakarta Sans. This is an environment/network limitation, not a confirmed code compilation result. Browser smoke testing against the hosted deployment would not verify local changes; use a local preview when the build can access those fonts.
+
 ## Scan
+
+The root `knip.json` suppresses only the unused-file warning for `public/sw.js`.
+The browser registers this path in `src/lib/deviceNotifications.ts`; the worker
+handles fetch, push and notification-click events. No directory is excluded.
+The counts below predate this rule. The open hosted CM dashboard is not a
+local preview and was not used to validate these workspace changes.
 
 - Knip was added as a development dependency and run with `npx knip --reporter compact`.
 - The initial scan exhausted Node's default heap while parsing the very large TypeScript files. The completed scan used an 8 GB Node heap.
@@ -12,10 +27,10 @@
 
 | Category | Count | What Knip reported |
 |---|---:|---|
-| Unused files (all dependencies) | 47 | 14 archived components, `check-settings.ts`, `public/sw.js`, unused-looking dashboard/KAM/student/UI components, and `src/lib/mailAsync.ts`. |
+| Unused files (all dependencies) | 47 | 13 archived components, `check-settings.ts`, `public/sw.js`, unused-looking dashboard/KAM/student/UI components, and `src/lib/mailAsync.ts`. |
 | Unused files (production mode) | 55 | The same broad categories plus migration/schema scripts, test setup, and library files whose consumers are only in development/tests. These scripts/tests are not production runtime code; do not delete them based on this count. |
 | Unused dependencies | 1 | `sonner`. |
-| Unlisted dependencies | 2 | `sqlite3` and `sqlite` in `scripts/migrate_sqlite_to_postgres.mjs`; `@libsql/client` in `scripts/sync_db.mjs`. |
+| Unlisted packages | 3 across 2 scripts | `sqlite3` and `sqlite` in `scripts/migrate_sqlite_to_postgres.mjs`; `@libsql/client` in `scripts/sync_db.mjs`. |
 | Unused exports | 43 | Helper functions/constants in dashboards and libraries, plus default/named exports from components. |
 | Unused exported types | 35 | Types/interfaces in dashboards, components, context, and libraries. |
 | Duplicate exports | 17 | Components exporting the same component both named and default, plus two priority-split exports. |
@@ -66,7 +81,7 @@ Knip reports potential dead code, not authoritative permission to delete it. Thi
 ### Phase 4: File-level review
 
 1. Build a reference map for each unused file (static imports, dynamic imports, URL/path references, route conventions, scripts, docs, and deployment config).
-2. Review the 14 archived files with the project owner; decide whether `archive/` is retained history, a migration source, or safe-to-delete storage.
+2. Review the 13 archived files with the project owner; decide whether `archive/` is retained history, a migration source, or safe-to-delete storage.
 3. Review UI components in small batches and verify the relevant roles/screens before removing any.
 4. Check service worker registration and cache behavior before touching `public/sw.js`.
 5. Remove only confirmed dead files in a separate, reviewable commit, then run typecheck, lint, tests, build, and Knip again.

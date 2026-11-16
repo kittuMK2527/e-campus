@@ -13,21 +13,44 @@ interface CMApprovalsHubProps {
 }
 
 export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubProps = {}) {
-  const { requests, mentors, colleges, currentCAM, approvedHandovers, handleRequest } = useApp();
+  const { requests, mentors, colleges, currentCAM, approvedHandovers, handleRequest, currentRole } = useApp();
   const { toast } = useToast();
   
-  // Internal campus selection
-  const [selectedCampus, setSelectedCampus] = useState<string>(() => collegeId || currentCAM?.college_id || "all");
+  const isCmUser = currentRole === "cm";
+
+  // Internal campus selection: For CM, lock strictly to their assigned college
+  const [selectedCampus, setSelectedCampus] = useState<string>(() => collegeId || (isCmUser ? (currentCAM?.college_id || "") : "all"));
 
   useEffect(() => {
     if (collegeId !== undefined) {
       setSelectedCampus(collegeId);
+    } else if (isCmUser && currentCAM?.college_id) {
+      setSelectedCampus(currentCAM.college_id);
     }
-  }, [collegeId]);
+  }, [collegeId, isCmUser, currentCAM?.college_id]);
 
   // Active college
-  const activeCollegeId = selectedCampus === "all" ? undefined : selectedCampus;
-  const activeCollege = colleges.find(c => c.id === activeCollegeId);
+  const activeCollegeId = isCmUser 
+    ? (currentCAM?.college_id || collegeId || (selectedCampus !== "all" ? selectedCampus : undefined))
+    : (collegeId || (selectedCampus === "all" ? undefined : selectedCampus));
+
+  const validCollegeIds = useMemo(() => {
+    if (!activeCollegeId || activeCollegeId === "all") return new Set<string>();
+    const target = activeCollegeId.toLowerCase();
+    const matched = colleges.find(c => c.id?.toLowerCase() === target || c.name?.toLowerCase() === target);
+    const ids = new Set<string>([target]);
+    if (matched) {
+      if (matched.id) ids.add(matched.id.toLowerCase());
+      if (matched.name) ids.add(matched.name.toLowerCase());
+    }
+    return ids;
+  }, [activeCollegeId, colleges]);
+
+  const activeCollege = useMemo(() => {
+    if (!activeCollegeId || activeCollegeId === "all") return undefined;
+    const target = activeCollegeId.toLowerCase();
+    return colleges.find(c => c.id?.toLowerCase() === target || c.name?.toLowerCase() === target);
+  }, [activeCollegeId, colleges]);
 
   // Filter state
   const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
@@ -49,12 +72,28 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
 
   // Filter requests for this CM's campus
   const campusRequests = useMemo(() => {
-    if (!activeCollegeId) return requests || [];
+    if (!activeCollegeId || activeCollegeId === "all") {
+      if (isCmUser) return []; // Never leak all requests if CM college is still loading
+      return requests || [];
+    }
     return (requests || []).filter((req: any) => {
+      // 1. Direct college field on request
+      const reqCollege = (req.college_id || req.collegeId || "").toLowerCase();
+      if (reqCollege && validCollegeIds.has(reqCollege)) return true;
+
+      // 2. Requestor mentor's college_id
       const requestor = mentors.find((m: any) => m.id === req.requestorId);
-      return requestor?.college_id === activeCollegeId;
+      const reqMentorCollege = (requestor?.college_id || "").toLowerCase();
+      if (reqMentorCollege && validCollegeIds.has(reqMentorCollege)) return true;
+
+      // 3. Target staff's college_id
+      const targetStaff = mentors.find((m: any) => m.id === req.targetStaffId);
+      const targetStaffCollege = (targetStaff?.college_id || "").toLowerCase();
+      if (targetStaffCollege && validCollegeIds.has(targetStaffCollege)) return true;
+
+      return false;
     });
-  }, [requests, mentors, activeCollegeId]);
+  }, [requests, mentors, validCollegeIds, activeCollegeId, isCmUser]);
 
   const pendingRequests = useMemo(() => {
     return campusRequests.filter((r: any) => isInCmQueue(r.status))
@@ -70,14 +109,25 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
   }, [campusRequests, categoryFilter, searchQuery]);
 
   const campusApproved = useMemo(() => {
-    if (!activeCollegeId) {
+    if (!activeCollegeId || activeCollegeId === "all") {
+      if (isCmUser) return [];
       return (approvedHandovers || []).slice().sort((a: any, b: any) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime()).reverse();
     }
     return (approvedHandovers || []).filter((h: any) => {
+      const hCollege = (h.college_id || h.collegeId || "").toLowerCase();
+      if (hCollege && validCollegeIds.has(hCollege)) return true;
+
       const originalMentor = mentors.find((m: any) => m.id === h.originalMentorId);
-      return originalMentor?.college_id === activeCollegeId;
+      const origCollege = (originalMentor?.college_id || "").toLowerCase();
+      if (origCollege && validCollegeIds.has(origCollege)) return true;
+
+      const coverStaff = mentors.find((m: any) => m.id === h.coverStaffId);
+      const coverCollege = (coverStaff?.college_id || "").toLowerCase();
+      if (coverCollege && validCollegeIds.has(coverCollege)) return true;
+
+      return false;
     }).sort((a: any, b: any) => new Date(b.approvedAt || 0).getTime() - new Date(a.approvedAt || 0).getTime()).reverse();
-  }, [approvedHandovers, mentors, activeCollegeId]);
+  }, [approvedHandovers, mentors, validCollegeIds, activeCollegeId, isCmUser]);
 
   const [historyPage, setHistoryPage] = useState(1);
   const [historyPageSize, setHistoryPageSize] = useState(15);
@@ -156,13 +206,16 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
   // Available free mentors for substitution logic
   const availableMentors = useMemo(() => {
     if (!selectedRequest || selectedRequest.reasonCategory !== "Substitution") return [];
-    return mentors.filter(m => m.college_id === activeCollegeId && m.id !== selectedRequest.requestorId)
+    return mentors.filter(m => {
+      const col = (m.college_id || "").toLowerCase();
+      return (validCollegeIds.size === 0 || validCollegeIds.has(col)) && m.id !== selectedRequest.requestorId;
+    })
       .map(m => {
         const isSameSubject = ((m.subjects || "") as string).toLowerCase().includes((selectedRequest.course || "").toLowerCase());
         return { ...m, sameSubject: isSameSubject };
       })
       .sort((a, b) => (b.sameSubject ? 1 : 0) - (a.sameSubject ? 1 : 0));
-  }, [mentors, activeCollegeId, selectedRequest]);
+  }, [mentors, validCollegeIds, selectedRequest]);
 
   return (
     <div className="flex flex-col h-[calc(100dvh-80px)] overflow-hidden bg-slate-50">
@@ -175,11 +228,11 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
               Approvals & Leaves Hub
             </h1>
             <p className="text-xs sm:text-sm font-semibold text-slate-500 mt-0.5 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5" />
-              {activeCollege?.name || "All Supervised Campuses"}
+              <MapPin className="w-3.5 h-3.5 text-amber-500" />
+              {activeCollege?.name || (isCmUser ? (currentCAM?.college_id || "My Campus") : "All Supervised Campuses")}
             </p>
           </div>
-          {colleges && colleges.length > 0 && (
+          {!isCmUser && colleges && colleges.length > 0 && (
             <select
               aria-label="Filter Campus"
               value={selectedCampus}

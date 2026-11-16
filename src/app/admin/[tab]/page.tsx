@@ -11,9 +11,18 @@ const AdminDashboard = dynamic(() => import("@/components/AdminDashboard").then(
   loading: () => <TabPageLoader message="Loading Admin Central…" />
 });
 
+const normalizeAdminTab = (t: string): string => {
+  if (t === "schedule") return "schedules";
+  if (t === "exams") return "examinations";
+  if (t === "tasks") return "mentor_tasks";
+  if (t === "approvals") return "oversight";
+  return t;
+};
+
 export default function AdminTabPage() {
   const params = useParams();
-  const routeTab = (params?.tab as string) || "overview";
+  const rawTab = (params?.tab as string) || "overview";
+  const routeTab = normalizeAdminTab(rawTab);
   const [activeTab, setActiveTab] = useState<string>(routeTab);
 
   useEffect(() => {
@@ -23,7 +32,7 @@ export default function AdminTabPage() {
   useEffect(() => {
     const onPopState = () => {
       const parts = window.location.pathname.split("/").filter(Boolean);
-      const tabFromUrl = parts[1] || "overview";
+      const tabFromUrl = normalizeAdminTab(parts[1] || "overview");
       setActiveTab(tabFromUrl);
     };
     window.addEventListener("popstate", onPopState);

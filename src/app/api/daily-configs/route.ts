@@ -87,13 +87,6 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
     [college_id, ...refDates]
   );
 
-  if (refConfigs.length === 0) {
-    return NextResponse.json({
-      success: false,
-      message: "No configuration found for reference week. Please configure the current week first."
-    }, { status: 400, headers: noCacheHeaders });
-  }
-
   // Map reference configs by date
   const refConfigMap = new Map<string, any>();
   refConfigs.forEach((c: any) => refConfigMap.set(c.dateStr, c));
@@ -103,10 +96,24 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
   for (let i = 6; i >= 0; i--) {
     const refConfig = refConfigMap.get(refDates[i]);
     if (refConfig && refConfig.day_order && refConfig.day_order !== "None") {
-      const match = refConfig.day_order.match(/^Day (\d+)$/);
+      const match = refConfig.day_order.match(/^Day (\d+)$/i);
       if (match) {
         lastDayOrderIndex = (parseInt(match[1], 10) - 1) % workingDaysCount;
         break;
+      }
+    }
+  }
+
+  // If reference week has no configured day orders, check the latest configured day order for this campus
+  if (lastDayOrderIndex === -1) {
+    const latestConfig = await db.get(
+      "SELECT day_order FROM campus_daily_configs WHERE college_id = ? AND day_order != 'None' AND day_order LIKE 'Day %' ORDER BY dateStr DESC LIMIT 1",
+      [college_id]
+    );
+    if (latestConfig?.day_order) {
+      const match = latestConfig.day_order.match(/^Day (\d+)$/i);
+      if (match) {
+        lastDayOrderIndex = (parseInt(match[1], 10) - 1) % workingDaysCount;
       }
     }
   }
@@ -143,10 +150,15 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
     if (isWeekendToSkip) {
       dayType = "holiday";
       dayOrder = "None";
-    } else if (dayType === "working" && dayOrder !== "None") {
-      // Continue day order sequence dynamically modulo workingDaysCount
-      dayOrder = dayOrders[dayOrderCounter % workingDaysCount];
-      dayOrderCounter++;
+    } else {
+      if (dayType !== "holiday" && dayType !== "event") {
+        dayType = "working";
+      }
+      if (dayType === "working") {
+        // Continue day order sequence dynamically modulo workingDaysCount
+        dayOrder = dayOrders[dayOrderCounter % workingDaysCount];
+        dayOrderCounter++;
+      }
     }
 
     configRows.push([id, college_id, nextDateStr, dayType, dayOrder, sessionMode, notesVal]);

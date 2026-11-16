@@ -10130,7 +10130,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           catch (_) { throw new Error(`Server error (${res.status}): ${rawText.slice(0, 120)}`); }
           if (!data.success) throw new Error(data.message || "Import failed.");
         } catch (chunkErr: any) {
-          throw new Error(`${processed} of ${total} entries confirmed in prior batches. Batch ${idx + 1} was not fully confirmed; check the attendance matrix before retrying.`);
+          throw new Error(`Only ${totalCount} of ${recordsToPost.length} entries were saved before batch ${idx + 1}/${chunks.length} failed: ${chunkErr.message}. Fix the cause and run the import again — already-saved entries are updated, not duplicated. Check the attendance matrix before retrying.`);
         }
         processed += chunk.length;
         totalCount += data.count ?? 0;
