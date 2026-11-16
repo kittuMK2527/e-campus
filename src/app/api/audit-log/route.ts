@@ -6,8 +6,9 @@ export const maxDuration = 60;
 
 export async function POST(request: Request) {
   try {
-    const { user, errorResponse } = await requireAuth(request);
+    const { auth, errorResponse } = await requireAuth(request);
     if (errorResponse) return errorResponse;
+    const user = auth?.user;
 
     const body = await request.json();
     const { action, entity, range, deletedCount, items, reason } = body;
