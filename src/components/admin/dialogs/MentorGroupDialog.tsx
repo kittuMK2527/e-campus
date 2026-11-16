@@ -53,7 +53,7 @@ export const MentorGroupDialog: React.FC<MentorGroupDialogProps> = ({
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
         <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
-          <BookOpen className="h-5 w-5 text-indigo-600" />
+          <BookOpen className="h-5 w-5 text-amber-500" />
           {editing ? "Edit Mentor Group" : "Create Mentor Group"}
         </h3>
         <Button
@@ -84,7 +84,7 @@ export const MentorGroupDialog: React.FC<MentorGroupDialogProps> = ({
             placeholder="e.g. Technical Skills, Aptitude, Soft Skills"
             value={form.name}
             onChange={e => onFormChange({ ...form, name: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
           />
         </div>
 
@@ -102,7 +102,7 @@ export const MentorGroupDialog: React.FC<MentorGroupDialogProps> = ({
                 lead_sme_name: selectedSme ? selectedSme.name : ""
               });
             }}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer text-gray-800"
           >
             <option value="">— Unassigned —</option>
             {smes.map((s: any) => (
@@ -121,7 +121,7 @@ export const MentorGroupDialog: React.FC<MentorGroupDialogProps> = ({
             placeholder="Describe the focus area or learning scope of this mentor group..."
             value={form.description}
             onChange={e => onFormChange({ ...form, description: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-600 text-xs"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl p-3 font-medium focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-xs"
           />
         </div>
 

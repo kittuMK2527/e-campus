@@ -239,7 +239,7 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
     <div className="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl shadow-card border border-slate-100">
         <div className="flex items-center gap-3.5">
-          <div className="p-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-indigo-600 shadow-2xs">
+          <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-500 shadow-2xs">
             <Bell className="w-5 h-5" />
           </div>
           <div>
@@ -260,7 +260,7 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
             className="px-3.5 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl transition-all text-xs font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer self-start sm:self-auto"
             onClick={markAllAsRead}
           >
-            <CheckCheck className="w-3.5 h-3.5 text-indigo-600" />
+            <CheckCheck className="w-3.5 h-3.5 text-amber-500" />
             Mark All as Read
           </button>
         )}
@@ -268,11 +268,11 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
 
       {/* Device Notification Alert Banner */}
       {deviceNotifStatus !== "granted" && !hidePermissionBanner && (
-        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs relative">
+        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 border border-amber-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs relative">
           <button
             type="button"
             onClick={handleHidePermissionBanner}
-            className="absolute top-2 right-2 text-indigo-400 hover:text-indigo-600 p-1 rounded-lg hover:bg-white/50 transition-colors"
+            className="absolute top-2 right-2 text-amber-400 hover:text-amber-500 p-1 rounded-lg hover:bg-white/50 transition-colors"
             title="Don't show again"
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -280,12 +280,12 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
             </svg>
           </button>
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="h-9 w-9 rounded-xl btn-gradient text-white flex items-center justify-center shrink-0 shadow-xs">
               <Bell className="h-4.5 w-4.5 animate-bounce" />
             </div>
             <div>
-              <p className="text-xs font-bold text-indigo-950">Enable Desktop & Mobile Notifications</p>
-              <p className="text-[11px] text-indigo-700/80">
+              <p className="text-xs font-bold text-zinc-950">Enable Desktop & Mobile Notifications</p>
+              <p className="text-[11px] text-amber-700/80">
                 Receive instant alerts on your screen even when the app is in the background or minimized.
               </p>
             </div>
@@ -293,7 +293,7 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
           <button
             type="button"
             onClick={handleEnableDeviceNotifs}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer self-start sm:self-auto shrink-0"
+            className="px-4 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer self-start sm:self-auto shrink-0"
           >
             Enable Device Alerts
           </button>
@@ -322,16 +322,16 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
                 onClick={() => handleNotificationAction(n)}
                 className={`p-4 md:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 cursor-pointer group ${
                   n.is_read
-                    ? "bg-white border-slate-200/80 hover:border-indigo-300"
-                    : "bg-indigo-50/40 border-indigo-200/80 hover:border-indigo-400"
+                    ? "bg-white border-slate-200/80 hover:border-amber-400"
+                    : "bg-amber-50/40 border-amber-200/80 hover:border-amber-400"
                 }`}
               >
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center gap-2">
                     {!n.is_read && (
-                      <span className="h-2 w-2 rounded-full bg-indigo-600 shrink-0" />
+                      <span className="h-2 w-2 rounded-full btn-gradient shrink-0" />
                     )}
-                    <h3 className={`text-sm font-black tracking-tight ${n.is_read ? "text-slate-800" : "text-indigo-950"}`}>
+                    <h3 className={`text-sm font-black tracking-tight ${n.is_read ? "text-slate-800" : "text-zinc-950"}`}>
                       {n.title}
                     </h3>
                   </div>
@@ -352,7 +352,7 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
                         e.stopPropagation();
                         handleNotificationAction(n);
                       }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white group-hover:bg-indigo-600 group-hover:text-white border border-slate-200 group-hover:border-indigo-600 text-slate-700 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl text-xs font-bold bg-white group-hover:btn-gradient group-hover:text-white border border-slate-200 group-hover:border-amber-500 text-slate-700 transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer"
                     >
                       <span>{target.actionLabel}</span>
                       <ActionIcon className="w-3.5 h-3.5" />
@@ -363,7 +363,7 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
                     <button
                       type="button"
                       onClick={(e) => markAsRead(n.id, e)}
-                      className="text-slate-400 hover:text-indigo-600 p-1.5 rounded-lg hover:bg-white/80 transition-colors"
+                      className="text-slate-400 hover:text-amber-500 p-1.5 rounded-lg hover:bg-white/80 transition-colors"
                       title="Mark as read"
                     >
                       <Circle className="w-4 h-4" />

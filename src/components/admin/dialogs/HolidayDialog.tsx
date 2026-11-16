@@ -40,7 +40,7 @@ export const HolidayDialog: React.FC<HolidayDialogProps> = ({
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
         <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
-          <Calendar className="h-5 w-5 text-indigo-600" />
+          <Calendar className="h-5 w-5 text-amber-500" />
           Schedule Campus Holiday
         </h3>
         <Button
@@ -64,7 +64,7 @@ export const HolidayDialog: React.FC<HolidayDialogProps> = ({
             placeholder="e.g. Independence Day"
             value={form.title}
             onChange={(e) => onFormChange({ ...form, title: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
           />
         </div>
 
@@ -76,7 +76,7 @@ export const HolidayDialog: React.FC<HolidayDialogProps> = ({
             required
             value={form.date}
             onChange={(e) => onFormChange({ ...form, date: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-gray-800"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-gray-800"
           />
         </div>
 
@@ -88,7 +88,7 @@ export const HolidayDialog: React.FC<HolidayDialogProps> = ({
               required
               value={form.type}
               onChange={(e) => onFormChange({ ...form, type: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="National Holiday">National Holiday</option>
               <option value="Regional Holiday">Regional Holiday</option>
@@ -103,7 +103,7 @@ export const HolidayDialog: React.FC<HolidayDialogProps> = ({
               aria-label="Campus scope"
               value={form.college_id}
               onChange={(e) => onFormChange({ ...form, college_id: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="">All Campuses</option>
               {colleges.map(c => (

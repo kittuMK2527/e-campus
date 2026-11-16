@@ -25,7 +25,7 @@ const BADGE_STYLES = {
 const ACCENT_STYLES = {
   emerald: "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-400",
   amber: "text-amber-600 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-400",
-  indigo: "text-indigo-600 bg-indigo-50 dark:bg-indigo-950/50 dark:text-indigo-400",
+  indigo: "text-amber-500 bg-amber-50 dark:bg-indigo-950/50 dark:text-amber-400",
   rose: "text-rose-600 bg-rose-50 dark:bg-rose-950/50 dark:text-rose-400",
   cyan: "text-cyan-600 bg-cyan-50 dark:bg-cyan-950/50 dark:text-cyan-400",
   zinc: "text-zinc-800 bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-200"

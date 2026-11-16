@@ -276,7 +276,7 @@ export const MentorExamMarksStudio: React.FC = () => {
     if (pct >= 80) return { grade: "A+", label: "Excellent", color: "bg-green-100 text-green-800 border-green-300" };
     if (pct >= 70) return { grade: "A", label: "Very Good", color: "bg-teal-100 text-teal-800 border-teal-300" };
     if (pct >= 60) return { grade: "B+", label: "Good", color: "bg-blue-100 text-blue-800 border-blue-300" };
-    if (pct >= 50) return { grade: "B", label: "Above Average", color: "bg-indigo-100 text-indigo-800 border-indigo-300" };
+    if (pct >= 50) return { grade: "B", label: "Above Average", color: "bg-amber-100 text-amber-800 border-indigo-300" };
     if (marksVal >= passM) return { grade: "C", label: "Pass", color: "bg-amber-100 text-amber-800 border-amber-300" };
     return { grade: "RA / F", label: "Re-Appear", color: "bg-rose-100 text-rose-800 border-rose-300" };
   };
@@ -594,7 +594,7 @@ export const MentorExamMarksStudio: React.FC = () => {
               )}
               <div>
                 <h2 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                  <BookOpen className="h-4 w-4 text-indigo-600" />
+                  <BookOpen className="h-4 w-4 text-amber-500" />
                   {selectedExamType ? `${selectedExamType} — Select Subject` : "Select Assessment Type"}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
@@ -615,7 +615,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                     onClick={() => setExamTabFilter(t)}
                     className={`px-3 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                       examTabFilter === t
-                        ? "bg-white text-indigo-700 shadow-xs"
+                        ? "bg-white text-amber-700 shadow-xs"
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
@@ -632,7 +632,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                   placeholder="Search subject or exam..."
                   value={examSearch}
                   onChange={(e) => setExamSearch(e.target.value)}
-                  className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
+                  className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-amber-500"
                 />
               </div>
             </div>
@@ -640,12 +640,12 @@ export const MentorExamMarksStudio: React.FC = () => {
 
           {loadingExams ? (
             <div className="py-16 text-center text-slate-400 font-bold text-xs space-y-2">
-              <RefreshCw className="h-6 w-6 animate-spin mx-auto text-indigo-600" />
+              <RefreshCw className="h-6 w-6 animate-spin mx-auto text-amber-500" />
               <p>Loading examination timetables...</p>
             </div>
           ) : filteredExams.length === 0 ? (
             <div className="py-14 text-center border-2 border-dashed border-slate-200 rounded-2xl p-6">
-              <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-indigo-500 flex items-center justify-center mx-auto mb-3">
+              <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center mx-auto mb-3">
                 <Award className="h-6 w-6" />
               </div>
               <h3 className="text-sm font-bold text-slate-800">No Assessment Schedules Found</h3>
@@ -666,7 +666,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                     key={examType}
                     type="button"
                     onClick={() => setSelectedExamType(examType)}
-                    className="p-5 rounded-2xl shadow-card border border-slate-100 hover:border-indigo-400 hover:shadow-card-lg transition-all bg-white flex flex-col items-start gap-3 text-left group cursor-pointer"
+                    className="p-5 rounded-2xl shadow-card border border-slate-100 hover:border-amber-400 hover:shadow-card-lg transition-all bg-white flex flex-col items-start gap-3 text-left group cursor-pointer"
                   >
                     <div className="flex items-center justify-between w-full">
                       <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-slate-900 border border-slate-800 text-amber-400 shadow-xs">
@@ -696,7 +696,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="flex items-center gap-1 text-indigo-600 text-xs font-extrabold group-hover:gap-2 transition-all">
+                    <div className="flex items-center gap-1 text-amber-500 text-xs font-extrabold group-hover:gap-2 transition-all">
                       <span>Enter Marks</span>
                       <ArrowRight className="h-3.5 w-3.5" />
                     </div>
@@ -717,11 +717,11 @@ export const MentorExamMarksStudio: React.FC = () => {
                   return (
                     <div
                       key={ex.id}
-                      className="p-5 rounded-2xl shadow-card border border-slate-100 hover:border-indigo-400 hover:shadow-card-lg transition-all bg-white flex flex-col justify-between space-y-4 group"
+                      className="p-5 rounded-2xl shadow-card border border-slate-100 hover:border-amber-400 hover:shadow-card-lg transition-all bg-white flex flex-col justify-between space-y-4 group"
                     >
                       <div className="space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                             {ex.exam_type}
                           </span>
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
@@ -745,7 +745,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                         <div className="space-y-1.5 pt-2 border-t border-slate-100 text-[11px] text-slate-600 font-medium">
                           <div className="flex items-center justify-between gap-1.5">
                             <div className="flex items-center gap-1.5">
-                              <Calendar className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                              <Calendar className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                               <span>Date: <strong>{ex.exam_date}</strong></span>
                             </div>
                             {ex.day_order && ex.day_order !== "None" && (
@@ -755,7 +755,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                             )}
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Clock className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                            <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                             <span>Timing: <strong>{ex.session_time || `${ex.start_time} - ${ex.end_time}`}</strong></span>
                           </div>
                         </div>
@@ -764,7 +764,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => selectExamForGrading(ex)}
-                        className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-indigo-600 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
+                        className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:btn-gradient text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
                       >
                         <Edit3 className="h-4 w-4" />
                         <span>{isPastOrToday ? "Mark Attendance & Enter Marks →" : "Preview Roster →"}</span>
@@ -798,7 +798,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                 </button>
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-black text-xs uppercase border border-indigo-200">
+                    <span className="px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-700 font-black text-xs uppercase border border-amber-200">
                       {selectedExam?.exam_type}
                     </span>
                     {selectedExam?.day_order && selectedExam?.day_order !== "None" && (
@@ -831,7 +831,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                   type="button"
                   onClick={handleSaveMarks}
                   disabled={!isExamOver || isSavingMarks || loadingRoster}
-                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSavingMarks ? (
                     <>
@@ -866,8 +866,8 @@ export const MentorExamMarksStudio: React.FC = () => {
             {/* Scale Setting & Summary KPIs */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 pt-1">
               {/* Max Marks Scale Config */}
-              <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl">
-                <label className="text-[10px] font-black uppercase text-indigo-800 block mb-1">
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl">
+                <label className="text-[10px] font-black uppercase text-amber-800 block mb-1">
                   Out Of (Max Marks)
                 </label>
                 <input
@@ -882,13 +882,13 @@ export const MentorExamMarksStudio: React.FC = () => {
                     setGlobalMaxMarks(val);
                     setGlobalPassingMarks(Math.round(val * 0.4));
                   }}
-                  className="w-full bg-white border border-indigo-200 rounded-lg px-2.5 py-1 text-sm font-black text-indigo-900 focus:outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                  className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1 text-sm font-black text-zinc-900 focus:outline-none focus:border-amber-500 disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </div>
 
               {/* Passing Marks Config */}
-              <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl">
-                <label className="text-[10px] font-black uppercase text-indigo-800 block mb-1">
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-xl">
+                <label className="text-[10px] font-black uppercase text-amber-800 block mb-1">
                   Passing Marks
                 </label>
                 <input
@@ -899,7 +899,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                   disabled={!isExamOver}
                   value={globalPassingMarks}
                   onChange={(e) => setGlobalPassingMarks(parseFloat(e.target.value) || 0)}
-                  className="w-full bg-white border border-indigo-200 rounded-lg px-2.5 py-1 text-sm font-black text-indigo-900 focus:outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                  className="w-full bg-white border border-amber-200 rounded-lg px-2.5 py-1 text-sm font-black text-zinc-900 focus:outline-none focus:border-amber-500 disabled:bg-slate-100 disabled:text-slate-400"
                 />
               </div>
 
@@ -939,7 +939,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                     placeholder="Search student or roll no..."
                     value={rosterSearch}
                     onChange={(e) => setRosterSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-indigo-500"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
 
@@ -947,7 +947,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                   <select
                     value={cohortFilter}
                     onChange={(e) => setCohortFilter(e.target.value)}
-                    className="py-1.5 px-3 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-indigo-500"
+                    className="py-1.5 px-3 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-amber-500"
                   >
                     <option value="all">All Cohorts ({availableCohorts.length})</option>
                     {availableCohorts.map(c => (
@@ -1127,7 +1127,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                   {loadingRoster ? (
                     <TableRow>
                       <TableCell colSpan={8} className="p-12 text-center text-slate-400 font-bold">
-                        <RefreshCw className="h-6 w-6 animate-spin mx-auto text-indigo-600 mb-2" />
+                        <RefreshCw className="h-6 w-6 animate-spin mx-auto text-amber-500 mb-2" />
                         Loading student evaluation roster...
                       </TableCell>
                     </TableRow>
@@ -1197,7 +1197,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                                       setEditReason("");
                                       setEditRequestModalOpen(true);
                                     }}
-                                    className="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-[9.5px] font-black uppercase inline-flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
+                                    className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-[9.5px] font-black uppercase inline-flex items-center gap-1 transition-all cursor-pointer shadow-2xs"
                                     title="Marks have been submitted. Click to request CM approval to edit mark."
                                   >
                                     <Edit3 className="h-3 w-3" />
@@ -1236,7 +1236,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                                       }
                                     }));
                                   }}
-                                  className="w-full text-center font-black text-sm text-slate-900 bg-sunken border border-slate-200 inset-shadow-well rounded-xl py-1.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                                  className="w-full text-center font-black text-sm text-slate-900 bg-sunken border border-slate-200 inset-shadow-well rounded-xl py-1.5 focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 disabled:bg-slate-100 disabled:text-slate-400"
                                 />
                               </div>
                             )}
@@ -1266,7 +1266,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                                   }
                                 }));
                               }}
-                              className="w-full px-2.5 py-1 text-xs border border-slate-200 inset-shadow-well rounded-lg bg-sunken focus:bg-white focus:outline-none focus:border-indigo-500 disabled:bg-slate-100"
+                              className="w-full px-2.5 py-1 text-xs border border-slate-200 inset-shadow-well rounded-lg bg-sunken focus:bg-white focus:outline-none focus:border-amber-500 disabled:bg-slate-100"
                             />
                           </TableCell>
                         </TableRow>
@@ -1303,7 +1303,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                   type="button"
                   onClick={handleSaveMarks}
                   disabled={!isExamOver || isSavingMarks || loadingRoster}
-                  className="px-6 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-6 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="h-4 w-4" />
                   <span>{isSavingMarks ? "Saving..." : "Save & Publish Marks"}</span>
@@ -1328,7 +1328,7 @@ export const MentorExamMarksStudio: React.FC = () => {
             >
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+                    <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center font-bold">
                       <Edit3 className="h-4 w-4" />
                     </div>
                     <div>
@@ -1378,7 +1378,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                       placeholder={`0 - ${globalMaxMarks}`}
                       value={proposedMark}
                       onChange={(e) => setProposedMark(e.target.value)}
-                      className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-black text-slate-900 focus:outline-none focus:border-indigo-600"
+                      className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-black text-slate-900 focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
@@ -1391,7 +1391,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                       placeholder="e.g. Paper re-evaluation verified by Head of Dept; correction in question 4 totaling."
                       value={editReason}
                       onChange={(e) => setEditReason(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-600"
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs text-slate-800 focus:outline-none focus:border-amber-500"
                     />
                   </div>
 
@@ -1409,7 +1409,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                     <button
                       type="submit"
                       disabled={isSubmittingEditReq}
-                      className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 rounded-xl text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
+                      className="flex-1 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white font-bold py-2 rounded-xl text-xs shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50"
                     >
                       {isSubmittingEditReq ? "Submitting..." : "Send Request to CM"}
                     </button>

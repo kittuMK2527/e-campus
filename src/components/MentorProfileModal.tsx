@@ -291,8 +291,8 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
               <span className="truncate font-semibold">{mentor.email}</span>
             </div>
 
-            <div className="flex items-center gap-2 text-indigo-700 bg-indigo-50 border border-indigo-100 p-2.5 rounded-xl">
-              <Sparkles className="h-4 w-4 text-indigo-500 shrink-0" />
+            <div className="flex items-center gap-2 text-amber-800 bg-amber-500/10 border border-amber-500/25 p-2.5 rounded-xl">
+              <Sparkles className="h-4 w-4 text-amber-500 shrink-0" />
               <span className="truncate font-extrabold">
                 Mentor Group: {mentor.mentor_group || mentor.subject_group || mentor.department || "General"}
               </span>
@@ -308,7 +308,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
             {college && (
               <div className="flex items-center gap-2 text-slate-600 bg-white border border-slate-100 p-2.5 rounded-xl">
                 <Award className="h-4 w-4 text-slate-400 shrink-0" />
-                <span className="truncate font-bold text-indigo-700">{college.name}</span>
+                <span className="truncate font-bold text-amber-700">{college.name}</span>
               </div>
             )}
           </div>
@@ -327,7 +327,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
               {/* Progress bar split */}
               {totalMinutes > 0 && (
                 <div className="flex h-1.5 mx-3 rounded-full overflow-hidden gap-px my-2">
-                  <div className="bg-indigo-500 rounded-l-full" style={{ width: `${(timetableMinutes / totalMinutes) * 100}%` }} />
+                  <div className="bg-amber-500 rounded-l-full" style={{ width: `${(timetableMinutes / totalMinutes) * 100}%` }} />
                   {extraMinutes > 0 && (
                     <div className="bg-teal-400 rounded-r-full" style={{ width: `${(extraMinutes / totalMinutes) * 100}%` }} />
                   )}
@@ -337,10 +337,10 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
               <div className="flex divide-x divide-slate-100 border-t border-slate-100">
                 <div className="flex-1 px-2 py-2 text-center">
                   <span className="flex items-center justify-center gap-1 mb-0.5">
-                    <span className="inline-block w-2 h-2 rounded-full bg-indigo-500"></span>
+                    <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
                     <span className="text-[9px] font-extrabold text-slate-500 uppercase">Timetable</span>
                   </span>
-                  <span className="text-sm font-black text-indigo-700">{toHrs(timetableMinutes)} hrs</span>
+                  <span className="text-sm font-black text-amber-700">{toHrs(timetableMinutes)} hrs</span>
                   <span className="block text-[8px] text-slate-400">{mentorSlots.length} periods</span>
                 </div>
                 <div className="flex-1 px-2 py-2 text-center">
@@ -376,7 +376,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
               onClick={() => setActiveSubTab("workload")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === "workload"
-                  ? "bg-white text-indigo-700 shadow-sm border border-gray-200/60"
+                  ? "bg-white text-amber-700 shadow-sm border border-gray-200/60"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -387,7 +387,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
               onClick={() => setActiveSubTab("schedule")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === "schedule"
-                  ? "bg-white text-indigo-700 shadow-sm border border-gray-200/60"
+                  ? "bg-white text-amber-700 shadow-sm border border-gray-200/60"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -398,7 +398,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
               onClick={() => setActiveSubTab("handovers")}
               className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 activeSubTab === "handovers"
-                  ? "bg-white text-indigo-700 shadow-sm border border-gray-200/60"
+                  ? "bg-white text-amber-700 shadow-sm border border-gray-200/60"
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
@@ -430,7 +430,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
                                 <span className="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 text-[8px] font-black uppercase">Mapped</span>
                               )}
                               {isTeaching && (
-                                <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 text-[8px] font-black uppercase">Teaching</span>
+                                <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[8px] font-black uppercase">Teaching</span>
                               )}
                               {isCovered && (
                                 <span className="px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 border border-teal-100 text-[8px] font-black uppercase">Covering</span>
@@ -439,7 +439,7 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
                           </div>
                           <div className="flex flex-col gap-1 items-end shrink-0">
                             {targetMins > 0 && (
-                              <span className="px-2 py-1 rounded-lg bg-indigo-50/80 border border-indigo-100 text-[10px] font-extrabold text-indigo-700 whitespace-nowrap shadow-xs">
+                              <span className="px-2 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px] font-extrabold text-amber-700 whitespace-nowrap shadow-xs">
                                 {toHrs(targetMins)} hr{toHrs(targetMins) !== '1' ? 's' : ''}/wk
                               </span>
                             )}
@@ -587,8 +587,8 @@ export const MentorProfileModal: React.FC<MentorProfileModalProps> = ({
                                       </div>
                                     </div>
                                   ) : (
-                                    <div className="h-full bg-indigo-50/40 border border-indigo-100 rounded-lg p-1.5 flex flex-col justify-between text-[10px] leading-tight hover:border-indigo-400 transition-colors">
-                                      <div className="font-extrabold text-indigo-950 truncate" title={ownSlot.course}>
+                                    <div className="h-full bg-amber-500/10 border border-amber-200 rounded-lg p-1.5 flex flex-col justify-between text-[10px] leading-tight hover:border-amber-400 transition-colors">
+                                      <div className="font-extrabold text-zinc-900 truncate" title={ownSlot.course}>
                                         {ownSlot.course}
                                       </div>
                                       <div className="text-slate-600 font-bold truncate">

@@ -100,7 +100,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
 
   const getStatusColor = (category?: string) => {
     switch (category) {
-      case "Substitution": return "bg-indigo-50 text-indigo-700 border-indigo-200";
+      case "Substitution": return "bg-amber-50 text-amber-700 border-amber-200";
       case "Late Attendance": return "bg-amber-50 text-amber-700 border-amber-200";
       case "Late Punch": return "bg-rose-50 text-rose-700 border-rose-200";
       case "Exam Mark Edit": return "bg-emerald-50 text-emerald-700 border-emerald-200";
@@ -201,7 +201,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
         <div className="flex bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
           <button
             onClick={() => setActiveTab("pending")}
-            className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold transition-all ${activeTab === "pending" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold transition-all ${activeTab === "pending" ? "bg-white text-amber-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             Pending Requests
             {pendingRequests.length > 0 && (
@@ -212,7 +212,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold transition-all ${activeTab === "history" ? "bg-white text-indigo-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold transition-all ${activeTab === "history" ? "bg-white text-amber-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
           >
             Handover History
           </button>
@@ -244,7 +244,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                         <div className="text-xs text-slate-500 mt-0.5">{req?.time || "-"}</div>
                       </TableCell>
                       <TableCell className="p-4 text-slate-600 font-bold border-r border-slate-100">{originalMentor?.name || "Unknown"}</TableCell>
-                      <TableCell className="p-4 font-black text-indigo-700 border-r border-slate-100">{h.coverStaffName}</TableCell>
+                      <TableCell className="p-4 font-black text-amber-700 border-r border-slate-100">{h.coverStaffName}</TableCell>
                       <TableCell className="p-4 font-bold text-slate-800">
                         {h.course}
                         {req && req.course !== h.course && (
@@ -298,7 +298,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                   placeholder="Search requests..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all"
+                  className="w-full pl-9 pr-4 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 transition-all"
                 />
               </div>
               <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
@@ -307,7 +307,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                     key={cat}
                     onClick={() => setCategoryFilter(cat as any)}
                     className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${categoryFilter === cat 
-                      ? "bg-indigo-600 text-white shadow-sm" 
+                      ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold" 
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
                   >
                     {cat === "all" ? "All Requests" : cat}
@@ -322,8 +322,8 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                   key={req.id}
                   onClick={() => setSelectedRequestId(req.id)}
                   className={`p-4 rounded-xl cursor-pointer border transition-all ${selectedRequestId === req.id 
-                    ? "bg-indigo-50/50 border-indigo-300 shadow-sm ring-1 ring-indigo-500/20" 
-                    : "bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm"}`}
+                    ? "bg-amber-50/50 border-indigo-300 shadow-sm ring-1 ring-indigo-500/20" 
+                    : "bg-white border-slate-200 hover:border-amber-300 hover:shadow-sm"}`}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black uppercase border ${getStatusColor(req.reasonCategory)}`}>
@@ -390,7 +390,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                       {selectedRequest.reasonCategory === "Substitution" && selectedRequest.targetStaffName && (
                         <div>
                           <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-1">Requested Cover Staff</h4>
-                          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg font-bold border border-indigo-100 text-sm">
+                          <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg font-bold border border-amber-200 text-sm">
                             {selectedRequest.targetStaffName}
                           </div>
                         </div>
@@ -411,14 +411,14 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                   <h3 className="text-lg font-black text-slate-900">Campus Manager Action</h3>
                   
                   {selectedRequest.reasonCategory === "Substitution" && (
-                    <div className="space-y-6 p-5 rounded-xl border border-indigo-100 bg-indigo-50/30">
+                    <div className="space-y-6 p-5 rounded-xl border border-amber-200 bg-amber-50/30">
                       
                       <div>
                         <h4 className="text-sm font-black text-slate-800 mb-2">1. Assign Cover Faculty</h4>
                         <select 
                           value={selectedCoverMentorId || ""}
                           onChange={e => setSelectedCoverMentorId(e.target.value)}
-                          className="w-full max-w-md bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          className="w-full max-w-md bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                         >
                           <option value="">-- Keep originally requested cover staff --</option>
                           {availableMentors.map(m => (
@@ -432,22 +432,22 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                       <div>
                         <h4 className="text-sm font-black text-slate-800 mb-2">2. Confirm Subject to be Taught</h4>
                         <div className="flex gap-2">
-                          <button onClick={() => setHandoverSubject("original")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "original" ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                          <button onClick={() => setHandoverSubject("original")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "original" ? "btn-gradient text-white border-amber-500 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
                             Original ({selectedRequest.course})
                           </button>
-                          <button onClick={() => setHandoverSubject("substitute_own")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "substitute_own" ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                          <button onClick={() => setHandoverSubject("substitute_own")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "substitute_own" ? "btn-gradient text-white border-amber-500 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
                             Cover Faculty's Own Subject
                           </button>
-                          <button onClick={() => setHandoverSubject("custom")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "custom" ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                          <button onClick={() => setHandoverSubject("custom")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "custom" ? "btn-gradient text-white border-amber-500 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
                             Custom
                           </button>
                         </div>
                         
                         {handoverSubject === "substitute_own" && (
-                           <input type="text" placeholder="Type the cover faculty's subject..." value={selectedSubjName} onChange={e => setSelectedSubjName(e.target.value)} className="mt-3 w-full max-w-md bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-semibold focus:outline-none focus:border-indigo-500" />
+                           <input type="text" placeholder="Type the cover faculty's subject..." value={selectedSubjName} onChange={e => setSelectedSubjName(e.target.value)} className="mt-3 w-full max-w-md bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-semibold focus:outline-none focus:border-amber-500" />
                         )}
                         {handoverSubject === "custom" && (
-                           <input type="text" placeholder="e.g. Test, Revision, Lab" value={customSubjName} onChange={e => setCustomSubjName(e.target.value)} className="mt-3 w-full max-w-md bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-semibold focus:outline-none focus:border-indigo-500" />
+                           <input type="text" placeholder="e.g. Test, Revision, Lab" value={customSubjName} onChange={e => setCustomSubjName(e.target.value)} className="mt-3 w-full max-w-md bg-white border border-slate-200 rounded-lg px-4 py-2 text-sm font-semibold focus:outline-none focus:border-amber-500" />
                         )}
                       </div>
                     </div>
@@ -459,7 +459,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                       placeholder="Add a note about this decision..."
                       value={reviewReason}
                       onChange={e => setReviewReason(e.target.value)}
-                      className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 min-h-[80px] resize-none"
+                      className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 min-h-[80px] resize-none"
                     />
                   </div>
 

@@ -317,7 +317,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
             <TableRow>
               <TableCell colSpan={8} className="h-32 text-center">
                 <div className="flex flex-col items-center gap-2 text-gray-400">
-                  <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
+                  <Loader2 className="h-7 w-7 animate-spin text-amber-500" />
                   <p className="text-sm font-semibold">Loading Campus Managers…</p>
                 </div>
               </TableCell>
@@ -343,7 +343,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                 <TableRow key={cam.id}>
                   <TableCell className="font-bold text-gray-950">
                     <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-extrabold text-[10px]">
+                      <div className="h-7 w-7 rounded-full bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center font-extrabold text-[10px]">
                         {(cam.name || "")
                           .split(" ")
                           .filter(Boolean)
@@ -358,7 +358,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                   <TableCell className="hidden lg:table-cell text-gray-600">{kamObj ? kamObj.name : "Unassigned"}</TableCell>
                   <TableCell className="hidden lg:table-cell text-center font-bold">{camDeptsCount}</TableCell>
                   <TableCell className="hidden xl:table-cell text-center font-bold">{camMentors.length}</TableCell>
-                  <TableCell className="hidden xl:table-cell text-center font-black text-indigo-600">
+                  <TableCell className="hidden xl:table-cell text-center font-black text-amber-500">
                     {camSlots.length}
                   </TableCell>
                   <TableCell className="text-right">
@@ -370,7 +370,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                         <DropdownMenuLabel>Manager Options</DropdownMenuLabel>
                         {cam.college_id && onDrillDownCampus && (
                           <DropdownMenuItem onClick={() => onDrillDownCampus(cam.college_id)}>
-                            <Building2 className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                            <Building2 className="h-3.5 w-3.5 mr-2 text-amber-500" />
                             Manage Campus Console
                           </DropdownMenuItem>
                         )}
@@ -409,7 +409,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
         >
           <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
             <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
-              <Users className="h-5 w-5 text-indigo-600" />
+              <Users className="h-5 w-5 text-amber-500" />
               {editingCam ? "Edit Campus Manager" : "Add Campus Manager"}
             </h3>
             <Button
@@ -444,7 +444,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                 disabled={editingCam}
                 value={form.id}
                 onChange={(e) => setForm({ ...form, id: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-gray-100 disabled:text-gray-400"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 disabled:bg-gray-100 disabled:text-gray-400"
               />
             </div>
 
@@ -457,7 +457,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                 placeholder="e.g. Priya Venkatesh"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
             </div>
 
@@ -470,7 +470,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                 placeholder="e.g. priya.cam@faceprep.in"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
             </div>
 
@@ -481,7 +481,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                 required
                 value={form.college_id}
                 onChange={(e) => setForm({ ...form, college_id: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
               >
                 <option value="">Select Campus</option>
                 {colleges.map((c) => (
@@ -499,7 +499,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                 required
                 value={form.kam_id}
                 onChange={(e) => setForm({ ...form, kam_id: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
               >
                 <option value="">Select Reporting KAM</option>
                 {kamList.map((kam) => (
@@ -520,7 +520,7 @@ export const CamsTab: React.FC<CamsTabProps> = ({
                   placeholder="Leave blank to use the institution default"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                 />
                 <p className="text-[10px] text-gray-400 font-medium">
                   The login is created with the campus manager profile in one step. The manager must set their own password on first sign-in.

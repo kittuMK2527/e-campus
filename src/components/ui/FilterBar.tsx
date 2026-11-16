@@ -123,7 +123,7 @@ export function FilterBar({
 
       {/* Mobile Collapsible Body */}
       {collapsibleMobile && mobileExpanded && children && (
-        <div className="md:hidden pt-3 border-t border-slate-100 dark:border-white/5 flex flex-col gap-2.5 animate-fadeIn">
+        <div className="md:hidden pt-3 border-t border-slate-100 dark:border-white/5 flex flex-wrap items-center gap-2.5 animate-fadeIn">
           {children}
         </div>
       )}

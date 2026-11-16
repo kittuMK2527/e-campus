@@ -105,7 +105,7 @@ export default function LndMasterMatrix({
               onClick={() => setMobileSelectedDate(d.dateStr)}
               className={`px-3 py-1 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center gap-1 ${
                 isSelected
-                  ? "bg-indigo-600 text-white shadow-xs"
+                  ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold"
                   : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300"
               }`}
             >

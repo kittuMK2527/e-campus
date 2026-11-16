@@ -249,7 +249,7 @@ const PhotoSlot: React.FC<{
     <div className="space-y-1.5">
       <span className="flex items-center gap-1.5 text-[10px] font-black text-slate-600 uppercase tracking-wider">
         <span className={`h-4 w-4 rounded-full text-[9px] font-black text-white flex items-center justify-center ${
-          stage === "start" ? "bg-indigo-600" : "bg-orange-600"
+          stage === "start" ? "bg-zinc-900 text-amber-400 border border-amber-500/40" : "bg-orange-600"
         }`}>
           {stage === "start" ? "1" : "2"}
         </span>
@@ -726,7 +726,7 @@ export const ClassObservationView: React.FC<{
                       <div key={d.key} className="flex items-center gap-2">
                         <span className="text-[10.5px] font-bold text-slate-600 w-44 shrink-0">{d.label}</span>
                         <div className="flex-1 bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-indigo-500 h-full rounded-full" style={{ width: `${(Number(v) / 5) * 100}%` }} />
+                          <div className="bg-amber-500 h-full rounded-full" style={{ width: `${(Number(v) / 5) * 100}%` }} />
                         </div>
                         <span className="text-[10px] font-black text-slate-600">{v}/5</span>
                       </div>
@@ -1071,11 +1071,11 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                   <Building2 className="h-3 w-3 text-emerald-600" />
                   <span>{collegeName}</span>
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-extrabold flex items-center gap-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-extrabold flex items-center gap-1">
                   <span>{dynamicKAMInfo.kam || "KAM Cluster"}</span>
                   {dynamicKAMInfo.campuses.length > 0 && (
                     <>
-                      <span className="text-indigo-400">•</span>
+                      <span className="text-amber-400">•</span>
                       <span>{dynamicKAMInfo.campuses.length} Campuses</span>
                     </>
                   )}
@@ -1232,7 +1232,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                         <div>
                           <span className="font-mono text-[10px] text-slate-400 font-bold block">{audit.id}</span>
                           <div className="font-extrabold text-slate-900 text-sm mt-0.5">{audit.mentor_name || (audit as any).mentor}</div>
-                          <div className="text-xs text-indigo-700 font-bold flex items-center gap-1 mt-0.5">
+                          <div className="text-xs text-amber-700 font-bold flex items-center gap-1 mt-0.5">
                             <Building2 className="h-3 w-3" />
                             <span>{audit.campus}</span>
                             <span>•</span>
@@ -1255,7 +1255,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                           <div className="p-2 bg-white rounded-2xl border border-slate-100 shadow-card">
                             <span className="text-[9px] text-slate-400 block font-bold">Skill Score</span>
-                            <span className="font-mono font-black text-xs text-indigo-600">{audit.skill_score ?? (audit as any).evidenceSnapshot?.skillScore ?? 0}%</span>
+                            <span className="font-mono font-black text-xs text-amber-500">{audit.skill_score ?? (audit as any).evidenceSnapshot?.skillScore ?? 0}%</span>
                           </div>
                           <div className="p-2 bg-white rounded-2xl border border-slate-100 shadow-card">
                             <span className="text-[9px] text-slate-400 block font-bold">Coursework</span>
@@ -1273,7 +1273,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                               href={audit.skill_proof_link || (audit as any).evidenceSnapshot?.proofLink}
                               target="_blank"
                               rel="noreferrer"
-                              className="text-xs text-indigo-600 font-bold underline inline-flex items-center gap-1 hover:text-indigo-800 transition-colors"
+                              className="text-xs text-amber-500 font-bold underline inline-flex items-center gap-1 hover:text-amber-800 transition-colors"
                             >
                               <span>Inspect Student Code / Task Proof Repository</span>
                               <ExternalLink className="h-3 w-3" />
@@ -1345,7 +1345,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                         <div>
                           <span className="font-mono text-[10px] text-slate-400 font-bold block">{audit.id}</span>
                           <div className="font-extrabold text-slate-900 text-sm mt-0.5">{audit.mentor_name || (audit as any).mentor}</div>
-                          <div className="text-xs text-indigo-700 font-bold flex items-center gap-1 mt-0.5">
+                          <div className="text-xs text-amber-700 font-bold flex items-center gap-1 mt-0.5">
                             <Building2 className="h-3 w-3" />
                             <span>{audit.campus}</span>
                             <span>•</span>
@@ -1470,7 +1470,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                     <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
                       <span className="text-[9px] text-slate-400 block font-bold">Skill Score</span>
-                      <span className="font-mono font-black text-xs text-indigo-600">{audit.skill_score}%</span>
+                      <span className="font-mono font-black text-xs text-amber-500">{audit.skill_score}%</span>
                     </div>
                     <div className="p-2 bg-slate-50 rounded-lg border border-slate-200">
                       <span className="text-[9px] text-slate-400 block font-bold">Coursework</span>
@@ -1604,7 +1604,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                           setWizMentor("");
                           setWizMentorId("");
                         }}
-                        className="text-[10.5px] font-bold text-indigo-600 hover:text-indigo-800 cursor-pointer underline"
+                        className="text-[10.5px] font-bold text-amber-500 hover:text-amber-800 cursor-pointer underline"
                       >
                         {wizMentorMode === "select" ? "Enter Custom Name" : "Choose from Mentors"}
                       </button>
@@ -1740,12 +1740,12 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
           {/* STAGE 2: SKILL QUALITY VERIFICATION */}
           {wizardStage === 2 && (
             <div className="space-y-4">
-              <div className="bg-indigo-50/60 border border-indigo-100 rounded-xl p-3 flex items-center justify-between">
+              <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-3 flex items-center justify-between">
                 <div>
-                  <span className="text-xs font-extrabold text-indigo-900 block">Stage 2: Skill Development Quality Check</span>
-                  <span className="text-[10px] text-indigo-700">Calculated Score: {calculatedSkillScore}%</span>
+                  <span className="text-xs font-extrabold text-zinc-900 block">Stage 2: Skill Development Quality Check</span>
+                  <span className="text-[10px] text-amber-700">Calculated Score: {calculatedSkillScore}%</span>
                 </div>
-                <Award className="h-5 w-5 text-indigo-600" />
+                <Award className="h-5 w-5 text-amber-500" />
               </div>
 
               <div className="space-y-2 border border-slate-200 rounded-xl p-4">

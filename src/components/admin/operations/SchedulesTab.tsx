@@ -126,7 +126,7 @@ export const SchedulesTab: React.FC<SchedulesTabProps> = ({
           onClick={() => setActiveScheduleSubTab("day_orders")}
           className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
             activeScheduleSubTab === "day_orders"
-              ? "bg-indigo-600 text-white shadow-xs"
+              ? "bg-zinc-900 text-white shadow-xs"
               : "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200"
           }`}
         >
@@ -281,7 +281,7 @@ export const SchedulesTab: React.FC<SchedulesTabProps> = ({
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="font-extrabold text-indigo-700">{slot.course}</div>
+                    <div className="font-extrabold text-amber-700">{slot.course}</div>
                     <div className="text-[9.5px] text-gray-400 font-semibold uppercase">
                       {slot.classGroup || "General Class"}
                     </div>

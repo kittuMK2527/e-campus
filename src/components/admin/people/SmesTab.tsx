@@ -256,7 +256,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
         >
           <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
             <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5 font-sans">
-              <BookOpen className="h-5 w-5 text-indigo-600" />
+              <BookOpen className="h-5 w-5 text-amber-500" />
               {isEditing ? "Edit Subject Matter Expert" : "Add Subject Matter Expert"}
             </h3>
             <Button
@@ -280,7 +280,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
                 value={form.id}
                 onChange={(e) => setForm({ ...form, id: e.target.value })}
                 placeholder="e.g. sme_4"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-gray-100 disabled:text-gray-400 font-mono"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 disabled:bg-gray-100 disabled:text-gray-400 font-mono"
               />
             </div>
 
@@ -292,7 +292,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 placeholder="e.g. Dr. Ramesh Kumar"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
             </div>
 
@@ -304,7 +304,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 placeholder="e.g. ramesh.sme@faceprep.in"
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
             </div>
 
@@ -316,7 +316,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
                 aria-label="Subject Group Specialization"
                 value={form.subject}
                 onChange={(e) => setForm({ ...form, subject: e.target.value })}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-gray-700 bg-white outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               >
                 <option value="">-- Unassigned --</option>
                 {subjectGroups &&
@@ -343,7 +343,7 @@ export const SmesTab: React.FC<SmesTabProps> = ({
                 loadingText="Saving..."
                 variant="secondary"
                 onClick={handleSave}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all shadow-md cursor-pointer"
+                className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl font-bold transition-all shadow-md cursor-pointer"
               >
                 Save SME
               </LoadingButton>

@@ -1215,7 +1215,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
         action: "Submitted to SME",
         by: mentorName,
         at: planUpdatedAt,
-        color: "indigo",
+        color: "amber",
         icon: "send"
       } : null,
       (verifiedAt && verifiedBy) ? {
@@ -1235,13 +1235,13 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
       <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <div className="h-11 w-11 rounded-xl bg-zinc-900 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0 shadow-xs">
               <CalendarRange className="h-6 w-6" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-black text-slate-900">Weekly Teaching Plan Studio</h2>
-                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 border border-indigo-200 text-indigo-700">
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 border border-amber-200 text-amber-700">
                   {mentorName}
                 </span>
                 {collegeName && (
@@ -1271,7 +1271,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                   className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title="Download pre-filled Excel schedule template"
                 >
-                  <Download className="h-3 w-3 text-indigo-500" />
+                  <Download className="h-3 w-3 text-amber-500" />
                   <span>Template</span>
                 </button>
                 <button
@@ -1280,7 +1280,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                   className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                   title="Upload completed Excel sheet"
                 >
-                  <Upload className="h-3 w-3 text-indigo-500" />
+                  <Upload className="h-3 w-3 text-amber-500" />
                   <span>Upload</span>
                 </button>
               </>
@@ -1334,7 +1334,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                 type="button"
                 disabled={saving}
                 onClick={() => handleSavePlan("Submitted")}
-                className="px-4 py-1.5 rounded-lg text-[11px] font-black text-white bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-700 hover:to-indigo-800 shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 whitespace-nowrap"
+                className="px-4 py-1.5 rounded-lg text-[11px] font-black text-white btn-gradient border border-amber-500/30 hover:border-amber-500/60 shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50 whitespace-nowrap"
               >
                 <Send className="h-3 w-3" />
                 <span>{currentStatus === "Submitted" ? "Re-submit Week Plan" : `Submit Week ${selectedWeek} to SME`}</span>
@@ -1427,13 +1427,13 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                     className={`flex items-start gap-2.5 p-2.5 rounded-lg border text-xs ${
                       entry.color === "emerald" ? "bg-emerald-50 border-emerald-100" :
                       entry.color === "rose"    ? "bg-rose-50 border-rose-100" :
-                                                 "bg-indigo-50 border-indigo-100"
+                                                 "bg-amber-50 border-amber-200"
                     }`}
                   >
                     <div className={`h-5 w-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
                       entry.color === "emerald" ? "bg-emerald-200 text-emerald-700" :
                       entry.color === "rose"    ? "bg-rose-200 text-rose-700" :
-                                                 "bg-indigo-200 text-indigo-700"
+                                                 "bg-amber-200 text-amber-700"
                     }`}>
                       {entry.icon === "check" ? <Check className="h-3 w-3" /> :
                        entry.icon === "alert" ? <AlertCircle className="h-3 w-3" /> :
@@ -1444,7 +1444,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                         <span className={`font-black text-[11px] ${
                           entry.color === "emerald" ? "text-emerald-800" :
                           entry.color === "rose"    ? "text-rose-800" :
-                                                     "text-indigo-800"
+                                                     "text-amber-800"
                         }`}>{entry.action}</span>
                         <span className="text-[10px] text-slate-400 font-medium shrink-0">
                           {String(entry.at).replace("T", " ").split(".")[0]}
@@ -1473,7 +1473,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               aria-label="Class / Cohort"
               value={selectedClass}
               onChange={e => handleClassChange(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               {assignedClasses.length > 0 ? (
                 assignedClasses.map(c => (
@@ -1496,7 +1496,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               aria-label="Subject"
               value={selectedSubject}
               onChange={e => handleSubjectChange(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               {assignedSubjects.length > 0 ? (
                 assignedSubjects.map(s => (
@@ -1522,12 +1522,12 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               title="Click to view or edit teaching dates for this week"
             >
               <div className="flex items-center gap-1.5 truncate">
-                <CalendarRange className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                <CalendarRange className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                 <span className="truncate text-[11px]">
                   {startDate && endDate ? `${startDate} to ${endDate}` : "Set Schedule Dates"}
                 </span>
               </div>
-              <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 shrink-0">
+              <span className="px-1.5 py-0.5 rounded text-[9.5px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
                 {workingDaysCount}-Day Week
               </span>
             </button>
@@ -1545,7 +1545,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
           >
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+                  <div className="p-2 rounded-xl bg-amber-50 text-amber-500">
                     <CalendarRange className="h-4 w-4" />
                   </div>
                   <div>
@@ -1577,7 +1577,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                     aria-label="Start Date"
                     value={startDate}
                     onChange={e => handleStartDateChange(e.target.value)}
-                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    className="w-full p-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                   />
                 </div>
                 <div>
@@ -1592,7 +1592,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                     aria-label="End Date"
                     value={endDate}
                     onChange={e => setEndDate(e.target.value)}
-                    className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                    className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                   />
                 </div>
               </div>
@@ -1601,7 +1601,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowDateModal(false)}
-                  className="px-4 py-1.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-xs cursor-pointer"
+                  className="px-4 py-1.5 rounded-xl text-xs font-black text-white bg-zinc-900 hover:bg-zinc-800 shadow-xs cursor-pointer"
                 >
                   Apply & Close
                 </button>
@@ -1613,7 +1613,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
         <div className="mt-4 pt-4 border-t border-slate-100">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
             <div className="flex items-center gap-2">
-              <CalendarDays className="h-4 w-4 text-indigo-600 shrink-0" />
+              <CalendarDays className="h-4 w-4 text-amber-500 shrink-0" />
               <span className="text-xs font-black text-slate-900 uppercase tracking-wider">
                 Teaching Plan Weeks ({matchingPlans.length} Total)
               </span>
@@ -1622,12 +1622,12 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               </span>
             </div>
             <div className="text-[11px] font-bold text-slate-500">
-              Active: <span className="font-extrabold text-indigo-600">Week {selectedWeek}</span>
+              Active: <span className="font-extrabold text-amber-500">Week {selectedWeek}</span>
               {currentStatus && (
                 <span className={`ml-1.5 px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase ${
                   currentStatus === "Verified" ? "bg-emerald-100 text-emerald-800" :
                   currentStatus === "Needs Revision" ? "bg-rose-100 text-rose-800" :
-                  currentStatus === "Submitted" ? "bg-indigo-100 text-indigo-800" :
+                  currentStatus === "Submitted" ? "bg-amber-100 text-amber-800" :
                   "bg-slate-100 text-slate-600"
                 }`}>
                   {currentStatus}
@@ -1642,7 +1642,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               const isActive = p.week_number === selectedWeek;
               const statusColors: Record<string, string> = {
                 Verified: "bg-emerald-100/90 text-emerald-800 border-emerald-200",
-                Submitted: "bg-indigo-100/90 text-indigo-800 border-indigo-200",
+                Submitted: "bg-amber-100/90 text-amber-800 border-amber-200",
                 "Needs Revision": "bg-rose-100/90 text-rose-800 border-rose-200",
                 Draft: "bg-slate-100 text-slate-600 border-slate-200"
               };
@@ -1654,12 +1654,12 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                   onClick={() => handleSelectWeek(p.week_number)}
                   className={`flex flex-col text-left px-3.5 py-2 rounded-xl border transition-all cursor-pointer shrink-0 min-w-[125px] ${
                     isActive
-                      ? "bg-indigo-50/80 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs"
+                      ? "bg-amber-50/80 border-amber-500 ring-2 ring-amber-500/20 shadow-xs"
                       : "bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-1.5 w-full">
-                    <span className={`text-xs font-black ${isActive ? "text-indigo-900" : "text-slate-800"}`}>
+                    <span className={`text-xs font-black ${isActive ? "text-zinc-900" : "text-slate-800"}`}>
                       Week {p.week_number}
                     </span>
                     <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded border ${statusColors[p.status] || "bg-slate-100 text-slate-600 border-slate-200"}`}>
@@ -1680,16 +1680,16 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                 onClick={() => handleSelectWeek(nextSequentialWeek)}
                 className={`flex flex-col text-left px-3.5 py-2 rounded-xl border border-dashed transition-all cursor-pointer shrink-0 min-w-[130px] ${
                   selectedWeek === nextSequentialWeek && !currentPlanId
-                    ? "bg-indigo-50 border-indigo-500 ring-2 ring-indigo-500/20"
-                    : "bg-slate-50/60 border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/40 text-slate-600"
+                    ? "bg-amber-50 border-amber-500 ring-2 ring-amber-500/20"
+                    : "bg-slate-50/60 border-slate-300 hover:border-amber-400 hover:bg-amber-50/40 text-slate-600"
                 }`}
                 title={`Start next sequential plan (Week ${nextSequentialWeek})`}
               >
-                <div className="flex items-center gap-1.5 text-xs font-black text-indigo-700">
+                <div className="flex items-center gap-1.5 text-xs font-black text-amber-700">
                   <Plus className="h-3.5 w-3.5" />
                   <span>Week {nextSequentialWeek}</span>
                 </div>
-                <div className="text-[10px] text-indigo-500 font-semibold mt-1">
+                <div className="text-[10px] text-amber-500 font-semibold mt-1">
                   New Sequence Plan
                 </div>
               </button>
@@ -1707,7 +1707,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
             <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">
               Teaching Periods for Week {selectedWeek} ({dailyTasks.length} Sessions)
             </h3>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
               Campus: {workingDaysCount} Working Days
             </span>
             <span className="text-xs text-slate-400 font-semibold">
@@ -1744,7 +1744,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               }}
               className="px-3 py-1.5 rounded-lg text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap shrink-0"
             >
-              <Download className="h-3 w-3 text-indigo-500" />
+              <Download className="h-3 w-3 text-amber-500" />
               <span>Export (.xlsx)</span>
             </button>
           )}
@@ -1781,14 +1781,14 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                   <TableRow key={idx} className="hover:bg-slate-50/80 transition-colors">
                     {/* # */}
                     <TableCell className="py-2 px-3 text-center">
-                      <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-indigo-50 text-indigo-700 font-black text-[11px] border border-indigo-100">
+                      <span className="inline-flex items-center justify-center h-6 w-6 rounded-lg bg-amber-50 text-amber-700 font-black text-[11px] border border-amber-200">
                         P{idx + 1}
                       </span>
                     </TableCell>
 
                     {/* Week */}
                     <TableCell className="py-2.5 px-3">
-                      <span className="text-[11px] font-black text-indigo-700 whitespace-nowrap">Week {selectedWeek}</span>
+                      <span className="text-[11px] font-black text-amber-700 whitespace-nowrap">Week {selectedWeek}</span>
                     </TableCell>
 
                     {/* Date */}
@@ -1848,7 +1848,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                               type="button"
                               onClick={handleUnlock}
                               title="Unlock to edit"
-                              className="h-6 w-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 opacity-0 group-hover:opacity-100 transition-all shrink-0 cursor-pointer"
+                              className="h-6 w-6 rounded-lg flex items-center justify-center text-slate-400 hover:text-amber-500 hover:bg-amber-50 opacity-0 group-hover:opacity-100 transition-all shrink-0 cursor-pointer"
                             >
                               <Edit2 className="h-3.5 w-3.5" />
                             </button>
@@ -1860,7 +1860,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                           placeholder="What will be taught in this session? *"
                           value={task.topic}
                           onChange={e => updateDailyTask(idx, "topic", e.target.value)}
-                          className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-semibold text-slate-900 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                         />
                       )}
                     </TableCell>
@@ -1881,7 +1881,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                           placeholder="Description"
                           value={task.objectives}
                           onChange={e => updateDailyTask(idx, "objectives", e.target.value)}
-                          className="w-full p-1.5 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-[11px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500"
+                          className="w-full p-1.5 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-[11px] font-medium text-slate-700 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                         />
                       )}
                     </TableCell>
@@ -1891,7 +1891,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase whitespace-nowrap ${
                         currentStatus === "Verified"       ? "bg-emerald-100 text-emerald-800" :
                         currentStatus === "Needs Revision" ? "bg-rose-100 text-rose-800" :
-                        currentStatus === "Submitted"      ? "bg-indigo-100 text-indigo-800" :
+                        currentStatus === "Submitted"      ? "bg-amber-100 text-amber-800" :
                         "bg-slate-100 text-slate-600"
                       }`}>
                         {currentStatus}
@@ -1910,7 +1910,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
           <div>
             <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-              <BookOpen className="h-4 w-4 text-indigo-600" />
+              <BookOpen className="h-4 w-4 text-amber-500" />
               <span>Weekly Teaching Plan Archive & History</span>
             </h3>
             <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -1926,7 +1926,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                 onClick={() => setArchiveFilterScope("current")}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   archiveFilterScope === "current"
-                    ? "bg-white text-indigo-700 shadow-xs font-black"
+                    ? "bg-white text-amber-700 shadow-xs font-black"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -1937,7 +1937,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                 onClick={() => setArchiveFilterScope("all")}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                   archiveFilterScope === "all"
-                    ? "bg-white text-indigo-700 shadow-xs font-black"
+                    ? "bg-white text-amber-700 shadow-xs font-black"
                     : "text-slate-600 hover:text-slate-900"
                 }`}
               >
@@ -1952,7 +1952,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                 value={archiveSearch}
                 onChange={e => setArchiveSearch(e.target.value)}
                 placeholder="Search archive..."
-                className="pl-8 pr-3 py-1 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 w-36"
+                className="pl-8 pr-3 py-1 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-semibold text-slate-700 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 w-36"
               />
             </div>
           </div>
@@ -1992,11 +1992,11 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                     <TableRow
                       key={p.id}
                       className={`hover:bg-slate-50/80 transition-colors ${
-                        isCurrent ? "bg-indigo-50/40 font-semibold" : ""
+                        isCurrent ? "bg-amber-50/40 font-semibold" : ""
                       }`}
                     >
                       <TableCell className="py-2.5 px-3">
-                        <span className="font-black text-indigo-700 text-xs">Week {p.week_number}</span>
+                        <span className="font-black text-amber-700 text-xs">Week {p.week_number}</span>
                       </TableCell>
                       <TableCell className="py-2.5 px-3 text-slate-800 font-bold">
                         {p.class_group}
@@ -2016,7 +2016,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase whitespace-nowrap ${
                           p.status === "Verified" ? "bg-emerald-100 text-emerald-800" :
                           p.status === "Needs Revision" ? "bg-rose-100 text-rose-800" :
-                          p.status === "Submitted" ? "bg-indigo-100 text-indigo-800" :
+                          p.status === "Submitted" ? "bg-amber-100 text-amber-800" :
                           "bg-slate-100 text-slate-600"
                         }`}>
                           {p.status === "Verified" ? "Approved" : p.status}
@@ -2031,8 +2031,8 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
                           onClick={() => handleOpenFromArchive(p)}
                           className={`px-3 py-1 rounded-lg text-xs font-black transition-all cursor-pointer ${
                             isCurrent
-                              ? "bg-indigo-600 text-white"
-                              : "bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700"
+                              ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-2xs font-black"
+                              : "bg-slate-100 hover:bg-amber-50 hover:text-amber-700 text-slate-700"
                           }`}
                         >
                           {p.status === "Verified" ? "Read Plan" : "Read / Edit"}
@@ -2337,7 +2337,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                   ? "bg-purple-50 border-purple-100 text-purple-600"
                   : role === "kam"
                   ? "bg-sky-50 border-sky-100 text-sky-600"
-                  : "bg-indigo-50 border-indigo-100 text-indigo-600"
+                  : "bg-amber-50 border-amber-200 text-amber-500"
               }`}
             >
               <CalendarRange className="h-6 w-6" />
@@ -2397,13 +2397,13 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
             <span className="text-[10px] font-bold text-slate-500 block">Submitted Cohorts</span>
           </div>
 
-          <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-1">
+          <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-1">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500">Planned Topics</span>
-              <BookOpen className="h-4 w-4 text-indigo-500" />
+              <span className="text-[10px] font-black uppercase tracking-wider text-amber-500">Planned Topics</span>
+              <BookOpen className="h-4 w-4 text-amber-500" />
             </div>
-            <div className="text-xl font-black text-indigo-950">{plannedTopicsSum}</div>
-            <span className="text-[10px] font-bold text-indigo-600 block">Scheduled Periods</span>
+            <div className="text-xl font-black text-zinc-950">{plannedTopicsSum}</div>
+            <span className="text-[10px] font-bold text-amber-500 block">Scheduled Periods</span>
           </div>
 
           <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1">
@@ -2447,7 +2447,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
               <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-800">
                 {verifiedCount} ✓
               </span>
-              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-indigo-100 text-indigo-800">
+              <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-100 text-amber-800">
                 {pendingCount} Pending
               </span>
               {revisionCount > 0 && (
@@ -2470,7 +2470,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                 aria-label="Campus / College"
                 value={selectedCollege}
                 onChange={e => setSelectedCollege(e.target.value)}
-                className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
               >
                 <option value="all">All Campuses</option>
                 {allColleges.map(c => (
@@ -2490,7 +2490,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
               aria-label="Academic Week"
               value={selectedWeek}
               onChange={e => setSelectedWeek(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Academic Weeks</option>
               {Array.from({ length: 16 }, (_, i) => i + 1).map(w => (
@@ -2509,7 +2509,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
               aria-label="SME Status"
               value={selectedStatus}
               onChange={e => setSelectedStatus(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="Submitted">Submitted (Pending SME Review)</option>
@@ -2531,7 +2531,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                 placeholder="Search mentor, subject, cohort..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-medium text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
             </div>
           </div>
@@ -2575,9 +2575,9 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                     <TableRow
                       key={plan.id}
                       onClick={() => setInspectingPlan(plan)}
-                      className="hover:bg-indigo-50/40 cursor-pointer transition-colors group"
+                      className="hover:bg-amber-50/40 cursor-pointer transition-colors group"
                     >
-                      <TableCell className="p-3.5 font-black text-indigo-700">Week {plan.week_number}</TableCell>
+                      <TableCell className="p-3.5 font-black text-amber-700">Week {plan.week_number}</TableCell>
                       <TableCell className="p-3.5 text-slate-500 text-[11px]">
                         {plan.start_date || plan.end_date ? (
                           <span>
@@ -2634,7 +2634,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                               : plan.status === "Needs Revision"
                               ? "bg-rose-100 text-rose-800"
                               : plan.status === "Submitted"
-                              ? "bg-indigo-100 text-indigo-800"
+                              ? "bg-amber-100 text-amber-800"
                               : "bg-slate-100 text-slate-600"
                           }`}
                         >
@@ -2646,7 +2646,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                           <button
                             type="button"
                             onClick={() => setInspectingPlan(plan)}
-                            className="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white font-bold text-[10.5px] transition-colors cursor-pointer flex items-center gap-1"
+                            className="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-500 hover:bg-zinc-900 hover:text-white font-bold text-[10.5px] transition-colors cursor-pointer flex items-center gap-1"
                           >
                             <Eye className="h-3 w-3" />
                             <span>{isViewOnly ? "View Audit" : "Inspect"}</span>
@@ -2715,7 +2715,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
             {/* Modal Header */}
             <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 sm:py-4 border-b border-slate-100 bg-slate-50/80">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0">
+                <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500 shrink-0">
                   <CalendarRange className="h-5 w-5" />
                 </div>
                 <div>
@@ -2730,7 +2730,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                           : inspectingPlan.status === "Needs Revision"
                           ? "bg-rose-100 text-rose-800"
                           : inspectingPlan.status === "Submitted"
-                          ? "bg-indigo-100 text-indigo-800"
+                          ? "bg-amber-100 text-amber-800"
                           : "bg-slate-100 text-slate-600"
                       }`}
                     >
@@ -2776,7 +2776,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                     <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
                       Teaching Period Schedule & Conduction Audit
                     </h4>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700">
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700">
                       Cross-Referenced with Academic Tracker
                     </span>
                   </div>
@@ -2958,7 +2958,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${
                     selectedPlanForReview.status === "Verified"       ? "bg-emerald-100 text-emerald-800" :
                     selectedPlanForReview.status === "Needs Revision" ? "bg-rose-100 text-rose-800" :
-                    selectedPlanForReview.status === "Submitted"      ? "bg-indigo-100 text-indigo-800" :
+                    selectedPlanForReview.status === "Submitted"      ? "bg-amber-100 text-amber-800" :
                     "bg-slate-200 text-slate-600"
                   }`}>{selectedPlanForReview.status}</span>
                   {(selectedPlanForReview.sme_remarks || selectedPlanForReview.cam_feedback) && (

@@ -167,8 +167,8 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         
         {/* Left Text Content */}
         <div className="space-y-2.5 max-w-lg z-10 text-left">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 border border-indigo-100 text-indigo-700 text-[11px] font-bold shadow-xs">
-            <Sparkles className="h-3 w-3 text-indigo-600 animate-pulse" />
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/80 border border-amber-200 text-amber-700 text-[11px] font-bold shadow-xs">
+            <Sparkles className="h-3 w-3 text-amber-500 animate-pulse" />
             <span>Welcome back,</span>
           </div>
 
@@ -184,7 +184,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
             <button
               type="button"
               onClick={() => onNavigateTab("report_insight")}
-              className="brand-gradient text-white font-bold text-xs px-5 py-2.5 rounded-lg shadow-lg shadow-indigo-600/25 hover:opacity-95 transition-all flex items-center gap-2 cursor-pointer"
+              className="brand-gradient text-white font-bold text-xs px-5 py-2.5 rounded-lg shadow-lg shadow-black/20 hover:opacity-95 transition-all flex items-center gap-2 cursor-pointer"
             >
               <span>Go to Reports</span>
               <span>&rarr;</span>
@@ -265,10 +265,10 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         {/* Card 1: Total Students */}
         <div
           onClick={() => onNavigateTab("students")}
-          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-indigo-200 hover:shadow-card-lg transition-all cursor-pointer group"
+          className="relative bg-white rounded-2xl p-5 shadow-card border border-slate-100 overflow-hidden flex flex-col justify-between hover:border-amber-200 hover:shadow-card-lg transition-all cursor-pointer group"
         >
           <div className="flex items-start justify-between">
-            <div className="h-11 w-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
+            <div className="h-11 w-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center shadow-xs">
               <Users className="h-5 w-5" />
             </div>
             <span className="inline-flex items-center text-[11px] font-bold text-slate-500">
@@ -379,7 +379,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         <div className="lg:col-span-7 bg-white rounded-2xl p-5 sm:p-6 shadow-card border border-slate-100 space-y-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600">
+              <div className="p-2 rounded-xl bg-amber-50 text-amber-500">
                 <TrendingUp className="h-4.5 w-4.5" />
               </div>
               <div>
@@ -402,7 +402,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
             
             {/* Tooltip Badge on Peak Day */}
             <div className="absolute top-2 left-[50%] -translate-x-1/2 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-[11px] font-bold text-slate-800 shadow-md flex items-center gap-1 z-10">
-              <span className="h-2 w-2 rounded-full bg-indigo-600"></span>
+              <span className="h-2 w-2 rounded-full bg-zinc-900"></span>
               <span>{dayDistribution.peak.slots} Slots ({dayDistribution.peak.fullDay})</span>
             </div>
 
@@ -450,7 +450,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
           {/* Card 1: Quick Actions */}
           <div className="bg-white rounded-2xl p-5 shadow-card border border-slate-100 space-y-3">
             <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+              <div className="h-6 w-6 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center">
                 <Sparkles className="h-3.5 w-3.5" />
               </div>
               <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Quick Actions</h3>
@@ -460,37 +460,37 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigateTab("schedules")}
-                className="p-3 rounded-xl bg-slate-50/80 hover:bg-indigo-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
+                className="p-3 rounded-xl bg-slate-50/80 hover:bg-amber-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
               >
-                <CalendarDays className="h-4.5 w-4.5 text-slate-500 group-hover:text-indigo-600 shrink-0" />
-                <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 truncate">Schedules</span>
+                <CalendarDays className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0" />
+                <span className="text-xs font-bold text-slate-700 group-hover:text-amber-700 truncate">Schedules</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigateTab("students")}
-                className="p-3 rounded-xl bg-slate-50/80 hover:bg-indigo-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
+                className="p-3 rounded-xl bg-slate-50/80 hover:bg-amber-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
               >
-                <UserPlus className="h-4.5 w-4.5 text-slate-500 group-hover:text-indigo-600 shrink-0" />
-                <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 truncate">Add Student</span>
+                <UserPlus className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0" />
+                <span className="text-xs font-bold text-slate-700 group-hover:text-amber-700 truncate">Add Student</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigateTab("report_insight")}
-                className="p-3 rounded-xl bg-slate-50/80 hover:bg-indigo-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
+                className="p-3 rounded-xl bg-slate-50/80 hover:bg-amber-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
               >
-                <FileText className="h-4.5 w-4.5 text-slate-500 group-hover:text-indigo-600 shrink-0" />
-                <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 truncate">Reports Hub</span>
+                <FileText className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0" />
+                <span className="text-xs font-bold text-slate-700 group-hover:text-amber-700 truncate">Reports Hub</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => onNavigateTab("hierarchy")}
-                className="p-3 rounded-xl bg-slate-50/80 hover:bg-indigo-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
+                className="p-3 rounded-xl bg-slate-50/80 hover:bg-amber-50/60 border border-slate-100 flex items-center gap-2 text-left transition-all cursor-pointer group"
               >
-                <Network className="h-4.5 w-4.5 text-slate-500 group-hover:text-indigo-600 shrink-0" />
-                <span className="text-xs font-bold text-slate-700 group-hover:text-indigo-700 truncate">Hierarchy</span>
+                <Network className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0" />
+                <span className="text-xs font-bold text-slate-700 group-hover:text-amber-700 truncate">Hierarchy</span>
               </button>
             </div>
           </div>
@@ -499,7 +499,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
           <div className="bg-white rounded-2xl p-5 shadow-card border border-slate-100 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="h-6 w-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <div className="h-6 w-6 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center">
                   <Megaphone className="h-3.5 w-3.5" />
                 </div>
                 <h3 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Announcements</h3>
@@ -508,7 +508,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
               <button
                 type="button"
                 onClick={() => onNavigateTab("announcements")}
-                className="text-[11px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1 cursor-pointer"
+                className="text-[11px] font-bold text-amber-500 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
               >
                 <span>View All</span>
                 <span>&rarr;</span>
@@ -549,7 +549,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                   className="flex items-start justify-between gap-3 p-2.5 rounded-xl bg-slate-50/70 border border-slate-200/60"
                 >
                   <div className="flex items-start gap-2.5 min-w-0">
-                    <span className="h-2 w-2 rounded-full bg-indigo-600 mt-1 shrink-0"></span>
+                    <span className="h-2 w-2 rounded-full bg-zinc-900 mt-1 shrink-0"></span>
                     <div className="min-w-0">
                       <div className="text-xs font-bold text-slate-800 truncate">
                         {announcement.title}
@@ -578,14 +578,14 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card flex flex-col">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-indigo-600" />
+              <Building2 className="h-5 w-5 text-amber-500" />
               <h3 className="text-sm font-extrabold text-gray-900">Campus Breakdown</h3>
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onNavigateTab("campuses")}
-              className="text-xs text-indigo-600 font-bold"
+              className="text-xs text-amber-500 font-bold"
             >
               All Campuses &rarr;
             </Button>
@@ -599,8 +599,8 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                 <div
                   key={col.id}
                   onClick={() => onDrillDownCampus && onDrillDownCampus(col.id)}
-                  className={`flex items-center justify-between p-3 bg-gray-50/50 hover:bg-indigo-50/30 transition-all rounded-xl border border-gray-200/60 ${
-                    onDrillDownCampus ? "cursor-pointer hover:border-indigo-300" : ""
+                  className={`flex items-center justify-between p-3 bg-gray-50/50 hover:bg-amber-50/30 transition-all rounded-xl border border-gray-200/60 ${
+                    onDrillDownCampus ? "cursor-pointer hover:border-amber-400" : ""
                   }`}
                   title={onDrillDownCampus ? "Click to open Campus Console" : undefined}
                 >
@@ -612,7 +612,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                     <span className="bg-teal-50 border border-teal-100 text-teal-700 px-2 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap">
                       {mentorCount} Mentors
                     </span>
-                    <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap">
+                    <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded-full text-[9px] font-bold whitespace-nowrap">
                       {slotCount} Slots
                     </span>
                   </div>
@@ -629,14 +629,14 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card flex flex-col">
           <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100">
             <div className="flex items-center gap-2">
-              <Network className="h-5 w-5 text-indigo-600" />
+              <Network className="h-5 w-5 text-amber-500" />
               <h3 className="text-sm font-extrabold text-gray-900">System Hierarchy</h3>
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onNavigateTab("hierarchy")}
-              className="text-xs text-indigo-600 font-bold"
+              className="text-xs text-amber-500 font-bold"
             >
               Full Tree &rarr;
             </Button>
@@ -649,14 +649,14 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
             <div className="space-y-2">
               <div
                 onClick={() => toggleNode("admin")}
-                className="flex items-center gap-2 p-2.5 bg-white border border-indigo-200 rounded-xl shadow-xs cursor-pointer hover:border-indigo-300 transition-all"
+                className="flex items-center gap-2 p-2.5 bg-white border border-amber-200 rounded-xl shadow-xs cursor-pointer hover:border-amber-400 transition-all"
               >
                 {expandedNodes["admin"] ? (
-                  <ChevronDown className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                  <ChevronDown className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                 ) : (
-                  <ChevronRight className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                  <ChevronRight className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                 )}
-                <div className="h-6 w-6 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-[9px] shrink-0">
+                <div className="h-6 w-6 rounded-full bg-zinc-900 text-white flex items-center justify-center font-black text-[9px] shrink-0">
                   SU
                 </div>
                 <div className="min-w-0">
@@ -674,7 +674,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
                       <div key={kam.id} className="space-y-1">
                         <div
                           onClick={() => toggleNode(kamNodeId)}
-                          className="flex items-center gap-2 p-2 bg-white border border-slate-100 rounded-2xl shadow-card cursor-pointer hover:border-indigo-200 transition-all"
+                          className="flex items-center gap-2 p-2 bg-white border border-slate-100 rounded-2xl shadow-card cursor-pointer hover:border-amber-200 transition-all"
                         >
                           {expandedNodes[kamNodeId] ? (
                             <ChevronDown className="h-3 w-3 text-gray-500 shrink-0" />
@@ -725,14 +725,14 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
         <CardHeader className="p-4 pb-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <History className="h-5 w-5 text-indigo-600" />
+              <History className="h-5 w-5 text-amber-500" />
               <CardTitle className="text-sm font-extrabold text-gray-900">Recent Audit Logs</CardTitle>
             </div>
             <Button
               variant="ghost"
               size="sm"
               onClick={() => onNavigateTab("logs")}
-              className="text-xs text-indigo-600 font-bold"
+              className="text-xs text-amber-500 font-bold"
             >
               View All Logs &rarr;
             </Button>

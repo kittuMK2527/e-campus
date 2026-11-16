@@ -259,7 +259,7 @@ export const FeesOversightTab: React.FC = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="p-5 bg-white rounded-2xl border border-slate-100 shadow-card">
           <div className="flex items-center gap-2 text-slate-500 font-semibold mb-1">
-            <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+            <div className="p-1.5 rounded-lg bg-amber-50 text-amber-500">
               <Wallet className="h-4 w-4" />
             </div>
             <span className="text-xs">Total Invoiced</span>
@@ -375,7 +375,7 @@ export const FeesOversightTab: React.FC = () => {
       {activeSubTab === "ledger" ? (
         feesQuery.isPending ? (
           <div className="p-12 text-center text-slate-400 font-semibold bg-white rounded-2xl border border-slate-100 shadow-card">
-            <RotateCw className="h-6 w-6 animate-spin mx-auto mb-2 text-indigo-500" />
+            <RotateCw className="h-6 w-6 animate-spin mx-auto mb-2 text-amber-500" />
             Loading student fee ledger…
           </div>
         ) : filteredFees.length === 0 ? (
@@ -506,7 +506,7 @@ export const FeesOversightTab: React.FC = () => {
                             <DropdownMenuItem
                               onClick={() => setCampusFilter(fee.college_id)}
                             >
-                              <Building2 className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                              <Building2 className="h-3.5 w-3.5 mr-2 text-amber-500" />
                               Filter this Campus
                             </DropdownMenuItem>
                           </DropdownMenuContent>
@@ -563,7 +563,7 @@ export const FeesOversightTab: React.FC = () => {
                     <TableCell className="text-center font-bold text-slate-400">
                       {paymentPagination.startIndex + idx + 1}
                     </TableCell>
-                    <TableCell className="font-mono font-bold text-indigo-600">
+                    <TableCell className="font-mono font-bold text-amber-500">
                       {pmt.receipt_no}
                     </TableCell>
                     <TableCell>
@@ -630,7 +630,7 @@ export const FeesOversightTab: React.FC = () => {
                           <DropdownMenuItem
                             onClick={() => setCampusFilter(pmt.college_id)}
                           >
-                            <Building2 className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                            <Building2 className="h-3.5 w-3.5 mr-2 text-amber-500" />
                             Filter this Campus
                           </DropdownMenuItem>
                         </DropdownMenuContent>

@@ -392,7 +392,7 @@ export function DemoEvalCriteriaPanel({
                         className={`px-2 py-0.5 rounded-md text-[8.5px] font-black uppercase shrink-0 ${
                           c.type === "checkbox"
                             ? "bg-[#4F46E5]/10 text-[#4F46E5] dark:text-[#818CF8] border border-[#4F46E5]/20"
-                            : "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-900"
+                            : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-900"
                         }`}>
                         {c.type === "checkbox" ? "Manual" : `≥ ${c.threshold}/${c.scale ?? 5}`}
                       </span>

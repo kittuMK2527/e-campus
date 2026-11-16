@@ -344,8 +344,8 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
               <h2 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
                 Portfolio Analytics &amp; Cross-Campus Intelligence
               </h2>
-              <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 flex items-center gap-1">
-                <Sparkles className="h-3 w-3 text-indigo-500" />
+              <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-amber-500" />
                 Executive Suite
               </span>
             </div>
@@ -370,7 +370,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
           <button
             type="button"
             onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-200 active:scale-95"
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white text-xs font-bold transition-all cursor-pointer shadow-md shadow-indigo-200 active:scale-95"
             title="Open printable executive PDF report"
           >
             <Printer className="h-4 w-4 shrink-0" />
@@ -382,10 +382,10 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
       {/* ── 2. Top Executive KPI Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Campuses */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-indigo-300 transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-amber-400 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Campuses</span>
-            <div className="h-8 w-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+            <div className="h-8 w-8 rounded-xl bg-amber-50 flex items-center justify-center text-amber-500">
               <Building2 className="h-4 w-4" />
             </div>
           </div>
@@ -397,7 +397,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
         </div>
 
         {/* Total Students */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-indigo-300 transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-amber-400 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Students</span>
             <div className="h-8 w-8 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
@@ -431,7 +431,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
         </div>
 
         {/* Active Faculty */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-indigo-300 transition-all">
+        <div className="bg-white rounded-2xl p-4 border border-slate-100 shadow-card relative overflow-hidden group hover:border-amber-400 transition-all">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Faculty</span>
             <div className="h-8 w-8 rounded-xl bg-sky-50 flex items-center justify-center text-sky-600">
@@ -483,7 +483,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
                 onClick={() => setSubTab(t.key as any)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   isActive
-                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-200 font-black"
+                    ? "btn-gradient text-white shadow-sm shadow-indigo-200 font-black"
                     : "bg-white text-slate-600 hover:bg-slate-50 border border-slate-200/90"
                 }`}
               >
@@ -502,7 +502,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
             placeholder="Search campus or code…"
             value={searchTerm}
             onChange={e => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full pl-9 pr-3 py-1.5 text-xs font-semibold bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
           />
         </div>
       </div>
@@ -523,7 +523,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
               </div>
               <div className="flex items-center gap-4 text-xs font-bold">
                 <span className="flex items-center gap-1.5 text-slate-600">
-                  <span className="h-3 w-3 rounded-md bg-indigo-600 inline-block" /> Attendance (%)
+                  <span className="h-3 w-3 rounded-md btn-gradient inline-block" /> Attendance (%)
                 </span>
                 <span className="flex items-center gap-1.5 text-slate-600">
                   <span className="h-3 w-3 rounded-md bg-emerald-500 inline-block" /> Health Score (%)
@@ -627,13 +627,13 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
                           <TableRow key={c.id} className="hover:bg-slate-50/80 transition-colors group">
                             <TableCell className="py-3.5 px-4">
                               <div className="flex items-center gap-2.5">
-                                <div className="h-8 w-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
+                                <div className="h-8 w-8 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center font-bold text-xs shrink-0">
                                   <Building2 className="h-4 w-4" />
                                 </div>
                                 <div>
                                   <span
                                     onClick={() => onSelectCampus && onSelectCampus(c.id)}
-                                    className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors cursor-pointer block"
+                                    className="font-bold text-slate-900 group-hover:text-amber-500 transition-colors cursor-pointer block"
                                   >
                                     {c.name}
                                   </span>
@@ -676,7 +676,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
                               <button
                                 type="button"
                                 onClick={() => onSelectCampus && onSelectCampus(c.id)}
-                                className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
+                                className="px-2.5 py-1 rounded-lg bg-amber-50 hover:btn-gradient hover:text-white text-amber-700 text-xs font-bold transition-all cursor-pointer inline-flex items-center gap-1"
                               >
                                 <span>Inspect</span>
                                 <ChevronRight className="h-3 w-3" />
@@ -766,10 +766,10 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
             </h4>
             <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-11 gap-2.5">
               {effectiveTrendData.map(d => (
-                <div key={d.dateStr} className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center hover:bg-indigo-50/40 transition-colors">
+                <div key={d.dateStr} className="bg-slate-50 p-3 rounded-xl border border-slate-100 text-center hover:bg-amber-50/40 transition-colors">
                   <span className="text-[10px] font-bold text-slate-400 block">{d.dateStr}</span>
                   <span className={`text-sm font-black block mt-0.5 ${
-                    d.attendancePct >= 85 ? "text-emerald-600" : d.attendancePct >= 75 ? "text-indigo-600" : "text-rose-600"
+                    d.attendancePct >= 85 ? "text-emerald-600" : d.attendancePct >= 75 ? "text-amber-500" : "text-rose-600"
                   }`}>
                     {d.attendancePct}%
                   </span>
@@ -864,7 +864,7 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
                     <div key={c.id} className="p-3.5 bg-slate-50/70 rounded-xl border border-slate-100 space-y-2">
                       <div className="flex items-center justify-between text-xs font-bold">
                         <span className="text-slate-900 flex items-center gap-1.5 font-extrabold">
-                          <Building2 className="h-3.5 w-3.5 text-indigo-600" />
+                          <Building2 className="h-3.5 w-3.5 text-amber-500" />
                           {c.name} ({c.code})
                         </span>
                         <span className="text-slate-500 font-bold">{total} students</span>
@@ -920,18 +920,18 @@ export const KAMAnalytics: React.FC<KAMAnalyticsProps> = ({
               {filteredCampuses.map(c => {
                 const ratio = c.activeFaculty > 0 ? Math.round(c.totalStudents / c.activeFaculty) : 0;
                 return (
-                  <div key={c.id} className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 flex items-center justify-between hover:bg-white hover:border-indigo-200 transition-all shadow-card">
+                  <div key={c.id} className="bg-slate-50/80 rounded-2xl p-4 border border-slate-100 flex items-center justify-between hover:bg-white hover:border-amber-300 transition-all shadow-card">
                     <div className="space-y-1">
                       <h4 className="text-xs font-black text-slate-900">{c.name}</h4>
                       <p className="text-[11px] text-slate-500 font-semibold">
                         {c.activeFaculty} Faculty • {c.totalStudents} Students
                       </p>
-                      <span className="text-[10px] text-indigo-600 font-bold block">
+                      <span className="text-[10px] text-amber-500 font-bold block">
                         CM: {c.cam?.name || "Assigned CM"}
                       </span>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="text-sm font-black text-indigo-600 block">1 : {ratio}</span>
+                      <span className="text-sm font-black text-amber-500 block">1 : {ratio}</span>
                       <span className="text-[9px] text-slate-400 font-extrabold uppercase">Mentor Ratio</span>
                     </div>
                   </div>

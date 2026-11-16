@@ -1062,7 +1062,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                   <button
                     type="button"
                     onClick={handleSendTestNotification}
-                    className="px-2 py-0.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300 font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
+                    className="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 dark:bg-indigo-900/40 dark:text-amber-300 font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
                     title="Send a sample notification to your OS lock screen / notification center"
                   >
                     Test Alert
@@ -1072,7 +1072,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                     type="button"
                     onClick={handleEnableNotifications}
                     disabled={isActivatingPush}
-                    className="px-2 py-0.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
+                    className="px-2 py-0.5 rounded-lg btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white font-bold text-[10px] transition-colors disabled:opacity-50 shrink-0 cursor-pointer"
                   >
                     {isActivatingPush ? "Enabling..." : "Enable"}
                   </button>

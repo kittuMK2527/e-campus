@@ -1723,7 +1723,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-5 relative overflow-hidden transition-all hover:shadow-card-lg">
                 <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
                   <div className="flex items-center gap-2.5">
-                    <div className="p-2 rounded-xl bg-indigo-50 text-indigo-600 shrink-0">
+                    <div className="p-2 rounded-xl bg-amber-50 text-amber-500 shrink-0">
                       <Clock className="h-4 w-4" />
                     </div>
                     <div>
@@ -1754,13 +1754,13 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <span
                         className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${todayScheduleInfo.isCurrent
                           ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                          : "bg-amber-50 text-amber-700 border-amber-200"
                           }`}
                       >
                         <span
                           className={`h-1.5 w-1.5 rounded-full ${todayScheduleInfo.isCurrent
                             ? "bg-emerald-500 animate-pulse"
-                            : "bg-indigo-500"
+                            : "bg-amber-500"
                             }`}
                         />
                         {todayScheduleInfo.isCurrent ? "In Progress" : "Up Next"}
@@ -2251,7 +2251,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     return (
                       <div key={slot.id || index} className="p-4 bg-slate-50/50 border border-slate-100 rounded-xl flex items-center justify-between gap-4">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-8.5 w-8.5 rounded-full bg-indigo-50 border border-slate-100 flex items-center justify-center font-bold text-amber-600 text-xs shrink-0 select-none">
+                          <div className="h-8.5 w-8.5 rounded-full bg-amber-50 border border-slate-100 flex items-center justify-center font-bold text-amber-600 text-xs shrink-0 select-none">
                             {initial}
                           </div>
                           <div className="min-w-0">
@@ -3530,7 +3530,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                 className={`h-full rounded-full transition-all ${pct >= 75
                                                   ? "bg-emerald-500"
                                                   : pct >= passM
-                                                    ? "bg-indigo-500"
+                                                    ? "bg-amber-500"
                                                     : "bg-rose-500"
                                                   }`}
                                                 style={{ width: `${Math.min(pct, 100)}%` }}
@@ -3640,7 +3640,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <tr key={ex.id || idx} className={`hover:bg-slate-50/60 transition-colors ${isPast ? "opacity-60" : ""}`}>
                         <td className="p-3">
                           <div className="flex flex-col gap-1">
-                            <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-amber-700 text-[10.5px] font-extrabold w-max">
+                            <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-[10.5px] font-extrabold w-max">
                               {ex.exam_type}
                             </span>
                             {isPast && (
@@ -3701,10 +3701,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <div className="space-y-4">
                     {/* Upcoming exams */}
                     <div className="bg-white border border-slate-100 rounded-2xl shadow-card overflow-hidden">
-                      <div className="px-4 py-2.5 bg-indigo-50/60 border-b border-indigo-100 flex items-center justify-between">
+                      <div className="px-4 py-2.5 bg-amber-50/60 border-b border-amber-200 flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-[10px] font-black uppercase text-amber-700 tracking-wider">Upcoming Scheduled Tests</span>
-                          <span className="px-1.5 py-0.5 rounded bg-indigo-100 text-amber-700 text-[9px] font-black">{upcomingExams.length}</span>
+                          <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[9px] font-black">{upcomingExams.length}</span>
                         </div>
                         <span className="text-[11px] text-amber-600 font-bold">Prepare well for your assessments!</span>
                       </div>
@@ -3896,7 +3896,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     type="button"
                     onClick={() => setMaterialTypeFilter(t.id)}
                     className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer border ${materialTypeFilter === t.id
-                      ? "bg-indigo-50 border-indigo-200 text-amber-700"
+                      ? "bg-amber-50 border-amber-200 text-amber-700"
                       : "bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100"
                       }`}
                   >
@@ -3933,7 +3933,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               if (filteredList.length === 0) {
                 return (
                   <div className="bg-white border border-dashed border-slate-200 rounded-2xl p-12 text-center space-y-3">
-                    <div className="h-12 w-12 rounded-2xl bg-indigo-50 text-amber-600 flex items-center justify-center mx-auto">
+                    <div className="h-12 w-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
                       <BookOpen className="h-6 w-6" />
                     </div>
                     <h3 className="text-sm font-black text-slate-800">No Study Materials Found</h3>
@@ -3976,7 +3976,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                 ? "bg-amber-50 text-amber-800 border-amber-200"
                                 : isQuestionBank
                                   ? "bg-purple-50 text-purple-800 border-purple-200"
-                                  : "bg-indigo-50 text-amber-800 border-indigo-200"
+                                  : "bg-amber-50 text-amber-800 border-amber-200"
                                 }`}>
                                 {isPPT ? "Lecture PPT" : isQuestionBank ? "Question Bank" : "PDF Notes"}
                               </span>
@@ -4434,7 +4434,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           {/* Week Card Header */}
                           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3">
                             <div className="flex items-center gap-3">
-                              <span className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 text-amber-700 font-black text-xs flex items-center justify-center shrink-0 font-mono">
+                              <span className="h-7 w-7 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 font-black text-xs flex items-center justify-center shrink-0 font-mono">
                                 W{wk}
                               </span>
                               <div>
@@ -4491,7 +4491,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   </span>
                                 </div>
                               ) : isSubmitted ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-indigo-50 border border-indigo-200 text-amber-700 text-xs font-bold">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold">
                                   <CheckCircle className="h-3.5 w-3.5" />
                                   <span>Work Submitted (Awaiting Marks)</span>
                                 </span>
@@ -4525,14 +4525,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
                                     {task.quiz_topic && (
-                                      <div className="p-2.5 bg-indigo-50/80 border border-indigo-200 rounded-xl space-y-1.5 shadow-2xs">
+                                      <div className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl space-y-1.5 shadow-2xs">
                                         <span className="text-[9.5px] font-black text-amber-800 uppercase block">Quiz Component</span>
                                         {task.quiz_topic.startsWith("http") ? (
                                           <a
                                             href={task.quiz_topic}
                                             target="_blank"
                                             rel="noreferrer"
-                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-900 bg-indigo-100/90 px-2 py-0.5 rounded hover:bg-indigo-200 transition-colors"
+                                            className="inline-flex items-center gap-1 text-[11px] font-bold text-zinc-900 bg-amber-100/90 px-2 py-0.5 rounded hover:bg-amber-200 transition-colors"
                                           >
                                             <span>Open Quiz</span>
                                             <ExternalLink className="h-3 w-3" />
@@ -4585,7 +4585,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                       href={task.task_pdf_url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-indigo-50 border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-100 transition-colors"
+                                      className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-600 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors"
                                     >
                                       <FileText className="h-3.5 w-3.5 text-amber-600" />
                                       <span>View Task Material / PDF</span>
@@ -4791,7 +4791,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           {/* Task Card Header */}
                           <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-3">
                             <div className="flex items-center gap-3">
-                              <span className="h-7 w-7 rounded-lg bg-indigo-50 border border-indigo-100 text-amber-700 font-bold text-xs flex items-center justify-center shrink-0">
+                              <span className="h-7 w-7 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 font-bold text-xs flex items-center justify-center shrink-0">
                                 W{wk}
                               </span>
                               <div>
@@ -4879,7 +4879,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                           href={task.task_pdf_url}
                                           target="_blank"
                                           rel="noreferrer"
-                                          className="inline-flex items-center gap-2 px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-amber-700 border border-indigo-200 rounded-lg text-xs font-bold tracking-wider transition-all duration-200 cursor-pointer"
+                                          className="inline-flex items-center gap-2 px-3.5 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg text-xs font-bold tracking-wider transition-all duration-200 cursor-pointer"
                                         >
                                           <FileText className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                                           <span>Reference Document / PDF</span>
@@ -4948,7 +4948,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                               disabled={isSubmitting}
                                               onClick={() => setStudentUploadType(prev => ({ ...prev, [wk]: "url" }))}
                                               className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${(studentUploadType[wk] || "url") === "url"
-                                                ? "bg-indigo-50 border-indigo-300 text-amber-700"
+                                                ? "bg-amber-50 border-indigo-300 text-amber-700"
                                                 : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                                                 }`}
                                             >
@@ -4959,7 +4959,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                               disabled={isSubmitting}
                                               onClick={() => setStudentUploadType(prev => ({ ...prev, [wk]: "file" }))}
                                               className={`flex-1 py-1.5 text-xs font-bold rounded-lg border transition-all cursor-pointer ${studentUploadType[wk] === "file"
-                                                ? "bg-indigo-50 border-indigo-300 text-amber-700"
+                                                ? "bg-amber-50 border-indigo-300 text-amber-700"
                                                 : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                                                 }`}
                                             >
@@ -5137,7 +5137,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
               {/* Editing Action Row */}
               {isEditingProfile && (
-                <div className="flex items-center gap-3 bg-indigo-50 border border-indigo-100 p-4.5 rounded-xl justify-end flex-wrap">
+                <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 p-4.5 rounded-xl justify-end flex-wrap">
                   <span className="text-xs font-bold text-amber-800 mr-auto">
                     Editing mode active. Click Save to apply your changes.
                   </span>
@@ -5150,7 +5150,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 bg-indigo-700 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md transition-all cursor-pointer"
+                    className="px-5 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white rounded-xl text-xs font-extrabold shadow-md transition-all cursor-pointer"
                   >
                     Save Changes
                   </button>
@@ -5740,7 +5740,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     <div>
                       <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                         <span>🏆 Honors, Accolades &amp; Achievements</span>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
                           {studentAchievements.length} Verified
                         </span>
                       </h3>
@@ -5790,7 +5790,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                     ? "bg-slate-100 text-slate-800 border-slate-300"
                                     : ach.badge === "Paper Published" || ach.badge === "Certification"
                                       ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                      : "bg-indigo-100 text-amber-800 border-indigo-300"
+                                      : "bg-amber-100 text-amber-800 border-indigo-300"
                                   }`}
                               >
                                 {ach.badge || "Accolade"}
@@ -5991,7 +5991,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
 
                 <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-card flex items-center gap-3.5">
-                  <div className="h-10 w-10 rounded-xl bg-indigo-50 text-amber-600 flex items-center justify-center shrink-0">
+                  <div className="h-10 w-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                     <Sparkles className="h-5 w-5" />
                   </div>
                   <div>
@@ -6062,7 +6062,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               <div>
                                 <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full inline-block mb-1.5 border ${isInternal
                                   ? "bg-teal-50 text-teal-700 border-teal-200/80"
-                                  : "bg-amber-50 text-amber-800 border-indigo-200/80"
+                                  : "bg-amber-50 text-amber-800 border-amber-200/80"
                                   }`}>
                                   {isInternal ? "Internal Campus Evaluation (In-Person)" : "External Zone Panel (Virtual)"}
                                 </span>

@@ -192,7 +192,7 @@ export default function Home() {
         {/* Shifting dynamic glowing orb backdrops (extremely soft for Light Mode) */}
         <div className="absolute top-[-10%] left-[-10%] h-[50%] w-[50%] rounded-full bg-slate-200/20 blur-[120px] pointer-events-none animate-float-slow" />
         <div className="absolute bottom-[-10%] right-[-10%] h-[50%] w-[50%] rounded-full bg-slate-300/10 blur-[120px] pointer-events-none animate-float-reverse" />
-        <div className="absolute top-[35%] left-[35%] h-[30%] w-[30%] rounded-full bg-indigo-500/5 blur-[100px] pointer-events-none animate-pulse-gentle" />
+        <div className="absolute top-[35%] left-[35%] h-[30%] w-[30%] rounded-full bg-amber-500/5 blur-[100px] pointer-events-none animate-pulse-gentle" />
 
         {/* Modern 45° Bauhaus Diagonal Micro-Hatch Pattern Overlay */}
         <div className="absolute inset-0 bg-diagonal-hatch pointer-events-none opacity-40 z-0" />
@@ -377,7 +377,7 @@ export default function Home() {
                       setSignupError("");
                       setSignupSuccess("");
                     }}
-                    className="w-full text-center text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors mt-4 cursor-pointer block"
+                    className="w-full text-center text-xs font-bold text-amber-600 hover:text-amber-700 transition-colors mt-4 cursor-pointer block"
                   >
                     Already have an account? Sign in
                   </button>
@@ -452,7 +452,7 @@ export default function Home() {
                         type="button"
                         onClick={() => setShowForgotNote((v) => !v)}
                         aria-expanded={showForgotNote}
-                        className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+                        className="text-[11px] font-bold text-amber-600 hover:text-amber-700 transition-colors cursor-pointer"
                       >
                         Forgot password?
                       </button>
@@ -483,7 +483,7 @@ export default function Home() {
                         setIsSignupMode(true);
                         setLoginError("");
                       }}
-                      className="w-full text-center text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors mt-4 cursor-pointer block"
+                      className="w-full text-center text-xs font-bold text-amber-600 hover:text-amber-700 transition-colors mt-4 cursor-pointer block"
                     >
                       Don't have an account? Request access
                     </button>

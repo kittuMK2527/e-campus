@@ -282,8 +282,8 @@ export function UserProfileBar({ onOpenChangePassword }: UserProfileBarProps) {
             </div>
 
             <div className="mt-2.5 flex items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900/50">
-                <ShieldCheck className="h-3 w-3 text-indigo-500" />
+              <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 dark:bg-indigo-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-indigo-900/50">
+                <ShieldCheck className="h-3 w-3 text-amber-500" />
                 {userInfo.roleLabel}
               </span>
             </div>
@@ -295,9 +295,9 @@ export function UserProfileBar({ onOpenChangePassword }: UserProfileBarProps) {
               type="button"
               role="menuitem"
               onClick={handleOpenPasswordModal}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-indigo-50/70 dark:hover:bg-indigo-950/40 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all cursor-pointer"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-amber-50/70 dark:hover:bg-indigo-950/40 hover:text-amber-500 dark:hover:text-amber-400 transition-all cursor-pointer"
             >
-              <KeyRound className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+              <KeyRound className="h-3.5 w-3.5 text-amber-500 shrink-0" />
               <span>Change Password</span>
             </button>
 

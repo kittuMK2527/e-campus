@@ -792,7 +792,7 @@ export const MentorTaskAssignmentStudio: React.FC<MentorTaskAssignmentStudioProp
                             href={task.submission_link}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 hover:underline"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[10px] font-bold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 hover:underline"
                           >
                             <span>View Proof</span>
                             <ExternalLink className="h-2.5 w-2.5" />

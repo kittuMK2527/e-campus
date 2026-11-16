@@ -10,7 +10,7 @@ export interface ProgressProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 const variantMap: Record<NonNullable<ProgressProps["variant"]>, string> = {
-  default: "bg-indigo-500",
+  default: "bg-amber-500",
   brand: "bg-gradient-to-r from-indigo-500 to-purple-600",
   success: "bg-emerald-500",
   warning: "bg-amber-500",

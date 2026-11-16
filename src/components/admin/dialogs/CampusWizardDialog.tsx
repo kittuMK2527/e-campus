@@ -66,6 +66,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
     createCollege,
     updateCollege,
     createCourse,
+    updateCourse,
     updateCAM,
     coursesList,
     colleges,
@@ -111,6 +112,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
 
   // Simplified Course Wizard State (Single Room, no complex section breakdown)
   const [wizardCourses, setWizardCourses] = useState<any[]>([]);
+  const [editingCourseIndex, setEditingCourseIndex] = useState<number | null>(null);
   const [wizardCourseForm, setWizardCourseForm] = useState<{
     name: string;
     years: number;
@@ -164,7 +166,10 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
     }
 
     setModalError(null);
-    setActiveConfigShift("general");
+    const initialHasShifts = collegeToEdit 
+      ? (collegeToEdit.has_shifts === undefined ? 1 : Number(collegeToEdit.has_shifts))
+      : (campusForm.has_shifts === undefined ? 1 : Number(campusForm.has_shifts));
+    setActiveConfigShift(initialHasShifts === 1 ? "shift_1" : "general");
 
     const defaultShift1Breaks = [
       { id: "b1", name: "Tea Break", afterPeriod: 2, duration: 15 },
@@ -276,6 +281,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
       setEditingCampus(true);
       setIsCampusCodeCustomized(true);
       setCampusWizardStep(1);
+      setActiveConfigShift((collegeToEdit.has_shifts === undefined ? 1 : Number(collegeToEdit.has_shifts)) === 1 ? "shift_1" : "general");
 
       const existing = (coursesList || []).filter(
         d => d.college_id === collegeToEdit.id || (colleges && colleges[0]?.id === collegeToEdit.id && !d.college_id)
@@ -351,6 +357,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
           setCampusWizardStep(1);
           setIsCampusCodeCustomized(false);
           setWizardCourses([]);
+          setEditingCourseIndex(null);
         })();
       }
     }
@@ -403,6 +410,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
     setIsCampusCodeCustomized(false);
     setCampusWizardStep(1);
     setWizardCourses([]);
+    setEditingCourseIndex(null);
     setCampusForm({
       id: "",
       name: "",
@@ -429,20 +437,55 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
     }
   }, [open, editingCampus, campusSuccessCreatedId, campusForm, campusWizardStep, wizardCourses, shiftConfigsParams, semesterConfigsMap]);
 
-  // Duplicate course in list
+  // Duplicate course in list (no "(Copy)" suffix)
   const handleDuplicateCourse = (idx: number) => {
     const source = wizardCourses[idx];
     if (!source) return;
-    const dupName = `${source.name} (Copy)`;
+    const dupName = source.name;
     const newCourse = {
       ...source,
       id: undefined,
       name: dupName,
-      code: generateCodeFromName(dupName),
+      code: source.code || generateCodeFromName(dupName),
       isExisting: false
     };
     setWizardCourses(prev => [...prev, newCourse]);
     toast(`Duplicated "${source.name}"`, "info");
+  };
+
+  // Edit course from list
+  const handleEditCourse = (idx: number) => {
+    const c = wizardCourses[idx];
+    if (!c) return;
+    setEditingCourseIndex(idx);
+    setWizardCourseForm({
+      name: c.name || "",
+      years: c.years || 3,
+      room: c.default_room || c.room || "",
+      default_shift: c.default_shift || "general",
+      start_date: c.start_date || "",
+      end_date: c.end_date || "",
+      start_year: c.start_year || "",
+      end_year: c.end_year || "",
+      description: c.description || ""
+    });
+    setCourseFieldErrors({});
+  };
+
+  const handleCancelEditCourse = () => {
+    setEditingCourseIndex(null);
+    setWizardCourseForm({
+      name: "",
+      years: 3,
+      room: "",
+      default_shift: "general",
+      start_date: "",
+      end_date: "",
+      start_year: "",
+      end_year: "",
+      description: ""
+    });
+    setCourseFieldErrors({});
   };
 
   const handleSemesterChange = (newSem: string) => {
@@ -484,27 +527,36 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
         }
       };
 
-      const allSemsMap = finalMap["All Semesters"] || shiftConfigsParams;
+      // Always guarantee current shiftConfigsParams (both Shift 1 & Shift 2) are saved in allSemsMap
+      const allSemsMap = {
+        shift_1: { ...(finalMap["All Semesters"]?.shift_1 || shiftConfigsParams.shift_1), ...shiftConfigsParams.shift_1 },
+        shift_2: { ...(finalMap["All Semesters"]?.shift_2 || shiftConfigsParams.shift_2), ...shiftConfigsParams.shift_2 },
+        general: { ...(finalMap["All Semesters"]?.general || shiftConfigsParams.general), ...shiftConfigsParams.general }
+      };
+      finalMap["All Semesters"] = allSemsMap;
 
-      // Validate breaks
+      // Validate breaks with automatic fallback defaults so saving never gets blocked
       for (const sem of Object.keys(finalMap)) {
         const semParams = finalMap[sem];
         if (campusForm.has_shifts === 1) {
           if (!semParams.shift_1.breaks || semParams.shift_1.breaks.length === 0) {
-            setModalError(`${sem} - Shift 1: At least one break must be configured.`);
-            setModalBusy(false);
-            return;
+            semParams.shift_1.breaks = [
+              { id: "b1", name: "Tea Break", afterPeriod: 2, duration: 15 },
+              { id: "b2", name: "Lunch Break", afterPeriod: 4, duration: 35 }
+            ];
           }
           if (!semParams.shift_2.breaks || semParams.shift_2.breaks.length === 0) {
-            setModalError(`${sem} - Shift 2: At least one break must be configured.`);
-            setModalBusy(false);
-            return;
+            semParams.shift_2.breaks = [
+              { id: "b1", name: "Tea Break", afterPeriod: 2, duration: 15 },
+              { id: "b2", name: "Dinner Break", afterPeriod: 4, duration: 35 }
+            ];
           }
         } else {
           if (!semParams.general.breaks || semParams.general.breaks.length === 0) {
-            setModalError(`${sem} - General Shift: At least one break must be configured.`);
-            setModalBusy(false);
-            return;
+            semParams.general.breaks = [
+              { id: "b1", name: "Break", afterPeriod: 2, duration: 15 },
+              { id: "b2", name: "Lunch", afterPeriod: 3, duration: 35 }
+            ];
           }
         }
       }
@@ -514,17 +566,17 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
       const genSchedule = calculateShiftSchedule(allSemsMap.general);
 
       if (s1Schedule.error && campusForm.has_shifts === 1) {
-        setModalError(`All Semesters - Shift 1: ${s1Schedule.error}`);
+        setModalError(`Shift 1: ${s1Schedule.error}`);
         setModalBusy(false);
         return;
       }
       if (s2Schedule.error && campusForm.has_shifts === 1) {
-        setModalError(`All Semesters - Shift 2: ${s2Schedule.error}`);
+        setModalError(`Shift 2: ${s2Schedule.error}`);
         setModalBusy(false);
         return;
       }
-      if (genSchedule.error) {
-        setModalError(`All Semesters - General Shift: ${genSchedule.error}`);
+      if (genSchedule.error && campusForm.has_shifts !== 1) {
+        setModalError(`General Shift: ${genSchedule.error}`);
         setModalBusy(false);
         return;
       }
@@ -552,7 +604,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
           setModalBusy(false);
           return;
         }
-        if (semGen.error) {
+        if (semGen.error && campusForm.has_shifts !== 1) {
           setModalError(`${sem} - General Shift: ${semGen.error}`);
           setModalBusy(false);
           return;
@@ -562,7 +614,11 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
           shift_1: semS1.items.filter(item => item.type === "period").map(item => `${item.startTimeStr} - ${item.endTimeStr}`),
           shift_2: semS2.items.filter(item => item.type === "period").map(item => `${item.startTimeStr} - ${item.endTimeStr}`),
           general: semGen.items.filter(item => item.type === "period").map(item => `${item.startTimeStr} - ${item.endTimeStr}`),
-          custom_shift_params: semParams
+          custom_shift_params: {
+            shift_1: semParams.shift_1,
+            shift_2: semParams.shift_2,
+            general: semParams.general
+          }
         };
       }
 
@@ -570,7 +626,11 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
         shift_1: compiledShift1,
         shift_2: compiledShift2,
         general: compiledGeneral,
-        custom_shift_params: allSemsMap,
+        custom_shift_params: {
+          shift_1: allSemsMap.shift_1,
+          shift_2: allSemsMap.shift_2,
+          general: allSemsMap.general
+        },
         semester_configs: semesterConfigsCompiled
       };
 
@@ -624,6 +684,8 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
         })();
 
         const newCourses = wizardCourses.filter(c => !c.isExisting);
+        const existingEditedCourses = wizardCourses.filter(c => c.isExisting && c.id);
+
         const courseSaves = newCourses.map(async (course) => {
           const courseRes = await createCourse({
             name: course.name,
@@ -636,13 +698,33 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
             start_year: course.start_year || new Date().getFullYear().toString(),
             end_year: course.end_year || (new Date().getFullYear() + (Number(course.years) || 3)).toString(),
             default_room: course.default_room || course.room || null,
-            default_shift: course.default_shift || null
+            default_shift: course.default_shift || (campusForm.has_shifts === 1 ? "shift_1" : "general")
           });
           if (!courseRes.success) {
             issues.push(`${course.name}: ${courseRes.message || "failed to save course"}`);
           }
         });
-        await Promise.all([camAssignment, ...courseSaves]);
+
+        const courseUpdates = existingEditedCourses.map(async (course) => {
+          try {
+            await updateCourse({
+              id: course.id,
+              name: course.name,
+              college_id: updatedForm.id,
+              code: course.code?.trim().toUpperCase() || generateCodeFromName(course.name),
+              description: course.description || "",
+              years: Number(course.years) || 3,
+              start_date: course.start_date || getLocalDateStr(),
+              end_date: course.end_date || new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+              start_year: course.start_year || new Date().getFullYear().toString(),
+              end_year: course.end_year || (new Date().getFullYear() + (Number(course.years) || 3)).toString(),
+              default_room: course.default_room || course.room || null,
+              default_shift: course.default_shift || (campusForm.has_shifts === 1 ? "shift_1" : "general")
+            });
+          } catch (_) {}
+        });
+
+        await Promise.all([camAssignment, ...courseSaves, ...courseUpdates]);
 
         await clearCampusDraftFromDb();
         await refreshData(true);
@@ -680,12 +762,12 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
       <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50">
         <div className="flex items-center gap-3">
           <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
-            <Building2 className="h-5 w-5 text-indigo-600" />
+            <Building2 className="h-5 w-5 text-amber-500" />
             {editingCampus ? "Edit Campus" : campusSuccessCreatedId ? "Campus Created!" : "Add New Campus"}
           </h3>
           {draftLastSaved && !editingCampus && !campusSuccessCreatedId && (
             <span className="text-[10px] font-black text-pink-700 bg-gradient-to-r from-pink-50 to-amber-50 border border-pink-200/80 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-2xs animate-fadeIn">
-              <span className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
               Draft Auto-Saved ({draftRole.toUpperCase()} · {draftLastSaved})
             </span>
           )}
@@ -747,10 +829,10 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                   router.push("/admin/campuses");
                 }
               }}
-              className="flex flex-col items-center gap-1.5 p-4 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-all cursor-pointer group"
+              className="flex flex-col items-center gap-1.5 p-4 bg-zinc-900 hover:bg-zinc-800 border border-amber-500/30 rounded-xl transition-all cursor-pointer group shadow-xs"
             >
-              <Building2 className="h-5 w-5 text-indigo-600 group-hover:scale-110 transition-transform" />
-              <span className="text-xs font-extrabold text-indigo-700">Open Campus</span>
+              <Building2 className="h-5 w-5 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span className="text-xs font-extrabold text-amber-300">Open Campus</span>
             </button>
             <button
               type="button"
@@ -823,10 +905,10 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                         background: isDone
                           ? "#10b981"
                           : isActive
-                          ? "linear-gradient(135deg,#6366f1,#4f46e5)"
+                          ? "linear-gradient(135deg,#18181b,#27272a)"
                           : "#e5e7eb",
                         boxShadow: isActive
-                          ? "0 0 0 4px rgba(99,102,241,0.18), 0 2px 8px rgba(99,102,241,0.35)"
+                          ? "0 0 0 4px rgba(245,158,11,0.22), 0 2px 8px rgba(0,0,0,0.35)"
                           : "none"
                       }}
                     >
@@ -836,7 +918,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       className={`text-[9.5px] uppercase tracking-wider font-extrabold whitespace-nowrap transition-colors ${
                         isActive ? "" : isDone ? "text-emerald-600" : "text-gray-400"
                       }`}
-                      style={isActive ? { color: "#4f46e5" } : {}}
+                      style={isActive ? { color: "#d97706" } : {}}
                     >
                       {s.label}
                     </span>
@@ -848,7 +930,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                         background: isDone
                           ? "linear-gradient(to right,#10b981,#34d399)"
                           : isActive
-                          ? "linear-gradient(to right,#6366f1 30%,#e5e7eb)"
+                          ? "linear-gradient(to right,#f59e0b 30%,#e5e7eb)"
                           : "#e5e7eb"
                       }}
                     />
@@ -891,7 +973,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                           code: isCampusCodeCustomized ? prev.code : autoCode
                         }));
                       }}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                     />
                   </div>
 
@@ -899,7 +981,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                     <div className="flex items-center justify-between">
                       <label className="text-[10px] text-gray-400 uppercase tracking-wider block font-bold">
                         Campus Code
-                        <span className="ml-1 text-indigo-500 font-bold normal-case">(Auto-generated)</span>
+                        <span className="ml-1 text-amber-600 font-bold normal-case">(Auto-generated)</span>
                       </label>
                       {!editingCampus && campusForm.name && (
                         <Button
@@ -911,7 +993,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                             setIsCampusCodeCustomized(false);
                             setCampusForm(prev => ({ ...prev, code }));
                           }}
-                          className="h-auto px-0 text-[10px] text-indigo-600 hover:text-indigo-700 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                          className="h-auto px-0 text-[10px] text-amber-500 hover:text-amber-700 font-bold flex items-center gap-1 cursor-pointer transition-colors"
                           title="Reset to auto-generated code"
                         >
                           <RefreshCw className="h-2.5 w-2.5" />
@@ -930,7 +1012,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                         setIsCampusCodeCustomized(true);
                         setCampusForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }));
                       }}
-                      className={`w-full border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold tracking-wider uppercase focus:outline-none focus:ring-1 focus:ring-indigo-600 ${
+                      className={`w-full border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold tracking-wider uppercase focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 ${
                         editingCampus ? "bg-gray-100 text-gray-400 cursor-not-allowed" : "bg-gray-50 text-gray-900"
                       }`}
                     />
@@ -943,7 +1025,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       required
                       value={campusForm.academic_year}
                       onChange={e => setCampusForm({ ...campusForm, academic_year: e.target.value })}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                     >
                       {getAcademicYearOptions().map(yr => (
                         <option key={yr} value={yr}>
@@ -962,7 +1044,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       placeholder="e.g. 78, West Tambaram, Chennai"
                       value={campusForm.address}
                       onChange={e => setCampusForm({ ...campusForm, address: e.target.value })}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                     />
                   </div>
 
@@ -973,7 +1055,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       required
                       value={campusForm.kam_id}
                       onChange={e => setCampusForm({ ...campusForm, kam_id: e.target.value })}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                     >
                       <option value="">Select KAM</option>
                       {kamList.map((kam: any) => (
@@ -992,7 +1074,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       aria-label="Campus Manager (Optional)"
                       value={campusForm.manager}
                       onChange={e => setCampusForm({ ...campusForm, manager: e.target.value })}
-                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                      className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                     >
                       <option value="">Select CM (Optional)</option>
                       {camList.map((cam: any) => (
@@ -1010,15 +1092,18 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                   <div className="flex gap-3">
                     <button
                       type="button"
-                      onClick={() => setCampusForm({ ...campusForm, has_shifts: 0 })}
+                      onClick={() => {
+                        setCampusForm({ ...campusForm, has_shifts: 0 });
+                        setActiveConfigShift("general");
+                      }}
                       className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                         campusForm.has_shifts === 0
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-800"
+                          ? "border-amber-500 bg-amber-50/70 text-zinc-900 font-black"
                           : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
                       }`}
                     >
-                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${campusForm.has_shifts === 0 ? "border-indigo-500" : "border-gray-300"}`}>
-                        {campusForm.has_shifts === 0 && <div className="h-2 w-2 rounded-full bg-indigo-500" />}
+                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${campusForm.has_shifts === 0 ? "border-amber-500" : "border-gray-300"}`}>
+                        {campusForm.has_shifts === 0 && <div className="h-2 w-2 rounded-full bg-amber-500" />}
                       </div>
                       <div className="text-left">
                         <div className="font-extrabold text-[11px]">General Shift</div>
@@ -1027,15 +1112,18 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                     </button>
                     <button
                       type="button"
-                      onClick={() => setCampusForm({ ...campusForm, has_shifts: 1 })}
+                      onClick={() => {
+                        setCampusForm({ ...campusForm, has_shifts: 1 });
+                        setActiveConfigShift("shift_1");
+                      }}
                       className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                         campusForm.has_shifts === 1
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-800"
+                          ? "border-amber-500 bg-amber-50/70 text-zinc-900 font-black"
                           : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
                       }`}
                     >
-                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${campusForm.has_shifts === 1 ? "border-indigo-500" : "border-gray-300"}`}>
-                        {campusForm.has_shifts === 1 && <div className="h-2 w-2 rounded-full bg-indigo-500" />}
+                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${campusForm.has_shifts === 1 ? "border-amber-500" : "border-gray-300"}`}>
+                        {campusForm.has_shifts === 1 && <div className="h-2 w-2 rounded-full bg-amber-500" />}
                       </div>
                       <div className="text-left">
                         <div className="font-extrabold text-[11px]">Multiple Shifts</div>
@@ -1054,12 +1142,12 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       onClick={() => setCampusForm({ ...campusForm, working_days: 5 })}
                       className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                         (campusForm.working_days ?? 5) === 5
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-800"
+                          ? "border-amber-500 bg-amber-50/70 text-zinc-900 font-black"
                           : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
                       }`}
                     >
-                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${(campusForm.working_days ?? 5) === 5 ? "border-indigo-500" : "border-gray-300"}`}>
-                        {(campusForm.working_days ?? 5) === 5 && <div className="h-2 w-2 rounded-full bg-indigo-500" />}
+                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${(campusForm.working_days ?? 5) === 5 ? "border-amber-500" : "border-gray-300"}`}>
+                        {(campusForm.working_days ?? 5) === 5 && <div className="h-2 w-2 rounded-full bg-amber-500" />}
                       </div>
                       <div className="text-left">
                         <div className="font-extrabold text-[11px]">5 Working Days</div>
@@ -1071,12 +1159,12 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       onClick={() => setCampusForm({ ...campusForm, working_days: 6 })}
                       className={`flex-1 flex items-center gap-2 p-3 rounded-xl border-2 transition-all cursor-pointer ${
                         (campusForm.working_days ?? 5) === 6
-                          ? "border-indigo-500 bg-indigo-50 text-indigo-800"
+                          ? "border-amber-500 bg-amber-50/70 text-zinc-900 font-black"
                           : "border-gray-200 bg-white text-gray-500 hover:border-gray-300"
                       }`}
                     >
-                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${(campusForm.working_days ?? 5) === 6 ? "border-indigo-500" : "border-gray-300"}`}>
-                        {(campusForm.working_days ?? 5) === 6 && <div className="h-2 w-2 rounded-full bg-indigo-500" />}
+                      <div className={`h-4 w-4 rounded-full border-2 flex items-center justify-center ${(campusForm.working_days ?? 5) === 6 ? "border-amber-500" : "border-gray-300"}`}>
+                        {(campusForm.working_days ?? 5) === 6 && <div className="h-2 w-2 rounded-full bg-amber-500" />}
                       </div>
                       <div className="text-left">
                         <div className="font-extrabold text-[11px]">6 Working Days</div>
@@ -1093,7 +1181,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
               <div className="space-y-4 animate-fadeIn">
                 <div className="pb-1 border-b border-gray-100 flex items-center justify-between">
                   <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Courses</h4>
-                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                     {wizardCourses.length} Course{wizardCourses.length !== 1 ? "s" : ""}
                   </span>
                 </div>
@@ -1102,11 +1190,11 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                 {wizardCourses.length > 0 && (
                   <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1">
                     {wizardCourses.map((c, idx) => (
-                      <div key={idx} className="bg-indigo-50/40 border border-indigo-100 p-3 rounded-xl flex items-center justify-between gap-3">
+                      <div key={idx} className="bg-zinc-50 border border-zinc-200 p-3 rounded-xl flex items-center justify-between gap-3 hover:border-amber-500/30 transition-colors">
                         <div className="space-y-1 flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-extrabold text-xs text-gray-800">{c.name}</span>
-                            <span className="px-1.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 text-[8px] font-extrabold uppercase shrink-0">
+                            <span className="px-1.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[8px] font-extrabold uppercase shrink-0">
                               {c.years} Yrs · {c.years * 2} Sem
                             </span>
                             <span className="px-1.5 rounded bg-slate-100 border border-slate-200 text-slate-700 text-[8px] font-extrabold uppercase shrink-0">
@@ -1115,6 +1203,19 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                             <span className="px-1.5 rounded bg-purple-50 border border-purple-200 text-purple-700 text-[8px] font-extrabold uppercase shrink-0">
                               {c.default_shift === "shift_1" ? "Shift 1" : c.default_shift === "shift_2" ? "Shift 2" : "General Shift"}
                             </span>
+                            {/* Small edit button after shift */}
+                            <button
+                              type="button"
+                              onClick={() => handleEditCourse(idx)}
+                              title="Edit this course"
+                              className={`px-1.5 py-0.5 rounded text-[8.5px] font-extrabold flex items-center gap-1 cursor-pointer transition-all border shrink-0 ${
+                                editingCourseIndex === idx
+                                  ? "bg-amber-500 text-zinc-950 border-amber-500 shadow-2xs font-black"
+                                  : "bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300 hover:border-amber-400"
+                              }`}
+                            >
+                              <Edit className="h-2.5 w-2.5" /> Edit
+                            </button>
                             {c.isExisting && (
                               <span className="px-1.5 rounded bg-emerald-50 border border-emerald-200 text-emerald-700 text-[8px] font-extrabold uppercase shrink-0">
                                 Saved
@@ -1123,21 +1224,41 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                           </div>
                         </div>
 
-                        {/* Action buttons: Duplicate & Remove */}
+                        {/* Action buttons: Edit, Duplicate & Remove */}
                         <div className="flex items-center gap-1.5 shrink-0">
+                          <Button
+                            variant="ghost"
+                            type="button"
+                            onClick={() => handleEditCourse(idx)}
+                            title="Edit this course"
+                            className={`h-auto text-[10px] font-extrabold px-2 py-1 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs border ${
+                              editingCourseIndex === idx
+                                ? "bg-amber-500 text-zinc-950 border-amber-500 font-black"
+                                : "text-zinc-700 hover:text-amber-600 bg-white border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50"
+                            }`}
+                          >
+                            <Edit className="h-3 w-3" /> Edit
+                          </Button>
                           <Button
                             variant="ghost"
                             type="button"
                             onClick={() => handleDuplicateCourse(idx)}
                             title="Duplicate this course"
-                            className="h-auto text-[10px] text-indigo-600 font-extrabold hover:text-indigo-800 bg-white border border-indigo-200 hover:bg-indigo-50 px-2 py-1 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                            className="h-auto text-[10px] text-zinc-700 font-extrabold hover:text-amber-600 bg-white border border-zinc-200 hover:border-amber-300 hover:bg-amber-50/50 px-2 py-1 rounded-xl transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                           >
                             <Copy className="h-3 w-3" /> Duplicate
                           </Button>
                           <Button
                             variant="ghost"
                             type="button"
-                            onClick={() => setWizardCourses(prev => prev.filter((_, i) => i !== idx))}
+                            onClick={() => {
+                              if (editingCourseIndex === idx) {
+                                handleCancelEditCourse();
+                              } else if (editingCourseIndex !== null && editingCourseIndex > idx) {
+                                setEditingCourseIndex(editingCourseIndex - 1);
+                              }
+                              setWizardCourses(prev => prev.filter((_, i) => i !== idx));
+                            }}
                             className="h-auto text-[10px] text-red-500 font-extrabold hover:text-red-700 bg-red-50 hover:bg-red-100 px-2 py-1 rounded-xl transition-colors cursor-pointer"
                           >
                             Remove
@@ -1148,9 +1269,32 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                   </div>
                 )}
 
-                {/* Add Course Sub-Form */}
-                <div className="bg-slate-50/60 p-4 rounded-xl border border-slate-100 space-y-3.5">
-                  <div className="text-[10px] font-black text-gray-500 uppercase tracking-wider">+ Add Course</div>
+                {/* Add / Edit Course Sub-Form */}
+                <div className={`p-4 rounded-xl border space-y-3.5 transition-colors ${
+                  editingCourseIndex !== null 
+                    ? "bg-amber-50/40 border-amber-300 shadow-sm" 
+                    : "bg-slate-50/60 border-slate-100"
+                }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                      {editingCourseIndex !== null ? (
+                        <span className="text-amber-800 font-black flex items-center gap-1">
+                          <Edit className="h-3 w-3 text-amber-600" /> Editing Course #{editingCourseIndex + 1}: <span className="underline decoration-amber-400">{wizardCourses[editingCourseIndex]?.name || "Course"}</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-500">+ Add Course</span>
+                      )}
+                    </div>
+                    {editingCourseIndex !== null && (
+                      <button
+                        type="button"
+                        onClick={handleCancelEditCourse}
+                        className="text-[9.5px] font-bold text-gray-500 hover:text-gray-800 bg-white hover:bg-gray-100 border border-gray-200 px-2 py-0.5 rounded-lg cursor-pointer transition-colors"
+                      >
+                        ✕ Cancel Edit
+                      </button>
+                    )}
+                  </div>
 
                   {/* Course Name */}
                   <div className="space-y-1">
@@ -1170,7 +1314,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       className={`w-full rounded-xl px-3 py-2 font-bold text-xs focus:outline-none focus:ring-2 transition-all ${
                         courseFieldErrors.name
                           ? "border-2 border-red-400 bg-red-50 focus:ring-red-200"
-                          : "bg-white border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                          : "bg-white border border-gray-200 focus:ring-amber-500/30 focus:border-amber-500"
                       }`}
                     />
                     {courseFieldErrors.name && <p role="alert" className="text-[9px] text-red-500 font-bold mt-0.5">Course name is required</p>}
@@ -1180,7 +1324,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-[9.5px] text-gray-400 uppercase font-bold block">Duration *</label>
-                      <span className="text-[9px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded-full">
+                      <span className="text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                         {wizardCourseForm.years * 2} Semesters (Auto)
                       </span>
                     </div>
@@ -1192,8 +1336,8 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                           onClick={() => setWizardCourseForm(prev => ({ ...prev, years: y }))}
                           className={`flex-1 py-2 rounded-xl font-extrabold text-xs transition-all cursor-pointer border-2 ${
                             wizardCourseForm.years === y
-                              ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
-                              : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"
+                              ? "bg-zinc-900 border-amber-500 text-amber-400 shadow-xs ring-1 ring-amber-500/30"
+                              : "bg-white border-gray-200 text-gray-600 hover:border-amber-400/50"
                           }`}
                         >
                           {y} Yrs
@@ -1221,7 +1365,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       className={`w-full rounded-xl px-3 py-2 font-bold text-xs focus:outline-none focus:ring-2 transition-all ${
                         courseFieldErrors.room
                           ? "border-2 border-red-400 bg-red-50 focus:ring-red-200"
-                          : "bg-white border border-gray-200 focus:ring-indigo-100 focus:border-indigo-400"
+                          : "bg-white border border-gray-200 focus:ring-amber-500/30 focus:border-amber-500"
                       }`}
                     />
                     {courseFieldErrors.room && <p role="alert" className="text-[9px] text-red-500 font-bold mt-0.5">Room / Classroom is required</p>}
@@ -1234,7 +1378,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                       aria-label="Default Shift"
                       value={wizardCourseForm.default_shift}
                       onChange={e => setWizardCourseForm({ ...wizardCourseForm, default_shift: e.target.value })}
-                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold text-xs cursor-pointer focus:ring-1 focus:ring-indigo-500 outline-none text-gray-800"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold text-xs cursor-pointer focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none text-gray-800"
                     >
                       <option value="general">General Shift</option>
                       {campusForm.has_shifts === 1 && (
@@ -1263,28 +1407,43 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
 
                       setCourseFieldErrors({});
                       setModalError(null);
-                      const newC = {
-                        ...wizardCourseForm,
-                        default_room: wizardCourseForm.room.trim(),
-                        room: wizardCourseForm.room.trim(),
-                        isExisting: false
-                      };
-                      setWizardCourses(prev => [...prev, newC]);
-                      setWizardCourseForm({
-                        name: "",
-                        years: 3,
-                        room: "",
-                        default_shift: "general",
-                        start_date: "",
-                        end_date: "",
-                        start_year: "",
-                        end_year: "",
-                        description: ""
-                      });
+
+                      if (editingCourseIndex !== null) {
+                        const updated = [...wizardCourses];
+                        const existing = updated[editingCourseIndex] || {};
+                        updated[editingCourseIndex] = {
+                          ...existing,
+                          ...wizardCourseForm,
+                          default_room: wizardCourseForm.room.trim(),
+                          room: wizardCourseForm.room.trim()
+                        };
+                        setWizardCourses(updated);
+                        toast(`Updated course "${wizardCourseForm.name.trim()}"`, "info");
+                        handleCancelEditCourse();
+                      } else {
+                        const newC = {
+                          ...wizardCourseForm,
+                          default_room: wizardCourseForm.room.trim(),
+                          room: wizardCourseForm.room.trim(),
+                          isExisting: false
+                        };
+                        setWizardCourses(prev => [...prev, newC]);
+                        setWizardCourseForm({
+                          name: "",
+                          years: 3,
+                          room: "",
+                          default_shift: "general",
+                          start_date: "",
+                          end_date: "",
+                          start_year: "",
+                          end_year: "",
+                          description: ""
+                        });
+                      }
                     }}
-                    className="h-auto w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-extrabold py-2.5 rounded-xl shadow-sm hover:scale-[1.01] transition-all cursor-pointer"
+                    className="h-auto w-full btn-gradient text-white text-[10px] font-extrabold py-2.5 rounded-xl shadow-sm hover:scale-[1.01] transition-all cursor-pointer border border-amber-500/30"
                   >
-                    + Add Course to Campus List
+                    {editingCourseIndex !== null ? "✓ Update Course in Campus List" : "+ Add Course to Campus List"}
                   </Button>
                 </div>
               </div>
@@ -1297,7 +1456,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                   <h4 className="text-xs font-black text-gray-800 uppercase tracking-wider">Shift Configuration</h4>
                   {campusForm.has_shifts === 1 && (
                     <div className="flex bg-gray-100 p-1 rounded-xl gap-1">
-                      {(["shift_1", "shift_2", "general"] as const).map(sh => (
+                      {(["shift_1", "shift_2"] as const).map(sh => (
                         <button
                           key={sh}
                           type="button"
@@ -1307,11 +1466,11 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                           }}
                           className={`px-3 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${
                             activeConfigShift === sh
-                              ? "bg-white text-indigo-600 shadow-sm"
+                              ? "bg-white text-amber-500 shadow-sm"
                               : "text-gray-500 hover:text-gray-800"
                           }`}
                         >
-                          {shiftConfigsParams[sh].label}
+                          {shiftConfigsParams[sh]?.label || (sh === "shift_1" ? "Shift 1" : "Shift 2")}
                         </button>
                       ))}
                     </div>
@@ -1322,13 +1481,13 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
                   {/* Left Column (Form) */}
                   <div className="lg:col-span-7 space-y-4">
-                    <div className="flex items-center gap-2 bg-indigo-50/40 p-2.5 rounded-xl border border-indigo-100/50">
+                    <div className="flex items-center gap-2 bg-amber-500/5 p-2.5 rounded-xl border border-amber-500/20">
                       <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Configure Semester:</span>
                       <Select
                         aria-label="Semester"
                         value={activeConfigSemester}
                         onChange={e => handleSemesterChange(e.target.value)}
-                        className="flex-1 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                        className="flex-1 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 font-bold text-xs focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                       >
                         <option value="All Semesters">All Semesters (Default Fallback)</option>
                         {ALL_SEMESTERS.map(sem => (
@@ -1356,7 +1515,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                               }));
                             }}
                             placeholder="e.g. Regular Shift"
-                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-xs"
+                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-xs"
                           />
                         </div>
 
@@ -1369,9 +1528,9 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                               size="sm"
                               type="button"
                               onClick={() => setShowClockPresets(!showClockPresets)}
-                              className="h-auto px-0 text-[9px] text-indigo-600 font-extrabold hover:underline flex items-center gap-1 cursor-pointer"
+                              className="h-auto px-0 text-[9px] text-amber-500 font-extrabold hover:underline flex items-center gap-1 cursor-pointer"
                             >
-                              <Clock className="h-3 w-3 text-indigo-600" /> Presets
+                              <Clock className="h-3 w-3 text-amber-500" /> Presets
                             </Button>
                           </div>
                           <div className="relative flex items-center">
@@ -1388,7 +1547,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                 }));
                               }}
                               placeholder="e.g. 08:30 AM"
-                              className="w-full bg-white border border-gray-200 rounded-xl pl-3 pr-10 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-xs"
+                              className="w-full bg-white border border-gray-200 rounded-xl pl-3 pr-10 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-xs"
                             />
                             <div className="absolute right-2 flex items-center gap-1">
                               <Input
@@ -1415,7 +1574,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                 className="w-6 h-6 opacity-0 absolute right-0 cursor-pointer"
                                 title="Open Time Picker Widget"
                               />
-                              <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 pointer-events-none">
+                              <div className="p-1.5 rounded-lg bg-amber-50 text-amber-500 pointer-events-none">
                                 <Clock className="h-3.5 w-3.5" />
                               </div>
                             </div>
@@ -1423,7 +1582,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
 
                           {/* Clock Presets Dropdown */}
                           {showClockPresets && (
-                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-indigo-200 rounded-xl p-2.5 shadow-lg z-30 space-y-1.5 animate-fadeIn">
+                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-amber-500/20 rounded-xl p-2.5 shadow-lg z-30 space-y-1.5 animate-fadeIn">
                               <div className="text-[9px] font-black text-gray-400 uppercase tracking-wider px-1">Quick Clock Presets</div>
                               <div className="grid grid-cols-1 sm:grid-cols-4 gap-1">
                                 {["08:00 AM", "08:30 AM", "09:00 AM", "09:30 AM", "10:00 AM", "01:00 PM", "01:30 PM", "02:00 PM"].map(timePreset => (
@@ -1439,8 +1598,8 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                     }}
                                     className={`py-1.5 rounded-lg text-[10px] font-extrabold transition-all border cursor-pointer ${
                                       shiftConfigsParams[activeConfigShift].startTime === timePreset
-                                        ? "bg-indigo-600 border-indigo-600 text-white shadow-2xs"
-                                        : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-indigo-50 hover:border-indigo-200"
+                                        ? "bg-zinc-900 border-amber-500 text-amber-400 shadow-2xs"
+                                        : "bg-gray-50 border-gray-200 text-gray-700 hover:bg-amber-50 hover:border-amber-300"
                                     }`}
                                   >
                                     {timePreset}
@@ -1468,7 +1627,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                 [activeConfigShift]: { ...prev[activeConfigShift], periodDuration: val }
                               }));
                             }}
-                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-xs"
+                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-xs"
                           />
                         </div>
 
@@ -1488,7 +1647,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                 }
                               }));
                             }}
-                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-xs cursor-pointer"
+                            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-xs cursor-pointer"
                           >
                             <option value="duration">Specify Number of Periods</option>
                             <option value="fixed">Specify Shift End Time</option>
@@ -1513,7 +1672,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                   [activeConfigShift]: { ...prev[activeConfigShift], periodsCount: val }
                                 }));
                               }}
-                              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-xs"
+                              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-xs"
                             />
                           </div>
                         ) : (
@@ -1532,7 +1691,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                 }));
                               }}
                               placeholder="e.g. 04:30 PM"
-                              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-xs"
+                              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-xs"
                             />
                           </div>
                         )}
@@ -1543,7 +1702,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                     <div className="space-y-3 bg-white p-4 border border-slate-100 rounded-2xl shadow-card">
                       <div className="flex items-center justify-between border-b border-gray-100 pb-2">
                         <span className="text-[10px] uppercase font-bold text-gray-500 tracking-wider">Configured Breaks</span>
-                        <span className="text-[9px] text-indigo-500 font-bold bg-indigo-50 px-2 py-0.5 rounded-full">
+                        <span className="text-[9px] text-amber-600 font-bold bg-amber-50 px-2 py-0.5 rounded-full">
                           {shiftConfigsParams[activeConfigShift].breaks.length} Breaks
                         </span>
                       </div>
@@ -1576,7 +1735,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                       [activeConfigShift]: { ...prev[activeConfigShift], breaks: updatedBreaks }
                                     }));
                                   }}
-                                  className="h-auto w-auto p-1 text-gray-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                                  className="h-auto w-auto p-1 text-gray-400 hover:text-amber-500 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors disabled:opacity-30 disabled:pointer-events-none"
                                 >
                                   ▲
                                 </Button>
@@ -1594,7 +1753,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                       [activeConfigShift]: { ...prev[activeConfigShift], breaks: updatedBreaks }
                                     }));
                                   }}
-                                  className="h-auto w-auto p-1 text-gray-400 hover:text-indigo-600 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
+                                  className="h-auto w-auto p-1 text-gray-400 hover:text-amber-500 hover:bg-slate-100 rounded-lg cursor-pointer transition-colors"
                                 >
                                   ▼
                                 </Button>
@@ -1676,7 +1835,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                             }));
                             setNewBreakName("");
                           }}
-                          className="h-auto w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-extrabold py-2 rounded-xl border border-indigo-200 transition-colors cursor-pointer"
+                          className="h-auto w-full bg-amber-50 hover:bg-amber-100 text-amber-700 text-[10px] font-extrabold py-2 rounded-xl border border-amber-500/20 transition-colors cursor-pointer"
                         >
                           + Add Break to Shift
                         </Button>
@@ -1692,8 +1851,8 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                         <div className="bg-slate-900 text-white p-4.5 rounded-xl space-y-3.5 shadow-card border border-slate-800 animate-fadeIn">
                           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                             <div>
-                              <div className="text-[11px] uppercase font-black tracking-wider text-indigo-300 flex items-center gap-1.5">
-                                <Sparkles className="h-3.5 w-3.5 text-indigo-400" /> Live Timetable Preview
+                              <div className="text-[11px] uppercase font-black tracking-wider text-amber-300 flex items-center gap-1.5">
+                                <Sparkles className="h-3.5 w-3.5 text-amber-400" /> Live Timetable Preview
                               </div>
                               <p className="text-[9px] text-slate-400 font-semibold mt-0.5">Drag & drop breaks onto periods to reorder</p>
                             </div>
@@ -1715,7 +1874,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                           ) : schedule.items.length === 0 ? (
                             <p className="text-[10px] text-slate-500 font-semibold py-4 text-center">No periods calculated yet.</p>
                           ) : (
-                            <div className="relative border-l-2 border-indigo-500/40 ml-3 pl-4 py-1 space-y-2 text-[11px]">
+                            <div className="relative border-l-2 border-amber-500/40 ml-3 pl-4 py-1 space-y-2 text-[11px]">
                               {schedule.items.map((item, index) => {
                                 const isBreak = item.type === "break";
                                 const matchedBreak = isBreak
@@ -1760,7 +1919,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                       className={`absolute -left-[21px] top-3 w-2.5 h-2.5 rounded-full border-2 ${
                                         isBreak
                                           ? "bg-amber-400 border-amber-300 shadow-amber-500/50 shadow-sm"
-                                          : "bg-indigo-400 border-indigo-300 shadow-indigo-500/50 shadow-sm"
+                                          : "bg-amber-500 border-amber-400 shadow-amber-500/50 shadow-sm"
                                       }`}
                                     />
 
@@ -1770,7 +1929,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                         <span className={`font-black text-xs truncate ${isBreak ? "text-amber-300" : "text-slate-100"}`}>
                                           {item.name}
                                         </span>
-                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-900/90 text-indigo-300 border border-slate-700/80 shrink-0">
+                                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-slate-900/90 text-amber-300 border border-slate-700/80 shrink-0">
                                           {item.durationMinutes || 0}m
                                         </span>
                                         <Button
@@ -1785,7 +1944,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                             }
                                           }}
                                           title="Edit duration for this specific period/break"
-                                          className="h-auto w-auto p-1 rounded-md text-slate-400 hover:text-indigo-300 hover:bg-slate-700 transition-colors cursor-pointer"
+                                          className="h-auto w-auto p-1 rounded-md text-slate-400 hover:text-amber-300 hover:bg-slate-700 transition-colors cursor-pointer"
                                         >
                                           <Edit className="h-3 w-3" />
                                         </Button>
@@ -1801,7 +1960,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                       <div className="mt-1 pt-1.5 border-t border-slate-700/60 flex items-center justify-between gap-2 text-[10px] animate-fadeIn bg-slate-900/90 p-2 rounded-xl">
                                         <div>
                                           <span className="text-slate-200 font-extrabold block">Adjust Period {item.index} Duration:</span>
-                                          <span className="text-[8.5px] text-indigo-300/80 font-medium block">
+                                          <span className="text-[8.5px] text-amber-300/80 font-medium block">
                                             Only updates Period {item.index} & subsequent times
                                           </span>
                                         </div>
@@ -1828,7 +1987,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                           >
                                             −
                                           </Button>
-                                          <span className="font-mono font-extrabold text-indigo-300 w-8 text-center">
+                                          <span className="font-mono font-extrabold text-amber-300 w-8 text-center">
                                             {item.durationMinutes || shiftConfigsParams[activeConfigShift].periodDuration}m
                                           </span>
                                           <Button
@@ -1849,7 +2008,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                                                 }
                                               }));
                                             }}
-                                            className="h-auto w-auto h-5 w-5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-md flex items-center justify-center cursor-pointer"
+                                            className="h-auto w-auto h-5 w-5 bg-zinc-900 hover:bg-amber-500 text-white font-black rounded-md flex items-center justify-center cursor-pointer"
                                           >
                                             +
                                           </Button>
@@ -1949,8 +2108,8 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                 </div>
 
                 {/* Campus Info Summary */}
-                <div className="bg-indigo-50/40 border border-indigo-100 rounded-xl p-4 space-y-2">
-                  <div className="text-[10px] font-black text-indigo-700 uppercase tracking-wider mb-2">Campus Info</div>
+                <div className="bg-amber-500/5 border border-amber-500/20 rounded-xl p-4 space-y-2">
+                  <div className="text-[10px] font-black text-amber-700 uppercase tracking-wider mb-2">Campus Info</div>
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
                     <div>
                       <div className="text-[9px] text-gray-400 uppercase font-bold">Campus Name</div>
@@ -2008,7 +2167,7 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                         <div key={idx} className="bg-white border border-slate-100 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-card">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-extrabold text-xs text-gray-800">{c.name}</span>
-                            <span className="text-[8px] font-extrabold bg-indigo-50 border border-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded uppercase">
+                            <span className="text-[8px] font-extrabold bg-amber-50 border border-amber-200 text-amber-700 px-1.5 py-0.2 rounded uppercase">
                               {c.years}Y · {c.years * 2} Sem
                             </span>
                             <span className="text-[8.5px] font-bold text-gray-600 bg-gray-50 border border-gray-200 px-1.5 py-0.5 rounded-lg">
@@ -2024,12 +2183,12 @@ export const CampusWizardDialog: React.FC<CampusWizardDialogProps> = ({
                 {/* Shift Summary */}
                 <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 space-y-2">
                   <div className="text-[10px] font-black text-gray-700 uppercase tracking-wider mb-2">Shift Schedule</div>
-                  {(campusForm.has_shifts === 1 ? (["shift_1", "shift_2", "general"] as const) : (["general"] as const)).map(sh => {
+                  {(campusForm.has_shifts === 1 ? (["shift_1", "shift_2"] as const) : (["general"] as const)).map(sh => {
                     const p = shiftConfigsParams[sh];
                     const schedule = calculateShiftSchedule(p);
                     return (
                       <div key={sh} className="space-y-1">
-                        <div className="text-[10px] font-extrabold text-indigo-700">{p.label}</div>
+                        <div className="text-[10px] font-extrabold text-amber-700">{p.label}</div>
                         <div className="text-[9.5px] text-gray-600 font-bold">
                           Start: {p.startTime} · {p.periodsCount} Periods · {p.periodDuration} min/period
                           {schedule.overallEndTime && ` · Ends: ${schedule.overallEndTime}`}

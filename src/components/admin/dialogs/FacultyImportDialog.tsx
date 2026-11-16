@@ -38,13 +38,13 @@ export const FacultyImportDialog: React.FC<FacultyImportDialogProps> = ({
     >
       <div className="flex items-center justify-between border-b border-gray-100 pb-4">
         <div className="flex items-center gap-3">
-          <div className="p-3 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+          <div className="p-3 rounded-xl bg-amber-50 text-amber-500 border border-amber-200">
             <FileSpreadsheet className="h-6 w-6" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-base font-extrabold text-gray-900">Faculty Bulk Import Preview</h3>
-              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200">
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200">
                 {targetCollegeName}
               </span>
             </div>

@@ -644,7 +644,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
       case "scheduled":
         return <span className="px-2.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/20 dark:text-emerald-400 dark:border-emerald-800 text-[10px] font-black uppercase tracking-wider flex items-center gap-1"><CheckCircle className="h-3 w-3 shrink-0" /> Confirmed</span>;
       case "completed":
-        return <span className="px-2.5 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/20 dark:text-indigo-400 dark:border-indigo-800 text-[10px] font-black uppercase tracking-wider flex items-center gap-1"><Award className="h-3 w-3 shrink-0" /> Completed</span>;
+        return <span className="px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-indigo-950/20 dark:text-amber-400 dark:border-indigo-800 text-[10px] font-black uppercase tracking-wider flex items-center gap-1"><Award className="h-3 w-3 shrink-0" /> Completed</span>;
       case "reallocation_required":
         return <span className="px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/20 dark:text-amber-400 dark:border-amber-800 text-[10px] font-black uppercase tracking-wider flex items-center gap-1"><AlertTriangle className="h-3 w-3 shrink-0" /> On Hold (Awaiting Mentor Reschedule)</span>;
       case "pending":
@@ -760,7 +760,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 type="button"
                 onClick={() => handleTabChange(tab.id as any)}
                 className={`px-3.5 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${activeTab === tab.id
-                    ? "bg-slate-900 text-white dark:bg-indigo-600 dark:text-white shadow-xs"
+                    ? "bg-slate-900 text-white dark:btn-gradient dark:text-white shadow-xs"
                     : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
                   }`}
               >
@@ -860,7 +860,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                             {demo.mentorName}
                           </div>
                           <div className="text-[10px] text-slate-500 font-semibold">{demo.dateStr} • {demo.timeSlot}</div>
-                          <div className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase">{demo.subject} • {getMentorDept(demo.mentorId) || demo.stream}</div>
+                          <div className="text-[9px] text-amber-500 dark:text-amber-400 font-bold uppercase">{demo.subject} • {getMentorDept(demo.mentorId) || demo.stream}</div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {renderStatusBadge(demo.status)}
@@ -919,24 +919,24 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 p-3.5 rounded-2xl">
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <select aria-label="College filter" value={filterCollege} onChange={e => { setFilterCollege(e.target.value); setPage(1); }}
-                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer">
                       <option value="All">All Colleges</option>
                       {uniqueColleges.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <select aria-label="Subject filter" value={filterSubject} onChange={e => { setFilterSubject(e.target.value); setPage(1); }}
-                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer">
                       <option value="All">All Subjects</option>
                       {uniqueSubjects.map(s => <option key={s} value={s}>{s}</option>)}
                     </select>
                     <select aria-label="Mentor group filter" value={filterGroup} onChange={e => { setFilterGroup(e.target.value); setPage(1); }}
-                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+                      className="px-3 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer">
                       <option value="All">All Groups</option>
                       {uniqueGroups.map(g => <option key={g} value={g}>{g}</option>)}
                     </select>
                     <div className="relative">
                       <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input type="text" placeholder="Search mentor, date, subject..." value={searchQuery} onChange={e => { setSearchQuery(e.target.value); setPage(1); }}
-                        className="w-full pl-8 pr-8 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                        className="w-full pl-8 pr-8 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500" />
                       {searchQuery && (
                         <button
                           type="button"
@@ -967,7 +967,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           </div>
                           <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-100 dark:border-slate-800">
                             <span className="text-[8.5px] font-black uppercase tracking-wider text-slate-400 block mb-0.5">Group & College</span>
-                            <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 truncate block">
+                            <span className="text-xs font-black text-amber-500 dark:text-amber-400 truncate block">
                               {getMentorDept(demo.mentorId) || demo.stream || "General"}
                             </span>
                             <span className="text-[9px] text-slate-400 font-semibold truncate block">{getMentorCollege(demo.mentorId)}</span>
@@ -1095,7 +1095,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     label: "Skill Approvals",
                     subtitle: "Verify & approve student coding milestones",
                     icon: GraduationCap,
-                    bg: "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
+                    bg: "bg-amber-50 text-amber-500 dark:bg-indigo-950/40 dark:text-amber-400"
                   },
                   {
                     id: "eval_criteria",
@@ -1461,7 +1461,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                   <div className="relative flex-1 w-full">
                     <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input type="text" placeholder="Search evaluations by mentor, subject, or date..." value={historySearch} onChange={e => { setHistorySearch(e.target.value); setHistoryPage(1); }}
-                      className="w-full pl-10 pr-9 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                      className="w-full pl-10 pr-9 py-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500" />
                     {historySearch && (
                       <button
                         type="button"
@@ -1495,7 +1495,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                             <div className="min-w-0">
                               <h3 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{demo.mentorName}</h3>
                               <p className="text-[9.5px] text-slate-400 font-semibold">{demo.dateStr} • {demo.subject}</p>
-                              <p className="text-[9px] text-indigo-600 dark:text-indigo-400 font-bold uppercase">{getMentorCollege(demo.mentorId)}</p>
+                              <p className="text-[9px] text-amber-500 dark:text-amber-400 font-bold uppercase">{getMentorCollege(demo.mentorId)}</p>
                             </div>
                           </div>
                           <div className="flex items-center gap-3 shrink-0">
@@ -1550,7 +1550,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
             >
                 <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
                   <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <RefreshCw className="h-4.5 w-4.5 text-indigo-500" />
+                    <RefreshCw className="h-4.5 w-4.5 text-amber-500" />
                     Reallocate L&D Session
                   </h3>
                   <button onClick={() => setSwapModalSession(null)} className="text-slate-400 hover:text-slate-700 text-xs font-bold cursor-pointer">Close</button>
@@ -1566,7 +1566,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <div>
                       <label className="text-[9px] font-black uppercase text-slate-400 block mb-1.5">Reason for Reallocation</label>
                       <select value={swapReason} onChange={e => setSwapReason(e.target.value)}
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 font-bold cursor-pointer"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 font-bold cursor-pointer"
                         aria-label="Reason for Reallocation">
                         <option value="CM Approved Mentor Leave">CM Approved Mentor Leave</option>
                         <option value="SME Unavailable">SME Unavailable</option>
@@ -1577,7 +1577,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <div>
                       <label className="text-[9px] font-black uppercase text-slate-400 block mb-1.5">Remarks (Optional)</label>
                       <textarea rows={3} value={swapRemarks} onChange={e => setSwapRemarks(e.target.value)} placeholder="Provide context..."
-                        className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                         aria-label="Remarks (Optional)" />
                     </div>
                     <div className="flex gap-3 pt-2">
@@ -1592,7 +1592,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                       {currentSwapRecommendations.timeSwaps.length > 0 ? (
                         currentSwapRecommendations.timeSwaps.map((cand, idx) => (
                           <div key={idx} onClick={() => setSelectedProposedTime(cand)}
-                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${selectedProposedTime?.dateStr === cand.dateStr && selectedProposedTime?.timeSlot === cand.timeSlot ? "border-indigo-500 bg-indigo-50/20 dark:bg-indigo-950/20" : "border-slate-200/80 dark:border-slate-800 hover:border-indigo-300"}`}>
+                            className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${selectedProposedTime?.dateStr === cand.dateStr && selectedProposedTime?.timeSlot === cand.timeSlot ? "border-amber-500 bg-amber-50/20 dark:bg-indigo-950/20" : "border-slate-200/80 dark:border-slate-800 hover:border-amber-400"}`}>
                             <div className="flex-1">
                               <span className="text-xs font-bold text-slate-900 dark:text-white">{cand.dateStr}</span>
                               <span className="text-xs text-slate-500 block font-semibold">{cand.timeSlot}</span>
@@ -1600,10 +1600,10 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                             </div>
                             <div className="text-right flex items-center gap-2">
                               <div>
-                                <span className="text-[8px] font-black uppercase text-indigo-500 block">Match</span>
-                                <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{cand.score}%</span>
+                                <span className="text-[8px] font-black uppercase text-amber-500 block">Match</span>
+                                <span className="text-xs font-black text-amber-500 dark:text-amber-400">{cand.score}%</span>
                               </div>
-                              {selectedProposedTime?.dateStr === cand.dateStr && selectedProposedTime?.timeSlot === cand.timeSlot && <Check className="h-4.5 w-4.5 text-indigo-500 animate-fadeIn" />}
+                              {selectedProposedTime?.dateStr === cand.dateStr && selectedProposedTime?.timeSlot === cand.timeSlot && <Check className="h-4.5 w-4.5 text-amber-500 animate-fadeIn" />}
                             </div>
                           </div>
                         ))
@@ -1646,7 +1646,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <div>
                       <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Faculty Candidate</span>
                       <p className="text-xs font-bold text-slate-900 dark:text-white">{evaluationModalSession.mentorName}</p>
-                      <p className="text-[9px] text-indigo-600 font-bold uppercase mt-0.5">{getMentorCollege(evaluationModalSession.mentorId)}</p>
+                      <p className="text-[9px] text-amber-500 font-bold uppercase mt-0.5">{getMentorCollege(evaluationModalSession.mentorId)}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Subject</span>
@@ -1672,13 +1672,13 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           max={crit.max}
                           value={evalScores[crit.key] || 0}
                           onChange={e => updateScore(crit.key, Number(e.target.value), crit.max)}
-                          className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white text-center focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                         />
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex justify-between items-center p-3 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 rounded-xl text-xs font-bold">
+                  <div className="flex justify-between items-center p-3 bg-amber-50/40 dark:bg-indigo-950/20 border border-amber-200 rounded-xl text-xs font-bold">
                     <span className="text-slate-800 dark:text-slate-200">Calculated Total Marks:</span>
                     <span className={`text-sm font-black ${marks >= 80 ? "text-emerald-600" : marks >= 60 ? "text-amber-600" : "text-rose-600"}`}>{marks} / 100</span>
                   </div>
@@ -1700,7 +1700,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                       value={comments}
                       onChange={e => setComments(e.target.value)}
                       placeholder="Provide feedback on course knowledge, presentation delivery, confidence, student interaction..."
-                      className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                       aria-label="Pedagogical Comments &amp; Feedback"
                     />
                   </div>
@@ -1743,7 +1743,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <div>
                       <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Faculty</span>
                       <p className="text-xs font-bold text-slate-900 dark:text-white">{viewEvalSession.mentorName}</p>
-                      <p className="text-[9px] text-indigo-600 font-bold uppercase">{getMentorCollege(viewEvalSession.mentorId)}</p>
+                      <p className="text-[9px] text-amber-500 font-bold uppercase">{getMentorCollege(viewEvalSession.mentorId)}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Score</span>

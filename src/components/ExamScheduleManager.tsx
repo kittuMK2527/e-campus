@@ -1006,11 +1006,11 @@ export const ExamScheduleManager: React.FC<{
                 <h1 className="text-base font-extrabold text-slate-900 tracking-tight">
                   Exam Timetable &amp; Performance Studio
                 </h1>
-                <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase tracking-wider">
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-black uppercase tracking-wider">
                   Internal Assessments &amp; Semester
                 </span>
                 {isSyncing && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 animate-pulse bg-indigo-50/60 px-2 py-0.5 rounded-md">
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-500 animate-pulse bg-amber-50 px-2 py-0.5 rounded-md">
                     <RefreshCw className="h-2.5 w-2.5 animate-spin" /> Syncing...
                   </span>
                 )}
@@ -1026,7 +1026,7 @@ export const ExamScheduleManager: React.FC<{
                 onClick={() => setActiveMainTab("schedules")}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeMainTab === "schedules"
-                    ? "bg-white text-indigo-700 shadow-xs"
+                    ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
@@ -1037,7 +1037,7 @@ export const ExamScheduleManager: React.FC<{
                 onClick={() => setActiveMainTab("marks_registry")}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeMainTab === "marks_registry"
-                    ? "bg-white text-indigo-700 shadow-xs"
+                    ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
@@ -1081,7 +1081,7 @@ export const ExamScheduleManager: React.FC<{
                     disabled={loadingCampusMarks}
                     className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-sunken hover:bg-white border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 transition-all cursor-pointer"
                   >
-                    <RefreshCw className={`h-3.5 w-3.5 ${loadingCampusMarks ? "animate-spin text-indigo-600" : ""}`} />
+                    <RefreshCw className={`h-3.5 w-3.5 ${loadingCampusMarks ? "animate-spin text-amber-500" : ""}`} />
                     <span>Refresh</span>
                   </button>
 
@@ -1108,7 +1108,7 @@ export const ExamScheduleManager: React.FC<{
                 onClick={() => setActiveMainTab("schedules")}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeMainTab === "schedules"
-                    ? "bg-white text-indigo-700 shadow-xs"
+                    ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
@@ -1119,7 +1119,7 @@ export const ExamScheduleManager: React.FC<{
                 onClick={() => setActiveMainTab("marks_registry")}
                 className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                   activeMainTab === "marks_registry"
-                    ? "bg-white text-indigo-700 shadow-xs"
+                    ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
                     : "text-slate-500 hover:text-slate-800"
                 }`}
               >
@@ -1127,7 +1127,7 @@ export const ExamScheduleManager: React.FC<{
               </button>
             </div>
             {isSyncing && (
-              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 animate-pulse bg-indigo-50/60 px-2 py-0.5 rounded-md">
+              <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold text-amber-500 animate-pulse bg-amber-50 px-2 py-0.5 rounded-md">
                 <RefreshCw className="h-2.5 w-2.5 animate-spin" /> Syncing...
               </span>
             )}
@@ -1162,7 +1162,7 @@ export const ExamScheduleManager: React.FC<{
                   disabled={loadingCampusMarks}
                   className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-sunken hover:bg-white border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 transition-all cursor-pointer"
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${loadingCampusMarks ? "animate-spin text-indigo-600" : ""}`} />
+                  <RefreshCw className={`h-3.5 w-3.5 ${loadingCampusMarks ? "animate-spin text-amber-500" : ""}`} />
                   <span>Refresh</span>
                 </button>
 
@@ -1243,7 +1243,7 @@ export const ExamScheduleManager: React.FC<{
                   aria-label="Department"
                   value={selectedDeptFilter}
                   onChange={(e) => setSelectedDeptFilter(e.target.value)}
-                  className="h-10 pl-14 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="h-10 pl-14 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80"
                 >
                   <option value="all">All Departments</option>
                   {availableDepartments.map((d) => (
@@ -1262,7 +1262,7 @@ export const ExamScheduleManager: React.FC<{
                   aria-label="Semester"
                   value={selectedSemFilter}
                   onChange={(e) => setSelectedSemFilter(e.target.value)}
-                  className="h-10 pl-13 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="h-10 pl-13 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80"
                 >
                   <option value="all">All Semesters</option>
                   {allAvailableSemesters.map((s) => (
@@ -1299,7 +1299,7 @@ export const ExamScheduleManager: React.FC<{
                 placeholder="Search exam, subject, hall..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 w-full pl-9 pr-8 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                className="h-10 w-full pl-9 pr-8 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 transition-all"
               />
               {searchQuery && (
                 <button
@@ -1335,7 +1335,7 @@ export const ExamScheduleManager: React.FC<{
             ) : groupedExamBatches.length === 0 ? (
               <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center text-slate-400 shadow-card">
                 <div className="flex flex-col items-center justify-center gap-2">
-                  <div className="h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-500 mb-1">
+                  <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 mb-1">
                     <Award className="h-6 w-6" />
                   </div>
                   <p className="font-extrabold text-slate-700 text-sm">No Exam Timetables Published</p>
@@ -1361,19 +1361,19 @@ export const ExamScheduleManager: React.FC<{
                       className="p-4.5 sm:p-5 flex flex-wrap items-center justify-between gap-3 cursor-pointer select-none bg-slate-50/50 hover:bg-slate-50 transition-colors border-b border-slate-100"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-700 font-extrabold text-xs">
+                        <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-700 font-extrabold text-xs">
                           {batch.exam_type.substring(0, 3)}
                         </div>
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-sm font-extrabold text-slate-900">{batchTitle}</h3>
-                            <span className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-indigo-700 text-[10px] font-black uppercase">
+                            <span className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-black uppercase">
                               {batch.slots.length} {batch.slots.length === 1 ? "Subject" : "Subjects"}
                             </span>
                           </div>
                           <div className="flex items-center gap-3 text-[11px] text-slate-500 mt-1">
                             <span className="flex items-center gap-1 font-semibold text-slate-600">
-                              <Calendar className="h-3 w-3 text-indigo-500 shrink-0" />
+                              <Calendar className="h-3 w-3 text-amber-500 shrink-0" />
                               {batch.minDate} {batch.minDate !== batch.maxDate ? `to ${batch.maxDate}` : ""}
                             </span>
                             <span className="text-slate-300">•</span>
@@ -1418,7 +1418,7 @@ export const ExamScheduleManager: React.FC<{
                                 </div>
                                 <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase border shrink-0 ${
                                   subjectType === "SKILL"
-                                    ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                    ? "bg-amber-50 text-amber-700 border-amber-200"
                                     : subjectType === "LAB"
                                     ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                     : "bg-slate-100 text-slate-700 border-slate-200"
@@ -1428,7 +1428,7 @@ export const ExamScheduleManager: React.FC<{
                               </div>
                               <div className="flex flex-wrap items-center justify-between text-[11px] text-slate-600 dark:text-slate-300 gap-2 pt-1 border-t border-slate-200/50 dark:border-slate-700/50">
                                 <div className="flex items-center gap-1.5 font-bold">
-                                  <Calendar className="h-3 w-3 text-indigo-500 shrink-0" />
+                                  <Calendar className="h-3 w-3 text-amber-500 shrink-0" />
                                   <span>{slot.exam_date}</span>
                                   {slot.day_order && slot.day_order !== "None" && (
                                     <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-black">{slot.day_order}</span>
@@ -1486,7 +1486,7 @@ export const ExamScheduleManager: React.FC<{
                                   <TableCell className="p-3.5">
                                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${
                                       subjectType === "SKILL"
-                                        ? "bg-indigo-50 text-indigo-700 border-indigo-200"
+                                        ? "bg-amber-50 text-amber-700 border-amber-200"
                                         : subjectType === "LAB"
                                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                                         : subjectType === "GENERAL" || subjectType === "ELECTIVE"
@@ -1499,7 +1499,7 @@ export const ExamScheduleManager: React.FC<{
                                   <TableCell className="p-3.5 font-bold text-slate-800">
                                     <div className="flex flex-col gap-1">
                                       <div className="flex items-center gap-1.5">
-                                        <Calendar className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                                        <Calendar className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                                         <span>{slot.exam_date}</span>
                                       </div>
                                       {slot.day_order && slot.day_order !== "None" ? (
@@ -1609,7 +1609,7 @@ export const ExamScheduleManager: React.FC<{
                   onClick={() => setMarksExamTypeFilter("all")}
                   className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                     marksExamTypeFilter === "all"
-                      ? "bg-white text-indigo-700 shadow-2xs"
+                      ? "bg-white text-amber-700 shadow-2xs"
                       : "text-slate-500 hover:text-slate-800"
                   }`}
                 >
@@ -1627,7 +1627,7 @@ export const ExamScheduleManager: React.FC<{
                     onClick={() => setMarksExamTypeFilter(ex)}
                     className={`px-2.5 py-1 text-xs font-bold rounded-lg transition-all cursor-pointer whitespace-nowrap ${
                       marksExamTypeFilter === ex
-                        ? "bg-white text-indigo-700 shadow-2xs"
+                        ? "bg-white text-amber-700 shadow-2xs"
                         : "text-slate-500 hover:text-slate-800"
                     }`}
                   >
@@ -1643,7 +1643,7 @@ export const ExamScheduleManager: React.FC<{
                   aria-label="Department"
                   value={marksDeptFilter}
                   onChange={(e) => setMarksDeptFilter(e.target.value)}
-                  className="h-10 pl-14 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+                  className="h-10 pl-14 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80"
                 >
                   <option value="all">All Departments</option>
                   {availableDepartments.map((d) => (
@@ -1697,7 +1697,7 @@ export const ExamScheduleManager: React.FC<{
                 placeholder="Search student, roll no, subject..."
                 value={marksSearchQuery}
                 onChange={(e) => setMarksSearchQuery(e.target.value)}
-                className="h-10 w-full pl-9 pr-8 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all"
+                className="h-10 w-full pl-9 pr-8 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 transition-all"
               />
               {marksSearchQuery && (
                 <button
@@ -1733,7 +1733,7 @@ export const ExamScheduleManager: React.FC<{
                     {loadingCampusMarks ? (
                       <TableRow>
                         <TableCell colSpan={9} className="p-12 text-center text-slate-400 font-bold">
-                          <RefreshCw className="h-6 w-6 animate-spin mx-auto text-indigo-600 mb-2" />
+                          <RefreshCw className="h-6 w-6 animate-spin mx-auto text-amber-500 mb-2" />
                           Loading campus mark submissions...
                         </TableCell>
                       </TableRow>
@@ -1768,7 +1768,7 @@ export const ExamScheduleManager: React.FC<{
                             </TableCell>
                             <TableCell className="p-3.5">
                               <div className="flex items-center gap-1.5">
-                                <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase">
+                                <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[9px] font-black uppercase">
                                   {m.exam_type}
                                 </span>
                                 <span className="font-extrabold text-slate-900">{m.subject_name}</span>
@@ -1794,7 +1794,7 @@ export const ExamScheduleManager: React.FC<{
                                   : m.grade === "O" || m.grade === "A+" || m.grade === "A"
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                   : m.grade === "B+" || m.grade === "B"
-                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
                                   : isPass
                                   ? "bg-amber-50 text-amber-700 border border-amber-200"
                                   : "bg-rose-50 text-rose-700 border border-rose-200"
@@ -1856,7 +1856,7 @@ export const ExamScheduleManager: React.FC<{
             {/* Modal Header */}
             <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                <div className="h-10 w-10 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-center justify-center text-amber-500 shrink-0">
                   <CalendarRange className="h-5 w-5" />
                 </div>
                 <div>
@@ -1874,7 +1874,7 @@ export const ExamScheduleManager: React.FC<{
                   onClick={() => setFormStep(1)}
                   className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                     formStep === 1
-                      ? "bg-white text-indigo-600 shadow-xs font-black"
+                      ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -1900,7 +1900,7 @@ export const ExamScheduleManager: React.FC<{
                   }}
                   className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
                     formStep === 2
-                      ? "bg-white text-indigo-600 shadow-xs font-black"
+                      ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
                       : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
@@ -1936,7 +1936,7 @@ export const ExamScheduleManager: React.FC<{
                         placeholder="e.g. CIA 1, CIA 2, Model Exam, Semester End"
                         value={batchExamName}
                         onChange={(e) => setBatchExamName(e.target.value)}
-                        className="w-full px-3.5 py-2.5 border border-slate-200 inset-shadow-well rounded-xl bg-sunken focus:bg-white text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                        className="w-full px-3.5 py-2.5 border border-slate-200 inset-shadow-well rounded-xl bg-sunken focus:bg-white text-xs font-bold text-slate-900 outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80"
                       />
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                         {PRESET_EXAM_SUGGESTIONS.map((preset) => (
@@ -1946,7 +1946,7 @@ export const ExamScheduleManager: React.FC<{
                             onClick={() => setBatchExamName(preset)}
                             className={`px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer ${
                               batchExamName.trim().toLowerCase() === preset.toLowerCase()
-                                ? "bg-indigo-600 text-white shadow-2xs"
+                                ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-2xs font-bold"
                                 : "bg-slate-100 hover:bg-slate-200 text-slate-600"
                             }`}
                           >
@@ -1967,7 +1967,7 @@ export const ExamScheduleManager: React.FC<{
                           aria-label="Department"
                           value={batchDept}
                           onChange={(e) => setBatchDept(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                         >
                           {availableDepartments.map((d) => (
                             <option key={d} value={d}>{d}</option>
@@ -1984,7 +1984,7 @@ export const ExamScheduleManager: React.FC<{
                           aria-label="Semester"
                           value={batchSem}
                           onChange={(e) => setBatchSem(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                         >
                           {batchSemesters.map((s) => (
                             <option key={s} value={s}>{s}</option>
@@ -2005,7 +2005,7 @@ export const ExamScheduleManager: React.FC<{
                           aria-label="Starting Exam Date"
                           value={batchStartDate}
                           onChange={(e) => handleBatchStartDateChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                         />
                       </div>
 
@@ -2017,7 +2017,7 @@ export const ExamScheduleManager: React.FC<{
                           aria-label="Starting Day Order"
                           value={batchDefaultDayOrder}
                           onChange={(e) => handleBatchDayOrderChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                         >
                           <option value="Day 1">Day 1</option>
                           <option value="Day 2">Day 2</option>
@@ -2035,7 +2035,7 @@ export const ExamScheduleManager: React.FC<{
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Default Start Time</label>
-                          <span className="text-[9.5px] text-indigo-600 font-bold">Min: {collegeHours.startTimeStr}</span>
+                          <span className="text-[9.5px] text-amber-500 font-bold">Min: {collegeHours.startTimeStr}</span>
                         </div>
                         <input
                           type="time"
@@ -2044,14 +2044,14 @@ export const ExamScheduleManager: React.FC<{
                           aria-label="Start Time"
                           value={timeTo24h(batchCustomStartTime)}
                           onChange={(e) => handleBatchStartTimeChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                         />
                       </div>
 
                       <div className="space-y-1">
                         <div className="flex items-center justify-between">
                           <label className="text-[10px] font-bold text-slate-600 uppercase tracking-wider">Default End Time</label>
-                          <span className="text-[9.5px] text-indigo-600 font-bold">Max: {collegeHours.endTimeStr}</span>
+                          <span className="text-[9.5px] text-amber-500 font-bold">Max: {collegeHours.endTimeStr}</span>
                         </div>
                         <input
                           type="time"
@@ -2060,7 +2060,7 @@ export const ExamScheduleManager: React.FC<{
                           aria-label="End Time"
                           value={timeTo24h(batchCustomEndTime)}
                           onChange={(e) => handleBatchEndTimeChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                         />
                       </div>
                     </div>
@@ -2073,7 +2073,7 @@ export const ExamScheduleManager: React.FC<{
                         <h4 className="font-extrabold text-slate-900 text-xs uppercase tracking-wider">
                           {batchDept} Subjects Timetable
                         </h4>
-                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
                           {subjectRows.filter((r) => r.included).length} / {subjectRows.length} Included
                         </span>
                       </div>
@@ -2089,7 +2089,7 @@ export const ExamScheduleManager: React.FC<{
                         <button
                           type="button"
                           onClick={handleAddSubjectRow}
-                          className="min-h-[44px] px-3 py-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
+                          className="min-h-[44px] px-3 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
                         >
                           <Plus className="h-4 w-4" />
                           <span>Add Subject</span>
@@ -2103,7 +2103,7 @@ export const ExamScheduleManager: React.FC<{
                         <button
                           type="button"
                           onClick={handleAddSubjectRow}
-                          className="min-h-[44px] px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-700 cursor-pointer shadow-xs"
+                          className="min-h-[44px] px-4 py-2 btn-gradient text-white rounded-xl text-xs font-bold border border-amber-500/30 hover:border-amber-500/60 cursor-pointer shadow-xs"
                         >
                           + Add Subject
                         </button>
@@ -2115,7 +2115,7 @@ export const ExamScheduleManager: React.FC<{
                             key={`${row.subject_name}_${idx}`}
                             className={`p-3 rounded-xl border transition-all ${
                               row.included
-                                ? "bg-white border-slate-200 hover:border-indigo-200 shadow-2xs"
+                                ? "bg-white border-slate-200 hover:border-amber-200 shadow-2xs"
                                 : "bg-slate-50/70 border-slate-200/70 opacity-50"
                             }`}
                           >
@@ -2126,7 +2126,7 @@ export const ExamScheduleManager: React.FC<{
                                   type="checkbox"
                                   checked={row.included}
                                   onChange={() => toggleSubjectIncluded(idx)}
-                                  className="h-5 w-5 text-indigo-600 rounded cursor-pointer accent-indigo-600 shrink-0"
+                                  className="h-5 w-5 text-amber-500 rounded cursor-pointer accent-amber-500 shrink-0"
                                   title="Include in exam timetable"
                                 />
                                 <div className="flex-1 min-w-0">
@@ -2159,7 +2159,7 @@ export const ExamScheduleManager: React.FC<{
                                       placeholder="Subject Name"
                                       value={row.subject_name}
                                       onChange={(e) => updateSubjectRow(idx, { subject_name: e.target.value })}
-                                      className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs font-bold w-full outline-none focus:ring-1 focus:ring-indigo-500 bg-white min-h-[44px]"
+                                      className="px-2.5 py-2 border border-slate-200 rounded-lg text-xs font-bold w-full outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 bg-white min-h-[44px]"
                                     />
                                   )}
                                 </div>

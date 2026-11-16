@@ -149,7 +149,7 @@ export const SettingsTab: React.FC = () => {
             <p className="text-xs text-gray-600 font-medium leading-relaxed mt-2 bg-gray-50/80 p-3.5 rounded-xl border border-gray-200">
               When turned <strong className="text-gray-900 font-bold">OFF</strong>, all outgoing transactional emails
               (leave alerts, handover requests, demo swap proposals, interview notifications) are gracefully bypassed.{" "}
-              <span className="text-indigo-600 font-semibold">
+              <span className="text-amber-500 font-semibold">
                 Web application workflows will continue functioning normally without errors.
               </span>
             </p>
@@ -188,7 +188,7 @@ export const SettingsTab: React.FC = () => {
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card flex flex-col justify-between space-y-4">
           <div>
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center shrink-0">
                 <CheckCircle2 className="h-5 w-5" />
               </div>
               <div>
@@ -205,7 +205,7 @@ export const SettingsTab: React.FC = () => {
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   <span className="text-xs font-bold text-gray-800">Primary Provider</span>
                 </div>
-                <span className="text-[11px] font-mono font-extrabold text-indigo-600">Brevo REST API v3</span>
+                <span className="text-[11px] font-mono font-extrabold text-amber-500">Brevo REST API v3</span>
               </div>
 
               <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-200">
@@ -213,7 +213,7 @@ export const SettingsTab: React.FC = () => {
                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                   <span className="text-xs font-bold text-gray-800">Secondary Relay</span>
                 </div>
-                <span className="text-[11px] font-mono font-extrabold text-indigo-600">Brevo SMTP (Port 587)</span>
+                <span className="text-[11px] font-mono font-extrabold text-amber-500">Brevo SMTP (Port 587)</span>
               </div>
 
               <div className="flex items-center justify-between p-2.5 bg-gray-50 rounded-xl border border-gray-200">
@@ -281,7 +281,7 @@ export const SettingsTab: React.FC = () => {
                   When <strong className="text-amber-700 font-bold">ENABLED (Strict Mode)</strong>, direct attendance
                   marking is locked as soon as a period&apos;s scheduled end time passes or for prior calendar dates.
                   Faculty must request{" "}
-                  <span className="text-indigo-600 font-semibold">Campus Manager (CM) approval</span> with a reason to
+                  <span className="text-amber-500 font-semibold">Campus Manager (CM) approval</span> with a reason to
                   unlock the session.
                 </>
               ) : (

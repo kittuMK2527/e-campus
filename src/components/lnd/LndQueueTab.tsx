@@ -100,7 +100,7 @@ export default function LndQueueTab({
                         Week {req.week ?? "—"}
                       </span>
                       <span className={`px-1.5 py-0.5 rounded border text-[9px] font-black uppercase ${req.request_kind === "reschedule"
-                        ? "bg-indigo-50 dark:bg-indigo-950/40 border-indigo-200 text-indigo-700 dark:text-indigo-300"
+                        ? "bg-amber-50 dark:bg-indigo-950/40 border-amber-200 text-amber-700 dark:text-amber-300"
                         : "bg-amber-100 dark:bg-amber-950/40 border border-amber-200 text-amber-800 dark:text-amber-300"
                         }`}>
                         {req.request_kind === "reschedule" ? "Mentor Reschedule Request" : req.request_kind === "sme_swap" ? "SME Reallocation" : "Mentor Leave Reallocation"}

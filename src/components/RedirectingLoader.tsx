@@ -13,7 +13,7 @@ export function RedirectingLoader({ label = "Loading workspace…" }: { label?: 
       <div className="flex flex-col items-center gap-3">
         <img src="/E-Campus.png" alt="FACE Prep E-Campus" className="h-9 w-auto object-contain" />
         <div className="flex items-center gap-2">
-          <Loader2 className="h-4 w-4 text-indigo-600 animate-spin shrink-0" />
+          <Loader2 className="h-4 w-4 text-amber-500 animate-spin shrink-0" />
           <span className="text-xs font-bold text-slate-500">{label}</span>
         </div>
       </div>

@@ -7,6 +7,7 @@ export type ButtonVariant =
   | "brand"
   | "primary"
   | "gradient"
+  | "gold"
   | "secondary"
   | "destructive"
   | "danger"
@@ -51,6 +52,8 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         "bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white text-white dark:text-zinc-900 shadow-xs focus-visible:ring-2 focus-visible:ring-amber-500/50 border border-white/10",
       gradient:
         "btn-gradient text-white shadow-xs hover:opacity-95 focus-visible:ring-2 focus-visible:ring-amber-500/50",
+      gold:
+        "btn-gold text-zinc-950 font-black shadow-xs hover:shadow-amber-500/25 focus-visible:ring-2 focus-visible:ring-amber-500/50",
       secondary:
         "bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 focus-visible:ring-2 focus-visible:ring-slate-400 border-transparent",
       destructive:

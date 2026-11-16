@@ -54,7 +54,7 @@ async function bulkUpsertDailyConfigs(db: any, rows: any[][]) {
 
 async function handleAutoAdaptNextWeek(db: any, body: any) {
   const { college_id, reference_date, skip_sundays = false } = body;
-  
+
   if (!college_id) {
     return NextResponse.json({ success: false, message: "college_id is required" }, { status: 400, headers: noCacheHeaders });
   }
@@ -69,7 +69,7 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
   const refDayOfWeek = refDate.getDay(); // 0=Sun, 1=Mon, ...
   const refMonday = new Date(refDate);
   refMonday.setDate(refDate.getDate() - (refDayOfWeek === 0 ? 6 : refDayOfWeek - 1));
-  
+
   // Next week starts 7 days after reference Monday
   const nextMonday = new Date(refMonday);
   nextMonday.setDate(refMonday.getDate() + 7);
@@ -88,9 +88,9 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
   );
 
   if (refConfigs.length === 0) {
-    return NextResponse.json({ 
-      success: false, 
-      message: "No configuration found for reference week. Please configure the current week first." 
+    return NextResponse.json({
+      success: false,
+      message: "No configuration found for reference week. Please configure the current week first."
     }, { status: 400, headers: noCacheHeaders });
   }
 
@@ -181,8 +181,8 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
     console.error("Failed to write auto-adapt notifications:", errNotif);
   }
 
-  return NextResponse.json({ 
-    success: true, 
+  return NextResponse.json({
+    success: true,
     message: `Next week schedule auto-configured successfully (${insertedConfigs.length} days)`,
     configs: insertedConfigs,
     week_start: nextDates[0],

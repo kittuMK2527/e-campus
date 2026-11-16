@@ -36,7 +36,7 @@ export default function LndSmeTimetable({
       {/* Evaluator Header */}
       <div className="px-5 py-3 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900/90 dark:to-[#131317] border-b border-slate-200/80 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-lg bg-indigo-500/10 text-[#4F46E5] dark:text-[#818CF8] flex items-center justify-center font-black text-xs border border-pink-200/50 dark:border-pink-800/50">
+          <div className="h-8 w-8 rounded-lg bg-amber-500/10 text-[#4F46E5] dark:text-[#818CF8] flex items-center justify-center font-black text-xs border border-pink-200/50 dark:border-pink-800/50">
             {sme.name?.charAt(0) || "S"}
           </div>
           <div>

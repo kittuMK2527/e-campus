@@ -434,7 +434,7 @@ export const MentorsTab: React.FC = () => {
                   }}
                   className="gap-2 cursor-pointer text-xs"
                 >
-                  <Upload className="h-3.5 w-3.5 text-indigo-600" />
+                  <Upload className="h-3.5 w-3.5 text-amber-500" />
                   <span>Bulk Import (Excel / CSV)</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -621,7 +621,7 @@ export const MentorsTab: React.FC = () => {
                               setIsProfileOpen(true);
                             }}
                           >
-                            <Eye className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                            <Eye className="h-3.5 w-3.5 mr-2 text-amber-500" />
                             Workload Profile
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => handleOpenMentorModal(m)}>

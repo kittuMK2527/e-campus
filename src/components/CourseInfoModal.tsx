@@ -188,7 +188,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
 
         {/* Modal Header */}
         <div className="flex items-start gap-3.5 pr-8 border-b border-slate-100 pb-4 shrink-0">
-          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white flex items-center justify-center shadow-md shadow-indigo-500/20 shrink-0">
+          <div className="h-11 w-11 rounded-2xl bg-zinc-900 text-amber-400 border border-amber-500/30 flex items-center justify-center shadow-md shrink-0">
             <GraduationCap className="h-6 w-6" />
           </div>
           <div className="min-w-0 flex-1">
@@ -197,7 +197,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
                 {resolvedCourse.name}
               </h3>
               {resolvedCourse.code && (
-                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-100 font-bold text-[10px] tracking-wide uppercase">
+                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 font-bold text-[10px] tracking-wide uppercase">
                   {resolvedCourse.code}
                 </span>
               )}
@@ -238,7 +238,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
             onClick={() => setActiveTab("overview")}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === "overview"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs"
+                ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-2xs font-black"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
             }`}
           >
@@ -249,7 +249,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
             onClick={() => setActiveTab("curriculum")}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
               activeTab === "curriculum"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs"
+                ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-2xs font-black"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
             }`}
           >
@@ -263,7 +263,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
             onClick={() => setActiveTab("classrooms")}
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === "classrooms"
-                ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs"
+                ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-2xs font-black"
                 : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
             }`}
           >
@@ -279,7 +279,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <div className="p-3 bg-slate-50 border border-slate-100 rounded-xl space-y-1">
                   <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    <Clock className="h-3 w-3 text-indigo-500" />
+                    <Clock className="h-3 w-3 text-amber-500" />
                     <span>Duration</span>
                   </div>
                   <div className="text-sm font-extrabold text-slate-800">
@@ -333,20 +333,20 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
               </div>
 
               {/* Campus Live Statistics */}
-              <div className="p-3.5 rounded-xl bg-indigo-50/60 border border-indigo-100 space-y-2.5">
-                <span className="text-[10px] font-extrabold text-indigo-800 uppercase tracking-wider block">
+              <div className="p-3.5 rounded-xl bg-amber-500/5 border border-amber-500/20 space-y-2.5">
+                <span className="text-[10px] font-extrabold text-amber-800 uppercase tracking-wider block">
                   Campus Live Snapshot
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
-                  <div className="p-2 bg-white rounded-lg border border-indigo-100 shadow-2xs">
+                  <div className="p-2 bg-white rounded-lg border border-amber-200 shadow-2xs">
                     <div className="text-lg font-black text-slate-900">{enrolledStudents.length}</div>
                     <div className="text-[10px] text-slate-500 font-bold">Enrolled Students</div>
                   </div>
-                  <div className="p-2 bg-white rounded-lg border border-indigo-100 shadow-2xs">
+                  <div className="p-2 bg-white rounded-lg border border-amber-200 shadow-2xs">
                     <div className="text-lg font-black text-slate-900">{courseSubjects.length}</div>
                     <div className="text-[10px] text-slate-500 font-bold">Mapped Subjects</div>
                   </div>
-                  <div className="p-2 bg-white rounded-lg border border-indigo-100 shadow-2xs">
+                  <div className="p-2 bg-white rounded-lg border border-amber-200 shadow-2xs">
                     <div className="text-lg font-black text-slate-900">{activeCohorts.length}</div>
                     <div className="text-[10px] text-slate-500 font-bold">Active Cohorts</div>
                   </div>
@@ -426,7 +426,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
                                 ? "bg-amber-50 text-amber-700 border border-amber-200"
                                 : sub.type === "LAB"
                                 ? "bg-teal-50 text-teal-700 border border-teal-200"
-                                : "bg-indigo-50 text-indigo-700 border border-indigo-100"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
                             }`}>
                               {sub.type}
                             </span>
@@ -453,7 +453,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
                     {Object.entries(parsedRooms).map(([key, val]) => (
                       <div key={key} className="p-2.5 bg-white border border-slate-100 rounded-2xl flex items-center justify-between shadow-card">
                         <span className="text-[11px] font-bold text-slate-600 truncate">{key.replace(/^Year\s*/i, "Yr ")}:</span>
-                        <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 font-black text-xs">
+                        <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 font-black text-xs">
                           Room {String(val)}
                         </span>
                       </div>
@@ -487,7 +487,7 @@ export const CourseInfoModal: React.FC<CourseInfoModalProps> = ({
           <button
             type="button"
             onClick={handleCopyCode}
-            className="inline-flex items-center gap-1.5 text-slate-500 hover:text-indigo-600 text-xs font-bold transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-slate-500 hover:text-amber-600 text-xs font-bold transition-all cursor-pointer"
           >
             {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
             <span>{copied ? "Copied!" : "Copy Code"}</span>
@@ -562,7 +562,7 @@ export const CourseInfoButton: React.FC<CourseInfoButtonProps> = ({
           e.preventDefault();
           e.stopPropagation();
         }}
-        className={`inline-flex items-center justify-center rounded-full bg-indigo-50/90 hover:bg-indigo-600 text-indigo-600 hover:text-white border border-indigo-200/80 hover:border-indigo-600 transition-all shadow-2xs hover:shadow-xs active:scale-90 cursor-pointer shrink-0 select-none ${sizeClasses} ${className}`}
+        className={`inline-flex items-center justify-center rounded-full bg-amber-50/90 hover:bg-zinc-900 text-amber-600 hover:text-white border border-amber-200/80 hover:border-amber-500 transition-all shadow-2xs hover:shadow-xs active:scale-90 cursor-pointer shrink-0 select-none ${sizeClasses} ${className}`}
       >
         <Info className={`${iconSizes} stroke-[2.5]`} />
       </span>

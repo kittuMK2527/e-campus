@@ -41,7 +41,7 @@ const CAMDashboard = dynamic(() => import("@/components/CAMDashboard").then(m =>
   loading: () => (
     <div className="flex-1 flex items-center justify-center p-16 text-slate-400 font-bold text-sm">
       <div className="flex items-center gap-2">
-        <span className="h-4 w-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+        <span className="h-4 w-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         <span>Loading Campus Console…</span>
       </div>
     </div>
@@ -274,7 +274,7 @@ export const CampusesTab: React.FC<CampusesTabProps> = ({ onDrillDownCampus }) =
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <h3 className="font-extrabold text-base text-gray-900 tracking-tight">
-                    Unfinished Campus Setup: <span className="text-indigo-600">{draftData.campusForm?.name || "Untitled Campus"}</span>
+                    Unfinished Campus Setup: <span className="text-amber-500">{draftData.campusForm?.name || "Untitled Campus"}</span>
                   </h3>
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1.5 shadow-2xs">
                     <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -406,7 +406,7 @@ export const CampusesTab: React.FC<CampusesTabProps> = ({ onDrillDownCampus }) =
             return (
               <div
                 key={col.id}
-                className="p-5 rounded-2xl border border-slate-100 bg-white shadow-card hover:shadow-card-lg hover:border-indigo-100 transition-all flex flex-col justify-between min-h-[320px] relative overflow-hidden group"
+                className="p-5 rounded-2xl border border-slate-100 bg-white shadow-card hover:shadow-card-lg hover:border-amber-200 transition-all flex flex-col justify-between min-h-[320px] relative overflow-hidden group"
               >
                 {/* Shift badge in top-right corner */}
                 <div className="absolute top-4 right-4">
@@ -486,7 +486,7 @@ export const CampusesTab: React.FC<CampusesTabProps> = ({ onDrillDownCampus }) =
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
                       <DropdownMenuItem onClick={() => handleOpenCampusModal(col)}>
-                        <Edit className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                        <Edit className="h-3.5 w-3.5 mr-2 text-amber-500" />
                         Edit Campus
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleOpenConsole(col.id)}>

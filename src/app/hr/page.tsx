@@ -21,7 +21,7 @@ export default function HRPortalPage() {
         <div className="mx-auto max-w-7xl space-y-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border border-slate-100 rounded-2xl px-5 py-4 shadow-card">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center border border-indigo-100">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
                 <ShieldCheck className="h-5 w-5" />
               </div>
               <div>
@@ -39,7 +39,7 @@ export default function HRPortalPage() {
                 <select
                   value={activeCollege?.id || ""}
                   onChange={(e) => setSelectedCollegeId(e.target.value)}
-                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                 >
                   {colleges.map((c) => (
                     <option key={c.id} value={c.id}>

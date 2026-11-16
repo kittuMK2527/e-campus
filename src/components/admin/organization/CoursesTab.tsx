@@ -162,7 +162,7 @@ export const CoursesTab: React.FC = () => {
 
   const handleDuplicateCourse = async (dept: Department, collegeId: string) => {
     try {
-      const dupName = `${dept.name} (Copy)`;
+      const dupName = dept.name;
       const dupCode = dept.code ? `${dept.code}_COPY` : "";
       const payload: Omit<Department, "id"> = {
         name: dupName,
@@ -428,14 +428,14 @@ export const CoursesTab: React.FC = () => {
               <div className="p-4 bg-slate-50/70 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <button
                   onClick={() => setExpandedColleges(prev => ({ ...prev, [col.id]: !prev[col.id] }))}
-                  className="flex flex-wrap items-center gap-x-2 gap-y-1 hover:text-indigo-600 transition-all text-left font-extrabold cursor-pointer border-none bg-transparent p-0 max-w-full"
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 hover:text-amber-500 transition-all text-left font-extrabold cursor-pointer border-none bg-transparent p-0 max-w-full"
                 >
                   {isColExpanded ? (
                     <ChevronDown className="h-5 w-5 text-gray-500 shrink-0" />
                   ) : (
                     <ChevronRight className="h-5 w-5 text-gray-500 shrink-0" />
                   )}
-                  <Building2 className="h-5 w-5 text-indigo-600 shrink-0" />
+                  <Building2 className="h-5 w-5 text-amber-500 shrink-0" />
                   <div className="leading-tight flex-1 min-w-0">
                     <span className="text-sm font-black text-gray-900 block truncate sm:whitespace-normal">
                       {col.name}
@@ -444,7 +444,7 @@ export const CoursesTab: React.FC = () => {
                       {col.address || "No Address"}
                     </span>
                   </div>
-                  <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold ml-2 shrink-0">
+                  <span className="bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-[10px] font-bold ml-2 shrink-0">
                     {filteredDepts.length} course(s)
                   </span>
                 </button>
@@ -492,7 +492,7 @@ export const CoursesTab: React.FC = () => {
                                     setExpandedDepts(prev => ({ ...prev, [dept.id]: !prev[dept.id] }));
                                   }
                                 }}
-                                className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 hover:text-indigo-600 transition-all text-left font-bold cursor-pointer border-none bg-transparent p-0 max-w-full select-none"
+                                className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 hover:text-amber-500 transition-all text-left font-bold cursor-pointer border-none bg-transparent p-0 max-w-full select-none"
                               >
                                 {isDeptExpanded ? (
                                   <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
@@ -502,7 +502,7 @@ export const CoursesTab: React.FC = () => {
                                 <span className="text-xs font-black text-gray-900">{dept.name}</span>
                                 <CourseInfoButton course={dept} collegeId={col.id} size="xs" />
                                 {dept.code && (
-                                  <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-100 text-[9px] font-bold">
+                                  <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 text-[9px] font-bold">
                                     {dept.code}
                                   </span>
                                 )}
@@ -536,7 +536,7 @@ export const CoursesTab: React.FC = () => {
                                         </span>
                                       )}
                                       {shift2 > 0 && (
-                                        <span className="bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded text-[7.5px] font-black">
+                                        <span className="bg-amber-100 text-amber-700 px-1 py-0.5 rounded text-[7.5px] font-black">
                                           S2:{shift2}
                                         </span>
                                       )}
@@ -569,7 +569,7 @@ export const CoursesTab: React.FC = () => {
                                     </DropdownMenuTrigger>
                                     <DropdownMenuContent align="end" className="w-44">
                                       <DropdownMenuItem onClick={() => handleOpenCourseModal(dept, col.id)}>
-                                        <Edit className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                                        <Edit className="h-3.5 w-3.5 mr-2 text-amber-500" />
                                         Edit Course
                                       </DropdownMenuItem>
                                       <DropdownMenuItem onClick={() => handleDuplicateCourse(dept, col.id)}>
@@ -616,7 +616,7 @@ export const CoursesTab: React.FC = () => {
                                       <span className="text-[9px] uppercase tracking-wider text-gray-400 block mb-0.5">
                                         Code Prefix
                                       </span>
-                                      <span className="text-indigo-600 font-extrabold">{dept.code || "None"}</span>
+                                      <span className="text-amber-500 font-extrabold">{dept.code || "None"}</span>
                                     </div>
                                     <div>
                                       <span className="text-[9px] uppercase tracking-wider text-gray-400 block mb-0.5">
@@ -692,7 +692,7 @@ export const CoursesTab: React.FC = () => {
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-slate-50 border-b border-slate-100 font-bold text-gray-800 text-xs gap-2">
                                           <button
                                             onClick={() => toggleDeptYear(dept.id, yr)}
-                                            className="flex flex-wrap items-center gap-x-2 gap-y-1 hover:text-indigo-600 transition-all text-left font-extrabold cursor-pointer border-none bg-transparent p-0 max-w-full"
+                                            className="flex flex-wrap items-center gap-x-2 gap-y-1 hover:text-amber-500 transition-all text-left font-extrabold cursor-pointer border-none bg-transparent p-0 max-w-full"
                                           >
                                             {isYearExpanded ? (
                                               <ChevronDown className="h-4 w-4 text-gray-500 shrink-0" />
@@ -706,7 +706,7 @@ export const CoursesTab: React.FC = () => {
                                               </span>
                                             </div>
                                             <div className="flex flex-wrap gap-1.5 sm:ml-2">
-                                              <span className="bg-indigo-50 border border-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap">
+                                              <span className="bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap">
                                                 Sem {2 * (i + 1) - 1}: {semOddSubjects.length}
                                               </span>
                                               <span className="bg-purple-50 border border-purple-100 text-purple-700 px-2 py-0.5 rounded-full text-[9px] font-extrabold whitespace-nowrap">
@@ -718,7 +718,7 @@ export const CoursesTab: React.FC = () => {
                                           <Button
                                             variant="ghost"
                                             onClick={() => handleOpenSubjectModal(undefined, dept.name, yr, col.id)}
-                                            className="h-auto flex items-center justify-center gap-1 text-[10px] bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 px-2 py-1 rounded-lg transition-all font-bold cursor-pointer w-full sm:w-auto shrink-0"
+                                            className="h-auto flex items-center justify-center gap-1 text-[10px] bg-amber-50 border border-amber-200 text-amber-700 hover:bg-zinc-900 hover:text-white hover:border-amber-500 px-2 py-1 rounded-lg transition-all font-bold cursor-pointer w-full sm:w-auto shrink-0"
                                           >
                                             <Plus className="h-3 w-3" />
                                             Add Subject
@@ -730,7 +730,7 @@ export const CoursesTab: React.FC = () => {
                                           <div className="p-3.5 flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 bg-gray-50/30">
                                             {/* Odd semester */}
                                             <div className="space-y-2">
-                                              <span className="text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider block">
+                                              <span className="text-[10px] font-extrabold text-amber-700 uppercase tracking-wider block">
                                                 {semOdd} ({semOddSubjects.length})
                                               </span>
                                               {semOddSubjects.length === 0 ? (
@@ -753,7 +753,7 @@ export const CoursesTab: React.FC = () => {
                                                           onClick={() => handleOpenSubjectModal(s)}
                                                           className="h-6 w-6"
                                                         >
-                                                          <Edit className="h-3 w-3 text-gray-400 hover:text-indigo-600" />
+                                                          <Edit className="h-3 w-3 text-gray-400 hover:text-amber-500" />
                                                         </Button>
                                                       </div>
                                                     </div>
@@ -787,7 +787,7 @@ export const CoursesTab: React.FC = () => {
                                                           onClick={() => handleOpenSubjectModal(s)}
                                                           className="h-6 w-6"
                                                         >
-                                                          <Edit className="h-3 w-3 text-gray-400 hover:text-indigo-600" />
+                                                          <Edit className="h-3 w-3 text-gray-400 hover:text-amber-500" />
                                                         </Button>
                                                       </div>
                                                     </div>

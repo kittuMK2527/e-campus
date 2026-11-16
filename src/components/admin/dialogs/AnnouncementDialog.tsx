@@ -40,7 +40,7 @@ export const AnnouncementDialog: React.FC<AnnouncementDialogProps> = ({
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
         <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
-          <Megaphone className="h-5 w-5 text-indigo-600" />
+          <Megaphone className="h-5 w-5 text-amber-500" />
           Compose Campus Announcement
         </h3>
         <Button
@@ -64,7 +64,7 @@ export const AnnouncementDialog: React.FC<AnnouncementDialogProps> = ({
             placeholder="e.g. End Semester Examinations Schedule"
             value={form.title}
             onChange={(e) => onFormChange({ ...form, title: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
           />
         </div>
 
@@ -77,11 +77,11 @@ export const AnnouncementDialog: React.FC<AnnouncementDialogProps> = ({
             value={form.description}
             onChange={(e) => onFormChange({ ...form, description: e.target.value })}
             rows={4}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-semibold focus:outline-none focus:ring-1 focus:ring-indigo-600 text-gray-800 resize-none"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-gray-800 resize-none"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div className="space-y-1">
             <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Target Role</label>
             <Select
@@ -89,7 +89,7 @@ export const AnnouncementDialog: React.FC<AnnouncementDialogProps> = ({
               required
               value={form.target_role}
               onChange={(e) => onFormChange({ ...form, target_role: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="All">All Roles</option>
               <option value="student">Students</option>
@@ -104,7 +104,7 @@ export const AnnouncementDialog: React.FC<AnnouncementDialogProps> = ({
               aria-label="Target Campus"
               value={form.college_id}
               onChange={(e) => onFormChange({ ...form, college_id: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="">All Campuses</option>
               {colleges.map(c => (

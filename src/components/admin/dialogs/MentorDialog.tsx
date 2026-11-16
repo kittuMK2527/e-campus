@@ -79,7 +79,7 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
         <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
-          <Users className="h-5 w-5 text-indigo-600" />
+          <Users className="h-5 w-5 text-amber-500" />
           {editing ? "Edit Faculty Mentor" : "Add Faculty Mentor"}
         </h3>
         <Button
@@ -112,7 +112,7 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
               disabled={editing}
               value={form.id}
               onChange={e => onFormChange({ ...form, id: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-gray-100 disabled:text-gray-400"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 disabled:bg-gray-100 disabled:text-gray-400"
             />
           </div>
 
@@ -124,7 +124,7 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
               placeholder="e.g. MS (Leave blank to auto-generate)"
               value={form.avatar}
               onChange={e => onFormChange({ ...form, avatar: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
             />
           </div>
         </div>
@@ -138,7 +138,7 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
             placeholder="e.g. Dr. Alice Smith"
             value={form.name}
             onChange={e => onFormChange({ ...form, name: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
           />
         </div>
 
@@ -151,11 +151,11 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
             placeholder="e.g. alice.smith@faceprep.in"
             value={form.email}
             onChange={e => onFormChange({ ...form, email: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
           <div className="space-y-1">
             <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Assigned Campus</label>
             <Select
@@ -163,7 +163,7 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
               required
               value={form.college_id}
               onChange={e => onFormChange({ ...form, college_id: e.target.value })}
-              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="">Select Campus</option>
               {colleges.map(c => (
@@ -174,31 +174,31 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
             </Select>
           </div>
 
-          {isCampusShiftBased && (
-            <div className="space-y-1">
-              <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Shift Assignment</label>
-              <p className="text-[10px] text-slate-500 italic py-2">Shifts are assigned per slot, not per faculty member.</p>
-            </div>
-          )}
+          <div className="space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Mentor Group</label>
+            <Select
+              aria-label="Mentor Group"
+              required
+              value={form.mentor_group}
+              onChange={e => onFormChange({ ...form, mentor_group: e.target.value })}
+              className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer text-gray-800"
+            >
+              <option value="">— Select Mentor Group —</option>
+              {subjectGroups.map(sg => (
+                <option key={sg.id} value={sg.name}>
+                  {sg.name}
+                </option>
+              ))}
+            </Select>
+          </div>
         </div>
 
-        <div className="space-y-1">
-          <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Mentor Group</label>
-          <Select
-            aria-label="Mentor Group"
-            required
-            value={form.mentor_group}
-            onChange={e => onFormChange({ ...form, mentor_group: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800"
-          >
-            <option value="">— Select Mentor Group —</option>
-            {subjectGroups.map(sg => (
-              <option key={sg.id} value={sg.name}>
-                {sg.name}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {isCampusShiftBased && (
+          <div className="space-y-1">
+            <label className="text-[10px] text-gray-400 uppercase tracking-wider block">Shift Assignment</label>
+            <p className="text-[10px] text-slate-500 italic py-1">Shifts are assigned per slot, not per faculty member.</p>
+          </div>
+        )}
 
         {/* Subject Mapping Checklist */}
         <div className="space-y-1">
@@ -211,7 +211,7 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
               placeholder="Search subject catalog..."
               value={subjectSearch}
               onChange={e => setSubjectSearch(e.target.value)}
-              className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-600 font-bold"
+              className="w-full bg-gray-50 border border-gray-200 rounded-lg pl-8 pr-3 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 font-bold"
             />
           </div>
 
@@ -232,7 +232,7 @@ export const MentorDialog: React.FC<MentorDialogProps> = ({
                       }
                       onFormChange({ ...form, subjects: newList.join("\n") });
                     }}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 h-3.5 w-3.5 cursor-pointer mt-0.5"
+                    className="rounded text-amber-500 focus:ring-amber-500/80 focus:border-amber-500 h-3.5 w-3.5 cursor-pointer mt-0.5"
                   />
                   <div className="leading-tight">
                     <span className="font-bold text-gray-800">{s.name}</span>

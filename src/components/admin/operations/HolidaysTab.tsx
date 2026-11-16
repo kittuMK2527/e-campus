@@ -218,7 +218,7 @@ export const HolidaysTab: React.FC<HolidaysTabProps> = ({
               return (
                 <TableRow key={hol.id}>
                   <TableCell className="font-bold text-gray-900">{hol.title}</TableCell>
-                  <TableCell className="font-semibold text-indigo-600">{hol.date}</TableCell>
+                  <TableCell className="font-semibold text-amber-500">{hol.date}</TableCell>
                   <TableCell>
                     <Badge variant="secondary">{hol.type}</Badge>
                   </TableCell>

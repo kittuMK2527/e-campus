@@ -68,7 +68,7 @@ export const SessionsTab: React.FC<SessionsTabProps> = ({
 
       {isLoading && loginHistory.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-gray-400">
-          <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
+          <Loader2 className="h-7 w-7 animate-spin text-amber-500" />
           <p className="text-sm font-semibold">Loading login sessions…</p>
         </div>
       ) : loginHistory.length === 0 ? (
@@ -113,7 +113,7 @@ export const SessionsTab: React.FC<SessionsTabProps> = ({
                       </Badge>
                     )}
                   </TableCell>
-                  <TableCell className="font-semibold text-indigo-600">{formatDate(hist.login_time)}</TableCell>
+                  <TableCell className="font-semibold text-amber-500">{formatDate(hist.login_time)}</TableCell>
                   <TableCell className="font-mono text-gray-500">{hist.ip || "127.0.0.1"}</TableCell>
                   <TableCell className="text-gray-500">{hist.device || "Browser"}</TableCell>
                 </TableRow>

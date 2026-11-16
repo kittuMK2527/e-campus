@@ -93,10 +93,10 @@ const StatusBadge = ({ status }: { status: string }) => {
     pending_origin_cm: "bg-amber-50 text-amber-700 border-amber-200/80",
     pending_cm_acceptance: "bg-purple-50 text-purple-700 border-purple-200/80",
     capacity_partially_accepted: "bg-amber-50 text-amber-700 border-amber-200/80",
-    priority_allocation: "bg-indigo-50 text-indigo-700 border-indigo-200/80",
+    priority_allocation: "bg-amber-50 text-amber-700 border-amber-200/80",
     pending_final_confirmation: "bg-purple-50 text-purple-700 border-purple-200/80",
     assigned: "bg-blue-50 text-blue-700 border-blue-200/80",
-    pending_verification: "bg-indigo-50 text-indigo-700 border-indigo-200/80",
+    pending_verification: "bg-amber-50 text-amber-700 border-amber-200/80",
     completed: "bg-emerald-50 text-emerald-700 border-emerald-200/80",
     cancelled: "bg-slate-100 text-slate-600 border-slate-200",
     declined: "bg-rose-50 text-rose-700 border-rose-200/80",
@@ -168,8 +168,8 @@ const ConductedStatusBadge = ({
 
   if (status === "pending_verification") {
     return (
-      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-300">
-        <CheckSquare className="w-3 h-3 text-indigo-600" /> Evaluations Completed — Pending CM Verification
+      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-indigo-300">
+        <CheckSquare className="w-3 h-3 text-amber-500" /> Evaluations Completed — Pending CM Verification
       </span>
     );
   }
@@ -177,8 +177,8 @@ const ConductedStatusBadge = ({
   if (status === "assigned") {
     if (ev > 0) {
       return (
-        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-800 border border-indigo-300">
-          <Activity className="w-3 h-3 text-indigo-600" /> Conducting Evaluations ({ev}/{alloc})
+        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-100 text-amber-800 border border-indigo-300">
+          <Activity className="w-3 h-3 text-amber-500" /> Conducting Evaluations ({ev}/{alloc})
         </span>
       );
     }
@@ -677,7 +677,7 @@ const StudentConductedRosterDrawer = ({
                   <>
                     <span>·</span>
                     <a href={sessionMeetLink} target="_blank" rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-indigo-600 font-bold hover:underline bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                      className="inline-flex items-center gap-1 text-amber-500 font-bold hover:underline bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                       <Video className="w-3 h-3" /> Join Meet
                     </a>
                     <a href={sessionGcalLink} target="_blank" rel="noreferrer"
@@ -694,7 +694,7 @@ const StudentConductedRosterDrawer = ({
         {/* ── 5-Metric Summary Strip ── */}
         <div className="grid grid-cols-5 border-b border-slate-200 shrink-0">
           {[
-            { label: isPartnerCM ? "Campus Cap" : "Required", value: isPartnerCM ? (myCampusResponse?.accepted_student_capacity || displayStudents.length) : reqCount, color: "text-indigo-700" },
+            { label: isPartnerCM ? "Campus Cap" : "Required", value: isPartnerCM ? (myCampusResponse?.accepted_student_capacity || displayStudents.length) : reqCount, color: "text-amber-700" },
             { label: isPartnerCM ? "My Alloc"  : "Allocated",  value: isPartnerCM ? displayStudents.length : allocCount, color: "text-blue-700" },
             { label: "Evaluated", value: evalCount, color: "text-emerald-700" },
             { label: "Verified",  value: isCompleted ? evalCount : 0, color: "text-teal-700" },
@@ -757,7 +757,7 @@ const StudentConductedRosterDrawer = ({
                             </div>
                             {m.meetLink && (
                               <a href={m.meetLink} target="_blank" rel="noreferrer"
-                                className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-1 rounded-lg transition-all">
+                                className="shrink-0 inline-flex items-center gap-1 text-[10px] font-bold text-amber-500 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-1 rounded-lg transition-all">
                                 <Video className="w-3 h-3" /> Meet
                               </a>
                             )}
@@ -766,7 +766,7 @@ const StudentConductedRosterDrawer = ({
                           {/* Interview time slot */}
                           <div className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-[11px]">
                             <span className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                              <Clock className="w-3 h-3 text-indigo-500" />
+                              <Clock className="w-3 h-3 text-amber-500" />
                               {m.timing || "Time TBD"}
                             </span>
                             <span className="font-bold text-slate-800">{m.allocCount} candidates</span>
@@ -776,7 +776,7 @@ const StudentConductedRosterDrawer = ({
                           <div>
                             <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1.5">
                               <span>Evaluations</span>
-                              <span className="font-black text-indigo-700">{m.evalCount}/{m.allocCount} ({pct}%)</span>
+                              <span className="font-black text-amber-700">{m.evalCount}/{m.allocCount} ({pct}%)</span>
                             </div>
                             <div className="w-full h-1.5 rounded-full bg-slate-100 overflow-hidden">
                               <div className="h-full rounded-full transition-all"
@@ -829,14 +829,14 @@ const StudentConductedRosterDrawer = ({
                     placeholder="Search name or roll number…"
                     value={studentSearch}
                     onChange={(e) => setStudentSearch(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-sunken border border-slate-200 inset-shadow-well rounded-xl focus:bg-white focus:ring-1 focus:ring-indigo-500 outline-none font-semibold"
+                    className="w-full pl-8 pr-3 py-1.5 text-xs bg-sunken border border-slate-200 inset-shadow-well rounded-xl focus:bg-white focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none font-semibold"
                   />
                 </div>
                 <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-[10px] font-bold self-start">
                   {(["all", "evaluated", "pending", "cleared"] as const).map((f) => (
                     <button key={f} onClick={() => setStatusFilter(f)}
                       className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer capitalize ${
-                        statusFilter === f ? "bg-white text-indigo-700 shadow font-black" : "text-slate-500 hover:text-slate-800"
+                        statusFilter === f ? "bg-white text-amber-700 shadow font-black" : "text-slate-500 hover:text-slate-800"
                       }`}>
                       {f === "all" ? `All (${displayStudents.length})` : f === "evaluated" ? `Evaluated (${evalCount})` : f === "pending" ? `Pending (${Math.max(0, displayStudents.length - evalCount)})` : "Cleared"}
                     </button>
@@ -895,7 +895,7 @@ const StudentConductedRosterDrawer = ({
                               </Badge>
                             ) : isAssigned && meetHref ? (
                               <a href={meetHref} target="_blank" rel="noreferrer"
-                                className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-lg transition-all">
+                                className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-500 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-lg transition-all">
                                 <Video className="w-3 h-3" /> Meet
                               </a>
                             ) : <span className="text-slate-300 text-[10px]">—</span>}
@@ -904,7 +904,7 @@ const StudentConductedRosterDrawer = ({
                             {isEval ? (
                               <button type="button" onClick={() => setSelectedEval({ student: st, eval: ev })}
                                 className="flex flex-col text-left group cursor-pointer">
-                                <span className="font-black text-indigo-700 text-xs group-hover:underline flex items-center gap-1">
+                                <span className="font-black text-amber-700 text-xs group-hover:underline flex items-center gap-1">
                                   {ev.total_score}/10 <Eye className="w-3 h-3 opacity-50 group-hover:opacity-100" />
                                 </span>
                                 <span className="text-[9px] text-slate-400">{Math.round((Number(ev.total_score) || 0) * 10)}%</span>
@@ -989,7 +989,7 @@ const StudentConductedRosterDrawer = ({
               <div className="relative pl-6 space-y-5 pt-2 before:absolute before:left-2 before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200">
                 {/* Event 1 */}
                 <div className="relative">
-                  <div className="absolute -left-6 top-1 w-4 h-4 rounded-full border-2 border-white shadow bg-indigo-500" />
+                  <div className="absolute -left-6 top-1 w-4 h-4 rounded-full border-2 border-white shadow bg-amber-500" />
                   <Card><CardContent className="p-3.5 space-y-1">
                     <div className="flex items-center justify-between">
                       <p className="text-xs font-black text-slate-800">1. Interview Request Raised</p>
@@ -1221,7 +1221,7 @@ const PrioritySplitPreviewDialog: React.FC<PrioritySplitPreviewDialogProps> = ({
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                 Proposed Partner Campus Sessions ({allocations.length} Evaluator Segment{allocations.length > 1 ? "s" : ""})
               </span>
-              <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-lg">
+              <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-lg">
                 Estimated Duration: {formattedDuration}
               </span>
             </div>
@@ -1240,7 +1240,7 @@ const PrioritySplitPreviewDialog: React.FC<PrioritySplitPreviewDialogProps> = ({
                           {alloc.target_college_name || "Partner Campus"}
                         </div>
                         <div className="text-[10px] text-slate-500 font-semibold flex items-center gap-1.5">
-                          <User className="w-3 h-3 text-indigo-600" />
+                          <User className="w-3 h-3 text-amber-500" />
                           <span>Evaluator: {alloc.mentor_name || "Faculty Mentor"}</span>
                         </div>
                       </div>
@@ -2685,7 +2685,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     aria-label="Subject (Assigned Only)"
                     value={selectedSubject}
                     onChange={e => setSelectedSubject(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none cursor-pointer"
                   >
                     {mentorSubjects.length === 0
                       ? <option value="">No non-Tamil subjects assigned</option>
@@ -2701,7 +2701,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     aria-label="Class / Cohort"
                     value={selectedClassGroup}
                     onChange={e => setSelectedClassGroup(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none cursor-pointer"
                   >
                     {mentorClasses.map(c => {
                       const formatted = c === "III BCA" ? "BCA - Semester 5" : (c.includes("Sem") || c.includes("Year") ? c : `${c} - Semester 5`);
@@ -2722,7 +2722,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     className={`w-full p-2.5 border rounded-xl bg-white text-xs font-semibold focus:ring-1 outline-none cursor-pointer ${
                       targetDate && getExamDayInfo(targetDate)
                         ? "border-rose-400 focus:ring-rose-500 bg-rose-50/40 text-rose-900"
-                        : "border-slate-200 focus:ring-indigo-500 text-slate-800"
+                        : "border-slate-200 focus:ring-amber-500/80 focus:border-amber-500 text-slate-800"
                     }`}
                     required
                   />
@@ -2738,7 +2738,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
               {/* Informative Roster & Scheduling Banner */}
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-slate-700">
                 <div className="flex items-center gap-2 font-bold">
-                  <div className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600">
+                  <div className="p-1.5 rounded-lg bg-amber-50 text-amber-500">
                     <Users className="w-4 h-4" />
                   </div>
                   <div>
@@ -2773,7 +2773,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                   rows={3} value={topics}
                   onChange={e => setTopics(e.target.value)}
                   placeholder="e.g. Data Structures, React State Management, System Architecture, Algorithm Complexity"
-                  className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none placeholder-slate-300 resize-none"
+                  className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-medium focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none placeholder-slate-300 resize-none"
                   required
                 />
               </div>
@@ -2896,7 +2896,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                         : dayExamInfo
                         ? "bg-purple-50/30 border-purple-200 hover:border-purple-300"
                         : day.isCurrentMonth
-                        ? "bg-white border-slate-200/90 hover:border-indigo-300 hover:shadow-xs"
+                        ? "bg-white border-slate-200/90 hover:border-amber-400 hover:shadow-xs"
                         : "bg-slate-50/50 border-slate-100 text-slate-300"
                     }`}
                   >
@@ -3008,7 +3008,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                   ) : (
                     <div className="grid grid-cols-1 gap-3">
                       {scheduledInterviewsByDate[selectedCalendarDate].map((inv: any) => (
-                        <div key={inv.id} className="p-4 rounded-xl border border-slate-100 bg-slate-50/60 hover:border-indigo-200 transition-all space-y-2.5 shadow-2xs">
+                        <div key={inv.id} className="p-4 rounded-xl border border-slate-100 bg-slate-50/60 hover:border-amber-300 transition-all space-y-2.5 shadow-2xs">
                           <div className="flex items-center justify-between gap-2">
                             <StatusBadge status={inv.status} />
                             <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full border ${
@@ -3119,7 +3119,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                           <div key={idx} className="p-3.5 rounded-2xl border border-slate-100 bg-white shadow-card space-y-1.5">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-extrabold text-slate-800">Segment #{idx + 1}: {alloc.mentor_name}</span>
-                              <span className="text-[10px] font-black bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md border border-indigo-200">
+                              <span className="text-[10px] font-black bg-amber-50 text-amber-700 px-2 py-0.5 rounded-md border border-amber-200">
                                 {alloc.allocated_student_count} Students ({alloc.duration_minutes} Mins)
                               </span>
                             </div>
@@ -3232,7 +3232,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                             </span>
                           )}
                           {hasAssignedSlotsAsEvaluator && (
-                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
                               Evaluator ({reqStudents.length} Candidates)
                             </span>
                           )}
@@ -3249,7 +3249,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                               <User className="w-3 h-3 text-teal-600" /> In-Person (Campus)
                             </span>
                           ) : req.gmeet_link ? (
-                            <a href={req.gmeet_link} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-indigo-600 font-bold hover:underline">
+                            <a href={req.gmeet_link} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-amber-500 font-bold hover:underline">
                               <Video className="w-3 h-3" /> Meet Live
                             </a>
                           ) : null}
@@ -3261,7 +3261,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                           onClick={() => openRosterModal(req, "students")}
                           className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-extrabold px-3 py-2 rounded-xl transition-all cursor-pointer border border-slate-200 shadow-2xs"
                         >
-                          <Users className="w-3.5 h-3.5 text-indigo-600" />
+                          <Users className="w-3.5 h-3.5 text-amber-500" />
                           {isRaiser && isExternal ? "View Roster & External Scores" : "Student Conducted Roster"}
                         </button>
                         {req.type !== "internal" && (req.gmeet_link || (req.student_slots || []).find((s: any) => s.gmeet_link)?.gmeet_link) && (
@@ -3285,7 +3285,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                 setExpandedRequest(req.id); setSelectedStudent(null);
                               }
                             }}
-                            className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold px-4 py-2 rounded-xl transition-all cursor-pointer shrink-0 shadow-2xs"
+                            className="flex items-center gap-1.5 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white text-xs font-extrabold px-4 py-2 rounded-xl transition-all cursor-pointer shrink-0 shadow-2xs"
                           >
                             <Award className="w-3.5 h-3.5" />
                             {isExpanded ? "Close Evaluation" : (hasAssignedSlotsAsEvaluator ? `Evaluate My Candidates (${reqStudents.length})` : "Evaluate Students")}
@@ -3352,7 +3352,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                 placeholder="Search student name..."
                                 value={studentSearchQuery}
                                 onChange={e => setStudentSearchQuery(e.target.value)}
-                                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-indigo-500 outline-none"
+                                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl text-xs font-medium focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none"
                               />
                             </div>
 
@@ -3387,7 +3387,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                       onClick={() => setSelectedStudent(st)}
                                       className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
                                         isSelected
-                                          ? "bg-indigo-50/80 border-indigo-400 shadow-2xs ring-1 ring-indigo-400/20"
+                                          ? "bg-amber-50/80 border-indigo-400 shadow-2xs ring-1 ring-indigo-400/20"
                                           : evl
                                           ? "bg-emerald-50/40 border-emerald-200/80 hover:bg-emerald-50"
                                           : "bg-white border-slate-200 hover:border-slate-300"
@@ -3399,7 +3399,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                         </div>
                                         <div className="truncate">
                                           <div className="font-bold text-slate-800 text-xs truncate">{st.name}</div>
-                                          <div className="text-[10px] text-indigo-600 font-bold font-mono">
+                                          <div className="text-[10px] text-amber-500 font-bold font-mono">
                                             {st.register_number || st.roll_number || st.id}
                                             <span className="text-slate-400 font-medium font-sans ml-1.5">• {st.classGroup || "BCA - Semester 5"}</span>
                                           </div>
@@ -3440,7 +3440,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                   <div>
                                     <h4 className="font-black text-slate-800 text-sm flex items-center gap-2 flex-wrap">
                                       Evaluating: {selectedStudent.name}
-                                      <span className="text-xs px-2 py-0.5 rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-700 font-mono font-bold">
+                                      <span className="text-xs px-2 py-0.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 font-mono font-bold">
                                         {selectedStudent.register_number || selectedStudent.roll_number || selectedStudent.id}
                                       </span>
                                     </h4>
@@ -3490,7 +3490,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
                                     <div className="flex items-center gap-1.5">
                                       <span className="text-[10px] uppercase font-bold text-slate-400">Actual Duration:</span>
-                                      <span className="font-mono font-black text-xs text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200">
+                                      <span className="font-mono font-black text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                                         {evalAttendance === "absent" ? "0 mins (Absent)" : `${actualDuration} mins`}
                                       </span>
                                     </div>
@@ -3561,7 +3561,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                     {evalQuestions.map((qItem, idx) => (
                                       <div key={qItem.id} className="p-3 rounded-xl border border-slate-100 bg-slate-50/80 space-y-2.5">
                                         <div className="flex items-center gap-2">
-                                          <span className="w-6 h-6 rounded-lg bg-indigo-100 text-indigo-700 text-[10px] font-black flex items-center justify-center shrink-0">
+                                          <span className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 text-[10px] font-black flex items-center justify-center shrink-0">
                                             Q{idx + 1}
                                           </span>
                                           <input
@@ -3569,7 +3569,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                             value={qItem.question}
                                             placeholder={`Type question #${idx + 1} asked to student...`}
                                             onChange={e => handleUpdateQuestion(qItem.id, "question", e.target.value)}
-                                            className="font-bold text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none w-full"
+                                            className="font-bold text-xs text-slate-800 bg-white border border-slate-200 rounded-lg px-3 py-1.5 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none w-full"
                                           />
                                           {evalQuestions.length > 1 && (
                                             <button
@@ -3611,7 +3611,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                         };
                                         setEvalQuestions(prev => [...prev, newQ]);
                                       }}
-                                      className="w-full py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer border border-indigo-200/80 transition-all"
+                                      className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-black rounded-xl flex items-center justify-center gap-1.5 cursor-pointer border border-amber-200/80 transition-all"
                                     >
                                       <Plus className="w-3.5 h-3.5" /> Add Another Question Asked
                                     </button>
@@ -3634,7 +3634,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                     rows={2} value={remarks}
                                     onChange={e => setRemarks(e.target.value)}
                                     placeholder="e.g. Strong conceptual understanding, clear explanation..."
-                                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-medium outline-none focus:ring-1 focus:ring-indigo-500 placeholder-slate-300 resize-none"
+                                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-medium outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 placeholder-slate-300 resize-none"
                                   />
                                 </div>
 
@@ -3750,7 +3750,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                       <button
                                         onClick={() => handlePreviewPrioritySplit(req)}
                                         disabled={isLoadingSplit}
-                                        className="flex items-center gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-extrabold px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs disabled:opacity-50"
+                                        className="flex items-center gap-1.5 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white text-xs font-extrabold px-3 py-1.5 rounded-xl transition-all cursor-pointer shadow-2xs disabled:opacity-50"
                                         title="Distribute accepted student capacity across partner campus evaluators"
                                       >
                                         {isLoadingSplit && activeSplitInterview?.id === req.id ? (
@@ -3840,15 +3840,15 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                         onClick={() => openRosterModal(req, "students")}
                         className={`flex items-center gap-1.5 text-xs font-extrabold px-3 py-2 rounded-xl transition-all cursor-pointer border shadow-2xs ${
                           (req.evaluated_students || 0) > 0
-                            ? "bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200"
+                            ? "bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
                             : "bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-200"
                         }`}
                         title="View Student Roster, Marks, Evaluated Questions & Rubrics"
                       >
-                        <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                        <Eye className="w-3.5 h-3.5 text-amber-500" />
                         <span>Student Marks &amp; Questions</span>
                         {(req.evaluated_students || 0) > 0 && (
-                          <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full bg-indigo-600 text-white">
+                          <span className="text-[10px] font-black px-1.5 py-0.2 rounded-full btn-gradient text-white">
                             {req.evaluated_students}
                           </span>
                         )}
@@ -4072,8 +4072,8 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
                           {/* Assigned External Faculty List */}
                           {req.assigned_mentor_ids && JSON.parse(req.assigned_mentor_ids).length > 0 && (
-                            <div className="p-3.5 bg-indigo-50/60 border border-indigo-200 rounded-xl space-y-1.5">
-                              <div className="text-[10px] font-black text-indigo-900 uppercase">
+                            <div className="p-3.5 bg-amber-50/60 border border-amber-200 rounded-xl space-y-1.5">
+                              <div className="text-[10px] font-black text-zinc-900 uppercase">
                                 External Faculty Assigned to Conduct Evaluations
                               </div>
                               <div className="flex flex-wrap gap-2">
@@ -4081,8 +4081,8 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                   const m = mentors.find(x => x.id === id);
                                   const col = activeCollegesList.find(c => c.id === m?.college_id);
                                   return (
-                                    <span key={id} className="text-xs font-bold text-indigo-800 bg-white px-2.5 py-1 rounded-lg border border-indigo-200 flex items-center gap-1.5 shadow-2xs">
-                                      <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span key={id} className="text-xs font-bold text-amber-800 bg-white px-2.5 py-1 rounded-lg border border-amber-200 flex items-center gap-1.5 shadow-2xs">
+                                      <UserCheck className="w-3.5 h-3.5 text-amber-500" />
                                       {m?.name || id} {col ? `(${col.name})` : ""}
                                     </span>
                                   );
@@ -4114,7 +4114,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                     <Users className="w-4 h-4 text-[#4F46E5]" />
                                     Map Available Faculty Mentors During Free Periods — {req.subject}
                                   </h3>
-                                  <span className="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-lg">
+                                  <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
                                     Target Date: {req.target_date} ({targetDayName})
                                   </span>
                                 </div>
@@ -4141,7 +4141,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                       type="number" min={1} max={500} value={camStudentCount}
                                       aria-label="Total Candidate Capacity"
                                       onChange={e => setCamStudentCount(Number(e.target.value))}
-                                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none"
+                                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none"
                                       required
                                     />
                                     <p className="text-[9px] text-slate-400 font-medium">
@@ -4177,7 +4177,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                         setMentorSlotConfigs(newConfigs);
                                         setCamStudentCount(Math.max(1, freeMentors.length * 3));
                                       }}
-                                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-indigo-500 outline-none cursor-pointer"
+                                      className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none cursor-pointer"
                                     >
                                       {structuredSlots.map(s => (
                                         <option key={s.timeSlot} value={s.timeSlot}>
@@ -4195,14 +4195,14 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                     <div className="space-y-2 p-3 bg-slate-50/80 rounded-xl border border-slate-200">
                                       <div className="flex items-center justify-between gap-2">
                                         <label className="text-[10px] text-slate-700 uppercase font-black tracking-wider flex items-center gap-1.5">
-                                          <Video className="w-3.5 h-3.5 text-indigo-600" />
+                                          <Video className="w-3.5 h-3.5 text-amber-500" />
                                           Google Meet Link <span className="text-slate-400 font-normal">(Virtual Panel)</span>
                                         </label>
                                         <div className="flex items-center gap-1.5">
                                           <button
                                             type="button"
                                             onClick={generateGMeetLink}
-                                            className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                                            className="px-2.5 py-1 rounded-lg btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
                                             title="Generate a fresh Google Meet link instantly"
                                           >
                                             <Sparkles className="w-3 h-3" />
@@ -4227,7 +4227,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                           aria-label="Google Meet Link (Virtual Cross-Campus Panel)"
                                           onChange={e => setCmGmeetLink(e.target.value)}
                                           placeholder="https://meet.google.com/xxx-xxxx-xxx"
-                                          className="flex-1 p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-indigo-500 outline-none placeholder-slate-400"
+                                          className="flex-1 p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none placeholder-slate-400"
                                         />
                                         {cmGmeetLink.trim() && (
                                           <a
@@ -4322,7 +4322,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                             key={m.id}
                                             className={`p-3.5 rounded-xl border transition-all ${
                                               isMentorActive
-                                                ? "bg-indigo-50/50 border-indigo-300 shadow-xs"
+                                                ? "bg-amber-50/50 border-indigo-300 shadow-xs"
                                                 : "bg-white border-slate-200 hover:border-slate-300"
                                             }`}
                                           >
@@ -4345,14 +4345,14 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                                     clearMentorPeriods(m.id);
                                                   }
                                                 }}
-                                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 mt-1 cursor-pointer shrink-0"
+                                                className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500/80 focus:border-amber-500 mt-1 cursor-pointer shrink-0"
                                               />
 
                                               <div className="flex-1 min-w-0 space-y-2">
                                                 {/* Header Row: Mentor Name & Period Summary Badge */}
                                                 <div className="flex flex-wrap items-center justify-between gap-1.5">
                                                   <div className="flex items-center gap-1.5">
-                                                    <label htmlFor={`mentor_chk_${m.id}`} className="font-black text-slate-800 text-xs cursor-pointer hover:text-indigo-600">
+                                                    <label htmlFor={`mentor_chk_${m.id}`} className="font-black text-slate-800 text-xs cursor-pointer hover:text-amber-500">
                                                       {m.name}
                                                     </label>
                                                     <span className="text-[10px] text-slate-400 font-medium">({m.department || "Faculty"})</span>
@@ -4376,7 +4376,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                                         <button
                                                           type="button"
                                                           onClick={() => setMentorAllFreePeriods(m.id, freeStructuredSlots.map(s => s.timeSlot), 3)}
-                                                          className="text-[9px] font-black text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2 py-0.5 rounded-md transition-all cursor-pointer"
+                                                          className="text-[9px] font-black text-amber-700 hover:text-zinc-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-md transition-all cursor-pointer"
                                                           title="Select all free periods for this mentor"
                                                         >
                                                           + All Free ({freeStructuredSlots.length})
@@ -4451,8 +4451,8 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
                                                 {/* Selected Periods Configuration & Student Count Steppers */}
                                                 {isMentorActive && (
-                                                  <div className="mt-2 pt-2 border-t border-indigo-100 space-y-2 bg-white/90 p-2.5 rounded-xl border border-indigo-100">
-                                                    <div className="text-[9px] font-black uppercase text-indigo-900 flex items-center justify-between">
+                                                  <div className="mt-2 pt-2 border-t border-amber-200 space-y-2 bg-white/90 p-2.5 rounded-xl border border-amber-200">
+                                                    <div className="text-[9px] font-black uppercase text-zinc-900 flex items-center justify-between">
                                                       <span>Configured Period Batches for {m.name}:</span>
                                                       <span className="text-slate-500 font-bold">{activeSlotKeys.length} Period(s) • ~15m per Candidate</span>
                                                     </div>
@@ -4465,10 +4465,10 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                                         return (
                                                           <div
                                                             key={slotKey}
-                                                            className="flex flex-wrap items-center justify-between gap-2 p-2 bg-indigo-50/40 rounded-lg border border-indigo-200/80 text-xs"
+                                                            className="flex flex-wrap items-center justify-between gap-2 p-2 bg-amber-50/40 rounded-lg border border-amber-200/80 text-xs"
                                                           >
                                                             <div className="flex items-center gap-2">
-                                                              <span className="text-[9.5px] font-black text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded-md font-mono">
+                                                              <span className="text-[9.5px] font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md font-mono">
                                                                 {matchingPeriod?.periodLabel || "Slot"}
                                                               </span>
                                                               <span className="font-bold text-slate-800 text-xs">
@@ -4483,7 +4483,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                                                   type="button"
                                                                   onClick={() => updateMentorPeriodCount(m.id, slotKey, slotCandidateCount - 1)}
                                                                   disabled={slotCandidateCount <= 1}
-                                                                  className="p-1 rounded text-slate-600 hover:text-indigo-600 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                                                  className="p-1 rounded text-slate-600 hover:text-amber-500 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                                                                   title="Decrease students"
                                                                 >
                                                                   <Minus className="w-3 h-3" />
@@ -4499,14 +4499,14 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                                                 <button
                                                                   type="button"
                                                                   onClick={() => updateMentorPeriodCount(m.id, slotKey, slotCandidateCount + 1)}
-                                                                  className="p-1 rounded text-slate-600 hover:text-indigo-600 hover:bg-slate-100 cursor-pointer"
+                                                                  className="p-1 rounded text-slate-600 hover:text-amber-500 hover:bg-slate-100 cursor-pointer"
                                                                   title="Increase students"
                                                                 >
                                                                   <Plus className="w-3 h-3" />
                                                                 </button>
                                                              </div>
                                                               <span className="text-[10px] font-extrabold text-slate-700">Candidates</span>
-                                                              <span className="text-[9px] text-indigo-600 font-bold bg-indigo-50 px-1.5 py-0.5 rounded">
+                                                              <span className="text-[9px] text-amber-500 font-bold bg-amber-50 px-1.5 py-0.5 rounded">
                                                                 ~{slotCandidateCount * 15}m duration
                                                               </span>
                                                               <button
@@ -4554,7 +4554,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                           <Users className="w-3.5 h-3.5 text-[#4F46E5]" /> Priority Cohort Allocation ({cohortStudents.length} Enrolled)
                                         </span>
                                         <span className="text-[10px] font-bold text-slate-500">
-                                          Allocated: <strong className="text-indigo-600 font-extrabold">{selectedList.length}</strong> • Remaining: <strong className="text-amber-600 font-extrabold">{remainingList.length}</strong>
+                                          Allocated: <strong className="text-amber-500 font-extrabold">{selectedList.length}</strong> • Remaining: <strong className="text-amber-600 font-extrabold">{remainingList.length}</strong>
                                         </span>
                                       </div>
 
@@ -4609,7 +4609,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-200">
                                   <div className="text-xs text-slate-600 font-semibold space-y-1">
                                     <div>
-                                      <strong className="text-indigo-600 font-black">{activeMappedMentorIds.length}</strong> mentor(s) scheduled across <strong className="text-indigo-600 font-black">{totalPeriodsScheduled}</strong> period slot(s)
+                                      <strong className="text-amber-500 font-black">{activeMappedMentorIds.length}</strong> mentor(s) scheduled across <strong className="text-amber-500 font-black">{totalPeriodsScheduled}</strong> period slot(s)
                                       • Total Capacity: <strong className="text-slate-900 font-black">{camStudentCount} Students</strong>
                                     </div>
                                     {activeMappedMentorIds.length > 0 && (
@@ -4713,7 +4713,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                               title="View Assigned Faculty, Student Roster, Marks & Questions"
                               className="flex items-center gap-1 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[10px] font-extrabold px-2.5 py-1.5 rounded-lg transition-all shadow-2xs cursor-pointer whitespace-nowrap"
                             >
-                              <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                              <Eye className="w-3.5 h-3.5 text-amber-500" />
                               Logs &amp; Details
                             </button>
                             {(i.status === "assigned" || i.status === "pending_verification") && (
@@ -4735,8 +4735,8 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                               </span>
                             ) : i.gmeet_link ? (
                               <a href={i.gmeet_link} target="_blank" rel="noreferrer"
-                                className="flex items-center gap-1 text-indigo-600 bg-indigo-50 border border-indigo-200 text-[10px] font-bold px-2 py-1 rounded-lg hover:bg-indigo-100 transition-all">
-                                <Video className="w-3 h-3 text-indigo-600" /> Meet
+                                className="flex items-center gap-1 text-amber-500 bg-amber-50 border border-amber-200 text-[10px] font-bold px-2 py-1 rounded-lg hover:bg-amber-100 transition-all">
+                                <Video className="w-3 h-3 text-amber-500" /> Meet
                               </a>
                             ) : null}
                             <button
@@ -4824,7 +4824,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                             title="View Assigned Faculty, Student Roster, Marks & Questions"
                             className="flex items-center gap-1 text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-[10px] font-extrabold px-2.5 py-1.5 rounded-lg transition-all shadow-2xs cursor-pointer whitespace-nowrap"
                           >
-                            <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                            <Eye className="w-3.5 h-3.5 text-amber-500" />
                             Logs &amp; Details
                           </button>
                         </td>

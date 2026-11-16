@@ -14,7 +14,7 @@ const ExamScheduleManager = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex items-center justify-center gap-2 rounded-2xl border border-slate-100 bg-white shadow-card p-10 text-xs font-bold text-slate-400">
-        <span className="h-4 w-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin" />
+        <span className="h-4 w-4 rounded-full border-2 border-amber-500 border-t-transparent animate-spin" />
         Loading exam schedules…
       </div>
     )

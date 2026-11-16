@@ -410,7 +410,7 @@ export const SubjectsTab: React.FC = () => {
           onClick={() => setSubjectsSubTab("catalog")}
           className={`pb-2 px-1 text-xs font-black transition-all cursor-pointer ${
             subjectsSubTab === "catalog"
-              ? "border-b-2 border-indigo-600 text-indigo-600"
+              ? "border-b-2 border-amber-500 text-amber-500"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -420,7 +420,7 @@ export const SubjectsTab: React.FC = () => {
           onClick={() => setSubjectsSubTab("groups")}
           className={`pb-2 px-1 text-xs font-black transition-all cursor-pointer ${
             subjectsSubTab === "groups"
-              ? "border-b-2 border-indigo-600 text-indigo-600"
+              ? "border-b-2 border-amber-500 text-amber-500"
               : "text-gray-400 hover:text-gray-600"
           }`}
         >
@@ -580,7 +580,7 @@ export const SubjectsTab: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         <span className="font-bold text-gray-800 block">{sub.year || "Year 1"}</span>
-                        <span className="text-[10px] text-indigo-600 font-extrabold">{sub.semester}</span>
+                        <span className="text-[10px] text-amber-500 font-extrabold">{sub.semester}</span>
                       </TableCell>
                       <TableCell>
                         <Badge variant={typeVariant}>{typeLabel}</Badge>
@@ -597,7 +597,7 @@ export const SubjectsTab: React.FC = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuItem onClick={() => handleOpenSubjectModal(sub)}>
-                                <Edit className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                                <Edit className="h-3.5 w-3.5 mr-2 text-amber-500" />
                                 Edit Subject
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
@@ -685,7 +685,7 @@ export const SubjectsTab: React.FC = () => {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="w-40">
                               <DropdownMenuItem onClick={() => handleOpenGroupModal(g)}>
-                                <Edit className="h-3.5 w-3.5 mr-2 text-indigo-600" />
+                                <Edit className="h-3.5 w-3.5 mr-2 text-amber-500" />
                                 Edit Group
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />

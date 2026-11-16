@@ -50,7 +50,7 @@ export function BulkOperationDialog({ operation }: { operation: ReturnType<typeo
   const tone = s.phase === "warning" ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300" :
     !busy ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300" :
     s.danger ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300" :
-    "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300";
+    "bg-amber-50 text-amber-700 dark:bg-indigo-950/40 dark:text-amber-300";
   return (
     <Dialog open onOpenChange={open => { if (!open) operation.close(); }} ariaLabel={s.title} panelClassName="max-w-md">
       <DialogHeader>

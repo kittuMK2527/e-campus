@@ -291,9 +291,9 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
       <div className="p-4 bg-gradient-to-r from-slate-50 to-indigo-50/40 border border-slate-200 rounded-2xl space-y-3">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4 text-indigo-600" />
+            <ShieldCheck className="h-4 w-4 text-amber-500" />
             <span className="text-xs font-black uppercase tracking-wider text-slate-700">Approval Workflow Status</span>
-            <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-black uppercase">
+            <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase">
               Stage {currentStage} / 6
             </span>
           </div>
@@ -304,7 +304,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                 href={workflow.approval.kam_sheet_link}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-indigo-600 hover:bg-slate-50 shadow-2xs"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-amber-500 hover:bg-slate-50 shadow-2xs"
               >
                 <ExternalLink className="h-3 w-3" /> Monthly Sheet
               </a>
@@ -336,7 +336,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                     : isCurrent
                     ? isRejected
                       ? "bg-rose-50 border-rose-200 text-rose-900 ring-2 ring-rose-300"
-                      : "bg-white border-indigo-300 text-indigo-900 ring-2 ring-indigo-200 shadow-xs"
+                      : "bg-white border-indigo-300 text-zinc-900 ring-2 ring-indigo-200 shadow-xs"
                     : "bg-slate-100/60 border-slate-200 text-slate-400"
                 }`}
               >
@@ -347,7 +347,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                   ) : isCurrent && isRejected ? (
                     <XCircle className="h-3.5 w-3.5 text-rose-600 shrink-0" />
                   ) : isCurrent ? (
-                    <Clock className="h-3.5 w-3.5 text-indigo-600 animate-pulse shrink-0" />
+                    <Clock className="h-3.5 w-3.5 text-amber-500 animate-pulse shrink-0" />
                   ) : null}
                 </div>
                 <div className="text-[11px] font-black leading-tight truncate">{st.label}</div>
@@ -385,7 +385,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
           </span>
         )}
         <label className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer flex items-center gap-1.5 shadow-2xs">
-          <Upload className="h-3.5 w-3.5 text-indigo-600" />
+          <Upload className="h-3.5 w-3.5 text-amber-500" />
           {hasCollegeLogo ? "Replace College Logo" : "Upload College Logo (PNG)"}
           <input
             type="file"
@@ -459,7 +459,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
           type="button"
           onClick={() => setEmailModalOpen(true)}
           disabled={loading || !batches || batches.length === 0}
-          className="px-4 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-black border border-indigo-200 disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-2xs ml-auto"
+          className="px-4 py-2 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-black border border-amber-200 disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-2xs ml-auto"
         >
           <Mail className="h-4 w-4" /> Email Report
         </button>
@@ -518,7 +518,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="p-4 rounded-2xl border border-slate-100 bg-white shadow-card space-y-1">
               <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-indigo-500" /> Number of Working Days
+                <Calendar className="h-3.5 w-3.5 text-amber-500" /> Number of Working Days
               </span>
               <div className="text-2xl font-black text-slate-900">
                 {reportSummary?.workingDays ?? 24} <span className="text-xs font-bold text-slate-400">days</span>
@@ -541,10 +541,10 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
             </div>
 
             <div className="p-4 rounded-2xl border border-slate-100 bg-white shadow-card space-y-1">
-              <span className="text-[10px] font-black uppercase text-indigo-600 tracking-wider flex items-center gap-1.5">
-                <BarChart3 className="h-3.5 w-3.5 text-indigo-500" /> Skill Development
+              <span className="text-[10px] font-black uppercase text-amber-500 tracking-wider flex items-center gap-1.5">
+                <BarChart3 className="h-3.5 w-3.5 text-amber-500" /> Skill Development
               </span>
-              <div className="text-2xl font-black text-indigo-700">
+              <div className="text-2xl font-black text-amber-700">
                 {batches?.[0]?.technical?.problemsSolvedAvg ?? 16} <span className="text-xs font-bold text-slate-400">/ {problemsAssigned} solved</span>
               </div>
               <p className="text-[10px] text-slate-500 font-medium">
@@ -570,7 +570,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
             <div className="flex items-center justify-between">
               <div>
                 <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                  <Users className="h-4 w-4 text-indigo-600" />
+                  <Users className="h-4 w-4 text-amber-500" />
                   Department-Wise Data (I Year &amp; II Year)
                 </h4>
                 <p className="text-[11px] text-slate-500 mt-0.5">
@@ -598,7 +598,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                     reportSummary.deptWiseData.map((d: any) => (
                       <tr key={d.department} className="hover:bg-slate-50/60 transition-colors">
                         <td className="p-3 font-bold text-slate-800">{d.department}</td>
-                        <td className="p-3 text-center font-black text-indigo-600">{d.firstYear}</td>
+                        <td className="p-3 text-center font-black text-amber-500">{d.firstYear}</td>
                         <td className="p-3 text-center font-black text-violet-600">{d.secondYear}</td>
                         <td className="p-3 text-center font-black text-slate-900">{d.total}</td>
                         <td className="p-3 text-slate-500">
@@ -665,7 +665,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
             {/* Events */}
             <div className="p-5 rounded-2xl border border-slate-100 bg-white shadow-card space-y-3">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-indigo-500" />
+                <Calendar className="h-4 w-4 text-amber-500" />
                 Campus Events ({reportSummary?.events?.length || 0})
               </h4>
               <div className="space-y-2">
@@ -679,7 +679,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                         </div>
                       </div>
                       <div className="text-right">
-                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-50 text-amber-700 border border-amber-200">
                           {ev.status || "Completed"}
                         </span>
                         <div className="text-[10px] text-slate-400 font-mono mt-0.5">{ev.date}</div>
@@ -719,33 +719,33 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
           </div>
 
           {/* 4. Next Month Target */}
-          <div className="p-5 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/30 to-violet-50/30 space-y-3 shadow-card">
+          <div className="p-5 rounded-2xl border border-amber-200 bg-gradient-to-r from-indigo-50/30 to-violet-50/30 space-y-3 shadow-card">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <h4 className="text-xs font-black uppercase tracking-wider text-indigo-900 flex items-center gap-2">
-                <Target className="h-4 w-4 text-indigo-600" />
+              <h4 className="text-xs font-black uppercase tracking-wider text-zinc-900 flex items-center gap-2">
+                <Target className="h-4 w-4 text-amber-500" />
                 Next Month Target ({reportSummary?.nextMonthTarget?.targetMonth || "Next Month"} {reportSummary?.nextMonthTarget?.targetYear || year})
               </h4>
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-600 text-white text-[10px] font-black">
+              <span className="px-2.5 py-0.5 rounded-full btn-gradient text-white text-[10px] font-black">
                 Target Working Days: {reportSummary?.nextMonthTarget?.targetWorkingDays ?? 24}
               </span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 bg-white rounded-xl border border-indigo-100 text-xs">
+              <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase">Target Attendance</span>
-                <p className="text-base font-black text-indigo-700 mt-0.5">
+                <p className="text-base font-black text-amber-700 mt-0.5">
                   &gt;= {reportSummary?.nextMonthTarget?.targetAttendancePct ?? 92}%
                 </p>
               </div>
-              <div className="p-3 bg-white rounded-xl border border-indigo-100 text-xs">
+              <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase">LeetCode Benchmark</span>
-                <p className="text-base font-black text-indigo-700 mt-0.5">
+                <p className="text-base font-black text-amber-700 mt-0.5">
                   {reportSummary?.nextMonthTarget?.targetCodingProblems ?? 30} problems / student
                 </p>
               </div>
-              <div className="p-3 bg-white rounded-xl border border-indigo-100 text-xs">
+              <div className="p-3 bg-white rounded-xl border border-amber-200 text-xs">
                 <span className="text-[9px] font-bold text-slate-400 uppercase">Placement Target</span>
-                <p className="text-base font-black text-indigo-700 mt-0.5">
+                <p className="text-base font-black text-amber-700 mt-0.5">
                   100% Mock Assessment
                 </p>
               </div>
@@ -761,7 +761,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                   "100% Semester Academic Delivery Compliance"
                 ]).map((m: string, i: number) => (
                   <li key={i} className="flex items-center gap-2">
-                    <Check className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+                    <Check className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                     <span>{m}</span>
                   </li>
                 ))}
@@ -777,7 +777,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
           <div className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-card-lg border border-slate-100 animate-scaleUp">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <Mail className="h-5 w-5 text-indigo-600" />
+                <Mail className="h-5 w-5 text-amber-500" />
                 <h4 className="text-sm font-black text-slate-900">Email Monthly Campus Report</h4>
               </div>
               <button
@@ -805,7 +805,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                   value={emailRecipient}
                   onChange={(e) => setEmailRecipient(e.target.value)}
                   placeholder="admin@campus.edu"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                 />
               </div>
 
@@ -826,7 +826,7 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                 type="button"
                 onClick={handleSendReportEmail}
                 disabled={sendingEmail}
-                className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
+                className="px-4 py-2 rounded-lg btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white text-xs font-black flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer"
               >
                 {sendingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Mail className="h-4 w-4" />}
                 {sendingEmail ? "Dispatching…" : "Send Email Report"}
@@ -890,18 +890,18 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
             <div className="p-4 rounded-2xl border border-slate-100 bg-white space-y-2 shadow-card">
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider flex items-center gap-1.5">
-                  <ClipboardList className="h-3.5 w-3.5 text-indigo-500" /> Daily Activity &amp; KAM Logs
+                  <ClipboardList className="h-3.5 w-3.5 text-amber-500" /> Daily Activity &amp; KAM Logs
                 </span>
                 <span className="text-xs font-bold text-slate-700">
                   {workflow.dailyLogs?.total || 0} logged in {MONTHS[month]}
                 </span>
               </div>
               <div className="grid grid-cols-2 gap-2 pt-1">
-                <div className="p-2.5 bg-indigo-50/50 rounded-lg border border-indigo-100">
+                <div className="p-2.5 bg-amber-50/50 rounded-lg border border-amber-200">
                   <div className="text-[9px] font-bold text-slate-500 uppercase">KAM Reviewed</div>
-                  <div className="text-base font-black text-indigo-700">
+                  <div className="text-base font-black text-amber-700">
                     {workflow.dailyLogs?.reviewRatePct || 0}%
-                    <span className="text-[10px] font-semibold text-indigo-500 ml-1">
+                    <span className="text-[10px] font-semibold text-amber-500 ml-1">
                       ({workflow.dailyLogs?.reviewedCount || 0}/{workflow.dailyLogs?.total || 0})
                     </span>
                   </div>
@@ -1092,9 +1092,9 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
             <div key={b.batchName} className="p-4 rounded-2xl border border-slate-100 bg-white space-y-3 shadow-card">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-indigo-500" />
+                  <Users className="h-4 w-4 text-amber-500" />
                   <span className="text-sm font-black text-slate-900">{b.batchTitle || b.batchName}</span>
-                  <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[9px] font-black uppercase border border-indigo-100">
+                  <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 text-[9px] font-black uppercase border border-amber-200">
                     {b.totalStudents} students
                   </span>
                 </div>
@@ -1112,8 +1112,8 @@ export function SkillReportPanel({ collegeId, collegeName }: { collegeId: string
                   </p>
                 </div>
                 {/* Technical */}
-                <div className="p-3 bg-indigo-50/40 border border-indigo-100 rounded-xl">
-                  <span className="text-[8.5px] font-black uppercase text-indigo-700 flex items-center gap-1">
+                <div className="p-3 bg-amber-50/40 border border-amber-200 rounded-xl">
+                  <span className="text-[8.5px] font-black uppercase text-amber-700 flex items-center gap-1">
                     <BarChart3 className="h-3 w-3" /> Technical (LeetCode)
                   </span>
                   <p className="text-lg font-black text-slate-800 mt-1">{b.technical.classAveragePct}%</p>

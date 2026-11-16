@@ -220,7 +220,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
               placeholder="Search name, roll no, reg no…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-8 py-1.5 text-xs font-semibold bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full pl-9 pr-8 py-1.5 text-xs font-semibold bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-2xl focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
             />
             {search && (
               <button
@@ -275,7 +275,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
               {loading ? (
                 <TableRow>
                   <TableCell colSpan={8} className="py-12 text-center text-slate-400 font-bold">
-                    <div className="h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <div className="h-6 w-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                     Loading student directory…
                   </TableCell>
                 </TableRow>
@@ -290,15 +290,15 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                   <TableRow
                     key={st.id}
                     onClick={() => setSelectedStudentId(st.id)}
-                    className="hover:bg-indigo-50/40 cursor-pointer transition-colors group"
+                    className="hover:bg-amber-50/40 cursor-pointer transition-colors group"
                   >
                     <TableCell>
                       <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs">
+                        <div className="h-7 w-7 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center font-bold text-xs">
                           <User className="h-3.5 w-3.5" />
                         </div>
                         <div>
-                          <p className="font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
+                          <p className="font-extrabold text-slate-900 group-hover:text-amber-500 transition-colors">
                             {st.name}
                           </p>
                           <p className="text-[10px] text-slate-400 font-medium">{st.email || "No email"}</p>
@@ -355,7 +355,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                           e.stopPropagation();
                           setSelectedStudentId(st.id);
                         }}
-                        className="h-7 w-7 text-indigo-600 hover:bg-indigo-600 hover:text-white"
+                        className="h-7 w-7 text-amber-500 hover:btn-gradient hover:text-white"
                         title="View Student 360"
                       >
                         <Eye className="h-3.5 w-3.5" />

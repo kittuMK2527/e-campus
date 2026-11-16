@@ -89,14 +89,14 @@ export const HierarchyTab: React.FC<HierarchyTabProps> = ({
         <div className="space-y-2">
           <div
             onClick={() => toggleNode("admin")}
-            className="flex items-center gap-2.5 p-3.5 bg-white border border-indigo-100 rounded-2xl max-w-md shadow-card cursor-pointer hover:border-indigo-300 transition-all"
+            className="flex items-center gap-2.5 p-3.5 bg-white border border-amber-200 rounded-2xl max-w-md shadow-card cursor-pointer hover:border-amber-400 transition-all"
           >
             {expandedNodes["admin"] ? (
-              <ChevronDown className="h-4 w-4 text-indigo-600" />
+              <ChevronDown className="h-4 w-4 text-amber-500" />
             ) : (
-              <ChevronRight className="h-4 w-4 text-indigo-600" />
+              <ChevronRight className="h-4 w-4 text-amber-500" />
             )}
-            <div className="h-8 w-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-black text-xs shadow-xs">
+            <div className="h-8 w-8 rounded-full bg-zinc-900 text-white flex items-center justify-center font-black text-xs shadow-xs">
               SU
             </div>
             <div>
@@ -127,7 +127,7 @@ export const HierarchyTab: React.FC<HierarchyTabProps> = ({
                   <div key={kam.id} className="space-y-2">
                     <div
                       onClick={() => toggleNode(kamNodeId)}
-                      className="flex items-center gap-2.5 p-3 bg-white border border-slate-100 rounded-2xl max-w-sm shadow-card cursor-pointer hover:border-indigo-300 transition-all"
+                      className="flex items-center gap-2.5 p-3 bg-white border border-slate-100 rounded-2xl max-w-sm shadow-card cursor-pointer hover:border-amber-400 transition-all"
                     >
                       {expandedNodes[kamNodeId] ? (
                         <ChevronDown className="h-3.5 w-3.5 text-gray-500" />
@@ -157,7 +157,7 @@ export const HierarchyTab: React.FC<HierarchyTabProps> = ({
                             <div key={col.id} className="space-y-2">
                               <div
                                 onClick={() => toggleNode(colNodeId)}
-                                className="flex items-center gap-2.5 p-3 bg-white border border-slate-100 rounded-2xl max-w-xs shadow-card cursor-pointer hover:border-indigo-300 transition-all"
+                                className="flex items-center gap-2.5 p-3 bg-white border border-slate-100 rounded-2xl max-w-xs shadow-card cursor-pointer hover:border-amber-400 transition-all"
                               >
                                 {expandedNodes[colNodeId] ? (
                                   <ChevronDown className="h-3.5 w-3.5 text-gray-500" />

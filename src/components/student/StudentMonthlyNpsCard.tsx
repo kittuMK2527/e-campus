@@ -48,9 +48,9 @@ const SCORE_CONFIG: Record<
     label: "Excellent",
     sublabel: "Highly engaging",
     icon: ThumbsUp,
-    accentColor: "text-indigo-600",
+    accentColor: "text-amber-500",
     checkedClasses:
-      "peer-checked:border-indigo-600 peer-checked:bg-indigo-50/90 peer-checked:text-indigo-900 peer-checked:ring-1 peer-checked:ring-indigo-600/30 shadow-xs"
+      "peer-checked:border-amber-500 peer-checked:bg-amber-50/90 peer-checked:text-zinc-900 peer-checked:ring-1 peer-checked:ring-indigo-600/30 shadow-xs"
   },
   4: {
     label: "Good",
@@ -163,7 +163,7 @@ export function StudentMonthlyNpsCard({
       {/* Header with Title and Status Badges */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-indigo-50 border border-indigo-100/90 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-500 flex items-center justify-center shrink-0 shadow-2xs">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
@@ -218,7 +218,7 @@ export function StudentMonthlyNpsCard({
                   {saved.score ? (
                     <>
                       {React.createElement(SCORE_CONFIG[saved.score]?.icon || ThumbsUp, {
-                        className: `h-3.5 w-3.5 ${SCORE_CONFIG[saved.score]?.accentColor || "text-indigo-600"}`
+                        className: `h-3.5 w-3.5 ${SCORE_CONFIG[saved.score]?.accentColor || "text-amber-500"}`
                       })}
                       <span>
                         {saved.score}/5 · {SCORE_CONFIG[saved.score]?.label}
@@ -234,8 +234,8 @@ export function StudentMonthlyNpsCard({
                   <span className="text-xs font-semibold text-slate-500">
                     {mentorName ? `${mentorName}:` : "Faculty Mentor:"}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/80 border border-indigo-200 text-xs font-black text-indigo-950 shadow-2xs">
-                    <UserCheck className="h-3.5 w-3.5 text-indigo-600" />
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50/80 border border-amber-200 text-xs font-black text-zinc-950 shadow-2xs">
+                    <UserCheck className="h-3.5 w-3.5 text-amber-500" />
                     <span>
                       {saved.mentor_score}/5 · {SCORE_CONFIG[saved.mentor_score]?.label || "Rated"}
                     </span>
@@ -346,7 +346,7 @@ export function StudentMonthlyNpsCard({
           <fieldset>
             <div className="flex items-center justify-between mb-2">
               <legend className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                <UserCheck className="h-3.5 w-3.5 text-indigo-600" />
+                <UserCheck className="h-3.5 w-3.5 text-amber-500" />
                 <span>2. {mentorName ? `${mentorName} (Faculty Mentor NPS)` : "Faculty Mentor Interaction & Clarity"}</span>
               </legend>
               <span className="text-[10px] text-slate-400 font-medium">Optional</span>

@@ -37,7 +37,7 @@ function ChartCard({
   subtitle,
   icon: Icon,
   children,
-  accent = "bg-indigo-50 text-indigo-600"
+  accent = "bg-amber-50 text-amber-500"
 }: {
   title: string;
   subtitle?: string;
@@ -419,7 +419,7 @@ export function OversightHub() {
             onClick={() => setActiveTab("approvals")}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === "approvals"
-                ? "bg-indigo-600 text-white shadow-xs"
+                ? "bg-zinc-900 text-white shadow-xs"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
@@ -437,7 +437,7 @@ export function OversightHub() {
             onClick={() => setActiveTab("tickets")}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === "tickets"
-                ? "bg-indigo-600 text-white shadow-xs"
+                ? "bg-zinc-900 text-white shadow-xs"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
@@ -455,7 +455,7 @@ export function OversightHub() {
             onClick={() => setActiveTab("analytics")}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
               activeTab === "analytics"
-                ? "bg-indigo-600 text-white shadow-xs"
+                ? "bg-zinc-900 text-white shadow-xs"
                 : "bg-slate-100 text-slate-600 hover:bg-slate-200"
             }`}
           >
@@ -537,7 +537,7 @@ export function OversightHub() {
           {/* Approvals Table */}
           {approvalsQuery.isPending ? (
             <div className="p-12 text-center text-slate-400 font-semibold bg-white rounded-2xl border border-slate-100 shadow-card">
-              <RotateCw className="h-6 w-6 animate-spin mx-auto mb-2 text-indigo-500" />
+              <RotateCw className="h-6 w-6 animate-spin mx-auto mb-2 text-amber-500" />
               Loading approvals queue…
             </div>
           ) : filteredApprovals.length === 0 ? (
@@ -669,7 +669,7 @@ export function OversightHub() {
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-4 bg-white rounded-2xl border border-slate-100 shadow-card">
               <div className="flex items-center gap-2 text-slate-500 font-semibold mb-1">
-                <Ticket className="h-4 w-4 text-indigo-500" />
+                <Ticket className="h-4 w-4 text-amber-500" />
                 <span>Total Issues</span>
               </div>
               <div className="text-xl font-black text-slate-900">{ticketStats.total}</div>
@@ -808,7 +808,7 @@ export function OversightHub() {
                             </div>
                           )}
                           {t.notes && (
-                            <div className="text-[9.5px] text-indigo-600 font-semibold mt-0.5">
+                            <div className="text-[9.5px] text-amber-500 font-semibold mt-0.5">
                               Note: {t.notes}
                             </div>
                           )}
@@ -993,7 +993,7 @@ export function OversightHub() {
             <ChartCard
               title="Syllabus Completion Pace"
               icon={BookOpen}
-              accent="bg-indigo-50 text-indigo-600"
+              accent="bg-amber-50 text-amber-500"
             >
               {syllabusData.length === 0 ? (
                 <p className="text-xs text-gray-400 font-semibold text-center py-8">No academic tracker entries yet.</p>

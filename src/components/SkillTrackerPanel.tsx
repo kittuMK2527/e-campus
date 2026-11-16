@@ -137,7 +137,7 @@ function getSubmissionType(url?: string | null): { label: string; icon: any; col
   return {
     label: isUploaded ? "Attached Document" : "Material Link",
     icon: isUploaded ? FileText : ExternalLink,
-    colorClass: "bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800",
+    colorClass: "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100 dark:bg-indigo-950/40 dark:text-amber-300 dark:border-indigo-800",
     isUploaded
   };
 }
@@ -584,7 +584,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             <div className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border ${
               role === "sme"
                 ? "bg-purple-50 border-purple-100 text-purple-600"
-                : "bg-indigo-50 border-indigo-100 text-indigo-600"
+                : "bg-amber-50 border-amber-200 text-amber-500"
             }`}>
               <GraduationCap className="h-6 w-6" />
             </div>
@@ -657,12 +657,12 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               </div>
               <div className="text-xl font-black text-slate-900">{summary.mentors}</div>
             </div>
-            <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl space-y-1">
+            <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-wider text-indigo-500">Weeks Tracked</span>
-                <Award className="h-4 w-4 text-indigo-500" />
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-500">Weeks Tracked</span>
+                <Award className="h-4 w-4 text-amber-500" />
               </div>
-              <div className="text-xl font-black text-indigo-950">{summary.total_weeks}</div>
+              <div className="text-xl font-black text-zinc-950">{summary.total_weeks}</div>
             </div>
             <div className="p-3 bg-emerald-50/70 border border-emerald-200/80 rounded-xl space-y-1">
               <div className="flex items-center justify-between">
@@ -706,7 +706,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               aria-label="Subject"
               value={subjectFilter}
               onChange={e => setSubjectFilter(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Subjects</option>
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
@@ -718,7 +718,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               aria-label="Semester"
               value={semesterFilter}
               onChange={e => setSemesterFilter(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Semesters</option>
               {availableSemesters.map(sem => (
@@ -732,7 +732,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               aria-label="Task Filter"
               value={weekFilter}
               onChange={e => setWeekFilter(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Tasks</option>
               {Array.from({ length: 40 }, (_, i) => i + 1).map(w => (
@@ -745,7 +745,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             <select
               value={verdictFilter}
               onChange={e => setVerdictFilter(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Verdicts</option>
               <option value="cleared">Cleared</option>
@@ -802,7 +802,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                 paginatedRows.map(row => (
                   <React.Fragment key={`${row.mentor_id}__${row.subject}`}>
                     {row.weeks.map((w, idx) => (
-                      <TableRow key={`${row.mentor_id}__${row.subject}__${w.week_number}`} className="hover:bg-indigo-50/40 dark:hover:bg-slate-800/40 transition-colors">
+                      <TableRow key={`${row.mentor_id}__${row.subject}__${w.week_number}`} className="hover:bg-amber-50/40 dark:hover:bg-slate-800/40 transition-colors">
                         {role !== "mentor" && (
                           <>
                             {/* Dedicated Employee ID Column */}
@@ -831,7 +831,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                           <span className="font-bold text-slate-800 dark:text-slate-200">{row.subject}</span>
                         </TableCell>
                         <TableCell className="p-3.5">
-                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-100 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
                             {row.semester || "—"}
                           </span>
                         </TableCell>
@@ -1059,9 +1059,9 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             </div>
 
             {verdictTarget.week.demo_status && (
-              <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl text-xs font-medium text-indigo-900">
+              <div className="p-3 bg-amber-50/60 border border-amber-200 rounded-xl text-xs font-medium text-zinc-900">
                 <div className="flex items-center gap-2">
-                  <Award className="h-4 w-4 text-indigo-500 shrink-0" />
+                  <Award className="h-4 w-4 text-amber-500 shrink-0" />
                   <span>
                     Demo {verdictTarget.week.demo_status}
                     {verdictTarget.week.demo_marks != null ? ` — scored ${verdictTarget.week.demo_marks}/100` : ""}
@@ -1208,7 +1208,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                   : "text-slate-500 hover:text-slate-800"
               }`}
             >
-              <Link2 className="h-4 w-4 text-indigo-600" />
+              <Link2 className="h-4 w-4 text-amber-500" />
               <span>Paste Web / Drive Link</span>
             </button>
           </div>
@@ -1283,7 +1283,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                     href={submissionTarget.week.submission_link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[11px] font-bold text-indigo-600 hover:underline shrink-0 ml-2"
+                    className="text-[11px] font-bold text-amber-500 hover:underline shrink-0 ml-2"
                   >
                     View &rarr;
                   </a>
@@ -1444,7 +1444,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                   href={instructionTarget.referenceUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 p-2.5 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 rounded-xl font-bold hover:underline"
+                  className="inline-flex items-center gap-1.5 p-2.5 bg-amber-50 dark:bg-indigo-950/40 border border-amber-200 dark:border-indigo-800 text-amber-700 dark:text-amber-300 rounded-xl font-bold hover:underline"
                 >
                   <ExternalLink className="h-3.5 w-3.5" />
                   <span className="truncate max-w-sm">{instructionTarget.referenceUrl}</span>

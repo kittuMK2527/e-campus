@@ -258,7 +258,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
             <TableRow>
               <TableCell colSpan={7} className="h-32 text-center">
                 <div className="flex flex-col items-center gap-2 text-gray-400">
-                  <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
+                  <Loader2 className="h-7 w-7 animate-spin text-amber-500" />
                   <p className="text-sm font-semibold">Loading Key Account Managers…</p>
                 </div>
               </TableCell>
@@ -281,7 +281,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                 <TableRow key={kam.id}>
                   <TableCell className="font-bold text-gray-950">
                     <div className="flex items-center gap-2">
-                      <div className="h-7 w-7 rounded-full bg-indigo-50 border border-indigo-200 text-indigo-600 flex items-center justify-center font-extrabold text-[10px]">
+                      <div className="h-7 w-7 rounded-full bg-amber-50 border border-amber-200 text-amber-500 flex items-center justify-center font-extrabold text-[10px]">
                         {(kam.name || "")
                           .split(" ")
                           .filter(Boolean)
@@ -308,7 +308,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                   <TableCell className="hidden lg:table-cell text-center font-bold text-gray-800">
                     {kamMentors.length}
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell text-center font-extrabold text-indigo-600">
+                  <TableCell className="hidden xl:table-cell text-center font-extrabold text-amber-500">
                     {kamSlots.length} slot{kamSlots.length !== 1 ? "s" : ""}
                   </TableCell>
                   <TableCell className="text-right">
@@ -408,7 +408,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                   </div>
                   <div className="space-y-1.5 text-[11px]">
                     <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 rounded-full bg-indigo-500 shrink-0" />
+                      <span className="h-2.5 w-2.5 rounded-full bg-amber-500 shrink-0" />
                       <span className="text-gray-600">Active</span>
                       <span className="ml-auto font-bold text-gray-900">
                         {activeCount} ({total > 0 ? (activePct * 100).toFixed(1) : "0.0"}%)
@@ -439,7 +439,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-gray-900">Scheduled Slots by Day</h3>
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 font-semibold">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">
               {slots.length} Total Slots
             </span>
           </div>
@@ -458,7 +458,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                       <span className="text-[9px] font-bold text-gray-600">{count}</span>
                       <div className="w-full bg-gray-100 rounded-t h-[55px] flex items-end overflow-hidden">
                         <div
-                          className="w-full bg-indigo-500 rounded-t transition-all duration-300"
+                          className="w-full bg-amber-500 rounded-t transition-all duration-300"
                           style={{ height: `${Math.max(4, heightPct)}%` }}
                           title={`${dayFull[idx]}: ${count} slots`}
                         />
@@ -487,7 +487,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                 const colorClass = isBooking
                   ? "bg-amber-50 text-amber-600"
                   : isHandover
-                  ? "bg-indigo-50 text-indigo-600"
+                  ? "bg-amber-50 text-amber-500"
                   : isAssignment
                   ? "bg-emerald-50 text-emerald-600"
                   : "bg-slate-100 text-slate-600";
@@ -536,7 +536,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
         >
           <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
             <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5">
-              <Briefcase className="h-5 w-5 text-indigo-600" />
+              <Briefcase className="h-5 w-5 text-amber-500" />
               {editingKam ? "Edit Key Account Manager" : "Add Key Account Manager"}
             </h3>
             <Button
@@ -571,7 +571,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                 disabled={editingKam}
                 value={form.id}
                 onChange={(e) => setForm({ ...form, id: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 disabled:bg-gray-100 disabled:text-gray-400"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 disabled:bg-gray-100 disabled:text-gray-400"
               />
             </div>
 
@@ -584,7 +584,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                 placeholder="e.g. Ramesh Dev"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
             </div>
 
@@ -597,7 +597,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                 placeholder="e.g. ramesh.kam@faceprep.in"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
             </div>
 
@@ -609,7 +609,7 @@ export const KamsTab: React.FC<KamsTabProps> = ({
                 placeholder="e.g. Key Account Manager"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
             </div>
 

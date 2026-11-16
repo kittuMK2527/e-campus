@@ -127,7 +127,7 @@ export function CommandItem({ value = "", onSelect, className, children, disable
       }}
       className={cn(
         "relative flex w-full cursor-pointer select-none items-center rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none transition-colors",
-        isSelected ? "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-bold" : "hover:bg-slate-100 dark:hover:bg-slate-800",
+        isSelected ? "bg-amber-50 dark:bg-indigo-950/40 text-amber-700 dark:text-amber-300 font-bold" : "hover:bg-slate-100 dark:hover:bg-slate-800",
         disabled && "pointer-events-none opacity-50",
         className
       )}

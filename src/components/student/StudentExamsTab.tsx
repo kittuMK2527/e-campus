@@ -155,7 +155,7 @@ export default function StudentExamsTab({
         <TableRow key={ex.id || idx} className={`hover:bg-slate-50/70 transition-colors ${isPast ? "opacity-60" : ""}`}>
           <TableCell className="p-3">
             <div className="flex flex-col gap-1">
-              <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-bold w-max">
+              <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-bold w-max">
                 {ex.exam_type}
               </span>
               {isPast && (
@@ -172,7 +172,7 @@ export default function StudentExamsTab({
           <TableCell className="p-3 text-slate-700 font-semibold whitespace-nowrap">
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-1.5">
-                <Calendar className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                <Calendar className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                 <span>{ex.exam_date}</span>
               </div>
               {ex.day_order && ex.day_order !== "None" ? (
@@ -218,13 +218,13 @@ export default function StudentExamsTab({
       <div className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+            <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-500 shrink-0">
               <BookOpen className="h-5 w-5" />
             </div>
             <div>
               <h2 className="text-sm font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 Examinations & Test Marks
-                <span className="px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-bold uppercase inline-flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-700 text-[10px] font-bold uppercase inline-flex items-center gap-1">
                   <span>{currentStudent?.department || "Department"}</span>
                   {currentStudent?.department && (
                     <CourseInfoButton
@@ -247,7 +247,7 @@ export default function StudentExamsTab({
                 type="button"
                 onClick={() => setExamSubTab("results")}
                 className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  examSubTab === "results" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                  examSubTab === "results" ? "bg-white text-amber-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Test Marks & Scorecard ({displayMarks.length})
@@ -256,7 +256,7 @@ export default function StudentExamsTab({
                 type="button"
                 onClick={() => setExamSubTab("schedule")}
                 className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                  examSubTab === "schedule" ? "bg-white text-indigo-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
+                  examSubTab === "schedule" ? "bg-white text-amber-700 shadow-2xs" : "text-slate-600 hover:text-slate-900"
                 }`}
               >
                 Upcoming Tests ({upcomingExams.length})
@@ -268,13 +268,13 @@ export default function StudentExamsTab({
         {/* Scorecard Quick KPIs */}
         {examSubTab === "results" && displayMarks.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-            <div className="p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-xl">
+            <div className="p-3.5 bg-amber-50/50 border border-amber-200 rounded-xl">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-700">Evaluated Tests</span>
-                <Award className="h-4 w-4 text-indigo-500" />
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Evaluated Tests</span>
+                <Award className="h-4 w-4 text-amber-500" />
               </div>
-              <span className="text-xl font-black text-indigo-950 mt-1 block">{displayMarks.length}</span>
-              <span className="text-[11px] text-indigo-600 font-medium">Recorded scorecards</span>
+              <span className="text-xl font-black text-zinc-950 mt-1 block">{displayMarks.length}</span>
+              <span className="text-[11px] text-amber-500 font-medium">Recorded scorecards</span>
             </div>
             <div className="p-3.5 bg-emerald-50/50 border border-emerald-100 rounded-xl">
               <div className="flex items-center justify-between">
@@ -336,7 +336,7 @@ export default function StudentExamsTab({
                   onClick={() => setMarksTypeFilter("all")}
                   className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                     marksTypeFilter === "all"
-                      ? "bg-indigo-600 text-white shadow-2xs"
+                      ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   }`}
                 >
@@ -351,7 +351,7 @@ export default function StudentExamsTab({
                       onClick={() => setMarksTypeFilter(t)}
                       className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
                         marksTypeFilter === t
-                          ? "bg-indigo-600 text-white shadow-2xs"
+                          ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold"
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
@@ -368,7 +368,7 @@ export default function StudentExamsTab({
                   placeholder="Search subject or test..."
                   value={marksSearchTerm}
                   onChange={(e) => setMarksSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 focus:bg-white transition-all font-medium"
+                  className="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 focus:bg-white transition-all font-medium"
                 />
               </div>
             </div>
@@ -397,7 +397,7 @@ export default function StudentExamsTab({
                   setMarksTypeFilter("all");
                   setMarksSearchTerm("");
                 }}
-                className="text-indigo-600 underline font-bold"
+                className="text-amber-500 underline font-bold"
               >
                 Reset filters
               </button>
@@ -411,13 +411,13 @@ export default function StudentExamsTab({
                 >
                   <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-50/80 to-white border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shadow-2xs uppercase">
+                      <div className="h-9 w-9 rounded-xl btn-gradient text-white flex items-center justify-center font-bold text-xs shadow-2xs uppercase">
                         {group.type.slice(0, 4)}
                       </div>
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3 className="text-sm font-bold text-slate-900 tracking-tight">{group.type}</h3>
-                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-indigo-50 text-indigo-700 border border-indigo-100">
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-50 text-amber-700 border border-amber-200">
                             {group.evalCount} / {group.totalSubjects} Evaluated
                           </span>
                           {group.pct !== null && (
@@ -426,7 +426,7 @@ export default function StudentExamsTab({
                                 parseFloat(group.pct) >= 75
                                   ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                   : parseFloat(group.pct) >= 40
-                                  ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                  ? "bg-amber-50 text-amber-700 border border-amber-200"
                                   : "bg-rose-50 text-rose-700 border border-rose-200"
                               }`}
                             >
@@ -534,7 +534,7 @@ export default function StudentExamsTab({
                                     <div className="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                                       <div
                                         className={`h-full rounded-full transition-all ${
-                                          pct >= 75 ? "bg-emerald-500" : pct >= passM ? "bg-indigo-500" : "bg-rose-500"
+                                          pct >= 75 ? "bg-emerald-500" : pct >= passM ? "bg-amber-500" : "bg-rose-500"
                                         }`}
                                         style={{ width: `${Math.min(pct, 100)}%` }}
                                       />
@@ -550,7 +550,7 @@ export default function StudentExamsTab({
                                       : m.grade === "O" || m.grade === "A+" || m.grade === "A"
                                       ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                       : m.grade === "B+" || m.grade === "B"
-                                      ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                      ? "bg-amber-50 text-amber-700 border border-amber-200"
                                       : isPass
                                       ? "bg-amber-50 text-amber-700 border border-amber-200"
                                       : "bg-rose-50 text-rose-700 border border-rose-200"
@@ -634,16 +634,16 @@ export default function StudentExamsTab({
       {examSubTab === "schedule" && (
         <div className="space-y-4">
           <div className="bg-white border border-slate-200/80 rounded-2xl shadow-xs overflow-hidden">
-            <div className="px-4 py-3 bg-indigo-50/60 border-b border-indigo-100 flex items-center justify-between">
+            <div className="px-4 py-3 bg-amber-50/60 border-b border-amber-200 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase text-indigo-700 tracking-wider">
+                <span className="text-[10px] font-bold uppercase text-amber-700 tracking-wider">
                   Upcoming Scheduled Tests
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
                   {upcomingExams.length}
                 </span>
               </div>
-              <span className="text-xs text-indigo-600 font-medium">Prepare well for your assessments!</span>
+              <span className="text-xs text-amber-500 font-medium">Prepare well for your assessments!</span>
             </div>
             <div className="overflow-x-auto scroll-touch">
               <Table className="w-full border-collapse text-left text-xs min-w-[650px]">

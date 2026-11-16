@@ -74,7 +74,7 @@ export function ActionDialog({
 
       <div
         className={cn(
-          "relative z-10 w-full bg-white dark:bg-[#131317] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-card-lg p-6 space-y-5 animate-scaleUp max-h-[90vh] flex flex-col",
+          "relative z-10 w-full bg-white dark:bg-[#131317] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-card-lg p-6 space-y-5 animate-scaleUp max-h-[90vh] flex flex-col before:absolute before:inset-x-0 before:top-0 before:h-[2px] before:bg-gradient-to-r before:from-transparent before:via-amber-500/50 before:to-transparent",
           maxWidthClasses[maxWidth],
           className
         )}
@@ -83,7 +83,7 @@ export function ActionDialog({
         <div className="flex items-start justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-4 shrink-0">
           <div className="flex items-center gap-3">
             {icon && (
-              <div className="h-10 w-10 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-center shrink-0 shadow-xs">
+              <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/25 flex items-center justify-center shrink-0 shadow-xs">
                 {icon}
               </div>
             )}

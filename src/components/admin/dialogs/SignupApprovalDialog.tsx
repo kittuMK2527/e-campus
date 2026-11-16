@@ -106,7 +106,7 @@ export const SignupApprovalDialog: React.FC<SignupApprovalDialogProps> = ({
             required
             value={approvingRole}
             onChange={(e) => onApprovingRoleChange(e.target.value)}
-            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+            className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
           >
             <option value="student">Student</option>
             <option value="mentor">Mentor</option>
@@ -124,7 +124,7 @@ export const SignupApprovalDialog: React.FC<SignupApprovalDialogProps> = ({
               onClick={() => onMappingTypeChange("create_new")}
               className={`py-2 px-3 rounded-xl border font-bold text-center cursor-pointer transition-all ${
                 mappingType === "create_new"
-                  ? "bg-indigo-50 border-indigo-600 text-indigo-600 animate-fadeIn"
+                  ? "bg-amber-50 border-amber-500 text-amber-500 animate-fadeIn"
                   : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -135,7 +135,7 @@ export const SignupApprovalDialog: React.FC<SignupApprovalDialogProps> = ({
               onClick={() => onMappingTypeChange("link_existing")}
               className={`py-2 px-3 rounded-xl border font-bold text-center cursor-pointer transition-all ${
                 mappingType === "link_existing"
-                  ? "bg-indigo-50 border-indigo-600 text-indigo-600 animate-fadeIn"
+                  ? "bg-amber-50 border-amber-500 text-amber-500 animate-fadeIn"
                   : "bg-white border-gray-200 text-gray-600 hover:bg-gray-50"
               }`}
             >
@@ -153,7 +153,7 @@ export const SignupApprovalDialog: React.FC<SignupApprovalDialogProps> = ({
               required
               value={selectedReferenceId}
               onChange={(e) => onSelectedReferenceIdChange(e.target.value)}
-              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+              className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="">-- Choose Profile --</option>
               {approvingRole === "mentor" &&
@@ -200,7 +200,7 @@ export const SignupApprovalDialog: React.FC<SignupApprovalDialogProps> = ({
                   required
                   value={mappingCollegeId}
                   onChange={(e) => onMappingCollegeIdChange(e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                 >
                   <option value="">-- Select Campus --</option>
                   {colleges.map((col) => (
@@ -220,7 +220,7 @@ export const SignupApprovalDialog: React.FC<SignupApprovalDialogProps> = ({
                   required
                   value={mappingDept}
                   onChange={(e) => onMappingDeptChange(e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                 >
                   <option value="">-- Select Group --</option>
                   {subjectGroups.map((sg) => (
@@ -242,7 +242,7 @@ export const SignupApprovalDialog: React.FC<SignupApprovalDialogProps> = ({
                   placeholder="e.g. CS-A"
                   value={mappingClassGroup}
                   onChange={(e) => onMappingClassGroupChange(e.target.value)}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                 />
               </div>
             )}

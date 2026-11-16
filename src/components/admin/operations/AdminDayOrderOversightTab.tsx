@@ -165,7 +165,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-base font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-            <CalendarCheck2 className="h-5 w-5 text-indigo-600" />
+            <CalendarCheck2 className="h-5 w-5 text-amber-500" />
             Campus Day Orders &amp; Operations Oversight
           </h2>
           <p className="text-xs text-slate-500 font-medium mt-0.5">
@@ -212,7 +212,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
             <button
               type="button"
               onClick={() => setSelectedCampus("all")}
-              className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors cursor-pointer"
+              className="text-[11px] font-bold text-amber-500 hover:text-amber-800 transition-colors cursor-pointer"
             >
               Show All Campuses
             </button>
@@ -231,7 +231,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
                 onClick={() => setSelectedCampus(isSelected ? "all" : cp.id)}
                 className={`p-4 rounded-2xl border transition-all cursor-pointer relative overflow-hidden ${
                   isSelected
-                    ? "bg-indigo-50/50 border-indigo-400 ring-2 ring-indigo-500/20 shadow-md"
+                    ? "bg-amber-50/50 border-amber-400 ring-2 ring-amber-500/20 shadow-md"
                     : "bg-white hover:bg-slate-50/80 border-slate-200/80 shadow-xs"
                 }`}
               >
@@ -337,7 +337,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
             type="button"
             onClick={() => setDateRangeMode("this_week")}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-              dateRangeMode === "this_week" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              dateRangeMode === "this_week" ? "bg-white text-amber-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             This Week
@@ -346,7 +346,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
             type="button"
             onClick={() => setDateRangeMode("next_week")}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-              dateRangeMode === "next_week" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              dateRangeMode === "next_week" ? "bg-white text-amber-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             Next Week
@@ -355,7 +355,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
             type="button"
             onClick={() => setDateRangeMode("this_month")}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-              dateRangeMode === "this_month" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              dateRangeMode === "this_month" ? "bg-white text-amber-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             This Month
@@ -364,7 +364,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
             type="button"
             onClick={() => setDateRangeMode("all")}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-              dateRangeMode === "all" ? "bg-white text-indigo-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
+              dateRangeMode === "all" ? "bg-white text-amber-700 shadow-xs" : "text-slate-600 hover:text-slate-900"
             }`}
           >
             All History
@@ -416,7 +416,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
                   return (
                     <TableRow
                       key={r.id || `${r.college_id}_${r.dateStr}`}
-                      className={`transition-colors ${isToday ? "bg-indigo-50/40" : "hover:bg-slate-50/60"}`}
+                      className={`transition-colors ${isToday ? "bg-amber-50/40" : "hover:bg-slate-50/60"}`}
                     >
                       <TableCell className="p-3 font-extrabold text-slate-800">
                         <span>{r.college_name || r.college_id}</span>
@@ -426,7 +426,7 @@ export const AdminDayOrderOversightTab: React.FC<AdminDayOrderOversightTabProps>
                           <span>{r.dateStr}</span>
                           <span className="text-[10px] text-slate-400 font-semibold">({weekday})</span>
                           {isToday && (
-                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-indigo-600 text-white">
+                            <span className="px-1.5 py-0.2 rounded text-[9px] font-black uppercase bg-zinc-900 text-white">
                               Today
                             </span>
                           )}

@@ -368,7 +368,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
     >
       <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/80">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100">
+          <div className="p-2.5 rounded-xl bg-amber-50 text-amber-500 border border-amber-200">
             <GraduationCap className="h-5 w-5" />
           </div>
           <div>
@@ -398,7 +398,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                 }}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   modalTab === "bulk"
-                    ? "bg-white text-indigo-600 shadow-xs font-black"
+                    ? "bg-white text-amber-500 shadow-xs font-black"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
@@ -413,7 +413,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                 }}
                 className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                   modalTab === "single"
-                    ? "bg-white text-indigo-600 shadow-xs font-black"
+                    ? "bg-white text-amber-500 shadow-xs font-black"
                     : "text-gray-600 hover:text-gray-900"
                 }`}
               >
@@ -455,7 +455,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                     disabled={lockDeptAndYear}
                     value={form.department}
                     onChange={e => onFormChange({ ...form, department: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800 disabled:opacity-60"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer text-gray-800 disabled:opacity-60"
                   >
                     <option value="">— Select Course —</option>
                     {courseOptions.map(name => (
@@ -473,7 +473,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                     required
                     value={form.college_id}
                     onChange={e => onFormChange({ ...form, college_id: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer text-gray-800"
                   >
                     <option value="">— Select Campus —</option>
                     {colleges.map(c => (
@@ -499,7 +499,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                       else if (newYear === "Year 4") newSem = "Semester 7";
                       onFormChange({ ...form, year: newYear, semester: newSem });
                     }}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800 disabled:opacity-60"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer text-gray-800 disabled:opacity-60"
                   >
                     <option value="Year 1">Year 1</option>
                     <option value="Year 2">Year 2</option>
@@ -515,7 +515,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                     required
                     value={form.semester}
                     onChange={e => onFormChange({ ...form, semester: e.target.value })}
-                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800"
+                    className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer text-gray-800"
                   >
                     {form.year === "Year 1" && (
                       <>
@@ -553,7 +553,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                   aria-label="Default Mentor Group"
                   value={form.mentor_group}
                   onChange={e => onFormChange({ ...form, mentor_group: e.target.value })}
-                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800"
+                  className="w-full bg-white border border-gray-200 rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer text-gray-800"
                 >
                   <option value="">— Select Default Mentor Group —</option>
                   {subjectGroups.map(sg => (
@@ -580,7 +580,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                   <button
                     type="button"
                     onClick={handleDownloadTemplate}
-                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-indigo-700 border border-indigo-200 active:scale-95 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                    className="px-3 py-1.5 bg-white hover:bg-slate-100 text-amber-700 border border-amber-200 active:scale-95 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
                     title="Download Excel template (.xlsx)"
                   >
                     <Download className="h-3.5 w-3.5" />
@@ -635,7 +635,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                   <span className="text-[11px] font-extrabold text-gray-700 uppercase tracking-wider">
                     Subject Rows
                   </span>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200">
                     {validCount} valid {validCount === 1 ? "subject" : "subjects"}
                   </span>
                 </div>
@@ -669,7 +669,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                     <button
                       type="button"
                       onClick={handleDownloadTemplate}
-                      className="px-3.5 py-1.5 bg-white border border-indigo-200 text-indigo-700 rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer hover:bg-slate-50"
+                      className="px-3.5 py-1.5 bg-white border border-amber-200 text-amber-700 rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 cursor-pointer hover:bg-slate-50"
                     >
                       <Download className="h-3.5 w-3.5" />
                       Download Template
@@ -710,7 +710,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                         placeholder="Subject Name (e.g. Data Structures)"
                         value={row.name}
                         onChange={e => handleUpdateRow(row.id, "name", e.target.value)}
-                        className="flex-1 min-w-[140px] bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold focus:border-indigo-500"
+                        className="flex-1 min-w-[140px] bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-bold focus:border-amber-500"
                       />
                       <datalist id={`subject-list-${row.id}`}>
                         {availableSubjectNames.map(name => (
@@ -784,7 +784,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                 placeholder="Subject Name (or select)"
                 value={form.name}
                 onChange={e => onFormChange({ ...form, name: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
               />
               <datalist id="single-subject-list">
                 {availableSubjectNames.map(name => (
@@ -802,7 +802,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                   disabled={lockDeptAndYear}
                   value={form.department}
                   onChange={e => onFormChange({ ...form, department: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer disabled:opacity-60"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer disabled:opacity-60"
                 >
                   <option value="">— Select Course —</option>
                   {courseOptions.map(name => (
@@ -820,7 +820,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                   required
                   value={form.college_id}
                   onChange={e => onFormChange({ ...form, college_id: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                 >
                   <option value="">— Select Campus —</option>
                   {colleges.map(c => (
@@ -848,7 +848,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                     else if (newYear === "Year 4") newSem = "Semester 7";
                     onFormChange({ ...form, year: newYear, semester: newSem });
                   }}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer disabled:opacity-60"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer disabled:opacity-60"
                 >
                   <option value="Year 1">Year 1</option>
                   <option value="Year 2">Year 2</option>
@@ -864,7 +864,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                   required
                   value={form.semester}
                   onChange={e => onFormChange({ ...form, semester: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                 >
                   {form.year === "Year 1" && (
                     <>
@@ -899,7 +899,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                   aria-label="Subject Type"
                   value={form.type}
                   onChange={e => onFormChange({ ...form, type: e.target.value })}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+                  className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                 >
                   <option value="SKILL">SKILL</option>
                   <option value="ACADEMIC">THEORY / ACADEMIC</option>
@@ -920,7 +920,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                     required
                     value={form.weekly_hours}
                     onChange={e => onFormChange({ ...form, weekly_hours: Number(e.target.value) || 4 })}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-8 pr-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                   />
                 </div>
               </div>
@@ -932,7 +932,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                 aria-label="Subject Group"
                 value={form.mentor_group}
                 onChange={e => onFormChange({ ...form, mentor_group: e.target.value })}
-                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer text-gray-800"
+                className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer text-gray-800"
               >
                 <option value="">— Select Subject Group —</option>
                 {subjectGroups.map(sg => (

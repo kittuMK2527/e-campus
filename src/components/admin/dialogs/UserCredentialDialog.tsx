@@ -52,7 +52,7 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
     >
       <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
         <h3 className="font-extrabold text-gray-900 text-sm flex items-center gap-1.5 font-sans">
-          <ShieldCheck className="h-5 w-5 text-indigo-600" />
+          <ShieldCheck className="h-5 w-5 text-amber-500" />
           {editingUser ? "Edit User" : "Add User"}
         </h3>
         <Button
@@ -83,7 +83,7 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
             placeholder="user@faceprep.in"
             value={form.email}
             onChange={(e) => onFormChange({ ...form, email: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
           />
         </div>
 
@@ -93,7 +93,7 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
             aria-label="Role"
             value={form.role}
             onChange={(e) => onFormChange({ ...form, role: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
           >
             <option value="admin">Admin</option>
             <option value="cm">Campus Manager (CM)</option>
@@ -108,10 +108,10 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
         </div>
 
         {editingUser && (
-          <div className="p-3 bg-indigo-50/60 border border-indigo-100 rounded-xl flex items-center justify-between">
+          <div className="p-3 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-center justify-between">
             <div>
-              <div className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider">Current Password</div>
-              <div className="font-mono text-sm font-black text-indigo-950 mt-0.5">
+              <div className="text-[10px] text-amber-700 font-bold uppercase tracking-wider">Current Password</div>
+              <div className="font-mono text-sm font-black text-zinc-950 mt-0.5">
                 {editingUser.plain_password || "password123"}
               </div>
             </div>
@@ -119,7 +119,7 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
               variant="ghost"
               type="button"
               onClick={() => onCopyPassword && onCopyPassword(editingUser.id, editingUser.plain_password || "password123")}
-              className="h-auto flex items-center gap-1 text-[11px] font-bold text-indigo-700 bg-white hover:bg-indigo-50 border border-indigo-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+              className="h-auto flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-white hover:bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
             >
               {copiedPassId === editingUser.id ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
               Copy
@@ -136,7 +136,7 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
             placeholder={editingUser ? "Leave blank to keep unchanged" : "Default: password123"}
             value={form.password || ""}
             onChange={(e) => onFormChange({ ...form, password: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 font-mono text-xs"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 font-mono text-xs"
           />
         </div>
 
@@ -148,7 +148,7 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
             placeholder="e.g. mentor_101 or student_101"
             value={form.reference_id || ""}
             onChange={(e) => onFormChange({ ...form, reference_id: e.target.value })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 font-mono text-[11px]"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 font-mono text-[11px]"
           />
         </div>
 
@@ -158,7 +158,7 @@ export const UserCredentialDialog: React.FC<UserCredentialDialogProps> = ({
             aria-label="Status"
             value={form.status}
             onChange={(e) => onFormChange({ ...form, status: e.target.value as "Active" | "Inactive" })}
-            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+            className="w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-2.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
           >
             <option value="Active">Active</option>
             <option value="Inactive">Inactive</option>

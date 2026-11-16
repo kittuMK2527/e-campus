@@ -390,7 +390,7 @@ export const UsersTab: React.FC = () => {
               onClick={() => setUserSubTab("directory")}
               aria-pressed={userSubTab === "directory"}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                userSubTab === "directory" ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                userSubTab === "directory" ? "bg-zinc-900 text-white shadow-sm" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
               }`}
             >
               Users
@@ -399,7 +399,7 @@ export const UsersTab: React.FC = () => {
               onClick={() => setUserSubTab("signups")}
               aria-pressed={userSubTab === "signups"}
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                userSubTab === "signups" ? "bg-indigo-600 text-white shadow-sm" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                userSubTab === "signups" ? "bg-zinc-900 text-white shadow-sm" : "bg-gray-100 hover:bg-gray-200 text-gray-700"
               }`}
             >
               Pending Signups
@@ -473,7 +473,7 @@ export const UsersTab: React.FC = () => {
                 key={r.id}
                 onClick={() => setUsersRoleFilter(r.id)}
                 className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  usersRoleFilter === r.id ? "bg-indigo-600 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  usersRoleFilter === r.id ? "bg-zinc-900 text-white shadow-xs" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                 }`}
               >
                 {r.label}
@@ -492,7 +492,7 @@ export const UsersTab: React.FC = () => {
             </div>
           ) : isUsersLoading && usersList.length === 0 ? (
             <div className="flex flex-col items-center gap-2 py-16 text-slate-400">
-              <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
+              <Loader2 className="h-7 w-7 animate-spin text-amber-500" />
               <p className="text-sm font-semibold">Loading user credentials…</p>
             </div>
           ) : filteredUsers.length === 0 ? (
@@ -560,7 +560,7 @@ export const UsersTab: React.FC = () => {
                           <span
                             className={`font-mono text-xs font-bold px-2.5 py-1 rounded-md border min-w-[90px] text-center select-all ${
                               isRevealed
-                                ? "bg-indigo-50 border-indigo-200 text-indigo-950 font-semibold"
+                                ? "bg-amber-50 border-amber-200 text-zinc-950 font-semibold"
                                 : "bg-gray-50 border-gray-200 text-gray-500 tracking-widest"
                             }`}
                           >
@@ -571,7 +571,7 @@ export const UsersTab: React.FC = () => {
                             size="icon"
                             type="button"
                             onClick={() => togglePasswordVisibility(user.id)}
-                            className="h-7 w-7 p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-indigo-600 transition-colors cursor-pointer"
+                            className="h-7 w-7 p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-amber-500 transition-colors cursor-pointer"
                             title={isRevealed ? "Hide Password" : "Show Password"}
                           >
                             {isRevealed ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
@@ -629,7 +629,7 @@ export const UsersTab: React.FC = () => {
                                 setShowUserModal(true);
                               }}
                             >
-                              <Edit className="h-3.5 w-3.5 text-indigo-600" />
+                              <Edit className="h-3.5 w-3.5 text-amber-500" />
                               <span>Edit User</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem

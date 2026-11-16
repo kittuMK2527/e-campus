@@ -15,8 +15,8 @@ const variantStyles: Record<AlertVariant, { container: string; icon: React.React
     icon: <Info className="h-4 w-4 text-slate-500" />,
   },
   info: {
-    container: "bg-indigo-50 border-indigo-200 text-indigo-900 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-200",
-    icon: <Info className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+    container: "bg-amber-50 border-amber-200 text-zinc-900 dark:bg-indigo-950/40 dark:border-indigo-800 dark:text-indigo-200",
+    icon: <Info className="h-4 w-4 text-amber-500 dark:text-amber-400" />,
   },
   success: {
     container: "bg-emerald-50 border-emerald-200 text-emerald-900 dark:bg-emerald-950/40 dark:border-emerald-800 dark:text-emerald-200",

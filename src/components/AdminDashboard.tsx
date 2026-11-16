@@ -381,14 +381,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === "more_menu" && (() => {
           const ALL_PORTALS = [
             // Academics
-            { id: "courses", label: "Academic Courses", subtitle: "Degree programs & batches", icon: Network, bg: "bg-indigo-50 text-indigo-600", category: "academics" },
+            { id: "courses", label: "Academic Courses", subtitle: "Degree programs & batches", icon: Network, bg: "bg-amber-50 text-amber-500", category: "academics" },
             { id: "subjects", label: "Subject Catalog", subtitle: "Course subjects & hours", icon: GraduationCap, bg: "bg-teal-50 text-teal-600", category: "academics" },
             { id: "students", label: "Student Directory", subtitle: "Universal student roster & 360 profile", icon: GraduationCap, bg: "bg-emerald-50 text-emerald-600", category: "academics" },
             { id: "examinations", label: "Examinations", subtitle: "Exam timetable & marks registry", icon: CalendarCheck, bg: "bg-orange-50 text-orange-600", category: "academics" },
             { id: "holidays", label: "Campus Holidays", subtitle: "Academic calendar dates", icon: Calendar, bg: "bg-rose-50 text-rose-600", category: "academics" },
 
             // Reports & NPS
-            { id: "report_insight", label: "Campus Insight", subtitle: "Attendance shortage & monthly report", icon: BarChart3, bg: "bg-indigo-50 text-indigo-600", category: "reports" },
+            { id: "report_insight", label: "Campus Insight", subtitle: "Attendance shortage & monthly report", icon: BarChart3, bg: "bg-amber-50 text-amber-500", category: "reports" },
             { id: "report_skills", label: "Skill Development", subtitle: "Monthly coding skill report", icon: FileSpreadsheet, bg: "bg-emerald-50 text-emerald-600", category: "reports" },
             { id: "report_mentor_nps", label: "Mentor NPS", subtitle: "Student feedback per mentor", icon: ThumbsUp, bg: "bg-amber-50 text-amber-600", category: "reports" },
             { id: "report_student_nps", label: "Student NPS", subtitle: "Monthly class feedback & coverage", icon: Smile, bg: "bg-violet-50 text-violet-600", category: "reports" },
@@ -398,7 +398,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             { id: "kams", label: "Key Account Managers", subtitle: "KAM portfolio & metrics", icon: Briefcase, bg: "bg-amber-50 text-amber-600", category: "roles" },
             { id: "cams", label: "Campus Managers", subtitle: "Campus operations team", icon: Users, bg: "bg-emerald-50 text-emerald-600", category: "roles" },
             { id: "smes", label: "Subject Matter Experts", subtitle: "Curriculum review leads", icon: BookOpen, bg: "bg-sky-50 text-sky-600", category: "roles" },
-            { id: "hierarchy", label: "Reporting Hierarchy", subtitle: "Organizational structure", icon: Network, bg: "bg-indigo-50 text-indigo-600", category: "roles" },
+            { id: "hierarchy", label: "Reporting Hierarchy", subtitle: "Organizational structure", icon: Network, bg: "bg-amber-50 text-amber-500", category: "roles" },
 
             // Ops & Finance
             { id: "interviews", label: "Mock Interviews", subtitle: "Interview drives & evaluation", icon: Award, bg: "bg-violet-50 text-violet-600", category: "ops" },

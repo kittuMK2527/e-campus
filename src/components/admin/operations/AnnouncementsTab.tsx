@@ -169,7 +169,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
 
       {isLoading && announcements.length === 0 ? (
         <div className="flex flex-col items-center gap-2 py-16 text-gray-400">
-          <Loader2 className="h-7 w-7 animate-spin text-indigo-500" />
+          <Loader2 className="h-7 w-7 animate-spin text-amber-500" />
           <p className="text-sm font-semibold">Loading announcements…</p>
         </div>
       ) : announcements.length === 0 ? (
@@ -185,7 +185,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
               return (
                 <div
                   key={ann.id}
-                  className="p-5 bg-white border border-slate-100 rounded-2xl shadow-card hover:shadow-card-lg hover:border-indigo-100 transition-all relative flex flex-col justify-between"
+                  className="p-5 bg-white border border-slate-100 rounded-2xl shadow-card hover:shadow-card-lg hover:border-amber-200 transition-all relative flex flex-col justify-between"
                 >
                   <div className="space-y-3">
                     <div className="flex justify-between items-start gap-4">
@@ -223,7 +223,7 @@ export const AnnouncementsTab: React.FC<AnnouncementsTabProps> = ({
                       <span className="px-2 py-0.5 rounded bg-pink-50 border border-pink-100 text-pink-700 font-bold">
                         Role: {ann.target_role}
                       </span>
-                      <span className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold">
+                      <span className="px-2 py-0.5 rounded bg-amber-50 border border-amber-200 text-amber-700 font-bold">
                         Campus: {targetCampus}
                       </span>
                     </div>

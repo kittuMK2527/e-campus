@@ -414,7 +414,7 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
           <TableHeader className="sticky top-0 z-10">
             <TableRow>
               <TableHead className="w-12">#</TableHead>
-              <TableHead className="cursor-pointer hover:text-indigo-600" onClick={() => attToggleSort("name")}>
+              <TableHead className="cursor-pointer hover:text-amber-500" onClick={() => attToggleSort("name")}>
                 Roll No
               </TableHead>
               <TableHead>Name</TableHead>
@@ -434,13 +434,13 @@ export const MonitoringTab: React.FC<MonitoringTabProps> = ({
                 Absent
               </TableHead>
               <TableHead
-                className="text-center cursor-pointer hover:text-indigo-600"
+                className="text-center cursor-pointer hover:text-amber-500"
                 onClick={() => attToggleSort("total")}
               >
                 Total
               </TableHead>
               <TableHead
-                className="text-center text-indigo-700 cursor-pointer hover:text-indigo-600"
+                className="text-center text-amber-700 cursor-pointer hover:text-amber-500"
                 onClick={() => attToggleSort("pct")}
               >
                 %

@@ -1169,7 +1169,7 @@ export function LndAllocationDashboard() {
             <div className="bg-white/90 dark:bg-[#131317]/90 border border-slate-100 dark:border-slate-800/80 rounded-2xl p-5 shadow-card space-y-4 backdrop-blur-md">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800/80 pb-3">
                 <div className="flex items-center gap-2.5">
-                  <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <div className="p-2 rounded-xl bg-amber-50 dark:bg-indigo-950/40 text-amber-500 dark:text-amber-400">
                     <Sparkles className="h-4.5 w-4.5" />
                   </div>
                   <div>
@@ -1292,7 +1292,7 @@ export function LndAllocationDashboard() {
                                 </button>
                               </div>
                             </td>
-                            <td className="p-3 text-center font-extrabold text-indigo-600 dark:text-indigo-400">
+                            <td className="p-3 text-center font-extrabold text-amber-500 dark:text-amber-400">
                               {scheduledCount} hr{scheduledCount !== 1 ? "s" : ""}
                             </td>
                             <td className="p-3 text-center font-bold text-slate-600 dark:text-slate-400">
@@ -1303,7 +1303,7 @@ export function LndAllocationDashboard() {
                                 <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                                   <div
                                     className={`h-full rounded-full transition-all ${
-                                      isSatisfied ? "bg-emerald-500" : "bg-indigo-500"
+                                      isSatisfied ? "bg-emerald-500" : "bg-amber-500"
                                     }`}
                                     style={{ width: `${pct}%` }}
                                   />

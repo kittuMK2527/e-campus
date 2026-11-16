@@ -267,7 +267,7 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
           </div>
           <button
             onClick={() => onNavigateTab("reports")}
-            className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+            className="text-xs font-bold text-amber-500 hover:text-amber-800 flex items-center gap-1"
           >
             Portfolio Analytics <ChevronRight className="h-4 w-4" />
           </button>
@@ -323,8 +323,8 @@ export const KAMOverview: React.FC<KAMOverviewProps> = ({
                       <span className="text-xs font-bold text-slate-800">{c.cam.name}</span>
                     </div>
                     <div className="flex items-center gap-1 text-slate-400">
-                      {c.cam.email && <Mail className="h-3.5 w-3.5 hover:text-indigo-600" />}
-                      {c.cam.phone && <Phone className="h-3.5 w-3.5 hover:text-indigo-600" />}
+                      {c.cam.email && <Mail className="h-3.5 w-3.5 hover:text-amber-500" />}
+                      {c.cam.phone && <Phone className="h-3.5 w-3.5 hover:text-amber-500" />}
                     </div>
                   </div>
                 ) : (

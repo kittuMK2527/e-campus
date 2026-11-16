@@ -140,7 +140,7 @@ export const SundayScheduleCard: React.FC<SundayScheduleCardProps> = ({ collegeI
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h3 className="flex items-center gap-1.5 text-sm font-extrabold text-slate-900">
-            <CalendarX2 className="h-4 w-4 text-indigo-600" />
+            <CalendarX2 className="h-4 w-4 text-amber-500" />
             Sunday working days
           </h3>
           <p className="mt-0.5 max-w-3xl text-[11px] font-semibold text-slate-500">
@@ -219,7 +219,7 @@ export const SundayScheduleCard: React.FC<SundayScheduleCardProps> = ({ collegeI
                           }))
                         }
                         aria-label={`Open ${dayLabel(row.dateStr)} for classes`}
-                        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-[#4F46E5]/40"
+                        className="h-4 w-4 rounded border-slate-300 text-amber-500 focus:ring-[#4F46E5]/40"
                       />
                       <Badge variant={row.working ? "success" : "secondary"}>
                         {row.working ? "Working" : "Closed"}

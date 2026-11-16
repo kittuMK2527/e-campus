@@ -246,7 +246,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
             ))}
           </div>
           <div className="h-48 bg-slate-100/60 rounded-2xl border border-slate-200/50 animate-pulse flex flex-col items-center justify-center gap-2">
-            <div className="h-6 w-6 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            <div className="h-6 w-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
             <span className="text-xs font-bold text-slate-500">Loading Student 360° Profile & Analytics…</span>
             <span className="text-[11px] text-slate-400">Fetching attendance logs, trajectory, and coding metrics</span>
           </div>
@@ -277,7 +277,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
           <button
             type="button"
             onClick={() => progressQuery.refetch()}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
+            className="px-4 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 active:scale-95 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer"
           >
             Try Again
           </button>
@@ -400,11 +400,11 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                 onClick={() => setActiveTab(t.key as any)}
                 className={`flex items-center gap-1.5 py-1.5 px-3 rounded-xl text-xs transition-all cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? "bg-white text-indigo-950 font-black shadow-xs border border-slate-200/60"
+                    ? "bg-white text-zinc-950 font-black shadow-xs border border-slate-200/60"
                     : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 font-bold"
                 }`}
               >
-                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-indigo-600" : "text-slate-400"}`} />
+                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-amber-500" : "text-slate-400"}`} />
                 <span>{t.label}</span>
               </button>
             );
@@ -424,7 +424,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                       &lt;/&gt;
                     </div>
                     <div>
-                      <span className="text-[9px] font-black uppercase text-indigo-300 tracking-wider block">Competitive Coding Standing</span>
+                      <span className="text-[9px] font-black uppercase text-amber-300 tracking-wider block">Competitive Coding Standing</span>
                       <p className="text-xs font-bold text-slate-200 mt-0.5">
                         {codingStats.leetcode?.found ? `LeetCode: ${codingStats.leetcode.solvedTotal} Solved` : "LeetCode: Active"}
                         {" • "}
@@ -446,7 +446,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                   <h4 className="text-[10px] font-black text-slate-700 uppercase tracking-wider">
                     Monthly Attendance Trajectory (%)
                   </h4>
-                  <span className="text-[10px] font-black text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-black text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-full">
                     Overall: {stats.overallAttendancePct}%
                   </span>
                 </div>
@@ -525,7 +525,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                       <TableHead className="py-2.5 px-2 text-center text-emerald-700">Present</TableHead>
                       <TableHead className="py-2.5 px-2 text-center text-rose-700">Absent</TableHead>
                       <TableHead className="py-2.5 px-2 text-center text-purple-700">OD</TableHead>
-                      <TableHead className="py-2.5 px-3 text-right text-indigo-600">%</TableHead>
+                      <TableHead className="py-2.5 px-3 text-right text-amber-500">%</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody className="divide-y divide-slate-100 font-semibold text-slate-700 bg-white text-xs">
@@ -536,7 +536,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                         <TableCell className="py-2.5 px-2 text-center text-emerald-600 font-black">{s.presentPeriods}</TableCell>
                         <TableCell className="py-2.5 px-2 text-center text-rose-500 font-bold">{s.absentPeriods}</TableCell>
                         <TableCell className="py-2.5 px-2 text-center text-purple-600 font-bold">{s.odPeriods}</TableCell>
-                        <TableCell className="py-2.5 px-3 text-right font-black text-indigo-600">{s.attendancePct}%</TableCell>
+                        <TableCell className="py-2.5 px-3 text-right font-black text-amber-500">{s.attendancePct}%</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -556,7 +556,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                 <div className="relative pl-6 space-y-3.5 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200/80">
                   {timeline.map((item: any) => (
                     <div key={item.id} className="relative">
-                      <div className="absolute -left-6 top-1 h-5 w-5 rounded-full bg-white border-2 border-indigo-600 flex items-center justify-center text-[8px] font-black text-indigo-600 shadow-xs">
+                      <div className="absolute -left-6 top-1 h-5 w-5 rounded-full bg-white border-2 border-amber-500 flex items-center justify-center text-[8px] font-black text-amber-500 shadow-xs">
                         •
                       </div>
                       <div className="bg-slate-50/70 hover:bg-white rounded-2xl p-3.5 border border-slate-100 shadow-card space-y-1 transition-all">
@@ -566,7 +566,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                         </div>
                         <p className="text-xs font-medium text-slate-600">{item.desc}</p>
                         {item.status && (
-                          <span className="inline-block mt-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/70">
+                          <span className="inline-block mt-1 text-[9px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/70">
                             Status: {item.status}
                           </span>
                         )}
@@ -645,7 +645,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                                   ? "bg-slate-100 text-slate-800 border-slate-300"
                                   : ach.badge === "Paper Published" || ach.badge === "Certification"
                                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                    : "bg-indigo-100 text-indigo-800 border-indigo-300"
+                                    : "bg-amber-100 text-amber-800 border-indigo-300"
                             }`}
                           >
                             {ach.badge || "Accolade"}
@@ -657,14 +657,14 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                         </div>
 
                         <div>
-                          <span className="text-[9px] font-black uppercase tracking-wider text-indigo-600 block">
+                          <span className="text-[9px] font-black uppercase tracking-wider text-amber-500 block">
                             {ach.category || "Student Honor"}
                           </span>
                           <h4 className="text-xs font-black text-slate-900 mt-0.5">
                             {ach.title}
                           </h4>
                           {ach.topic && (
-                            <p className="text-[11px] font-bold text-indigo-900 mt-0.5 flex items-center gap-1">
+                            <p className="text-[11px] font-bold text-zinc-900 mt-0.5 flex items-center gap-1">
                               <span className="text-[9px] uppercase font-black text-slate-400">Topic:</span>
                               <span>{ach.topic}</span>
                             </p>
@@ -697,7 +697,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                               href={ach.proof_link.startsWith("http") ? ach.proof_link : `https://${ach.proof_link}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-500 hover:text-amber-800 hover:underline"
                             >
                               <ExternalLink className="h-3 w-3" />
                               <span>Official Verification Link</span>
@@ -744,7 +744,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
 
               {loadingCodingStats ? (
                 <div className="p-8 text-center text-xs font-bold text-slate-400 animate-pulse flex items-center justify-center gap-2">
-                  <div className="h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                  <div className="h-4 w-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
                   <span>Fetching live HackerRank &amp; LeetCode student records...</span>
                 </div>
               ) : (
