@@ -88,6 +88,7 @@ export async function GET(request: Request) {
           classGroup: st.classGroup,
           department: st.department,
           marks_obtained: mark ? mark.marks_obtained : null,
+          has_saved_mark: Boolean(mark),
           max_marks: mark?.max_marks || exam.max_marks || 50,
           is_absent: mark ? Boolean(mark.is_absent) : false,
           is_od: odSet.has(st.id),
@@ -182,6 +183,26 @@ export async function POST(request: Request) {
       if (entry?.student_id) byStudent.set(String(entry.student_id), entry);
     }
 
+    const alreadySaved = new Set<string>();
+    const studentIds = Array.from(byStudent.keys());
+    for (let index = 0; index < studentIds.length; index += 400) {
+      const chunk = studentIds.slice(index, index + 400);
+      const placeholders = chunk.map(() => "?").join(", ");
+      const rows = await db.all(
+        `SELECT student_id FROM student_exam_marks WHERE exam_id = ? AND student_id IN (${placeholders})`,
+        exam_id,
+        ...chunk
+      );
+      rows.forEach((row: any) => alreadySaved.add(String(row.student_id)));
+    }
+    if (alreadySaved.size > 0) {
+      return NextResponse.json({
+        success: false,
+        message: "Some selected students already have saved marks or attendance. Saved rows are locked; use the approved correction request for changes.",
+        locked_student_ids: Array.from(alreadySaved),
+      }, { status: 409 });
+    }
+
     const evaluatedByName = evaluated_by || "Campus Manager";
     const attendedByName = evaluated_by || "Faculty Mentor";
     const attTimestamp = new Date().toISOString();
@@ -246,14 +267,7 @@ export async function POST(request: Request) {
           `INSERT INTO student_exam_marks (
             id, exam_id, student_id, college_id, marks_obtained, max_marks, is_absent, grade, remarks, evaluated_by, updated_at
           ) VALUES ${values}
-          ON CONFLICT(exam_id, student_id) DO UPDATE SET
-            marks_obtained = excluded.marks_obtained,
-            max_marks = excluded.max_marks,
-            is_absent = excluded.is_absent,
-            grade = excluded.grade,
-            remarks = excluded.remarks,
-            evaluated_by = excluded.evaluated_by,
-            updated_at = CURRENT_TIMESTAMP`,
+          ON CONFLICT(exam_id, student_id) DO NOTHING`,
           ...chunk.flat()
         );
       }
@@ -288,7 +302,6 @@ export async function POST(request: Request) {
       payload: { type: "Exam", examId: exam_id }
     });
 
-    const studentIds = Array.from(byStudent.keys());
     if (studentIds.length > 0) {
       dispatchSystemNotification(db, {
         userIds: studentIds,

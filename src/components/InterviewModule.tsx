@@ -26,6 +26,16 @@ import {
 
 // ─── Structured Period Slot Helper ──────────────────────────────────────────
 
+function isSpecificGoogleMeetUrl(value: string): boolean {
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === "https:" && url.hostname === "meet.google.com" &&
+      /^\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/i.test(url.pathname.replace(/\/$/, ""));
+  } catch {
+    return false;
+  }
+}
+
 export interface StructuredPeriodSlot {
   periodNumber: number;
   periodLabel: string; // "Period 1"
@@ -1395,15 +1405,6 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   const [cmGmeetLink, setCmGmeetLink] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
 
-  const generateGMeetLink = () => {
-    const chars = "abcdefghijklmnopqrstuvwxyz";
-    const randStr = (len: number) => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-    const code = randStr(3) + "-" + randStr(4) + "-" + randStr(3);
-    const link = "https://meet.google.com/" + code;
-    setCmGmeetLink(link);
-    toast("Google Meet link generated!", "success");
-    return link;
-  };
   const [isMarkingComplete, setIsMarkingComplete] = useState<string | null>(null);
   const [viewingStudentRosterModal, setViewingStudentRosterModal] = useState<any | null>(null);
   const [rosterInitialTab, setRosterInitialTab] = useState<"mentors" | "students" | "logs">("students");
@@ -1945,16 +1946,14 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
     }
     const selectedIds = cohortStudents.slice(0, effectiveStudentCount).map(s => s.id);
 
-    setIsAssigning(true);
     let effectiveMeet = targetReq?.type === "internal" ? "" : cmGmeetLink.trim();
-    if (targetReq?.type === "external" && !effectiveMeet) {
-      if (targetReq.gmeet_link?.trim()) {
-        effectiveMeet = targetReq.gmeet_link.trim();
-      } else {
-        effectiveMeet = generateGMeetLink();
-      }
+    if (targetReq?.type === "external" && !effectiveMeet) effectiveMeet = targetReq.gmeet_link?.trim() || "";
+    if (targetReq?.type === "external" && effectiveMeet && !isSpecificGoogleMeetUrl(effectiveMeet)) {
+      toast("Enter a real https://meet.google.com room link, or leave this blank to let the configured Calendar Apps Script create one.", "warning");
+      return;
     }
 
+    setIsAssigning(true);
     try {
       const data = await apiFetch("/api/interviews/assign", {
         method: "POST",
@@ -1970,7 +1969,12 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
         },
       });
       if (data.success) {
-        toast("Flexible multi-period mentor schedule saved & marked on calendar! Notification emails dispatched.", "success");
+        toast(
+          data.meeting_link_status === "missing"
+            ? "Assignment saved, but no real Google Meet room was created. Create a room with New Room and save its link before the session."
+            : "Flexible multi-period mentor schedule saved. Notification emails dispatched.",
+          data.meeting_link_status === "missing" ? "warning" : "success"
+        );
         setExpandedAllocation(null);
         setMentorSlotConfigs({});
         setCmGmeetLink("");
@@ -4199,15 +4203,6 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                           Google Meet Link <span className="text-slate-400 font-normal">(Virtual Panel)</span>
                                         </label>
                                         <div className="flex items-center gap-1.5">
-                                          <button
-                                            type="button"
-                                            onClick={generateGMeetLink}
-                                            className="px-2.5 py-1 rounded-lg btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white text-[10px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-                                            title="Generate a fresh Google Meet link instantly"
-                                          >
-                                            <Sparkles className="w-3 h-3" />
-                                            Generate Link
-                                          </button>
                                           <a
                                             href="https://meet.google.com/new"
                                             target="_blank"
@@ -4229,7 +4224,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                           placeholder="https://meet.google.com/xxx-xxxx-xxx"
                                           className="flex-1 p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none placeholder-slate-400"
                                         />
-                                        {cmGmeetLink.trim() && (
+                                        {isSpecificGoogleMeetUrl(cmGmeetLink) && (
                                           <a
                                             href={cmGmeetLink.trim()}
                                             target="_blank"
@@ -4243,7 +4238,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                         )}
                                       </div>
                                       <p className="text-[9px] text-slate-500 font-medium">
-                                        Auto-dispatched with isolated calendar invite per candidate. If left blank, a link will be generated automatically.
+                                        Create a real room with New Room and paste its link, or leave blank for the configured Calendar Apps Script to create one. Random Meet URLs do not work.
                                       </p>
                                     </div>
                                   ) : (

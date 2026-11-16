@@ -2,7 +2,7 @@ import { existsSync, readFileSync } from "fs";
 import { readdirSync, statSync } from "fs";
 import { join } from "path";
 import { describe, expect, it } from "vitest";
-import { createGoogleCalendarEvent, generateStudentGCalUrl } from "@/lib/google-calendar";
+import { createGoogleCalendarEvent, generateStudentGCalUrl, normalizeGoogleMeetLink } from "@/lib/google-calendar";
 
 function sourceFiles(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -16,6 +16,7 @@ function sourceFiles(dir: string, out: string[] = []): string[] {
 describe("Google Meet links are never fabricated", () => {
   it("returns no link when the session has none and Calendar creation is not configured", async () => {
     delete process.env.NEXT_PUBLIC_GAS_MAIL_URL;
+    delete process.env.GOOGLE_CALENDAR_GAS_URL;
     const result = await createGoogleCalendarEvent({
       title: "Structured Interview: React (III BCA)",
       targetDate: "2026-11-04",
@@ -44,6 +45,15 @@ describe("Google Meet links are never fabricated", () => {
     expect(result.ics_content).toContain(`URL:${real}`);
     expect(result.ics_content).toContain(`X-GOOGLE-CONFERENCE:${real}`);
     expect(result.gcal_link).toContain(encodeURIComponent(real));
+  });
+
+  it("accepts only a specific HTTPS Meet room URL", () => {
+    expect(normalizeGoogleMeetLink("https://meet.google.com/mqb-afwp-ppq")).toBe("https://meet.google.com/mqb-afwp-ppq");
+    expect(normalizeGoogleMeetLink("https://meet.google.com/new")).toBeNull();
+    expect(normalizeGoogleMeetLink("http://meet.google.com/mqb-afwp-ppq")).toBeNull();
+    expect(normalizeGoogleMeetLink("https://example.com/mqb-afwp-ppq")).toBeNull();
+    expect(normalizeGoogleMeetLink("https://meet.google.com/landing/fake-room")).toBeNull();
+    expect(normalizeGoogleMeetLink("https://meet.google.com/not-a-room")).toBeNull();
   });
 
   it("omits the location and join line from a student calendar link when there is no room", () => {
@@ -76,7 +86,11 @@ describe("Google Meet links are never fabricated", () => {
 
   it("never builds a meet.google.com URL out of an id or random chunk", () => {
     const offenders = sourceFiles(join(process.cwd(), "src"))
-      .filter((file) => readFileSync(file, "utf8").includes("meet.google.com/${"))
+      .filter((file) => {
+        const source = readFileSync(file, "utf8");
+        return source.includes("meet.google.com/${") ||
+          (/meet\.google\.com/.test(source) && /randStr\(3\).*randStr\(4\).*randStr\(3\)/s.test(source));
+      })
       .map((file) => file.replace(process.cwd(), ""));
     expect(offenders).toEqual([]);
   });

@@ -69,6 +69,10 @@ Create a `.env.local` file in the root directory based on `.env.example`:
 ```env
 # Zentra by FPC - Environment Variables
 NEXT_PUBLIC_GAS_MAIL_URL=https://script.google.com/macros/s/YOUR_SCRIPT_ID/exec
+# Dedicated Google Apps Script Web App URL for Calendar events / real Meet rooms.
+# Deploy the calendar script as a Web App; doPost must handle action=create_calendar_event
+# and return JSON with meet_url (and optionally html_link).
+GOOGLE_CALENDAR_GAS_URL=https://script.google.com/macros/s/YOUR_CALENDAR_SCRIPT_ID/exec
 
 # Postgres / Turso Cloud Database Credentials
 DATABASE_URL="postgres://user:password@host:5432/database"

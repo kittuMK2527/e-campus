@@ -309,6 +309,15 @@ export async function POST(request: Request) {
       }
 
       const rowsToWrite = Array.from(markRows.values());
+      for (const row of rowsToWrite) {
+        const existing = await db.get(
+          "SELECT quiz_marks, assessment_marks, assignment_marks FROM student_academic_tracker WHERE LOWER(TRIM(student_email)) = LOWER(TRIM(?)) AND LOWER(TRIM(class_group)) = LOWER(TRIM(?)) AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ?",
+          [row[1], row[3], row[4], row[5]]
+        );
+        if (existing && [7, 8, 9].some((index) => existing[["quiz_marks", "assessment_marks", "assignment_marks"][index - 7]] != null && row[index] != null && Number(existing[["quiz_marks", "assessment_marks", "assignment_marks"][index - 7]]) !== Number(row[index]))) {
+          return NextResponse.json({ success: false, message: "Saved academic marks are locked and cannot be replaced by bulk upload." }, { status: 409 });
+        }
+      }
       await db.transaction(async (tx) => {
         for (const chunk of chunkList(rowsToWrite, 100)) {
           const values = chunk.map(() => "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").join(", ");
@@ -319,10 +328,10 @@ export async function POST(request: Request) {
             ON CONFLICT(student_email, class_group, subject, week_number) DO UPDATE SET
               student_id = COALESCE(excluded.student_id, student_academic_tracker.student_id),
               attendance_status = excluded.attendance_status,
-              quiz_marks = excluded.quiz_marks,
-              assessment_marks = excluded.assessment_marks,
-              assignment_marks = excluded.assignment_marks,
-              total_marks = excluded.total_marks,
+              quiz_marks = CASE WHEN student_academic_tracker.quiz_marks IS NULL THEN excluded.quiz_marks ELSE student_academic_tracker.quiz_marks END,
+              assessment_marks = CASE WHEN student_academic_tracker.assessment_marks IS NULL THEN excluded.assessment_marks ELSE student_academic_tracker.assessment_marks END,
+              assignment_marks = CASE WHEN student_academic_tracker.assignment_marks IS NULL THEN excluded.assignment_marks ELSE student_academic_tracker.assignment_marks END,
+              total_marks = COALESCE(student_academic_tracker.quiz_marks, excluded.quiz_marks, 0) + COALESCE(student_academic_tracker.assessment_marks, excluded.assessment_marks, 0) + COALESCE(student_academic_tracker.assignment_marks, excluded.assignment_marks, 0),
               feedback = excluded.feedback,
               graded_by = excluded.graded_by,
               updated_at = excluded.updated_at`,
@@ -407,6 +416,16 @@ export async function POST(request: Request) {
         totMarks = (qMarks || 0) + (asMarks || 0) + (agMarks || 0);
       }
 
+      const existingMarks = await db.get(
+        "SELECT quiz_marks, assessment_marks, assignment_marks FROM student_academic_tracker WHERE LOWER(TRIM(student_email)) = LOWER(TRIM(?)) AND LOWER(TRIM(class_group)) = LOWER(TRIM(?)) AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) AND week_number = ?",
+        [email, classGroup.trim(), subject.trim(), parseInt(weekNumber, 10)]
+      );
+      const proposedMarks = [qMarks, asMarks, agMarks];
+      const existingMarkValues = [existingMarks?.quiz_marks, existingMarks?.assessment_marks, existingMarks?.assignment_marks];
+      if (existingMarkValues.some((saved, index) => saved != null && proposedMarks[index] != null && Number(saved) !== Number(proposedMarks[index]))) {
+        return NextResponse.json({ success: false, message: "Saved academic marks are locked and cannot be changed." }, { status: 409 });
+      }
+
       const id = generateId("st_acad");
       const now = new Date().toISOString();
 
@@ -418,13 +437,13 @@ export async function POST(request: Request) {
           student_id = COALESCE(excluded.student_id, student_academic_tracker.student_id),
           attendance_status = COALESCE(excluded.attendance_status, student_academic_tracker.attendance_status),
           submission_url = CASE WHEN excluded.submission_url IS NOT NULL THEN excluded.submission_url ELSE student_academic_tracker.submission_url END,
-          quiz_marks = CASE WHEN excluded.quiz_marks IS NOT NULL THEN excluded.quiz_marks ELSE student_academic_tracker.quiz_marks END,
-          assessment_marks = CASE WHEN excluded.assessment_marks IS NOT NULL THEN excluded.assessment_marks ELSE student_academic_tracker.assessment_marks END,
-          assignment_marks = CASE WHEN excluded.assignment_marks IS NOT NULL THEN excluded.assignment_marks ELSE student_academic_tracker.assignment_marks END,
+          quiz_marks = CASE WHEN student_academic_tracker.quiz_marks IS NULL THEN excluded.quiz_marks ELSE student_academic_tracker.quiz_marks END,
+          assessment_marks = CASE WHEN student_academic_tracker.assessment_marks IS NULL THEN excluded.assessment_marks ELSE student_academic_tracker.assessment_marks END,
+          assignment_marks = CASE WHEN student_academic_tracker.assignment_marks IS NULL THEN excluded.assignment_marks ELSE student_academic_tracker.assignment_marks END,
           total_marks = (
-            COALESCE(CASE WHEN excluded.quiz_marks IS NOT NULL THEN excluded.quiz_marks ELSE student_academic_tracker.quiz_marks END, 0) +
-            COALESCE(CASE WHEN excluded.assessment_marks IS NOT NULL THEN excluded.assessment_marks ELSE student_academic_tracker.assessment_marks END, 0) +
-            COALESCE(CASE WHEN excluded.assignment_marks IS NOT NULL THEN excluded.assignment_marks ELSE student_academic_tracker.assignment_marks END, 0)
+            COALESCE(student_academic_tracker.quiz_marks, excluded.quiz_marks, 0) +
+            COALESCE(student_academic_tracker.assessment_marks, excluded.assessment_marks, 0) +
+            COALESCE(student_academic_tracker.assignment_marks, excluded.assignment_marks, 0)
           ),
           feedback = CASE WHEN excluded.feedback IS NOT NULL THEN excluded.feedback ELSE student_academic_tracker.feedback END,
           graded_by = CASE WHEN excluded.graded_by IS NOT NULL THEN excluded.graded_by ELSE student_academic_tracker.graded_by END,

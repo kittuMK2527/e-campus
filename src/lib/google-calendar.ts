@@ -29,6 +29,34 @@ export interface GoogleCalendarResult {
   event_created?: boolean;
 }
 
+/** Accept only a specific HTTPS Meet room, never the generic /new launcher or a fake code. */
+export function normalizeGoogleMeetLink(value?: string | null): string | null {
+  if (!value?.trim()) return null;
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:" || url.hostname.toLowerCase() !== "meet.google.com" || url.username || url.password) return null;
+    const path = url.pathname.replace(/\/+$/, "").toLowerCase();
+    if (!/^\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(path)) return null;
+    return `https://meet.google.com${path}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
+function getCalendarAppsScriptUrl(): string | null {
+  const candidate = (process.env.GOOGLE_CALENDAR_GAS_URL || "").trim();
+  if (!candidate) return null;
+  try {
+    const url = new URL(candidate);
+    const validPath = /^(?:\/macros\/s\/[^/]+\/exec\/?|\/a\/macros\/[^/]+\/s\/[^/]+\/exec\/?$)/.test(url.pathname);
+    if (url.protocol === "https:" && url.hostname === "script.google.com" && validPath) return url.toString();
+  } catch {
+    // Invalid deployment URLs are treated as unconfigured; interview assignment can still proceed.
+  }
+  console.error("Google Calendar Apps Script URL is invalid; expected an HTTPS script.google.com/macros/.../exec deployment URL.");
+  return null;
+}
+
 /**
  * Parse human time (e.g. "08:20 AM" or "8.20 AM") on targetDate (YYYY-MM-DD) into ISO string for Google Calendar
  */
@@ -82,16 +110,14 @@ export async function createGoogleCalendarEvent(options: GoogleCalendarEventOpti
 
   // 1. Only carry forward a link somebody actually created. A made-up 3-4-3 code opens
   //    Google's "meeting link is not valid" page, so it must never be minted or persisted.
-  let gmeetLink = existingMeetLink && existingMeetLink.includes("meet.google.com")
-    ? existingMeetLink
-    : null;
+  let gmeetLink = normalizeGoogleMeetLink(existingMeetLink);
 
   const { startISO, endISO } = formatGCalDateTime(targetDate, startTime);
 
   // 2. Try to call Google Apps Script Webhook to create real Google Calendar Event if configured
   let eventCreated = false;
   let effectiveGcalLink: string | null = null;
-  const gasUrl = process.env.NEXT_PUBLIC_GAS_MAIL_URL || "";
+  const gasUrl = getCalendarAppsScriptUrl();
   if (gasUrl) {
     try {
       // Deadlined: this call sits on the accept/final-confirm write path, so a stalled
@@ -116,13 +142,14 @@ export async function createGoogleCalendarEvent(options: GoogleCalendarEventOpti
         const text = await response.text();
         try {
           const data = JSON.parse(text);
-          if (data.meet_url) {
-            gmeetLink = data.meet_url;
+          if (data.success !== false) {
+            const returnedMeetLink = normalizeGoogleMeetLink(data.meet_url);
+            if (returnedMeetLink) gmeetLink = returnedMeetLink;
+            if (typeof data.html_link === "string" && data.html_link.startsWith("https://calendar.google.com/")) {
+              effectiveGcalLink = data.html_link;
+            }
           }
-          if (data.html_link) {
-            effectiveGcalLink = data.html_link;
-          }
-          eventCreated = true;
+          eventCreated = Boolean(gmeetLink || effectiveGcalLink);
         } catch (_) {}
       }
     } catch (gasErr) {

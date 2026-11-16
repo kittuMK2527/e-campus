@@ -101,7 +101,7 @@ export async function PUT(request: Request) {
     const { action, studentId, classGroup, subject, weekNumber, submissionUrl, vivaAssessment, marks, gradedBy } = body;
 
     // Handle grade_entry action first for staff (cm, kam, admin)
-    if (action === "grade_entry") {
+    if (action === "grade_entry" && normalizeRole(auth.user.role) !== "student") {
       if (!studentId || !classGroup || !subject || weekNumber === undefined) {
         return NextResponse.json(
           { success: false, message: "Missing required fields: studentId, classGroup, subject, or weekNumber." },
@@ -120,6 +120,17 @@ export async function PUT(request: Request) {
         }
       }
 
+      const existingGrade = await db.get(
+        "SELECT marks FROM student_tracker WHERE student_id = ? AND class_group = ? AND subject = ? AND week_number = ?",
+        [studentId, classGroup, subject, weekNumber]
+      );
+      if (existingGrade?.marks !== null && existingGrade?.marks !== undefined) {
+        return NextResponse.json(
+          { success: false, message: "This grade is already saved and locked. Contact your Campus Manager to request a correction." },
+          { status: 409 }
+        );
+      }
+
       const id = generateId("track");
 
       const now = new Date().toISOString();
@@ -128,9 +139,8 @@ export async function PUT(request: Request) {
         `INSERT INTO student_tracker (id, student_id, class_group, subject, week_number, submission_url, viva_assessment, marks, graded_by, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(student_id, class_group, subject, week_number) DO UPDATE SET
-           submission_url = CASE WHEN excluded.submission_url IS NOT NULL THEN excluded.submission_url ELSE student_tracker.submission_url END,
            viva_assessment = CASE WHEN excluded.viva_assessment IS NOT NULL THEN excluded.viva_assessment ELSE student_tracker.viva_assessment END,
-           marks = CASE WHEN excluded.marks IS NOT NULL THEN excluded.marks ELSE student_tracker.marks END,
+           marks = CASE WHEN student_tracker.marks IS NULL THEN excluded.marks ELSE student_tracker.marks END,
            graded_by = CASE WHEN excluded.graded_by IS NOT NULL THEN excluded.graded_by ELSE student_tracker.graded_by END,
            updated_at = excluded.updated_at`,
         [
@@ -139,7 +149,7 @@ export async function PUT(request: Request) {
           classGroup,
           subject,
           weekNumber,
-          submissionUrl !== undefined ? submissionUrl : null,
+          null,
           vivaAssessment !== undefined ? vivaAssessment : null,
           marks !== undefined && marks !== null ? parseFloat(marks) : null,
           gradedBy !== undefined ? gradedBy : null,
@@ -199,10 +209,27 @@ export async function PUT(request: Request) {
           { status: 400 }
         );
       }
+      if (typeof submissionUrl !== "string" || !submissionUrl.trim()) {
+        return NextResponse.json(
+          { success: false, message: "A non-empty submission link or file is required." },
+          { status: 400 }
+        );
+      }
+
+      const existingSubmission = await db.get(
+        "SELECT submission_url FROM student_tracker WHERE student_id = ? AND class_group = ? AND subject = ? AND week_number = ?",
+        [studentId, classGroup, subject, weekNumber]
+      );
+      if (existingSubmission?.submission_url) {
+        return NextResponse.json(
+          { success: false, message: "This submission is locked after saving and cannot be edited." },
+          { status: 409 }
+        );
+      }
 
       const now = new Date().toISOString();
-      // INSERT OR REPLACE in student_tracker
-      await db.run(
+      // Conditional conflict update closes the race between simultaneous submissions.
+      const saveResult = await db.run(
         `INSERT INTO student_tracker (id, student_id, class_group, subject, week_number, submission_url, viva_assessment, marks, graded_by, updated_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(student_id, class_group, subject, week_number) DO UPDATE SET
@@ -210,7 +237,8 @@ export async function PUT(request: Request) {
            viva_assessment = CASE WHEN excluded.viva_assessment IS NOT NULL THEN excluded.viva_assessment ELSE student_tracker.viva_assessment END,
            marks = CASE WHEN excluded.marks IS NOT NULL THEN excluded.marks ELSE student_tracker.marks END,
            graded_by = CASE WHEN excluded.graded_by IS NOT NULL THEN excluded.graded_by ELSE student_tracker.graded_by END,
-           updated_at = excluded.updated_at`,
+           updated_at = excluded.updated_at
+         WHERE COALESCE(student_tracker.submission_url, '') = ''`,
         [
           generateId("track"),
           studentId,
@@ -224,6 +252,12 @@ export async function PUT(request: Request) {
           now
         ]
       );
+      if (saveResult?.changes === 0) {
+        return NextResponse.json(
+          { success: false, message: "This submission is locked after saving and cannot be edited." },
+          { status: 409 }
+        );
+      }
 
       // Fetch the updated entry
       const updatedEntry = await db.get(

@@ -40,10 +40,10 @@ import {
   Upload,
   RefreshCw,
   Menu,
-  Edit2,
   Loader2,
   Video,
   ExternalLink,
+  LockKeyhole,
   Percent,
   AlertTriangle
 } from "lucide-react";
@@ -311,7 +311,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [studentTrackerWeek, setStudentTrackerWeek] = useState<number>(1);
   const [submittingUrlMap, setSubmittingUrlMap] = useState<Record<number, boolean>>({});
   const [studentUploadType, setStudentUploadType] = useState<Record<number, "url" | "file">>({});
-  const [editSubmissionMode, setEditSubmissionMode] = useState<Record<number, boolean>>({});
 
   // State for OPAC library search
   const [librarySearch, setLibrarySearch] = useState("");
@@ -4893,7 +4892,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                     <div className="space-y-2">
                                       <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">Student Submission</span>
 
-                                      {currentUrl && !editSubmissionMode[wk] ? (
+                                      {currentUrl ? (
                                         <div className="rounded-lg border border-slate-100 p-3.5 bg-slate-50 space-y-2.5">
                                           <div className="flex items-start justify-between gap-3">
                                             <div className="space-y-1 min-w-0">
@@ -4922,14 +4921,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                 </a>
                                               )}
                                             </div>
-                                            <button
-                                              type="button"
-                                              onClick={() => setEditSubmissionMode(prev => ({ ...prev, [wk]: true }))}
-                                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-[10px] transition-colors cursor-pointer shrink-0"
+                                            <span
+                                              title="Submitted work is locked and cannot be changed. Contact your mentor if a correction is required."
+                                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-700 font-black text-[9px] uppercase tracking-wide shrink-0"
                                             >
-                                              <Edit2 className="h-3 w-3 text-slate-500" />
-                                              <span>Edit</span>
-                                            </button>
+                                              <LockKeyhole className="h-3 w-3" /> Locked
+                                            </span>
                                           </div>
 
                                           {entry?.updated_at && (
@@ -4989,7 +4986,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                   toast(res.message || "Failed to submit URL.", "error");
                                                 } else {
                                                   toast("Work submitted successfully!", "success");
-                                                  setEditSubmissionMode(prev => ({ ...prev, [wk]: false }));
                                                 }
                                               }}
                                               className="flex gap-2"
@@ -5043,7 +5039,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                           toast(res.message || "File upload failed.", "error");
                                                         } else {
                                                           toast(`Uploaded ${file.name} successfully.`, "success");
-                                                          setEditSubmissionMode(prev => ({ ...prev, [wk]: false }));
                                                         }
                                                       };
                                                       reader.onerror = () => {
@@ -5056,17 +5051,6 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                 />
                                               </label>
 
-                                              {currentUrl && (
-                                                <div className="flex justify-end pt-1">
-                                                  <button
-                                                    type="button"
-                                                    onClick={() => setEditSubmissionMode(prev => ({ ...prev, [wk]: false }))}
-                                                    className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold border border-slate-200 cursor-pointer"
-                                                  >
-                                                    Cancel Editing
-                                                  </button>
-                                                </div>
-                                              )}
                                             </div>
                                           )}
                                         </div>

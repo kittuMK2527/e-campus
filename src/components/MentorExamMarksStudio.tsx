@@ -58,6 +58,7 @@ interface StudentRosterRow {
   classGroup: string;
   department: string;
   marks_obtained: number | null;
+  has_saved_mark?: boolean;
   max_marks: number;
   is_absent: boolean;
   is_od?: boolean;
@@ -368,9 +369,11 @@ export const MentorExamMarksStudio: React.FC = () => {
   // Batch mark all students attendance
   const handleMarkAllStudents = (status: "present" | "absent" | "od") => {
     if (!isExamOver) return;
+    const editableRoster = roster.filter((st) => !st.has_saved_mark);
+    if (editableRoster.length === 0) return;
     setMarksState((prev) => {
       const nextMap = { ...prev };
-      roster.forEach((st) => {
+      editableRoster.forEach((st) => {
         const cur = nextMap[st.student_id] || { marks: "", isAbsent: false, remarks: "" };
         nextMap[st.student_id] = {
           ...cur,
@@ -386,7 +389,7 @@ export const MentorExamMarksStudio: React.FC = () => {
 
   // Toggle single student attendance
   const handleToggleStudentAttendance = (studentId: string) => {
-    if (!isExamOver) return;
+    if (!isExamOver || roster.find((st) => st.student_id === studentId)?.has_saved_mark) return;
     setMarksState((prev) => {
       const cur = prev[studentId] || { marks: "", isAbsent: false, remarks: "" };
       let isAbsent = false;
@@ -412,6 +415,7 @@ export const MentorExamMarksStudio: React.FC = () => {
   };
 
   const handleMarkChange = (studentId: string, rawVal: string) => {
+    if (roster.find((st) => st.student_id === studentId)?.has_saved_mark) return;
     if (rawVal === "") {
       setMarksState((prev) => ({
         ...prev,
@@ -437,10 +441,15 @@ export const MentorExamMarksStudio: React.FC = () => {
   // Handle Save Attendance & Marks
   const handleSaveMarks = async () => {
     if (!selectedExam) return;
+    const pendingRoster = roster.filter((st) => !st.has_saved_mark);
+    if (pendingRoster.length === 0) {
+      toast("All student marks and attendance are already saved.", "info");
+      return;
+    }
     setIsSavingMarks(true);
 
     try {
-      const payloadMarks = roster.map(st => {
+      const payloadMarks = pendingRoster.map(st => {
         const state = marksState[st.student_id];
         const isAbsent = Boolean(state?.isAbsent);
         const isOD = Boolean(state?.isOD);
@@ -465,8 +474,9 @@ export const MentorExamMarksStudio: React.FC = () => {
       });
 
       if (data.success) {
-        toast(`Attendance and Marks successfully published for ${roster.length} students!`, "success");
+        toast(`Attendance and Marks successfully published for ${pendingRoster.length} students!`, "success");
         seededRosterExamRef.current = null;
+        await queryClient.invalidateQueries({ queryKey: qk.examRoster(selectedExam.id) });
         await queryClient.invalidateQueries({ queryKey: ["exams"] });
       } else {
         toast(data.message || "Failed to save marks", "error");
@@ -830,7 +840,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveMarks}
-                  disabled={!isExamOver || isSavingMarks || loadingRoster}
+                  disabled={!isExamOver || isSavingMarks || loadingRoster || roster.every((st) => st.has_saved_mark)}
                   className="px-5 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSavingMarks ? (
@@ -1022,7 +1032,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                   const state = marksState[st.student_id] || { marks: "", isAbsent: false, isOD: false, remarks: "" };
                   const marksNum = state.marks.trim() !== "" && !state.isAbsent ? parseFloat(state.marks) : null;
                   const { grade, label, color } = computeGrade(marksNum, state.isAbsent, globalMaxMarks, globalPassingMarks);
-                  const isAlreadySubmitted = st.marks_obtained !== null && st.marks_obtained !== undefined;
+                  const isAlreadySubmitted = Boolean(st.has_saved_mark);
 
                   return (
                     <div key={st.student_id} className="p-3.5 bg-slate-50/70 border border-slate-200/80 rounded-xl space-y-3">
@@ -1033,7 +1043,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                         </div>
                         <button
                           type="button"
-                          disabled={!isExamOver}
+                          disabled={!isExamOver || isAlreadySubmitted}
                           onClick={() => handleToggleStudentAttendance(st.student_id)}
                           className={`min-h-[40px] px-3 py-1.5 rounded-lg text-xs font-black uppercase transition-all cursor-pointer border shadow-2xs ${
                             state.isAbsent
@@ -1091,7 +1101,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                           type="text"
                           placeholder="Feedback / Remarks..."
                           value={state.remarks}
-                          disabled={!isExamOver}
+                          disabled={!isExamOver || isAlreadySubmitted}
                           onChange={(e) => {
                             const val = e.target.value;
                             setMarksState(prev => ({
@@ -1142,7 +1152,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                       const state = marksState[st.student_id] || { marks: "", isAbsent: false, remarks: "" };
                       const marksNum = state.marks.trim() !== "" && !state.isAbsent ? parseFloat(state.marks) : null;
                       const { grade, label, color } = computeGrade(marksNum, state.isAbsent, globalMaxMarks, globalPassingMarks);
-                      const isAlreadySubmitted = st.marks_obtained !== null && st.marks_obtained !== undefined;
+                      const isAlreadySubmitted = Boolean(st.has_saved_mark);
                       const pendingReqMark = pendingEditRequests[st.student_id];
 
                       return (
@@ -1160,7 +1170,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                           <TableCell className="p-3 text-center">
                             <button
                               type="button"
-                              disabled={!isExamOver}
+                                disabled={!isExamOver || isAlreadySubmitted}
                               onClick={() => handleToggleStudentAttendance(st.student_id)}
                               className={`px-3 py-1 rounded-full text-[11px] font-black uppercase transition-all cursor-pointer border shadow-2xs ${
                                 state.isAbsent
@@ -1213,7 +1223,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                                   max={globalMaxMarks}
                                   step="0.5"
                                   aria-label="Marks Obtained"
-                                  disabled={state.isAbsent}
+                                  disabled={state.isAbsent || isAlreadySubmitted}
                                   placeholder="—"
                                   value={state.isAbsent ? "" : state.marks}
                                   onChange={(e) => {
@@ -1253,7 +1263,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                             <input
                               type="text"
                               aria-label="Remarks / Feedback"
-                              disabled={!isExamOver}
+                               disabled={!isExamOver || isAlreadySubmitted}
                               placeholder="Feedback / Remarks..."
                               value={state.remarks}
                               onChange={(e) => {
@@ -1302,7 +1312,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                 <button
                   type="button"
                   onClick={handleSaveMarks}
-                  disabled={!isExamOver || isSavingMarks || loadingRoster}
+                  disabled={!isExamOver || isSavingMarks || loadingRoster || roster.every((st) => st.has_saved_mark)}
                   className="px-6 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-2 shadow-sm cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Save className="h-4 w-4" />

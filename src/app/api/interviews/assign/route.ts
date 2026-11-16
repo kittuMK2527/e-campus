@@ -6,7 +6,7 @@ import { getDb, allCapped, type QueryFailure } from "@/lib/db";
 import { notifyExternalInterviewsAfterResponse } from "@/lib/interview-notifications";
 import { checkMentorAvailability, loadAvailabilityContext } from "@/lib/availability";
 import type { AvailabilityContext } from "@/lib/availability";
-import { generateStudentGCalUrl } from "@/lib/google-calendar";
+import { createGoogleCalendarEvent, generateStudentGCalUrl, normalizeGoogleMeetLink } from "@/lib/google-calendar";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
@@ -180,12 +180,24 @@ export async function POST(request: Request) {
 
     // Internal interviews are in-person; any previously saved Meet room must be cleared,
     // not preserved by a COALESCE that only skipped the new value.
-    let nextMeetLink = interview.type === "internal" ? null : (gmeet_link || interview.gmeet_link || null);
+    let nextMeetLink = interview.type === "internal"
+      ? null
+      : (normalizeGoogleMeetLink(gmeet_link) || normalizeGoogleMeetLink(interview.gmeet_link));
     if (interview.type !== "internal" && !nextMeetLink) {
-      const chars = "abcdefghijklmnopqrstuvwxyz";
-      const randStr = (len: number) => Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-      const meetCode = randStr(3) + "-" + randStr(4) + "-" + randStr(3);
-      nextMeetLink = "https://meet.google.com/" + meetCode;
+      const timeParts = String(assignedTimeSlot).split(/\s+[–—-]\s+/);
+      try {
+        const calendarResult = await createGoogleCalendarEvent({
+          title: `Structured Interview: ${interview.subject || "Interview"} (${interview.class_group || "Cohort"})`,
+          description: `Faculty evaluation session for ${interview.subject || "Interview"}. Cohort: ${interview.class_group || "All"}`,
+          targetDate: interview.target_date || getInstitutionDateStr(),
+          startTime: timeParts[0] || "08:20 AM",
+          endTime: timeParts[1] || "09:10 AM",
+          interviewId: interview.id
+        });
+        nextMeetLink = calendarResult.gmeet_link;
+      } catch (calendarError) {
+        console.warn("[interviews/assign] Real Meet room creation unavailable:", calendarError);
+      }
     }
 
     await db.run(
@@ -364,7 +376,7 @@ export async function POST(request: Request) {
           slotRunningIndex++;
 
           // Internal interviews do NOT use Google Meet (in-person physical on campus)
-          const effectiveMeetLink = isInternal ? null : (nextMeetLink || gmeet_link || interview.gmeet_link || null);
+          const effectiveMeetLink = isInternal ? null : nextMeetLink;
           const studentGCalUrl = isInternal || !effectiveMeetLink ? null : generateStudentGCalUrl({
             studentName: stName,
             studentEmail: stEmail,
@@ -433,7 +445,7 @@ export async function POST(request: Request) {
         originCollegeId: interview.origin_college_id || interview.college_id,
         targetCollegeId: interview.target_college_id,
         actionType: "assigned",
-        gmeetLink: gmeet_link || interview.gmeet_link,
+        gmeetLink: nextMeetLink || undefined,
         actorName: cm_name
       });
     }
@@ -444,7 +456,9 @@ export async function POST(request: Request) {
         await dispatchSystemNotification(db, {
           userIds: allocatedStudentIds,
           title: `Mock Interview Scheduled: ${interview.subject || "Interview"}`,
-          message: `You have been scheduled for a mock interview on ${interview.target_date || "upcoming date"}. Meet link: ${gmeet_link || interview.gmeet_link || "Check schedule"}.`,
+          message: nextMeetLink
+            ? `You have been scheduled for a mock interview on ${interview.target_date || "upcoming date"}. Meet link: ${nextMeetLink}.`
+            : `You have been scheduled for a mock interview on ${interview.target_date || "upcoming date"}. The evaluator will add the verified Google Meet link before the session.`,
           link: "/student/interviews",
           type: "info",
           domain: "interviews",
@@ -470,7 +484,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Successfully assigned ${updatedCount} students & mapped ${mappedMentorIds.length} mentor(s).`
+      message: nextMeetLink
+        ? `Successfully assigned ${updatedCount} students & mapped ${mappedMentorIds.length} mentor(s).`
+        : `Assignment saved, but no Google Meet room was created. Add a real Meet link before the session.`,
+      gmeet_link: nextMeetLink,
+      meeting_link_status: interview.type === "internal" ? "not_required" : nextMeetLink ? "ready" : "missing"
     });
   } catch (error: any) {
     console.error("POST /api/interviews/assign error:", error);

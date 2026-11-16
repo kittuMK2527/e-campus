@@ -9295,31 +9295,39 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                     )}
                                   </td>
                                   <td className="p-4">
-                                    <input
-                                      type="number"
-                                      min="0"
-                                      max="10"
-                                      step="0.5"
-                                      value={skillMarksDraft[student.id] !== undefined ? skillMarksDraft[student.id] : (currentMarks !== "" ? String(currentMarks) : "")}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        const matchesSavedValue = val === ""
-                                          ? currentMarks === ""
-                                          : Number(val) === Number(currentMarks);
-                                        setSkillMarksDraft(prev => {
-                                          if (matchesSavedValue) {
-                                            const next = { ...prev };
-                                            delete next[student.id];
-                                            return next;
-                                          }
-                                          return { ...prev, [student.id]: val };
-                                        });
-                                      }}
-                                      placeholder="—"
-                                      disabled={!currentUrl || isSavingAllSkillMarks}
-                                      className="w-full min-w-16 text-center text-xs font-black px-2 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-sunken text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
-                                      aria-label="Marks (0-10)"
-                                    />
+                                    <div className="space-y-1">
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="10"
+                                        step="0.5"
+                                        value={skillMarksDraft[student.id] !== undefined ? skillMarksDraft[student.id] : (currentMarks !== "" ? String(currentMarks) : "")}
+                                        onChange={(e) => {
+                                          const val = e.target.value;
+                                          const matchesSavedValue = val === ""
+                                            ? currentMarks === ""
+                                            : Number(val) === Number(currentMarks);
+                                          setSkillMarksDraft(prev => {
+                                            if (matchesSavedValue) {
+                                              const next = { ...prev };
+                                              delete next[student.id];
+                                              return next;
+                                            }
+                                            return { ...prev, [student.id]: val };
+                                          });
+                                        }}
+                                        placeholder="—"
+                                        disabled={!currentUrl || currentMarks !== "" || isSavingAllSkillMarks}
+                                        title={currentMarks !== "" ? "Saved marks are locked. Contact an SME if a correction is required." : undefined}
+                                        className="w-full min-w-16 text-center text-xs font-black px-2 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-sunken text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                        aria-label="Marks (0-10)"
+                                      />
+                                      {currentMarks !== "" && (
+                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700" title="Saved and locked">
+                                          <Lock className="h-3 w-3" /> Saved
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -11126,6 +11134,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                               [student.email]: { ...(prev[student.email] || {}), quiz: val }
                                             }));
                                           }}
+                                          disabled={qm !== ""}
+                                          title={qm !== "" ? "Saved mark is locked." : undefined}
                                           onBlur={async (e) => {
                                             const val = e.target.value;
                                             if (val === String(qm)) return;
@@ -11153,7 +11163,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                             }, 2000);
                                           }}
                                           placeholder="—"
-                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white text-slate-900"
+                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                                           aria-label="Quiz (0-10)"
                                         />
                                       </td>
@@ -11172,6 +11182,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                               [student.email]: { ...(prev[student.email] || {}), assessment: val }
                                             }));
                                           }}
+                                          disabled={asm !== ""}
+                                          title={asm !== "" ? "Saved mark is locked." : undefined}
                                           onBlur={async (e) => {
                                             const val = e.target.value;
                                             if (val === String(asm)) return;
@@ -11199,7 +11211,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                             }, 2000);
                                           }}
                                           placeholder="—"
-                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-purple-200 focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white text-slate-900"
+                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-purple-200 focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                                           aria-label="Assessment (0-10)"
                                         />
                                       </td>
@@ -11218,6 +11230,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                               [student.email]: { ...(prev[student.email] || {}), assignment: val }
                                             }));
                                           }}
+                                          disabled={agm !== ""}
+                                          title={agm !== "" ? "Saved mark is locked." : undefined}
                                           onBlur={async (e) => {
                                             const val = e.target.value;
                                             if (val === String(agm)) return;
@@ -11245,7 +11259,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                             }, 2000);
                                           }}
                                           placeholder="—"
-                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-emerald-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900"
+                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-emerald-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                                           aria-label="Assignment (0-10)"
                                         />
                                       </td>
