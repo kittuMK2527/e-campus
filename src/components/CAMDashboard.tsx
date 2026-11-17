@@ -7797,7 +7797,7 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
   // OD / Leave Reason Modal State
   const [showReasonModal, setShowReasonModal] = useState(false);
   const [activeReasonMentor, setActiveReasonMentor] = useState<any>(null);
-  const [pendingStatus, setPendingStatus] = useState<"OD" | "Leave" | "Absent" | "Present">("OD");
+  const [pendingStatus, setPendingStatus] = useState<"OD" | "Absent" | "Present">("OD");
   const [reasonText, setReasonText] = useState("");
 
   const formatPunchTime = (timeStr?: string | null) => {
@@ -7849,7 +7849,7 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
     fetchAttendance();
   }, [collegeId, dateStr, dateMode, startDate, endDate]);
 
-  const handlePunchStatus = async (mentorId: string, status: "Present" | "OD" | "Leave" | "Absent", reasonStr?: string) => {
+  const handlePunchStatus = async (mentorId: string, status: "Present" | "OD" | "Absent", reasonStr?: string) => {
     setMarkingMentorId(mentorId);
     try {
       const res = await fetch("/api/mentor-attendance", {
@@ -8005,7 +8005,7 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
     }
   };
 
-  const openReasonModal = (mentor: any, status: "OD" | "Leave" | "Absent" | "Present") => {
+  const openReasonModal = (mentor: any, status: "OD" | "Absent" | "Present") => {
     setActiveReasonMentor(mentor);
     setPendingStatus(status);
     setReasonText(mentor.reason || "");
@@ -8019,49 +8019,6 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
     } finally {
       setShowReasonModal(false);
       setActiveReasonMentor(null);
-    }
-  };
-
-  // Faculty Leave & Permission Requests State
-  const [subView, setSubView] = useState<"roster" | "leave_approvals">("roster");
-  const [actionReqId, setActionReqId] = useState<string | null>(null);
-
-  const facultyLeaveQuery = useQuery({
-    queryKey: qk.facultyLeave(collegeId),
-    queryFn: async () => {
-      const json = await apiFetch(`/api/requests/faculty-leave?collegeId=${encodeURIComponent(collegeId)}`);
-      return json?.success && Array.isArray(json.records) ? (json.records as any[]) : [];
-    },
-  });
-  const facultyLeaveReqs = facultyLeaveQuery.data || [];
-  const loadingLeaveReqs = facultyLeaveQuery.isFetching;
-
-  const fetchFacultyLeaveRequests = () =>
-    queryClient.invalidateQueries({ queryKey: qk.facultyLeave(collegeId) });
-
-  const handleResolveFacultyLeave = async (requestId: string, action: "approve" | "reject") => {
-    setActionReqId(requestId);
-    try {
-      const res = await fetch("/api/requests/faculty-leave", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          requestId,
-          approvedBy: camName
-        })
-      });
-      const json = await res.json();
-      if (json.success) {
-        toast(json.message, "success");
-        await fetchFacultyLeaveRequests();
-      } else {
-        toast(json.message || "Failed to process leave request", "error");
-      }
-    } catch (e: any) {
-      toast("Error: " + e.message, "error");
-    } finally {
-      setActionReqId(null);
     }
   };
 
@@ -8211,10 +8168,7 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
                   <p className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">On Duty (OD)</p>
                   <p className="text-xl font-black text-amber-700 mt-0.5">{summary.od}</p>
                 </div>
-                <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 shadow-xs">
-                  <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">On Leave</p>
-                  <p className="text-xl font-black text-amber-700 mt-0.5">{summary.leave}</p>
-                </div>
+                
                 <div className="p-4 rounded-xl bg-rose-50/60 border border-rose-200/80 shadow-xs">
                   <p className="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Absent</p>
                   <p className="text-xl font-black text-rose-700 mt-0.5">{summary.absent}</p>
@@ -8453,18 +8407,7 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
                                 OD
                               </button>
 
-                              {/* Leave Button */}
-                              <button
-                                type="button"
-                                disabled={isMarking}
-                                onClick={() => openReasonModal(m, "Leave")}
-                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${m.status === "Leave"
-                                  ? "bg-amber-500 text-white shadow-xs"
-                                  : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
-                                  }`}
-                              >
-                                Leave
-                              </button>
+                              
 
                               {/* Absent Button */}
                               <button
@@ -10905,6 +10848,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [isDailySaving, setIsDailySaving] = useState(false);
   const [autoAdvanceDayOrder, setAutoAdvanceDayOrder] = useState<boolean>(true);
   const [skipSundays, setSkipSundays] = useState<boolean>(true);
+  const [cascadeSubsequentDays, setCascadeSubsequentDays] = useState<boolean>(true);
   const [editingDailyId, setEditingDailyId] = useState<string | null>(null);
   const [isDailyConfigModalOpen, setIsDailyConfigModalOpen] = useState<boolean>(false);
   const [dailySearchFilter, setDailySearchFilter] = useState<string>("");
@@ -13440,6 +13384,85 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     }
   };
 
+  const handleAutoFillCurrentWeek = async () => {
+    if (!activeCollegeId) {
+      toast("Please select a college before auto-filling current week.", "error");
+      return;
+    }
+
+    const targetDate = dailyStartDateStr || getLocalDateStr();
+    const weekInfo = getWeekBoundaries(targetDate);
+
+    const ok = await showConfirm({
+      title: "Auto-Fill Current Week",
+      message: `Auto-fill and continue Day Orders for week (${weekInfo.startDate} to ${weekInfo.endDate})? Any already set day(s) will be continued sequentially across remaining days.`,
+      confirmLabel: "Auto-Fill Week"
+    });
+    if (!ok) return;
+
+    setIsDailySaving(true);
+    try {
+      const res = await fetch("/api/daily-configs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          college_id: activeCollegeId,
+          action: "auto_fill_current_week",
+          reference_date: targetDate,
+          skip_sundays: skipSundays
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast(data.message || "Current week schedule auto-filled successfully.", "success");
+        await fetchDailyConfigs();
+        notifyDataChanged("daily-configs");
+      } else {
+        toast(data.message || "Failed to auto-fill current week schedule.", "error");
+      }
+    } catch (err: any) {
+      toast("Error auto-filling current week: " + err.message, "error");
+    } finally {
+      setIsDailySaving(false);
+    }
+  };
+
+  const handleRealignFromDate = async (dStr: string) => {
+    if (!activeCollegeId) return;
+
+    const ok = await showConfirm({
+      title: "Re-align Cycle from " + dStr,
+      message: `Re-align and continue Day Orders sequentially from ${dStr} forward for the remainder of this week?`,
+      confirmLabel: "Re-align Schedule"
+    });
+    if (!ok) return;
+
+    setIsDailySaving(true);
+    try {
+      const res = await fetch("/api/daily-configs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          college_id: activeCollegeId,
+          action: "cascade_realign",
+          dateStr: dStr
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast(data.message || `Schedule re-aligned successfully from ${dStr}.`, "success");
+        await fetchDailyConfigs();
+        notifyDataChanged("daily-configs");
+      } else {
+        toast(data.message || "Failed to re-align schedule.", "error");
+      }
+    } catch (err: any) {
+      toast("Error re-aligning schedule: " + err.message, "error");
+    } finally {
+      setIsDailySaving(false);
+    }
+  };
+
   const handleSaveDailyConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeCollegeId) {
@@ -13469,12 +13492,13 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           session_mode: dailySessionMode,
           notes: finalNotes,
           auto_advance: autoAdvanceDayOrder,
-          skip_sundays: skipSundays
+          skip_sundays: skipSundays,
+          cascade_subsequent: cascadeSubsequentDays
         })
       });
       const data = await res.json();
       if (data.success) {
-        toast(editingDailyId ? "Daily day order configuration updated successfully." : "Daily day order configuration saved successfully.", "success");
+        toast(data.message || (editingDailyId ? "Daily day order configuration updated successfully." : "Daily day order configuration saved successfully."), "success");
         setDailyNotes("");
         setEditingDailyId(null);
         setIsDailyConfigModalOpen(false);
@@ -28172,6 +28196,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
                   <input
                     type="checkbox"
+                    checked={cascadeSubsequentDays}
+                    onChange={e => setCascadeSubsequentDays(e.target.checked)}
+                    className="h-4 w-4 accent-[#4F46E5] rounded border-slate-300 cursor-pointer"
+                  />
+                  Cascade Changes to Subsequent Days
+                </label>
+                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
                     checked={autoAdvanceDayOrder}
                     onChange={e => setAutoAdvanceDayOrder(e.target.checked)}
                     className="h-4 w-4 accent-[#4F46E5] rounded border-slate-300 cursor-pointer"
@@ -28191,6 +28224,16 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
               {/* Action Buttons */}
               <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
+                <button
+                  type="button"
+                  onClick={handleAutoFillCurrentWeek}
+                  disabled={isDailySaving || isDailyLoading}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                  title="Auto-fill and continue Day Orders across the current week from any set day"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
+                  Auto-Fill Current Week
+                </button>
                 <button
                   type="button"
                   onClick={handleAutoAdaptNextWeek}
@@ -28228,7 +28271,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   {isDailySaving ? (
                     <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</>
                   ) : editingDailyId ? (
-                    "Update Record"
+                    cascadeSubsequentDays ? "Update & Cascade ➔" : "Update Record"
                   ) : (
                     "Save Schedule"
                   )}
@@ -28402,6 +28445,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             <div className="flex justify-end gap-1.5">
                               <button
                                 type="button"
+                                onClick={() => handleRealignFromDate(cfg.dateStr)}
+                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                                title="Re-align Cycle from this date forward"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
                                 onClick={() => handleStartEditDailyConfig(cfg)}
                                 className="p-1.5 text-slate-400 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
                                 title="Edit Day Order Config"
@@ -28458,6 +28509,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           <TableCell className="p-3 text-slate-500 max-w-[200px] truncate" title={cfg.notes}>{cfg.notes || "-"}</TableCell>
                           <TableCell className="p-3 text-right">
                             <div className="flex justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => handleRealignFromDate(cfg.dateStr)}
+                                className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
+                                title="Re-align Cycle from this date forward"
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </button>
                               <button
                                 type="button"
                                 onClick={() => handleStartEditDailyConfig(cfg)}

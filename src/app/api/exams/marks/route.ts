@@ -3,6 +3,7 @@ import { getDb, chunkList, writeInChunks, type QueryFailure } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 import { dispatchSystemNotification } from "@/lib/notifications";
+import { getInstitutionDateStr } from "@/lib/localDate";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -183,6 +184,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Exam not found" }, { status: 404 });
     }
 
+    // ── SECURITY: Reject marks for exams that haven't taken place yet ──
+    const serverToday = getInstitutionDateStr();
+    if (exam.exam_date && exam.exam_date > serverToday) {
+      return NextResponse.json(
+        { success: false, message: `Marks cannot be submitted before the exam date (${exam.exam_date}). Today is ${serverToday}.` },
+        { status: 400 }
+      );
+    }
+
     const maxMarks = exam.max_marks || 50;
 
     // Duplicate student rows in one payload would trip the conflict target twice in a
@@ -224,6 +234,16 @@ export async function POST(request: Request) {
       const passingMarks = exam.passing_marks || (entryMaxMarks * 0.4);
       const marks_obtained = is_absent ? null : (entry.marks_obtained !== null && entry.marks_obtained !== undefined ? parseFloat(entry.marks_obtained) : null);
       const remarks = entry.remarks || "";
+
+      // ── SECURITY: Marks boundary check ────────────────────────
+      if (!is_absent && marks_obtained !== null) {
+        if (marks_obtained < 0 || marks_obtained > entryMaxMarks) {
+          return NextResponse.json(
+            { success: false, message: `Invalid marks for student ${student_id}: ${marks_obtained} is outside the valid range 0–${entryMaxMarks}.` },
+            { status: 400 }
+          );
+        }
+      }
 
       // Auto-compute grade
       let grade = "F";

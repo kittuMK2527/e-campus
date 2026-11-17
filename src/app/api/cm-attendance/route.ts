@@ -117,24 +117,58 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin"] });
+    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin"] });
     if (errorResponse) return errorResponse;
     await ensureMigration("cm_attendance_and_leave_tables");
     const db = await getDb();
     const body = await request.json();
 
     const {
-      camId,
+      camId: rawCamId,
       collegeId,
-      dateStr = getInstitutionDateStr(),
+      dateStr: clientDateStr,
       status = "Present",
       punchInTime,
       punchOutTime,
       reason
     } = body;
 
+    // ── SECURITY: Identity enforcement ──────────────────────────
+    // CMs can only punch for themselves; KAMs/Admins can punch on behalf.
+    const callerRole = auth?.user?.role;
+    const callerRefId = auth?.user?.reference_id;
+    const camId = callerRole === "cm" ? callerRefId : rawCamId;
+
     if (!camId) {
       return NextResponse.json({ success: false, message: "Missing required field: camId" }, { status: 400 });
+    }
+
+    // ── SECURITY: Server-authoritative date & time ──────────────
+    // Self-punch always uses server IST date & time. KAM/Admin marking
+    // attendance for a CM can supply a date but never a future date.
+    const serverToday = getInstitutionDateStr();
+    const isSelfPunch = callerRole === "cm";
+    let effectiveDateStr: string;
+    if (isSelfPunch) {
+      // CMs always punch for today only — ignore client date entirely
+      effectiveDateStr = serverToday;
+    } else {
+      effectiveDateStr = clientDateStr || serverToday;
+      // Reject future dates
+      if (effectiveDateStr > serverToday) {
+        return NextResponse.json(
+          { success: false, message: "Cannot mark attendance for a future date." },
+          { status: 400 }
+        );
+      }
+      // Reject dates more than 7 days in the past
+      const sevenDaysAgo = getInstitutionDateStr(new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+      if (effectiveDateStr < sevenDaysAgo) {
+        return NextResponse.json(
+          { success: false, message: "Cannot mark attendance for a date older than 7 days." },
+          { status: 400 }
+        );
+      }
     }
 
     // Resolve college ID if not provided
@@ -144,9 +178,11 @@ export async function POST(request: Request) {
       effectiveCollegeId = cm?.college_id || "general";
     }
 
+    const dateStr = effectiveDateStr;
     const recId = `cm_att_${camId}_${dateStr}`;
-    const nowTime = new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-    const finalPunchIn = punchInTime || nowTime;
+    // Server-authoritative punch time in IST — never trust client clock
+    const nowTime = new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true });
+    const finalPunchIn = isSelfPunch ? nowTime : (punchInTime || nowTime);
 
     const isPg = (db as any).isPostgres;
     const nowTimestamp = new Date().toISOString();

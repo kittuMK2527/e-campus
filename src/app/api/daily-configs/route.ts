@@ -9,7 +9,7 @@ import { generateId } from "@/lib/id";
 import { getInstitutionDateStr, parseLocalDate, shiftDateStr } from "@/lib/localDate";
 import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 import { dispatchSystemNotification } from "@/lib/notifications";
-import { getWeekBoundaries } from "@/lib/dailyConfigForm";
+import { getWeekBoundaries, autoFillWeekFromAnchor, cascadeRealignCycle } from "@/lib/dailyConfigForm";
 import crypto from "crypto";
 
 const noCacheHeaders = {
@@ -183,6 +183,159 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
   }, { headers: noCacheHeaders });
 }
 
+async function handleAutoFillCurrentWeek(db: any, body: any) {
+  const { college_id, reference_date } = body;
+  if (!college_id) {
+    return NextResponse.json({ success: false, message: "college_id is required" }, { status: 400, headers: noCacheHeaders });
+  }
+
+  const collegeRow = await db.get("SELECT working_days FROM colleges WHERE id = ?", [college_id]);
+  const workingDaysCount = (collegeRow && Number(collegeRow.working_days) === 6) ? 6 : 5;
+
+  const refDateStr = reference_date || getInstitutionDateStr();
+  const weekInfo = getWeekBoundaries(refDateStr);
+  const weekDates = weekInfo.weekDates;
+
+  // Fetch existing week configs
+  const existingConfigs = await db.all(
+    "SELECT * FROM campus_daily_configs WHERE college_id = ? AND dateStr IN (?, ?, ?, ?, ?, ?, ?)",
+    [college_id, ...weekDates]
+  );
+
+  // If no anchor in this week, find latest prior day order before this week
+  const priorConfig = await db.get(
+    "SELECT day_order FROM campus_daily_configs WHERE college_id = ? AND day_order != 'None' AND day_order LIKE 'Day %' AND dateStr < ? ORDER BY dateStr DESC LIMIT 1",
+    [college_id, weekDates[0]]
+  );
+
+  const plan = autoFillWeekFromAnchor(
+    weekDates,
+    existingConfigs,
+    workingDaysCount,
+    priorConfig?.day_order || null
+  );
+
+  const configRows: any[][] = [];
+  const inserted: any[] = [];
+
+  for (const item of plan) {
+    const id = `${college_id}_${item.dateStr}`;
+    configRows.push([
+      id,
+      college_id,
+      item.dateStr,
+      item.dayType,
+      item.dayOrder,
+      item.sessionMode,
+      item.notes
+    ]);
+    inserted.push({ dateStr: item.dateStr, dayType: item.dayType, dayOrder: item.dayOrder });
+  }
+
+  await bulkUpsertDailyConfigs(db, configRows);
+
+  try {
+    const title = "Campus Schedule Auto-Filled";
+    const message = `Campus Day Order schedule for week (${weekDates[0]} to ${weekDates[6]}) has been auto-filled and aligned.`;
+
+    await dispatchSystemNotification(db, {
+      userIds: [body.user_id, body.userId].filter(Boolean),
+      roles: ["cm", "mentor", "student", "admin", "kam"],
+      collegeId: college_id,
+      title,
+      message,
+      link: `/schedule?week=${weekDates[0]}`,
+      type: "info",
+      action: "daily_config_auto_adapted"
+    });
+
+    notifyRealtimeEvent({
+      domain: "daily_configs",
+      action: "updated",
+      collegeId: college_id || undefined,
+      payload: { title, message }
+    });
+  } catch (errNotif) {
+    console.error("Failed to write auto-fill notifications:", errNotif);
+  }
+
+  return NextResponse.json({
+    success: true,
+    message: `Current week schedule auto-filled successfully (${inserted.length} days aligned)`,
+    configs: inserted,
+    week_start: weekDates[0],
+    week_end: weekDates[6]
+  }, { headers: noCacheHeaders });
+}
+
+async function handleCascadeRealign(db: any, body: any) {
+  const { college_id, dateStr } = body;
+  if (!college_id || !dateStr) {
+    return NextResponse.json({ success: false, message: "college_id and dateStr are required" }, { status: 400 });
+  }
+
+  const collegeRow = await db.get("SELECT working_days FROM colleges WHERE id = ?", [college_id]);
+  const workingDaysCount = (collegeRow && Number(collegeRow.working_days) === 6) ? 6 : 5;
+
+  const weekInfo = getWeekBoundaries(dateStr);
+  const weekDates = weekInfo.weekDates.filter(d => d >= dateStr);
+
+  const existingConfigs = await db.all(
+    `SELECT * FROM campus_daily_configs WHERE college_id = ? AND dateStr IN (${weekDates.map(() => "?").join(",")})`,
+    [college_id, ...weekDates]
+  );
+
+  const targetCfg = existingConfigs.find((c: any) => c.dateStr === dateStr);
+  const targetDayType = targetCfg?.day_type || "working";
+  const targetDayOrder = targetCfg?.day_order || "Day 1";
+
+  const cascaded = cascadeRealignCycle(
+    dateStr,
+    targetDayType,
+    targetDayOrder,
+    existingConfigs,
+    workingDaysCount,
+    weekDates
+  );
+
+  const cascadeRows: any[][] = [];
+  const modifiedList: any[] = [];
+
+  for (const item of cascaded) {
+    const id = `${college_id}_${item.dateStr}`;
+    const existingSub = existingConfigs.find((c: any) => c.dateStr === item.dateStr);
+    cascadeRows.push([
+      id,
+      college_id,
+      item.dateStr,
+      item.dayType,
+      item.dayOrder,
+      existingSub?.session_mode || "Offline",
+      existingSub?.notes || ""
+    ]);
+    if (item.modified) {
+      modifiedList.push(item);
+    }
+  }
+
+  if (cascadeRows.length > 0) {
+    await bulkUpsertDailyConfigs(db, cascadeRows);
+  }
+
+  notifyRealtimeEvent({
+    domain: "daily_configs",
+    action: "updated",
+    collegeId: college_id || undefined,
+    payload: { count: modifiedList.length }
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: `Cycle successfully re-aligned from ${dateStr} (${modifiedList.length} days updated)`,
+    modified: modifiedList
+  }, { headers: noCacheHeaders });
+}
+
 export async function GET(request: Request) {
   try {
     const { auth, errorResponse } = await requireAuth(request);
@@ -257,6 +410,16 @@ export async function POST(request: Request) {
     // Handle auto-adapt next week action
     if (action === "auto_adapt_next_week") {
       return await handleAutoAdaptNextWeek(db, body);
+    }
+
+    // Handle auto-fill current week action
+    if (action === "auto_fill_current_week") {
+      return await handleAutoFillCurrentWeek(db, body);
+    }
+
+    // Handle cascade realign action
+    if (action === "cascade_realign") {
+      return await handleCascadeRealign(db, body);
     }
 
     const effectiveDayOrder = day_type === "holiday" ? "None" : (day_order || "None");
@@ -341,6 +504,49 @@ export async function POST(request: Request) {
       dayPlans.push({ dStr, dayType: currentDayType, dayOrder: currentDayOrder });
     }
 
+    // Cascade sequence adaptation to subsequent days in the cycle if requested
+    const shouldCascade = (body.cascade_subsequent === true || body.cascade_subsequent === "true" || body.action === "save_and_cascade") && datesToProcess.length === 1;
+    let cascadedCount = 0;
+
+    if (shouldCascade) {
+      const targetDate = datesToProcess[0];
+      const weekInfo = getWeekBoundaries(targetDate);
+      const subsequentDates = weekInfo.weekDates.filter(d => d > targetDate);
+
+      if (subsequentDates.length > 0) {
+        const subsequentConfigs = await db.all(
+          `SELECT * FROM campus_daily_configs WHERE college_id = ? AND dateStr IN (${subsequentDates.map(() => "?").join(",")})`,
+          [college_id, ...subsequentDates]
+        );
+
+        const cascaded = cascadeRealignCycle(
+          targetDate,
+          day_type,
+          effectiveDayOrder,
+          [...subsequentConfigs, { dateStr: targetDate, day_type, day_order: effectiveDayOrder }],
+          workingDaysCount,
+          [targetDate, ...subsequentDates]
+        );
+
+        for (const item of cascaded) {
+          if (item.dateStr === targetDate) continue;
+          const id = `${college_id}_${item.dateStr}`;
+          const existingSub = subsequentConfigs.find((c: any) => c.dateStr === item.dateStr);
+          configRows.push([
+            id,
+            college_id,
+            item.dateStr,
+            item.dayType,
+            item.dayOrder,
+            existingSub?.session_mode || "Offline",
+            existingSub?.notes || (item.dayType === "holiday" ? "Weekend" : "")
+          ]);
+          dayPlans.push({ dStr: item.dateStr, dayType: item.dayType, dayOrder: item.dayOrder });
+          if (item.modified) cascadedCount++;
+        }
+      }
+    }
+
     await bulkUpsertDailyConfigs(db, configRows);
 
     // Dispatch campus-wide notifications and background mobile Web Push for every configured day
@@ -391,7 +597,10 @@ export async function POST(request: Request) {
       console.error("Failed to write daily-config notifications:", errNotif);
     }
 
-    return NextResponse.json({ success: true, message: "Daily configuration saved successfully" });
+    const returnMsg = cascadedCount > 0
+      ? `Daily schedule saved and ${cascadedCount} subsequent day(s) re-aligned successfully`
+      : "Daily configuration saved successfully";
+    return NextResponse.json({ success: true, message: returnMsg, cascadedCount });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
