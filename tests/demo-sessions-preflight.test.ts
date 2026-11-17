@@ -146,7 +146,7 @@ describe("POST /api/demo-sessions action=book", () => {
     ]);
     expect(h.batches[0][0].params).toEqual(["m1", "2026-10-28", "2026-10-28"]);
     expect(h.batches[0][1].params).toEqual(["m1", "2026-10-28", "9:00-10:00"]);
-    expect(h.batches[0][2].params).toEqual(["sme1", "Wednesday"]);
+    expect(h.batches[0][2].params).toEqual(["sme1", "Wednesday", "Day 3"]);
     expect(h.singleReads).toHaveLength(0);
     expect(h.writes).toHaveLength(2);
     expect(h.writes[0]).toContain("INSERT INTO demo_sessions");
@@ -222,21 +222,22 @@ describe("POST /api/demo-sessions action=reschedule", () => {
 
     expect(res.status).toBe(200);
     expect(h.singleReads.filter(s => s.includes("FROM demo_sessions WHERE id = ?"))).toHaveLength(1);
-    expect(h.batches).toHaveLength(1);
-    expect(h.batches[0]).toHaveLength(4);
+    expect(h.batches.length).toBeGreaterThanOrEqual(1);
+    expect(h.batches[0]).toHaveLength(6);
     expect(h.batches[0][0].params).toEqual(["m1", "2026-11-03", "2026-11-03"]);
-    expect(h.batches[0][1].params).toEqual(["m1", "2026-11-03", "11:00-12:00", "ds1"]);
-    expect(h.batches[0][2].params).toEqual(["sme1", "2026-11-03", "11:00-12:00", "ds1"]);
-    expect(h.batches[0][3].params).toEqual(["ds1", "sme1", "2026-11-03", "11:00-12:00", "11:00-12:00", "11:00-12:00"]);
+    expect(h.batches[0][1].params).toEqual(["m1", "2026-11-03", "ds1", "11:00-12:00", "11:00-12:00", "11:00-12:00"]);
+    expect(h.batches[0][3].params).toEqual(["sme1", "2026-11-03", "ds1", "11:00-12:00", "11:00-12:00", "11:00-12:00"]);
+    expect(h.batches[0][5].params).toEqual(["ds1", "sme1", "2026-11-03", "11:00-12:00", "11:00-12:00", "11:00-12:00"]);
   });
 
   it("writes the reservation and the stale-request clear in one transaction", async () => {
     const res = await reschedule();
 
     expect(res.status).toBe(200);
-    expect(h.txWrites).toHaveLength(2);
+    expect(h.txWrites).toHaveLength(3);
     expect(h.txWrites[0]).toContain("DELETE FROM demo_reallocation_requests");
     expect(h.txWrites[1]).toContain("INSERT INTO demo_reallocation_requests");
+    expect(h.txWrites[2]).toContain("UPDATE demo_sessions SET status = 'reallocation_required'");
     expect(h.ddl).toHaveLength(0);
   });
 

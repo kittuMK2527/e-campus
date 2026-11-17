@@ -72,6 +72,13 @@ export async function GET(request: Request) {
         "SELECT * FROM demo_evaluation_criteria WHERE department = ? AND is_active = 1 ORDER BY sort_order ASC, created_at ASC",
         [department]
       );
+      if (!rows || rows.length === 0) {
+        await seedDefaults(db, department);
+        rows = await db.all(
+          "SELECT * FROM demo_evaluation_criteria WHERE department = ? AND is_active = 1 ORDER BY sort_order ASC, created_at ASC",
+          [department]
+        );
+      }
     } else {
       rows = await db.all(
         "SELECT * FROM demo_evaluation_criteria WHERE is_active = 1 ORDER BY department ASC, sort_order ASC, created_at ASC"

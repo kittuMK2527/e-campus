@@ -58,7 +58,9 @@ function emptyContext(dates: string[]): AvailabilityContext {
     interviewSlotsByDate: new Map(),
     directInterviewsByDate: new Map(),
     mentorDemoSwaps: [],
-    smeDemoSwaps: []
+    smeDemoSwaps: [],
+    smeDemoSessions: [],
+    dailyConfigsByDate: new Map()
   };
 }
 

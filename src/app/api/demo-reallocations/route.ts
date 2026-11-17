@@ -9,7 +9,7 @@ import { requireRole, requireSession, apiAuthErrorResponse } from "@/lib/api-aut
 import { generateId } from "@/lib/id";
 import { dispatchSystemNotification } from "@/lib/notifications";
 import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
-import { mapDayOrderToDayName } from "@/lib/utils";
+import { mapDayOrderToDayName, isTimeSlotMatch } from "@/lib/utils";
 
 /**
  * Leave-driven Demo Reallocation flow:
@@ -163,9 +163,23 @@ export async function GET(request: Request) {
         ];
       }
 
-      // Candidate dates: next 21 days, skipping Sundays & configured holidays
+      // Candidate dates: next 21 days, skipping Sundays, non-working Saturdays & configured holidays
       const holidays: any[] = holidayRows;
       const holidaySet = new Set(holidays.map(h => h.date));
+
+      // Query campus daily configs to capture campus-specific holidays and day orders
+      const dailyConfigsRows = await db.all(
+        "SELECT dateStr, day_type, day_order, is_holiday FROM campus_daily_configs WHERE college_id = ? OR college_id IS NULL",
+        [collegeId]
+      ).catch(() => []);
+      for (const dcr of dailyConfigsRows) {
+        if (dcr.day_type === "holiday" || dcr.is_holiday === 1) {
+          const ds = dcr.dateStr || dcr.datestr;
+          if (ds) holidaySet.add(ds);
+        }
+      }
+
+      const is5DayCollege = Boolean(college && (college.is_saturday_working === 0 || college.working_days === 5 || (college as any).workingDays === 5));
       const candidateDates: { dateStr: string; label: string; isHoliday?: boolean }[] = [];
       const today = parseLocalDate(getInstitutionDateStr());
       if (requestedDate) {
@@ -182,7 +196,8 @@ export async function GET(request: Request) {
       for (let i = 1; !requestedDate && i <= 21 && candidateDates.length < 12; i++) {
         const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12, 0, 0);
         const dow = d.getDay();
-        if (dow === 0) continue;
+        if (dow === 0) continue; // Sunday
+        if (is5DayCollege && dow === 6) continue; // Saturday on 5-day week campus
         const y = d.getFullYear();
         const m = String(d.getMonth() + 1).padStart(2, "0");
         const day = String(d.getDate()).padStart(2, "0");
@@ -206,7 +221,7 @@ export async function GET(request: Request) {
 
       let ctx: AvailabilityContext | null = null;
       try {
-        ctx = await loadAvailabilityContext(db, { mentorId: demo.mentorId, smeId: demo.smeId, dates: dateList });
+        ctx = await loadAvailabilityContext(db, { mentorId: demo.mentorId, smeId: demo.smeId, dates: dateList, collegeId });
       } catch (err: any) {
         console.warn("[/api/demo-reallocations] availability preload failed, using per-period lookups:", err?.message);
       }
@@ -240,15 +255,20 @@ export async function GET(request: Request) {
 
       const hasSelfDemoAt = (rows: any[] | null, dateStr: string, period: string) =>
         !!rows && rows.some(r => {
-          if (String(r.dateStr ?? "") !== dateStr) return false;
-          const ts = String(r.timeSlot ?? "").trim();
+          if (String(r.dateStr ?? r.datestr ?? "") !== dateStr) return false;
+          const ts = String(r.timeSlot ?? r.timeslot ?? "").trim();
           if (!ts) return false;
-          return ts === period || period.includes(ts) || ts.includes(period);
+          return isTimeSlotMatch(ts, period) || ts === period || period.includes(ts) || ts.includes(period);
         });
 
       const alternatives: any[] = [];
       for (const cd of candidateDates) {
-        const weekday = new Date(cd.dateStr + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" });
+        const rawWeekday = new Date(cd.dateStr + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" });
+        const cfg = ctx?.dailyConfigsByDate?.get(`${collegeId || ""}|${cd.dateStr}`) || ctx?.dailyConfigsByDate?.get(cd.dateStr);
+        let weekday = rawWeekday;
+        if (cfg?.day_order && cfg.day_order !== "None" && cfg.day_order !== "none") {
+          weekday = mapDayOrderToDayName(cfg.day_order, rawWeekday);
+        }
         const periods: any[] = [];
         for (const period of periodSlots) {
           // Mentor side: pass our demo's own slot via demo_sessions is checked by
@@ -266,7 +286,7 @@ export async function GET(request: Request) {
             r.mentor_id === demo.mentorId &&
             r.demo_session_id !== demo.id &&
             r.proposed_date_str === cd.dateStr &&
-            (r.proposed_time_slot === period || period.includes(r.proposed_time_slot) || r.proposed_time_slot.includes(period))
+            (isTimeSlotMatch(r.proposed_time_slot, period) || r.proposed_time_slot === period || period.includes(r.proposed_time_slot) || r.proposed_time_slot.includes(period))
           );
 
           const mentorAvail = mentorSelfDemoClash || mentorReservationClash
@@ -274,6 +294,7 @@ export async function GET(request: Request) {
             : await checkMentorAvailability(db, {
               mentorId: demo.mentorId,
               dateStr: cd.dateStr,
+              collegeId: collegeId || undefined,
               dayOfWeek: weekday,
               timeSlot: period,
               ctx: ctx ?? undefined
@@ -283,7 +304,7 @@ export async function GET(request: Request) {
             r.sme_id && r.sme_id === demo.smeId &&
             r.demo_session_id !== demo.id &&
             r.proposed_date_str === cd.dateStr &&
-            (r.proposed_time_slot === period || period.includes(r.proposed_time_slot) || r.proposed_time_slot.includes(period))
+            (isTimeSlotMatch(r.proposed_time_slot, period) || r.proposed_time_slot === period || period.includes(r.proposed_time_slot) || r.proposed_time_slot.includes(period))
           );
 
           const smeAvail = smeReservationClash
@@ -292,10 +313,11 @@ export async function GET(request: Request) {
               smeId: demo.smeId,
               dateStr: cd.dateStr,
               timeSlot: period,
+              excludeDemoSessionId: demo.id,
               ctx: ctx ?? undefined
             });
 
-          const smeWindowReason = smeDemoWindowReason(smeWindowRows || [], weekday, period);
+          const smeWindowReason = smeDemoWindowReason(smeWindowRows || [], rawWeekday, period);
 
           // SME also blocked by other demo_sessions at same date+slot
           const smeOtherDemo = smeOtherDemos
@@ -320,7 +342,7 @@ export async function GET(request: Request) {
           });
         }
 
-        alternatives.push({ dateStr: cd.dateStr, label: cd.label, weekday, isSunday: weekday === "Sunday", isHoliday: Boolean(cd.isHoliday || holidaySet.has(cd.dateStr)), periods });
+        alternatives.push({ dateStr: cd.dateStr, label: cd.label, weekday: rawWeekday, effectiveDay: weekday, isSunday: rawWeekday === "Sunday", isHoliday: Boolean(cd.isHoliday || holidaySet.has(cd.dateStr)), periods });
       }
 
       return NextResponse.json({
@@ -513,6 +535,7 @@ export async function POST(request: Request) {
         if (flip.changes !== 1) {
           return NextResponse.json({ success: false, message: "Request was already processed." }, { status: 409 });
         }
+        await db.run("UPDATE demo_sessions SET status = 'confirmed' WHERE id = ?", [req.demo_session_id]).catch(() => {});
 
         const auditId = generateId("audit");
         await db.run(
@@ -536,6 +559,22 @@ export async function POST(request: Request) {
       if (targetWeekday === "Sunday") {
         return NextResponse.json({ success: false, message: "Cannot approve: campus is closed on Sunday." }, { status: 409 });
       }
+
+      const mentorRec = await db.get("SELECT college_id FROM mentors WHERE id = ?", [req.mentor_id]).catch(() => null);
+      const appCollegeId = mentorRec?.college_id || null;
+      const appCollege = appCollegeId ? await db.get("SELECT is_saturday_working, working_days FROM colleges WHERE id = ?", [appCollegeId]).catch(() => null) : null;
+      if (targetWeekday === "Saturday" && appCollege && (appCollege.is_saturday_working === 0 || appCollege.working_days === 5)) {
+        return NextResponse.json({ success: false, message: "Cannot approve: campus is closed on Saturday." }, { status: 409 });
+      }
+      const targetCfg = await db.get("SELECT day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [targetDate, appCollegeId]).catch(() => null);
+      if (targetCfg && (targetCfg.day_type === "holiday" || targetCfg.is_holiday === 1)) {
+        return NextResponse.json({ success: false, message: "Cannot approve: target date is a campus holiday." }, { status: 409 });
+      }
+      let effectiveTargetWeekday = targetWeekday;
+      if (targetCfg?.day_order && targetCfg.day_order !== "None" && targetCfg.day_order !== "none") {
+        effectiveTargetWeekday = mapDayOrderToDayName(targetCfg.day_order, targetWeekday);
+      }
+
       const approvalFailures: QueryFailure[] = [];
       const [smeWindows, holidays] = await db.multiQuery(
         [
@@ -555,8 +594,8 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, message: "Cannot approve: " + windowReason }, { status: 409 });
       }
       const [mentorStatus, smeStatus] = await Promise.all([
-        checkMentorAvailability(db, { mentorId: req.mentor_id, dateStr: targetDate, dayOfWeek: targetWeekday, timeSlot: req.proposed_time_slot }),
-        checkSmeAvailability(db, { smeId: req.sme_id, dateStr: targetDate, timeSlot: req.proposed_time_slot }),
+        checkMentorAvailability(db, { mentorId: req.mentor_id, collegeId: appCollegeId || undefined, dateStr: targetDate, dayOfWeek: effectiveTargetWeekday, timeSlot: req.proposed_time_slot }),
+        checkSmeAvailability(db, { smeId: req.sme_id, dateStr: targetDate, timeSlot: req.proposed_time_slot, excludeDemoSessionId: req.demo_session_id }),
       ]);
       if (!mentorStatus.available) {
         return NextResponse.json({ success: false, message: "Cannot approve: mentor is no longer free. " + (mentorStatus.reason || "") }, { status: 409 });

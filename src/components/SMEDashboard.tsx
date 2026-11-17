@@ -12,6 +12,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Dialog } from "@/components/ui/dialog";
 import {
   Sparkles,
+  Pencil,
   ClipboardList,
   CheckCircle,
   AlertCircle,
@@ -57,7 +58,13 @@ interface SMEDashboardProps {
   onTabChange?: (tab: TabKey) => void;
 }
 
-const EVAL_CRITERIA = [
+export interface ScoringCriterion {
+  key: string;
+  label: string;
+  max: number;
+}
+
+const DEFAULT_EVAL_CRITERIA: ScoringCriterion[] = [
   { key: "attendance", label: "Attendance", max: 5 },
   { key: "subjectKnowledge", label: "Subject Knowledge", max: 15 },
   { key: "teachingMethodology", label: "Teaching Methodology", max: 15 },
@@ -68,7 +75,9 @@ const EVAL_CRITERIA = [
   { key: "questionHandling", label: "Question Handling", max: 10 },
   { key: "timeManagement", label: "Time Management", max: 5 },
   { key: "overallRemarks", label: "Overall Remarks", max: 5 },
-] as const;
+];
+
+const EVAL_CRITERIA = DEFAULT_EVAL_CRITERIA;
 
 const DEFAULT_SCORES: Record<string, number> = {
   attendance: 4,
@@ -149,6 +158,85 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const [historyPageSize, setHistoryPageSize] = useState<number>(10);
 
   // Evaluation modal state
+  // Dynamic Evaluation Criteria (CRUD) state
+  const [criteriaList, setCriteriaList] = useState<ScoringCriterion[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("fp_sme_eval_scoring_criteria");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        }
+      } catch (_) {}
+    }
+    return DEFAULT_EVAL_CRITERIA;
+  });
+
+  const saveCriteriaList = (updated: ScoringCriterion[]) => {
+    setCriteriaList(updated);
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("fp_sme_eval_scoring_criteria", JSON.stringify(updated));
+      } catch (_) {}
+    }
+  };
+
+  const [showCriteriaModal, setShowCriteriaModal] = useState<boolean>(false);
+  const [editingCriterionKey, setEditingCriterionKey] = useState<string | null>(null);
+  const [editCriterionLabel, setEditCriterionLabel] = useState<string>("");
+  const [editCriterionMax, setEditCriterionMax] = useState<number>(10);
+  const [newCriterionLabel, setNewCriterionLabel] = useState<string>("");
+  const [newCriterionMax, setNewCriterionMax] = useState<number>(10);
+
+  const handleAddCriterion = () => {
+    if (!newCriterionLabel.trim()) {
+      toast("Please enter a criterion name.", "warning");
+      return;
+    }
+    const maxVal = Math.max(1, Number(newCriterionMax) || 10);
+    const key = newCriterionLabel.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Date.now();
+    const updated = [...criteriaList, { key, label: newCriterionLabel.trim(), max: maxVal }];
+    saveCriteriaList(updated);
+    setNewCriterionLabel("");
+    setNewCriterionMax(10);
+    toast(`Added "${newCriterionLabel.trim()}" (Max: ${maxVal})`, "success");
+  };
+
+  const handleStartEditCriterion = (c: ScoringCriterion) => {
+    setEditingCriterionKey(c.key);
+    setEditCriterionLabel(c.label);
+    setEditCriterionMax(c.max);
+  };
+
+  const handleSaveEditCriterion = () => {
+    if (!editCriterionLabel.trim()) {
+      toast("Criterion name cannot be empty.", "warning");
+      return;
+    }
+    const maxVal = Math.max(1, Number(editCriterionMax) || 10);
+    const updated = criteriaList.map(c =>
+      c.key === editingCriterionKey ? { ...c, label: editCriterionLabel.trim(), max: maxVal } : c
+    );
+    saveCriteriaList(updated);
+    setEditingCriterionKey(null);
+    toast(`Updated "${editCriterionLabel.trim()}"`, "success");
+  };
+
+  const handleDeleteCriterion = (key: string, label: string) => {
+    if (criteriaList.length <= 1) {
+      toast("At least one evaluation criterion is required.", "warning");
+      return;
+    }
+    const updated = criteriaList.filter(c => c.key !== key);
+    saveCriteriaList(updated);
+    toast(`Deleted "${label}"`, "info");
+  };
+
+  const handleResetCriteriaDefaults = () => {
+    saveCriteriaList(DEFAULT_EVAL_CRITERIA);
+    toast("Reset evaluation criteria to system defaults.", "success");
+  };
+
   const [evaluationModalSession, setEvaluationModalSession] = useState<any | null>(null);
   const [evalScores, setEvalScores] = useState<Record<string, number>>({ ...DEFAULT_SCORES });
   const [comments, setComments] = useState<string>("");
@@ -215,6 +303,104 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     if (ampm === "PM" && hr < 12) hr += 12;
     if (ampm === "AM" && hr === 12) hr = 0;
     return hr * 60 + min;
+  };
+
+  // Helper to parse timetable time slot window into start & end minutes
+  const parseSlotWindow = (t: string) => {
+    if (!t) return { startMin: 0, endMin: 0 };
+    const parts = String(t).split(/[-–—]|to/i).map(s => s.trim());
+    let startStr = parts[0] || "";
+    let endStr = parts[1] || "";
+
+    const endAmpmMatch = endStr.match(/(AM|PM)/i);
+    const startAmpmMatch = startStr.match(/(AM|PM)/i);
+    if (!startAmpmMatch && endAmpmMatch) {
+      const endAmpm = endAmpmMatch[1].toUpperCase();
+      const startHourMatch = startStr.match(/^(\d{1,2})/);
+      const endHourMatch = endStr.match(/^(\d{1,2})/);
+      if (startHourMatch && endHourMatch) {
+        const sH = parseInt(startHourMatch[1], 10);
+        const eH = parseInt(endHourMatch[1], 10);
+        if (endAmpm === "PM" && sH < 12 && sH > eH) {
+          startStr = `${startStr} AM`;
+        } else {
+          startStr = `${startStr} ${endAmpm}`;
+        }
+      } else {
+        startStr = `${startStr} ${endAmpm}`;
+      }
+    }
+
+    const startMin = parseTimeToMin(startStr);
+    let endMin = endStr ? parseTimeToMin(endStr) : (startMin >= 0 ? startMin + 60 : -1);
+    if (endMin <= startMin && startMin >= 0) {
+      endMin = startMin + 60;
+    }
+    return { startMin: Math.max(0, startMin), endMin: Math.max(0, endMin) };
+  };
+
+  // Precise time-slot evaluation gating rule: SME can only evaluate during the scheduled time slot
+  const getDemoEvaluationTiming = (demo: any): {
+    canEvaluate: boolean;
+    status: "completed" | "upcoming" | "active" | "expired";
+    badgeText: string;
+    reason: string;
+  } => {
+    if (demo.status === "completed") {
+      return { canEvaluate: false, status: "completed", badgeText: "Completed", reason: "Session already evaluated." };
+    }
+
+    const today = getLocalDateStr();
+    if (demo.dateStr > today) {
+      return {
+        canEvaluate: false,
+        status: "upcoming",
+        badgeText: "Upcoming",
+        reason: `Evaluation locked: demo is scheduled for ${demo.dateStr}. Evaluation opens during its scheduled time slot.`
+      };
+    }
+    if (demo.dateStr < today) {
+      return {
+        canEvaluate: false,
+        status: "expired",
+        badgeText: "Slot Expired",
+        reason: `Evaluation window closed: demo was scheduled for ${demo.dateStr} and the time slot has expired.`
+      };
+    }
+
+    // It is today! Check scheduled time slot window
+    const { startMin, endMin } = parseSlotWindow(demo.timeSlot);
+    const now = new Date();
+    const currentMin = now.getHours() * 60 + now.getMinutes();
+
+    if (currentMin < startMin) {
+      const waitMins = startMin - currentMin;
+      const waitHours = Math.floor(waitMins / 60);
+      const remainingMins = waitMins % 60;
+      const timeRemaining = waitHours > 0 ? `${waitHours}h ${remainingMins}m` : `${remainingMins}m`;
+      return {
+        canEvaluate: false,
+        status: "upcoming",
+        badgeText: `Starts in ${timeRemaining}`,
+        reason: `Evaluation locked: demo slot starts at ${demo.timeSlot}. Evaluation opens when the session begins.`
+      };
+    }
+
+    if (currentMin > endMin) {
+      return {
+        canEvaluate: false,
+        status: "expired",
+        badgeText: "Slot Expired",
+        reason: `Evaluation window closed: scheduled slot (${demo.timeSlot}) has already passed. Evaluation is stuck/locked.`
+      };
+    }
+
+    return {
+      canEvaluate: true,
+      status: "active",
+      badgeText: "Active Slot",
+      reason: "Session is active. You can evaluate now."
+    };
   };
 
   // Auto-prompt availability setup modal on SME login session
@@ -312,10 +498,19 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const [historySearch, setHistorySearch] = useState<string>("");
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
+  const totalMaxMarks = useMemo(() => {
+    return criteriaList.reduce((sum, c) => sum + (c.max || 0), 0) || 100;
+  }, [criteriaList]);
+
   // Calculated total marks
   const marks = useMemo(() => {
-    return Object.values(evalScores).reduce((sum, v) => sum + v, 0);
-  }, [evalScores]);
+    return criteriaList.reduce((sum, c) => sum + (Number(evalScores[c.key]) || 0), 0);
+  }, [evalScores, criteriaList]);
+
+  const marksNormalized = useMemo(() => {
+    if (totalMaxMarks <= 0) return 0;
+    return Math.round((marks / totalMaxMarks) * 100);
+  }, [marks, totalMaxMarks]);
 
   if (!currentSME) {
     return (
@@ -516,8 +711,23 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
       toast("Evaluation is only allowed for confirmed demo sessions.", "warning");
       return;
     }
+
+    const timing = getDemoEvaluationTiming(session);
+    if (!timing.canEvaluate) {
+      if (timing.status === "upcoming") {
+        toast(`Evaluation locked: demo slot starts at ${session.timeSlot}. Please evaluate during the session.`, "warning");
+      } else if (timing.status === "expired") {
+        toast(`Evaluation window closed: scheduled slot (${session.timeSlot}) has expired. Evaluation is stuck/locked.`, "error");
+      }
+      return;
+    }
+
     setEvaluationModalSession(session);
-    setEvalScores({ ...DEFAULT_SCORES });
+    const initialScores: Record<string, number> = {};
+    criteriaList.forEach(c => {
+      initialScores[c.key] = Math.round((c.max || 10) * 0.8);
+    });
+    setEvalScores(initialScores);
     setComments("");
     setChecklistEntries([]);
     setSuccessMsg("");
@@ -618,15 +828,41 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
 
   const handleConfirmEvaluation = async () => {
     if (!evaluationModalSession) return;
-    if (marks < 0 || marks > 100) { setErrorMsg("Marks must be between 0 and 100."); return; }
-    if (!comments.trim()) { setErrorMsg("Please provide comments/feedback for the evaluation."); return; }
-    setSubmitting(true); setErrorMsg(""); setSuccessMsg("");
+
+    const timing = getDemoEvaluationTiming(evaluationModalSession);
+    if (!timing.canEvaluate) {
+      setErrorMsg(timing.reason);
+      toast(timing.reason, "error");
+      return;
+    }
+
+    if (marks < 0 || marks > totalMaxMarks) {
+      setErrorMsg(`Marks must be between 0 and ${totalMaxMarks}.`);
+      return;
+    }
+    if (!comments.trim()) {
+      setErrorMsg("Please provide comments/feedback for the evaluation.");
+      return;
+    }
+    setSubmitting(true);
+    setErrorMsg("");
+    setSuccessMsg("");
     try {
-      const res = await evaluateDemoSession(evaluationModalSession.id, marks, comments, checklistEntries);
-      if (res.success) { setSuccessMsg(`Evaluation submitted successfully for ${evaluationModalSession.mentorName}!`); setEvaluationModalSession(null); }
-      else { setErrorMsg(res.message); }
-    } catch (e: any) { setErrorMsg(e.message || "Failed to submit evaluation."); }
-    finally { setSubmitting(false); }
+      const res = await evaluateDemoSession(evaluationModalSession.id, marksNormalized, comments, checklistEntries);
+      if (res.success) {
+        setSuccessMsg(`Evaluation submitted successfully for ${evaluationModalSession.mentorName}!`);
+        setEvaluationModalSession(null);
+        toast(`Evaluation submitted successfully for ${evaluationModalSession.mentorName}!`, "success");
+      } else {
+        setErrorMsg(res.message);
+        toast(res.message, "error");
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || "Failed to submit evaluation.");
+      toast(e.message || "Failed to submit evaluation.", "error");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const getMentorCollege = (mentorId: string) => {
@@ -865,15 +1101,50 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
                           {renderStatusBadge(demo.status)}
-                          {demo.status === "completed" ? (
-                            <button onClick={() => setViewEvalSession(demo)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-extrabold hover:bg-emerald-100 cursor-pointer flex items-center gap-1">
-                              <Award className="h-3 w-3" /> View Score
-                            </button>
-                          ) : (
-                            <button onClick={() => handleOpenEvaluate(demo)} className="px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-[10px] font-extrabold cursor-pointer shadow-2xs flex items-center gap-1 border border-white/10">
-                              <CheckSquare className="h-3 w-3" /> Evaluate Session
-                            </button>
-                          )}
+                          {(() => {
+                            if (demo.status === "completed") {
+                              return (
+                                <button onClick={() => setViewEvalSession(demo)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-[10px] font-extrabold hover:bg-emerald-100 cursor-pointer flex items-center gap-1">
+                                  <Award className="h-3 w-3" /> View Score
+                                </button>
+                              );
+                            }
+                            const timing = getDemoEvaluationTiming(demo);
+                            if (timing.status === "upcoming") {
+                              return (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-not-allowed opacity-80"
+                                  title={timing.reason}
+                                >
+                                  <Clock className="h-3 w-3 text-slate-400" /> {timing.badgeText}
+                                </button>
+                              );
+                            }
+                            if (timing.status === "expired") {
+                              return (
+                                <button
+                                  type="button"
+                                  disabled
+                                  className="px-3 py-1.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-not-allowed opacity-75"
+                                  title={timing.reason}
+                                >
+                                  <Lock className="h-3 w-3 text-rose-500" /> Slot Expired
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => handleOpenEvaluate(demo)}
+                                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10px] font-extrabold cursor-pointer shadow-xs flex items-center gap-1 border border-emerald-500 animate-pulse"
+                                title="Time slot active! Click to evaluate."
+                              >
+                                <CheckSquare className="h-3 w-3" /> Evaluate Session
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     ))}
@@ -1007,9 +1278,38 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                               </button>
                             ) : demo.status === "confirmed" ? (
                               <>
-                                <button onClick={() => handleOpenEvaluate(demo)} className="px-3.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg text-xs font-extrabold transition-all cursor-pointer shadow-2xs flex items-center gap-1 border border-white/10">
-                                  <CheckSquare className="h-3.5 w-3.5" /> Evaluate Session
-                                </button>
+                                {(() => {
+                                  const timing = getDemoEvaluationTiming(demo);
+                                  if (timing.status === "upcoming") {
+                                    return (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-80"
+                                        title={timing.reason}
+                                      >
+                                        <Clock className="h-3.5 w-3.5 text-slate-400" /> Upcoming
+                                      </button>
+                                    );
+                                  }
+                                  if (timing.status === "expired") {
+                                    return (
+                                      <button
+                                        type="button"
+                                        disabled
+                                        className="px-3.5 py-1.5 bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border border-rose-200 dark:border-rose-900/50 rounded-lg text-xs font-bold flex items-center gap-1 cursor-not-allowed opacity-75"
+                                        title={timing.reason}
+                                      >
+                                        <Lock className="h-3.5 w-3.5 text-rose-500" /> Slot Expired
+                                      </button>
+                                    );
+                                  }
+                                  return (
+                                    <button onClick={() => handleOpenEvaluate(demo)} className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-extrabold transition-all cursor-pointer shadow-2xs flex items-center gap-1 border border-emerald-500 animate-pulse">
+                                      <CheckSquare className="h-3.5 w-3.5" /> Evaluate Session
+                                    </button>
+                                  );
+                                })()}
                                 <button onClick={() => handleOpenSwapModal(demo)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 transition-all cursor-pointer flex items-center gap-1">
                                   <RefreshCw className="h-3.5 w-3.5" /> Reallocate
                                 </button>
@@ -1063,17 +1363,144 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
             />
           )}
 
-          {/* ═══════════════ TAB: EVALUATION CRITERIA (PER-DEPARTMENT CRUD) ═══════════════ */}
+          {/* ═══════════════ TAB: EVALUATION CRITERIA (SCORING RUBRIC & COMPLIANCE CRUD) ═══════════════ */}
           {activeTab === "eval_criteria" && (
-            <DemoEvalCriteriaPanel
-              departments={Array.from(new Set([
-                currentSME.subject,
-                currentSME.head_subject_group,
-                currentSME.mentor_group,
-                "General"
-              ].filter(Boolean).map((s: string) => s.trim())))}
-              smeName={currentSME.name}
-            />
+            <div className="space-y-6">
+              {/* Scoring Rubric Criteria CRUD Manager Panel */}
+              <Panel
+                title="SCORING RUBRIC CRITERIA (CRUD)"
+                subtitle="Configure the scoring parameters and maximum marks used during faculty demo evaluations"
+              >
+                <div className="space-y-4">
+                  {/* Top Bar: Add New Criterion Inline Form */}
+                  <div className="p-4 bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-wrap items-end gap-3 shadow-xs">
+                    <div className="flex-1 min-w-[200px]">
+                      <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">New Scoring Criterion</label>
+                      <input
+                        type="text"
+                        value={newCriterionLabel}
+                        onChange={e => setNewCriterionLabel(e.target.value)}
+                        placeholder="e.g. Body Language, Board Work, Code Hygiene..."
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div className="w-28">
+                      <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">Max Marks</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={newCriterionMax}
+                        onChange={e => setNewCriterionMax(Math.max(1, parseInt(e.target.value) || 10))}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddCriterion}
+                      disabled={!newCriterionLabel.trim()}
+                      className="px-4 py-2 rounded-xl text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-white disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add Criterion
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetCriteriaDefaults}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
+                    >
+                      Reset Defaults
+                    </button>
+                  </div>
+
+                  {/* Summary Bar */}
+                  <div className="flex justify-between items-center px-4 py-2.5 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs font-bold">
+                    <span className="text-slate-700 dark:text-slate-300">Total Configured Criteria: <strong>{criteriaList.length}</strong></span>
+                    <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">
+                      Cumulative Scale: {criteriaList.reduce((sum, c) => sum + (c.max || 0), 0)} Marks
+                    </span>
+                  </div>
+
+                  {/* Criteria List with Edit & Delete Operations */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {criteriaList.map(crit => {
+                      const isEditing = editingCriterionKey === crit.key;
+                      return (
+                        <div key={crit.key} className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shadow-xs">
+                          {isEditing ? (
+                            <div className="flex items-center gap-2 flex-1">
+                              <input
+                                type="text"
+                                value={editCriterionLabel}
+                                onChange={e => setEditCriterionLabel(e.target.value)}
+                                className="flex-1 px-2.5 py-1 text-xs font-bold border border-indigo-400 rounded-lg bg-white dark:bg-slate-800 focus:outline-none"
+                              />
+                              <input
+                                type="number"
+                                min={1}
+                                max={100}
+                                value={editCriterionMax}
+                                onChange={e => setEditCriterionMax(parseInt(e.target.value) || 10)}
+                                className="w-16 px-2 py-1 text-xs font-bold border border-indigo-400 rounded-lg text-center bg-white dark:bg-slate-800 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleSaveEditCriterion}
+                                className="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 cursor-pointer"
+                              >
+                                Save
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingCriterionKey(null)}
+                                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="space-y-0.5 flex-1 truncate">
+                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block truncate">{crit.label}</span>
+                                <span className="text-[10px] text-slate-400 font-semibold">Weightage: Max {crit.max} marks</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditCriterion(crit)}
+                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors cursor-pointer"
+                                  title="Edit criterion"
+                                >
+                                  <Pencil className="h-3.5 w-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteCriterion(crit.key, crit.label)}
+                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete criterion"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Panel>
+
+              {/* Department Compliance Checklist Rules */}
+              <DemoEvalCriteriaPanel
+                departments={Array.from(new Set([
+                  currentSME.subject,
+                  currentSME.head_subject_group,
+                  currentSME.mentor_group,
+                  "General"
+                ].filter(Boolean).map((s: string) => s.trim())))}
+                smeName={currentSME.name}
+              />
+            </div>
           )}
 
           {/* ═══════════════ TAB: MORE TOOLS & PORTALS (MOBILE HUB) ═══════════════ */}
@@ -1666,27 +2093,64 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                   </div>
 
                   <div className="space-y-2 p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
-                    <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider block mb-2">Evaluation Criteria</span>
-                    {EVAL_CRITERIA.map(crit => (
-                      <div key={crit.key} className="flex items-center justify-between gap-3">
-                        <label className="text-[10px] font-bold text-slate-600 dark:text-slate-300 flex-1">
-                          {crit.label} <span className="text-slate-400">(0-{crit.max})</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[9.5px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">
+                        Evaluation Criteria ({criteriaList.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowCriteriaModal(true)}
+                        className="px-2.5 py-1 text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-center gap-1 cursor-pointer transition-all"
+                        title="Add, edit, or remove scoring criteria"
+                      >
+                        <SlidersHorizontal className="h-3 w-3" /> Manage Criteria (CRUD)
+                      </button>
+                    </div>
+
+                    {criteriaList.map(crit => (
+                      <div key={crit.key} className="flex items-center justify-between gap-3 p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200/60 dark:border-slate-800">
+                        <label className="text-[10.5px] font-bold text-slate-700 dark:text-slate-200 flex-1 truncate">
+                          {crit.label} <span className="text-slate-400 font-semibold text-[9.5px]">(0-{crit.max})</span>
                         </label>
-                        <input aria-label={crit.label}
-                          type="number"
-                          min={0}
-                          max={crit.max}
-                          value={evalScores[crit.key] || 0}
-                          onChange={e => updateScore(crit.key, Number(e.target.value), crit.max)}
-                          className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white text-center focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
-                        />
+                        <div className="flex items-center gap-2">
+                          <input
+                            aria-label={crit.label}
+                            type="number"
+                            min={0}
+                            max={crit.max}
+                            value={evalScores[crit.key] !== undefined ? evalScores[crit.key] : Math.round(crit.max * 0.8)}
+                            onChange={e => updateScore(crit.key, Number(e.target.value), crit.max)}
+                            className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleStartEditCriterion(crit);
+                              setShowCriteriaModal(true);
+                            }}
+                            className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors cursor-pointer"
+                            title="Edit criterion"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCriterion(crit.key, crit.label)}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
+                            title="Delete criterion"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>
 
-                  <div className="flex justify-between items-center p-3 bg-amber-50/40 dark:bg-indigo-950/20 border border-amber-200 rounded-xl text-xs font-bold">
+                  <div className="flex justify-between items-center p-3 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs font-bold">
                     <span className="text-slate-800 dark:text-slate-200">Calculated Total Marks:</span>
-                    <span className={`text-sm font-black ${marks >= 80 ? "text-emerald-600" : marks >= 60 ? "text-amber-600" : "text-rose-600"}`}>{marks} / 100</span>
+                    <span className={`text-sm font-black ${marksNormalized >= 80 ? "text-emerald-600" : marksNormalized >= 60 ? "text-amber-600" : "text-rose-600"}`}>
+                      {marks} / {totalMaxMarks} ({marksNormalized}%)
+                    </span>
                   </div>
 
                   {/* Phase C: department compliance checklist (drives KAM/CM escalation mail) */}
@@ -1722,6 +2186,143 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     {submitting ? "Submitting..." : "Submit Evaluation"}
                   </button>
                 </div>
+            </Dialog>
+          )}
+
+          {/* Criteria Manager Modal (CRUD) */}
+          {showCriteriaModal && (
+            <Dialog
+              open={true}
+              onOpenChange={(next) => { if (!next) { setShowCriteriaModal(false); setEditingCriterionKey(null); } }}
+              ariaLabel="Evaluation Criteria Manager"
+              overlayClassName="z-[9999] bg-slate-950/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
+              panelClassName="rounded-2xl max-w-lg p-6 space-y-4 max-h-[85vh] overflow-y-auto my-auto bg-white dark:bg-slate-900"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 flex items-center justify-center shrink-0">
+                    <SlidersHorizontal className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Evaluation Criteria (CRUD)</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">Add, edit, or delete scoring rubrics</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setShowCriteriaModal(false); setEditingCriterionKey(null); }}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Add New Criterion */}
+              <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl space-y-2">
+                <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">Add New Criterion</span>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newCriterionLabel}
+                    onChange={e => setNewCriterionLabel(e.target.value)}
+                    placeholder="e.g. Body Language / Code Review"
+                    className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none"
+                  />
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={newCriterionMax}
+                    onChange={e => setNewCriterionMax(Math.max(1, parseInt(e.target.value) || 10))}
+                    className="w-16 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:outline-none"
+                    title="Max marks"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddCriterion}
+                    disabled={!newCriterionLabel.trim()}
+                    className="px-3 py-1.5 text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg disabled:opacity-50 cursor-pointer"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+
+              {/* List of Criteria */}
+              <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                {criteriaList.map(crit => (
+                  <div key={crit.key} className="p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 text-xs">
+                    {editingCriterionKey === crit.key ? (
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <input
+                          type="text"
+                          value={editCriterionLabel}
+                          onChange={e => setEditCriterionLabel(e.target.value)}
+                          className="flex-1 px-2 py-1 text-xs font-bold border border-indigo-400 rounded-md bg-white dark:bg-slate-800"
+                        />
+                        <input
+                          type="number"
+                          min={1}
+                          max={100}
+                          value={editCriterionMax}
+                          onChange={e => setEditCriterionMax(parseInt(e.target.value) || 10)}
+                          className="w-14 px-1 py-1 text-xs font-bold border border-indigo-400 rounded-md text-center bg-white dark:bg-slate-800"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleSaveEditCriterion}
+                          className="px-2 py-1 text-[11px] font-bold bg-emerald-600 text-white rounded-md cursor-pointer"
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex-1 truncate">
+                          <span className="font-bold text-slate-800 dark:text-slate-100 block truncate">{crit.label}</span>
+                          <span className="text-[10px] text-slate-400">Max: {crit.max} marks</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleStartEditCriterion(crit)}
+                            className="p-1 text-slate-400 hover:text-indigo-600 rounded cursor-pointer"
+                            title="Edit"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCriterion(crit.key, crit.label)}
+                            className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
+                            title="Delete"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={handleResetCriteriaDefaults}
+                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                >
+                  Reset Defaults
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowCriteriaModal(false); setEditingCriterionKey(null); }}
+                  className="px-4 py-1.5 text-xs font-bold text-white bg-zinc-900 hover:bg-zinc-800 rounded-lg cursor-pointer"
+                >
+                  Done
+                </button>
+              </div>
             </Dialog>
           )}
 

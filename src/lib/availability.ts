@@ -4,6 +4,7 @@ import { mapDayOrderToDayName, isTimeSlotMatch } from "./utils";
 export interface MentorAvailabilityParams {
   mentorId: string;
   dateStr: string; // "YYYY-MM-DD"
+  collegeId?: string;
   dayOfWeek?: string; // "Monday", "Tuesday", etc.
   timeSlot?: string; // e.g. "09:00 AM - 10:00 AM" or "09.00 AM - 10.00 AM"
   shift?: string; // "shift_1", "shift_2", "general"
@@ -26,6 +27,7 @@ export interface SmeAvailabilityParams {
   dateStr: string;
   timeSlot?: string;
   excludeDemoSwapId?: string;
+  excludeDemoSessionId?: string;
   /** Preloaded busy-windows from loadAvailabilityContext(); skips queries when it covers dateStr. */
   ctx?: AvailabilityContext;
 }
@@ -50,6 +52,7 @@ export interface AvailabilityContext {
   /** Every mentor the preload covers. The engines filter each row down to the requested one. */
   mentorIds: string[];
   smeId?: string | null;
+  collegeId?: string | null;
   /** Dates the preload covers; a date outside it must fall back to live queries. */
   dateSet: Set<string>;
   leaves: any[];
@@ -60,6 +63,8 @@ export interface AvailabilityContext {
   directInterviewsByDate: Map<string, any[]>;
   mentorDemoSwaps: any[];
   smeDemoSwaps: any[];
+  smeDemoSessions: any[];
+  dailyConfigsByDate: Map<string, any>;
 }
 
 const DATE_CHUNK = 200;
@@ -74,15 +79,16 @@ const ph = (n: number) => Array.from({ length: n }, () => "?").join(",");
 
 export async function loadAvailabilityContext(
   db: TursoDbAdapter,
-  opts: { mentorId?: string | null; mentorIds?: (string | null)[]; smeId?: string | null; dates: string[] }
+  opts: { mentorId?: string | null; mentorIds?: (string | null)[]; smeId?: string | null; dates: string[]; collegeId?: string | null }
 ): Promise<AvailabilityContext> {
-  const { mentorId = null, smeId = null } = opts;
+  const { mentorId = null, smeId = null, collegeId = null } = opts;
   const mentorIds = Array.from(new Set([mentorId, ...(opts.mentorIds ?? [])].filter(Boolean) as string[]));
   const dates = Array.from(new Set(opts.dates.filter(Boolean))).sort();
   const ctx: AvailabilityContext = {
     mentorId,
     mentorIds,
     smeId,
+    collegeId,
     dateSet: new Set(dates),
     leaves: [],
     mentorSlots: [],
@@ -92,6 +98,8 @@ export async function loadAvailabilityContext(
     directInterviewsByDate: new Map(),
     mentorDemoSwaps: [],
     smeDemoSwaps: [],
+    smeDemoSessions: [],
+    dailyConfigsByDate: new Map(),
   };
   if (dates.length === 0) return ctx;
 
@@ -188,6 +196,22 @@ export async function loadAvailabilityContext(
       params: [smeId, smeId, minDate, maxDate, minDate, maxDate],
     });
     labels.push("smeDemoSwaps");
+
+    queries.push({
+      sql: `SELECT id, subject, timeSlot, dateStr FROM demo_sessions
+            WHERE smeId = ? AND dateStr BETWEEN ? AND ?
+              AND status NOT IN ('completed', 'not_conducted')`,
+      params: [smeId, minDate, maxDate],
+    });
+    labels.push("smeDemoSessions");
+  }
+
+  for (const chunk of dateChunks) {
+    queries.push({
+      sql: `SELECT college_id, dateStr, day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr IN (${ph(chunk.length)})`,
+      params: [...chunk],
+    });
+    labels.push("dailyConfigs");
   }
 
   const failures: any[] = [];
@@ -210,6 +234,17 @@ export async function loadAvailabilityContext(
       case "directInterviews": byDate(ctx.directInterviewsByDate, (r) => r.target_date, rows); break;
       case "mentorDemoSwaps": ctx.mentorDemoSwaps = rows; break;
       case "smeDemoSwaps": ctx.smeDemoSwaps = rows; break;
+      case "smeDemoSessions": ctx.smeDemoSessions = rows; break;
+      case "dailyConfigs":
+        for (const r of rows) {
+          const ds = r.dateStr || r.datestr;
+          const cid = r.college_id || r.collegeid || "";
+          if (ds) {
+            ctx.dailyConfigsByDate.set(ds, r);
+            if (cid) ctx.dailyConfigsByDate.set(`${cid}|${ds}`, r);
+          }
+        }
+        break;
       default: break;
     }
   });
@@ -294,7 +329,7 @@ export async function checkMentorAvailability(
   }
 
   // Derive day of week if not supplied
-  const dayOfWeek =
+  const rawDayOfWeek =
     params.dayOfWeek ||
     new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" });
 
@@ -303,6 +338,19 @@ export async function checkMentorAvailability(
   // A preloaded context only answers for dates it was actually loaded with; any other
   // date has to fall back to live queries rather than report a false "free".
   const ctx = params.ctx && params.ctx.dateSet.has(dateStr) ? params.ctx : null;
+
+  // Lookup campus daily config to resolve effective Day Order or holiday status
+  const cfg = (ctx?.dailyConfigsByDate?.get(`${params.collegeId || ""}|${dateStr}`)
+    || ctx?.dailyConfigsByDate?.get(dateStr))
+    || (!ctx ? await db.get("SELECT day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [dateStr, params.collegeId || null]).catch(() => null) : null);
+
+  const isCampusHoliday = Boolean(cfg && (cfg.day_type === "holiday" || cfg.is_holiday === 1));
+  let effectiveDay = rawDayOfWeek;
+  let cfgDayOrder: string | null = null;
+  if (cfg?.day_order && cfg.day_order !== "None" && cfg.day_order !== "none") {
+    cfgDayOrder = String(cfg.day_order).toLowerCase().trim();
+    effectiveDay = mapDayOrderToDayName(cfg.day_order, rawDayOfWeek);
+  }
 
   // ---------------------------------------------------------------------------
   // Availability inputs
@@ -420,12 +468,12 @@ export async function checkMentorAvailability(
   // ---------------------------------------------------------------------------
   // 2. Regular Timetable Slots
   // ---------------------------------------------------------------------------
-  if (timeSlot) {
+  if (timeSlot && !isCampusHoliday) {
     for (const slot of mentorSlots) {
       const sDay = (slot.day || "").toLowerCase().trim();
-      const targetDay = dayOfWeek.toLowerCase().trim();
+      const targetDay = effectiveDay.toLowerCase().trim();
       const mappedDay = (mapDayOrderToDayName(slot.day, "") || "").toLowerCase().trim();
-      const dayMatches = sDay === targetDay || mappedDay === targetDay || sDay.startsWith(targetDay.slice(0, 3));
+      const dayMatches = (cfgDayOrder && sDay === cfgDayOrder) || sDay === targetDay || mappedDay === targetDay || sDay.startsWith(targetDay.slice(0, 3));
       if (!dayMatches) continue;
 
       if (shift && slot.shift && slot.shift !== "general" && slot.shift !== shift) continue;
@@ -568,6 +616,31 @@ export async function checkSmeAvailability(
         busyType: "demo",
         reason: `SME is scheduled for Demo Evaluation (${demo.subject}) at ${dTime}.`,
         details: demo
+      };
+    }
+  }
+
+  // Also check booked demo sessions for this SME
+  let bookedDemos: any[];
+  if (ctx) {
+    bookedDemos = ctx.smeDemoSessions.filter(d => (d.smeId === smeId || d.smeid === smeId) && (d.dateStr === dateStr || d.datestr === dateStr));
+  } else {
+    bookedDemos = await db.all(
+      `SELECT id, subject, timeSlot, dateStr FROM demo_sessions
+       WHERE smeId = ? AND dateStr = ? AND status NOT IN ('completed', 'not_conducted')`,
+      [smeId, dateStr]
+    ).catch(() => []);
+  }
+
+  for (const bdemo of bookedDemos) {
+    if (params.excludeDemoSessionId && bdemo.id === params.excludeDemoSessionId) continue;
+    const bTime = bdemo.timeSlot ?? bdemo.timeslot;
+    if (!timeSlot || isTimeSlotOverlap(bTime, timeSlot)) {
+      return {
+        available: false,
+        busyType: "demo",
+        reason: `SME already has a booked Demo Session (${bdemo.subject}) at ${bTime}.`,
+        details: bdemo
       };
     }
   }

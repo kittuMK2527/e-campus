@@ -79,7 +79,7 @@ const MentorWeeklyPlanStudio = dynamic(() => import("./WeeklyPlanStudio").then(m
 const SkillTrackerPanel = dynamic(() => import("./SkillTrackerPanel").then(m => m.SkillTrackerPanel), { ssr: false });
 
 import { CourseInfoButton } from "./CourseInfoModal";
-import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatching, isCohortMatch, getDeptFromClassGroup, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, isAcademicSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes, mapDayOrderToDayName } from "@/lib/utils";
+import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatching, isCohortMatch, getDeptFromClassGroup, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, isAcademicSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes, mapDayOrderToDayName, isTimeSlotMatch } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
 import { ActionMenu } from "@/components/ui/ActionMenu";
 import { Dialog } from "@/components/ui/dialog";
@@ -3154,6 +3154,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
   const isTimeMatch = (t1?: string, t2?: string) => {
     if (!t1 || !t2) return false;
     if (t1 === t2) return true;
+    if (isTimeSlotMatch(t1, t2)) return true;
     const n1 = t1.toLowerCase().replace(/\./g, ":").replace(/\s+/g, " ").replace(/\b0(\d:\d\d)/g, "$1").trim();
     const n2 = t2.toLowerCase().replace(/\./g, ":").replace(/\s+/g, " ").replace(/\b0(\d:\d\d)/g, "$1").trim();
     return n1 === n2;
@@ -3240,9 +3241,9 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     }
 
     if (typeObj === "own") {
-      return { slot: ownSlot!, type: "own" as const, handover: approvedReq || undefined };
+      return { slot: ownSlot!, type: "own" as const, handover: approvedReq || undefined, demoSession: demoForSlot || undefined };
     } else if (typeObj === "covering") {
-      return { slot: coverSlot!, type: "covering" as const, originalMentorId: coverHandover!.originalMentorId, handover: coverHandover };
+      return { slot: coverSlot!, type: "covering" as const, originalMentorId: coverHandover!.originalMentorId, handover: coverHandover, demoSession: demoForSlot || undefined };
     } else {
       return { slot: slotObj, type: "demo" as const, demoSession: demoForSlot };
     }
@@ -3368,6 +3369,14 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           return;
         }
 
+        // Check if mentor has a demo session assigned at this date and period
+        const matchedDemo = (demoSessions || []).find(ds =>
+          ds.mentorId === currentMentor.id &&
+          ds.dateStr === date.dateStr &&
+          isTimeMatch(ds.timeSlot, time) &&
+          ds.status !== "not_conducted"
+        );
+
         // Check if there is an active exam scheduled on this date overlapping this specific slot's time
         const examsOnDate = (mentorExamsList || []).filter((ex: any) => ex.exam_date === date.dateStr);
         const slotExam = examsOnDate.find((ex: any) =>
@@ -3399,11 +3408,11 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
 
           // ONLY mark as exam if this slot's time range overlaps the exam start and end time!
           if (slotExam) {
-            map.set(`${date.dateStr}|${time}`, { slot: ownSlot, type: "exam", cellStatus: "active", hasAttendance, pendingReq, approvedReq, demoSession: null, exam: slotExam });
+            map.set(`${date.dateStr}|${time}`, { slot: ownSlot, type: "exam", cellStatus: "active", hasAttendance, pendingReq, approvedReq, demoSession: matchedDemo || null, exam: slotExam });
             return;
           }
 
-          map.set(`${date.dateStr}|${time}`, { slot: ownSlot, type: "own", cellStatus, hasAttendance, pendingReq, approvedReq, demoSession: null });
+          map.set(`${date.dateStr}|${time}`, { slot: ownSlot, type: "own", cellStatus, hasAttendance, pendingReq, approvedReq, demoSession: matchedDemo || null });
           return;
         }
 
@@ -3421,7 +3430,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
             shift: currentShift
           };
           const hasAttendance = attendanceKeySet.has(`${examSlot.id}|${date.dateStr}`);
-          map.set(`${date.dateStr}|${time}`, { slot: examSlot, type: "exam", cellStatus: "active", hasAttendance, pendingReq: null, approvedReq: null, demoSession: null, exam: slotExam });
+          map.set(`${date.dateStr}|${time}`, { slot: examSlot, type: "exam", cellStatus: "active", hasAttendance, pendingReq: null, approvedReq: null, demoSession: matchedDemo || null, exam: slotExam });
           return;
         }
 
@@ -3447,16 +3456,15 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
               return;
             }
             const hasAttendance = attendanceKeySet.has(`${coverSlot.id}|${date.dateStr}`);
-            map.set(`${date.dateStr}|${time}`, { slot: coverSlot, type: "covering", cellStatus: "handover", hasAttendance, pendingReq: null, approvedReq: coverHandover, demoSession: null, originalMentorId: coverHandover.originalMentorId });
+            map.set(`${date.dateStr}|${time}`, { slot: coverSlot, type: "covering", cellStatus: "handover", hasAttendance, pendingReq: null, approvedReq: coverHandover, demoSession: matchedDemo || null, originalMentorId: coverHandover.originalMentorId });
             return;
           }
         }
 
         // 3. Demo slot
-        const demo = demoByDateSlot.get(`${date.dateStr}|${time}`);
-        if (demo) {
-          const demoSlot = { id: `demo_${demo.id}`, mentorId: demo.mentorId, college_id: currentMentor.college_id || "", day: queryDay, time: demo.timeSlot, course: demo.subject, classGroup: demo.stream || "L&D Cohort", location: "L&D Presentation Room", shift: "general" };
-          map.set(`${date.dateStr}|${time}`, { slot: demoSlot, type: "demo", cellStatus: "active", hasAttendance: false, pendingReq: null, approvedReq: null, demoSession: demo });
+        if (matchedDemo) {
+          const demoSlot = { id: `demo_${matchedDemo.id}`, mentorId: matchedDemo.mentorId, college_id: currentMentor.college_id || "", day: queryDay, time: matchedDemo.timeSlot, course: matchedDemo.subject, classGroup: matchedDemo.stream || "L&D Cohort", location: "L&D Presentation Room", shift: "general" };
+          map.set(`${date.dateStr}|${time}`, { slot: demoSlot, type: "demo", cellStatus: "active", hasAttendance: false, pendingReq: null, approvedReq: null, demoSession: matchedDemo });
           return;
         }
 
@@ -5310,6 +5318,11 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       <MapPin className="h-2.5 w-2.5 shrink-0 text-gray-400" />
                                       <span className="truncate font-semibold">{slot.location}</span>
                                     </div>
+                                    {cellData?.demoSession && (
+                                      <div className="mt-1 flex items-center gap-1 px-1.5 py-0.5 rounded bg-pink-100 dark:bg-pink-950/70 border border-pink-200 dark:border-pink-800 text-[8px] font-black text-pink-700 dark:text-pink-300">
+                                        <span>🎯 L&D Demo: {cellData.demoSession.subject} ({cellData.demoSession.smeName || "SME"})</span>
+                                      </div>
+                                    )}
                                   </div>
 
                                   <div className="flex items-center justify-between text-[9px] mt-1 pt-1.5 border-t border-slate-100 font-semibold">

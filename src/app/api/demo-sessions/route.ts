@@ -723,10 +723,19 @@ export async function POST(request: Request) {
       if (mentorDemoClashRows?.length) {
         return NextResponse.json({ success: false, message: "You already have another demo session scheduled at this date/time." }, { status: 400 });
       }
+      const mentorRec = await db.get("SELECT college_id FROM mentors WHERE id = ?", [mentorId]).catch(() => null);
+      const mentorCollegeId = mentorRec?.college_id || null;
+      const reschedCfg = await db.get("SELECT day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [newDateStr, mentorCollegeId]).catch(() => null);
+      let reschedEffectiveDay = weekdayOf(newDateStr);
+      if (reschedCfg?.day_order && reschedCfg.day_order !== "None" && reschedCfg.day_order !== "none") {
+        const { mapDayOrderToDayName } = await import("@/lib/utils");
+        reschedEffectiveDay = mapDayOrderToDayName(reschedCfg.day_order, reschedEffectiveDay);
+      }
       const mentorAvailability = await checkMentorAvailability(db, {
         mentorId,
+        collegeId: mentorCollegeId || undefined,
         dateStr: newDateStr,
-        dayOfWeek: weekdayOf(newDateStr),
+        dayOfWeek: reschedEffectiveDay,
         timeSlot: newTimeSlot,
       });
       if (!mentorAvailability.available) {
@@ -785,6 +794,10 @@ export async function POST(request: Request) {
             rescheduleComments || null,
             session.mentorName
           ]
+        );
+        await tx.run(
+          "UPDATE demo_sessions SET status = 'reallocation_required' WHERE id = ?",
+          [sessionId]
         );
       });
 

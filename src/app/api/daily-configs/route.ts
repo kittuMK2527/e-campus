@@ -688,34 +688,82 @@ export async function DELETE(request: Request) {
 
     const db = await getDb();
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    const requestedCollegeId = searchParams.get("college_id") || searchParams.get("collegeId");
+
+    let bodyData: any = {};
+    try {
+      if (request.headers.get("content-type")?.includes("application/json")) {
+        bodyData = await request.json();
+      }
+    } catch (_) {}
+
+    const requestedCollegeId = bodyData.college_id || bodyData.collegeId || searchParams.get("college_id") || searchParams.get("collegeId");
     const isSuper = auth.user.isSuperAdmin || auth.user.role === "admin";
     const collegeId = (!isSuper && auth.user.role === "cm" && auth.user.college_id)
       ? auth.user.college_id
       : requestedCollegeId;
 
-    const dateStr = searchParams.get("dateStr");
-    const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    // Multi-delete support (ids or dateStrs)
+    const rawIds = bodyData.ids || searchParams.get("ids");
+    const ids: string[] = Array.isArray(rawIds)
+      ? rawIds.filter(Boolean)
+      : (typeof rawIds === "string" ? rawIds.split(",").map((s: string) => s.trim()).filter(Boolean) : []);
 
-    if (id) {
+    const rawDates = bodyData.dateStrs || searchParams.get("dateStrs");
+    const dateStrs: string[] = Array.isArray(rawDates)
+      ? rawDates.filter(Boolean)
+      : (typeof rawDates === "string" ? rawDates.split(",").map((s: string) => s.trim()).filter(Boolean) : []);
+
+    const id = bodyData.id || searchParams.get("id");
+    const dateStr = bodyData.dateStr || searchParams.get("dateStr");
+    const startDate = bodyData.startDate || searchParams.get("startDate");
+    const endDate = bodyData.endDate || searchParams.get("endDate");
+
+    let deletedCount = 0;
+
+    if (ids.length > 0) {
+      for (const chunk of chunkBy(ids, 100)) {
+        const placeholders = chunk.map(() => "?").join(",");
+        await db.run(`DELETE FROM campus_daily_configs WHERE id IN (${placeholders})`, ...chunk);
+      }
+      deletedCount += ids.length;
+    }
+
+    if (collegeId && dateStrs.length > 0) {
+      for (const chunk of chunkBy(dateStrs, 100)) {
+        const placeholders = chunk.map(() => "?").join(",");
+        await db.run(
+          `DELETE FROM campus_daily_configs WHERE college_id = ? AND dateStr IN (${placeholders})`,
+          collegeId, ...chunk
+        );
+      }
+      deletedCount += dateStrs.length;
+    }
+
+    if (id && !ids.includes(id)) {
       await db.run("DELETE FROM campus_daily_configs WHERE id = ?", id);
       if (collegeId && dateStr) {
         await db.run("DELETE FROM campus_daily_configs WHERE college_id = ? AND dateStr = ?", collegeId, dateStr);
       }
+      deletedCount++;
     } else if (collegeId && startDate && endDate) {
       await db.run(
         "DELETE FROM campus_daily_configs WHERE college_id = ? AND dateStr >= ? AND dateStr <= ?",
         collegeId, startDate, endDate
       );
-    } else if (collegeId && dateStr) {
+      deletedCount++;
+    } else if (collegeId && dateStr && !dateStrs.includes(dateStr)) {
       await db.run("DELETE FROM campus_daily_configs WHERE college_id = ? AND dateStr = ?", collegeId, dateStr);
-    } else {
-      return NextResponse.json({ success: false, message: "Missing id, dateStr, or (startDate and endDate)" }, { status: 400 });
+      deletedCount++;
+    } else if (deletedCount === 0) {
+      return NextResponse.json({ success: false, message: "Missing id, ids, dateStrs, or (startDate and endDate)" }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, message: "Daily configuration deleted successfully" });
+    return NextResponse.json({
+      success: true,
+      message: deletedCount > 1
+        ? `Successfully deleted ${deletedCount} daily configurations.`
+        : "Daily configuration deleted successfully."
+    });
   } catch (error: any) {
     return NextResponse.json({ success: false, message: error.message }, { status: 500 });
   }
