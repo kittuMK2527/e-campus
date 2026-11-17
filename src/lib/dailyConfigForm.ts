@@ -36,7 +36,7 @@ export function isCanonicalDayType(raw?: string | null): boolean {
 }
 
 export function parseDayOrder(value?: string | null): number {
-  const match = (value || "").trim().match(/^Day (\d+)$/i);
+  const match = String(value || "").trim().match(/^Day (\d+)$/i);
   return match ? parseInt(match[1], 10) : 0;
 }
 
@@ -362,7 +362,8 @@ export function cascadeRealignCycle(
   newDayOrder: string,
   configsList: any[] = [],
   workingDayCount: number = 5,
-  scopeDates?: string[]
+  scopeDates?: string[],
+  priorLastWorkingDayOrder?: string | null
 ): { dateStr: string; dayType: string; dayOrder: string; modified: boolean }[] {
   const count = workingDayCount === 6 ? 6 : 5;
   
@@ -391,7 +392,7 @@ export function cascadeRealignCycle(
     const priorConfigs = (configsList || [])
       .filter((c: any) => c.dateStr && c.dateStr < targetDateStr && c.day_order && c.day_order !== "None" && c.day_type !== "holiday")
       .sort((a: any, b: any) => b.dateStr.localeCompare(a.dateStr));
-    const lastPrior = priorConfigs[0]?.day_order;
+    const lastPrior = priorConfigs[0]?.day_order || priorLastWorkingDayOrder;
     const priorNum = parseDayOrder(lastPrior);
     nextDayOrderNum = priorNum > 0 ? ((priorNum % count) + 1) : 1;
   }

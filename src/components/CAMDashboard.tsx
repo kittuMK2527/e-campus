@@ -13152,6 +13152,13 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     toast(`Successfully published version ${version} of schedule for ${sem}.`, "success");
   };
 
+  const formatToIndianDate = (ymd?: string | null): string => {
+    if (!ymd) return "";
+    const match = String(ymd).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[3]}-${match[2]}-${match[1]}`;
+    return String(ymd);
+  };
+
   const fetchDailyConfigs = async () => {
     if (!activeCollegeId) return;
     setIsDailyLoading(true);
@@ -13212,7 +13219,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         });
         const data = await res.json();
         if (data.success) {
-          toast(`Daily schedule configuration for ${dateStr} deleted.`, "success");
+          toast(`Daily schedule configuration for ${formatToIndianDate(dateStr)} deleted.`, "success");
           await fetchDailyConfigs();
           notifyDataChanged("daily-configs");
         } else {
@@ -13315,7 +13322,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     // pencil just filled are off-screen and the click reads as doing nothing.
     const panel = document.getElementById("daily-config-form")?.closest("[role=dialog]");
     panel?.scrollTo({ top: 0, behavior: "smooth" });
-    toast(`Editing Day Order schedule for ${cfg.dateStr}`, "info");
+    toast(`Editing Day Order schedule for ${formatToIndianDate(cfg.dateStr)}`, "info");
   };
 
   const handleQuickConfigureDay = (dStr: string) => {
@@ -13333,7 +13340,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
     const panel = document.getElementById("daily-config-form")?.closest("[role=dialog]");
     panel?.scrollTo({ top: 0, behavior: "smooth" });
-    toast(`Pre-filled configuration for ${dStr} (${adapted.dayOrder})`, "info");
+    toast(`Pre-filled configuration for ${formatToIndianDate(dStr)} (${adapted.dayOrder})`, "info");
   };
 
   const handleCancelDailyEdit = () => {
@@ -13394,7 +13401,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
     const ok = await showConfirm({
       title: "Auto-Adapt This Week",
-      message: `Auto-adapt entire week (${weekInfo.startDate} to ${weekInfo.endDate}) setting ${targetDate} as ${orderToUse}? All working days in this week will be sequentially aligned around ${orderToUse}.`,
+      message: `Auto-adapt entire week (${formatToIndianDate(weekInfo.startDate)} to ${formatToIndianDate(weekInfo.endDate)}) setting ${formatToIndianDate(targetDate)} as ${orderToUse}? All working days in this week will be sequentially aligned around ${orderToUse}.`,
       confirmLabel: "Auto-Adapt Week"
     });
     if (!ok) return;
@@ -13418,7 +13425,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        toast(data.message || `Week schedule auto-adapted successfully (${targetDate} set as ${orderToUse}).`, "success");
+        toast(data.message || `Week schedule auto-adapted successfully (${formatToIndianDate(targetDate)} set as ${orderToUse}).`, "success");
         setIsDailyConfigModalOpen(false);
         resetDailyConfigForm();
         await fetchDailyConfigs();
@@ -13456,7 +13463,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       });
       const data = await res.json();
       if (data.success) {
-        toast(data.message || `Schedule re-aligned successfully from ${dStr}.`, "success");
+        toast(data.message || `Schedule re-aligned successfully from ${formatToIndianDate(dStr)}.`, "success");
         await fetchDailyConfigs();
         notifyDataChanged("daily-configs");
       } else {
@@ -28052,7 +28059,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   Daily Day Order &amp; Schedule Configurator
                   {editingDailyId && (
                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-50 text-amber-700 border border-amber-200 normal-case">
-                      Editing {dailyStartDateStr}
+                      Editing {formatToIndianDate(dailyStartDateStr)}
                     </span>
                   )}
                 </h3>
@@ -28195,71 +28202,86 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               />
             </div>
 
-            {/* Row 4: Options + Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-slate-100">
-              {/* Checkboxes */}
-              <div className="flex items-center gap-5 flex-wrap">
-                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={cascadeSubsequentDays}
-                    onChange={e => setCascadeSubsequentDays(e.target.checked)}
-                    className="h-4 w-4 accent-[#4F46E5] rounded border-slate-300 cursor-pointer"
-                  />
-                  Cascade Changes to Subsequent Days
+            {/* Row 4: Config Policies (Dropdown Filters replacing checkboxes) */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100">
+              <div className="space-y-1">
+                <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">
+                  Cascade Policy
                 </label>
-                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={autoAdvanceDayOrder}
-                    onChange={e => setAutoAdvanceDayOrder(e.target.checked)}
-                    className="h-4 w-4 accent-[#4F46E5] rounded border-slate-300 cursor-pointer"
-                  />
-                  Auto-Advance Continuous Days
-                </label>
-                <label className="flex items-center gap-2 text-xs font-bold text-slate-700 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={skipSundays}
-                    onChange={e => setSkipSundays(e.target.checked)}
-                    className="h-4 w-4 accent-[#4F46E5] rounded border-slate-300 cursor-pointer"
-                  />
-                  Skip Sundays (Auto-Holiday)
-                </label>
+                <select
+                  aria-label="Cascade Policy"
+                  value={cascadeSubsequentDays ? "cascade" : "single"}
+                  onChange={e => setCascadeSubsequentDays(e.target.value === "cascade")}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-800"
+                >
+                  <option value="cascade">⚡ Cascade to Subsequent Days (Auto-Realign)</option>
+                  <option value="single">Single Date Only (No Cascade)</option>
+                </select>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap justify-end shrink-0">
-                <button
-                  type="button"
-                  onClick={handleAutoFillCurrentWeek}
-                  disabled={isDailySaving || isDailyLoading}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                  title="Auto-adapt this entire week from the selected date and Day Order"
+              <div className="space-y-1">
+                <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">
+                  Day Sequence Policy
+                </label>
+                <select
+                  aria-label="Day Sequence Policy"
+                  value={autoAdvanceDayOrder ? "sequential" : "fixed"}
+                  onChange={e => setAutoAdvanceDayOrder(e.target.value === "sequential")}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-800"
                 >
-                  <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                  Auto-Adapt This Week
-                </button>
-                <button
-                  type="button"
-                  onClick={handleAutoAdaptNextWeek}
-                  disabled={isDailySaving || isDailyLoading}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                  title="Auto-configure next week's schedule based on current week's pattern"
+                  <option value="sequential">Auto-Advance Continuous Days (Day 1, 2, 3...)</option>
+                  <option value="fixed">Keep Day Order Fixed (Repeat Same)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">
+                  Sunday Policy
+                </label>
+                <select
+                  aria-label="Sunday Policy"
+                  value={skipSundays ? "skip" : "include"}
+                  onChange={e => setSkipSundays(e.target.value === "skip")}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-800"
                 >
-                  <Calendar className="h-3.5 w-3.5" />
-                  Auto-Adapt Next Week
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteDailyConfigRange}
-                  disabled={isDailySaving || isDailyLoading}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                  title="Delete all records within selected From–To date range"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                  Delete Range
-                </button>
+                  <option value="skip">Skip Sundays (Auto-Holiday)</option>
+                  <option value="include">Include Sundays as Working</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 5: Action Dropdown & Submit (Replacing loose horizontal buttons) */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+              {/* Schedule Tools / Actions Dropdown */}
+              <div className="flex items-center gap-2">
+                <div className="relative min-w-[240px]">
+                  <select
+                    aria-label="Schedule Actions"
+                    defaultValue=""
+                    onChange={e => {
+                      const action = e.target.value;
+                      if (action === "auto_week") {
+                        handleAutoFillCurrentWeek();
+                      } else if (action === "auto_next_week") {
+                        handleAutoAdaptNextWeek();
+                      } else if (action === "delete_range") {
+                        handleDeleteDailyConfigRange();
+                      }
+                      e.target.value = "";
+                    }}
+                    disabled={isDailySaving || isDailyLoading}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50 hover:bg-slate-100 text-xs font-bold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-700 disabled:opacity-50 transition-all"
+                  >
+                    <option value="" disabled>⚡ Schedule Tools / Actions...</option>
+                    <option value="auto_week">✨ Auto-Adapt This Week</option>
+                    <option value="auto_next_week">📅 Auto-Adapt Next Week</option>
+                    <option value="delete_range">🗑️ Delete Selected Date Range</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Action Buttons: Cancel + Primary Save */}
+              <div className="flex items-center gap-2 justify-end shrink-0">
                 {editingDailyId && (
                   <button
                     type="button"
@@ -28300,7 +28322,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <span className="px-3 text-xs font-black text-slate-800">
-                    Week: {modalWeekInfo.startDate} to {modalWeekInfo.endDate}
+                    Week: {formatToIndianDate(modalWeekInfo.startDate)} to {formatToIndianDate(modalWeekInfo.endDate)}
                   </span>
                   <button
                     type="button"
@@ -28398,7 +28420,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         return (
                           <TableRow key={dStr} className={`transition-colors ${isSelectedEdit ? "bg-[#4F46E5]/10" : "hover:bg-slate-50/50"}`}>
                             <TableCell className="p-3 font-extrabold text-slate-700">
-                              <span>{dStr}</span>
+                              <span>{formatToIndianDate(dStr)}</span>
                               <span className="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider">{weekdayName}</span>
                             </TableCell>
                             <TableCell className="p-3">
@@ -28425,7 +28447,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       return (
                         <TableRow key={cfg.id || dStr} className={`transition-colors ${isSelectedEdit ? "bg-[#4F46E5]/10" : "hover:bg-slate-50/50"}`}>
                           <TableCell className="p-3 font-extrabold text-slate-900">
-                            <span>{dStr}</span>
+                            <span>{formatToIndianDate(dStr)}</span>
                             <span className="text-[10px] text-slate-500 font-bold block uppercase tracking-wider">{weekdayName}</span>
                           </TableCell>
                           <TableCell className="p-3">
@@ -28493,7 +28515,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       })
                       .map(cfg => (
                         <TableRow key={cfg.id || cfg.dateStr} className={`transition-colors ${editingDailyId === (cfg.id || cfg.dateStr) ? "bg-[#4F46E5]/10" : "hover:bg-slate-50/50"}`}>
-                          <TableCell className="p-3 font-extrabold text-slate-800">{cfg.dateStr}</TableCell>
+                          <TableCell className="p-3 font-extrabold text-slate-800">{formatToIndianDate(cfg.dateStr)}</TableCell>
                           <TableCell className="p-3">
                             <Badge
                               variant={

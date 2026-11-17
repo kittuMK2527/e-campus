@@ -326,13 +326,23 @@ async function handleCascadeRealign(db: any, body: any) {
   const targetDayType = targetCfg?.day_type || "working";
   const targetDayOrder = targetCfg?.day_order || "Day 1";
 
+  // Look up latest working Day Order prior to dateStr so holiday pause continues cleanly
+  const priorWorkingRow = await db.get(
+    "SELECT day_order FROM campus_daily_configs WHERE college_id = ? AND dateStr < ? AND day_order != 'None' AND day_type != 'holiday' ORDER BY dateStr DESC LIMIT 1",
+    [college_id, dateStr]
+  );
+
   const cascaded = cascadeRealignCycle(
     dateStr,
     targetDayType,
     targetDayOrder,
-    existingConfigs,
+    [
+      ...existingConfigs,
+      ...(priorWorkingRow ? [{ dateStr: "0000-00-00", day_type: "working", day_order: priorWorkingRow.day_order }] : [])
+    ],
     workingDaysCount,
-    weekDates
+    weekDates,
+    priorWorkingRow?.day_order || null
   );
 
   const cascadeRows: any[][] = [];
@@ -568,6 +578,12 @@ export async function POST(request: Request) {
       }
 
       if (subsequentDates.length > 0) {
+        // Look up latest working Day Order prior to targetDate so holiday pause continues cleanly
+        const priorWorkingRow = await db.get(
+          "SELECT day_order FROM campus_daily_configs WHERE college_id = ? AND dateStr < ? AND day_order != 'None' AND day_type != 'holiday' ORDER BY dateStr DESC LIMIT 1",
+          [college_id, targetDate]
+        );
+
         const subsequentConfigs = await db.all(
           `SELECT * FROM campus_daily_configs WHERE college_id = ? AND dateStr IN (${subsequentDates.map(() => "?").join(",")})`,
           [college_id, ...subsequentDates]
@@ -577,9 +593,14 @@ export async function POST(request: Request) {
           targetDate,
           day_type,
           effectiveDayOrder,
-          [...subsequentConfigs, { dateStr: targetDate, day_type, day_order: effectiveDayOrder }],
+          [
+            ...subsequentConfigs,
+            { dateStr: targetDate, day_type, day_order: effectiveDayOrder },
+            ...(priorWorkingRow ? [{ dateStr: "0000-00-00", day_type: "working", day_order: priorWorkingRow.day_order }] : [])
+          ],
           workingDaysCount,
-          [targetDate, ...subsequentDates]
+          [targetDate, ...subsequentDates],
+          priorWorkingRow?.day_order || null
         );
 
         for (const item of cascaded) {
