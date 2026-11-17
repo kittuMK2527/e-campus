@@ -123,6 +123,10 @@ const LogsTab = dynamic(
   () => import("@/components/admin/system/LogsTab").then(m => m.LogsTab),
   { ssr: false, loading: () => <AdminTabSkeleton /> }
 );
+const AdminProfileTab = dynamic(
+  () => import("@/components/admin/AdminProfileTab").then(m => m.AdminProfileTab),
+  { ssr: false, loading: () => <AdminTabSkeleton /> }
+);
 const StudentsTab = dynamic(
   () => import("@/components/admin/people/StudentsTab").then(m => m.StudentsTab),
   { ssr: false, loading: () => <AdminTabSkeleton /> }
@@ -614,6 +618,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {activeTab === "feedback" && <FeedbackTab />}
 
         {activeTab === "logs" && <LogsTab />}
+
+        {activeTab === "profile" && <AdminProfileTab onNavigateTab={setActiveTab} />}
       </section>
 
       {/* Slide-over CAM Campus Console — central admin drill-down */}

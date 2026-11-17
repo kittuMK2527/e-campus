@@ -193,7 +193,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
   // Filters (search bar removed for clean, focused dropdown filters)
   const [subjectFilter, setSubjectFilter] = useState<string>("all");
   const [semesterFilter, setSemesterFilter] = useState<string>("all");
-  const [weekFilter, setWeekFilter] = useState<string>("all");
+  const [weekFilter, setWeekFilter] = useState<string>("1");
   const [verdictFilter, setVerdictFilter] = useState<string>("all");
 
   // Pagination
@@ -728,16 +728,15 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Task Filter</label>
+            <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Week</label>
             <select
-              aria-label="Task Filter"
+              aria-label="Week"
               value={weekFilter}
               onChange={e => setWeekFilter(e.target.value)}
               className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
-              <option value="all">All Tasks</option>
-              {Array.from({ length: 40 }, (_, i) => i + 1).map(w => (
-                <option key={w} value={String(w)}>Task {w}</option>
+              {Array.from({ length: 15 }, (_, i) => i + 1).map(w => (
+                <option key={w} value={String(w)}>Week {w}</option>
               ))}
             </select>
           </div>

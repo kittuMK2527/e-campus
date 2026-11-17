@@ -35,9 +35,18 @@ export async function GET(request: Request) {
     let query = "SELECT * FROM exam_schedules WHERE 1=1";
     const args: any[] = [];
 
-    if (collegeId) {
-      query += " AND (LOWER(college_id) = LOWER(?) OR college_id IS NULL)";
-      args.push(collegeId);
+    if (collegeId && collegeId !== "all") {
+      const collegeRow = await db.get(
+        "SELECT id, name FROM colleges WHERE LOWER(id) = LOWER(?) OR LOWER(name) = LOWER(?)",
+        [collegeId, collegeId]
+      );
+      if (collegeRow) {
+        query += " AND (LOWER(college_id) = LOWER(?) OR LOWER(college_id) = LOWER(?) OR college_id IS NULL)";
+        args.push(collegeRow.id, collegeRow.name);
+      } else {
+        query += " AND (LOWER(college_id) = LOWER(?) OR college_id IS NULL)";
+        args.push(collegeId);
+      }
     }
 
     // Department filter: prefer explicit department param, fall back to class_group prefix

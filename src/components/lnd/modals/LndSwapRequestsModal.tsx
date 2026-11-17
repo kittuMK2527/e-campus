@@ -208,8 +208,8 @@ export default function LndSwapRequestsModal({
               )
             ) : (
               demoSwapRequests.filter((r: any) => r.status !== "pending").length > 0 ? (
-                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden">
-                  <table className="w-full text-left border-collapse text-[11px]">
+                <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto">
+                  <table className="w-full min-w-[540px] text-left border-collapse text-[11px]">
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider border-b border-slate-100 dark:border-slate-800">
                         <th className="p-3">SME</th>

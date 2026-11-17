@@ -311,6 +311,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const [studentTrackerWeek, setStudentTrackerWeek] = useState<number>(1);
   const [submittingUrlMap, setSubmittingUrlMap] = useState<Record<number, boolean>>({});
   const [studentUploadType, setStudentUploadType] = useState<Record<number, "url" | "file">>({});
+  const [submissionFileDrafts, setSubmissionFileDrafts] = useState<Record<string, File | undefined>>({});
 
   // State for OPAC library search
   const [librarySearch, setLibrarySearch] = useState("");
@@ -4769,6 +4770,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       );
 
                       const currentUrl = entry?.submission_url || "";
+                      const uploadDraftKey = `${studentTrackerSubject}|${wk}`;
                       const isSubmitting = submittingUrlMap[wk] || false;
                       const isGraded = entry?.marks !== undefined && entry?.marks !== null;
                       const isSubmitted = !!currentUrl;
@@ -4985,6 +4987,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                 if (!res.success) {
                                                   toast(res.message || "Failed to submit URL.", "error");
                                                 } else {
+                                                  setSubmissionFileDrafts(prev => {
+                                                    const next = { ...prev };
+                                                    delete next[uploadDraftKey];
+                                                    return next;
+                                                  });
                                                   toast("Work submitted successfully!", "success");
                                                 }
                                               }}
@@ -5020,37 +5027,81 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                                   className="hidden"
                                                   accept=".pdf,.docx,.doc,.zip,.rar"
                                                   disabled={isSubmitting}
-                                                  onChange={async (e) => {
-                                                    if (e.target.files && e.target.files[0]) {
-                                                      const file = e.target.files[0];
-                                                      setSubmittingUrlMap(prev => ({ ...prev, [wk]: true }));
-                                                      const reader = new FileReader();
-                                                      reader.onload = async () => {
-                                                        const dataUrl = (reader.result as string) || "";
-                                                        const res = await gradeStudentTask({
-                                                          studentId: currentStudent?.id || "",
-                                                          classGroup: currentStudent?.classGroup || "",
-                                                          subject: studentTrackerSubject,
-                                                          weekNumber: wk,
-                                                          submissionUrl: dataUrl
-                                                        });
-                                                        setSubmittingUrlMap(prev => ({ ...prev, [wk]: false }));
-                                                        if (!res.success) {
-                                                          toast(res.message || "File upload failed.", "error");
-                                                        } else {
-                                                          toast(`Uploaded ${file.name} successfully.`, "success");
-                                                        }
-                                                      };
-                                                      reader.onerror = () => {
-                                                        setSubmittingUrlMap(prev => ({ ...prev, [wk]: false }));
-                                                        toast("Failed to read file.", "error");
-                                                      };
-                                                      reader.readAsDataURL(file);
+                                                  onChange={(e) => {
+                                                    const file = e.target.files?.[0];
+                                                    e.target.value = "";
+                                                    if (!file) return;
+                                                    if (file.size > 10 * 1024 * 1024) {
+                                                      toast("Please select a file smaller than 10 MB.", "warning");
+                                                      e.target.value = "";
+                                                      return;
                                                     }
+                                                    setSubmissionFileDrafts(prev => ({ ...prev, [uploadDraftKey]: file }));
                                                   }}
                                                 />
                                               </label>
-
+                                              {submissionFileDrafts[uploadDraftKey] && (
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50/60 px-3 py-2">
+                                                  <span className="min-w-0 truncate text-[11px] font-semibold text-slate-700" title={submissionFileDrafts[uploadDraftKey]?.name}>
+                                                    Ready to submit: {submissionFileDrafts[uploadDraftKey]?.name}
+                                                  </span>
+                                                  <div className="flex shrink-0 items-center gap-2">
+                                                    <button
+                                                      type="button"
+                                                      disabled={isSubmitting}
+                                                      onClick={() => setSubmissionFileDrafts(prev => {
+                                                        const next = { ...prev };
+                                                        delete next[uploadDraftKey];
+                                                        return next;
+                                                      })}
+                                                      className="rounded-md px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-white disabled:opacity-50"
+                                                    >
+                                                      Remove
+                                                    </button>
+                                                    <button
+                                                      type="button"
+                                                      disabled={isSubmitting}
+                                                      onClick={async () => {
+                                                        const file = submissionFileDrafts[uploadDraftKey];
+                                                        if (!file) return;
+                                                        setSubmittingUrlMap(prev => ({ ...prev, [wk]: true }));
+                                                        try {
+                                                          const dataUrl = await new Promise<string>((resolve, reject) => {
+                                                            const reader = new FileReader();
+                                                            reader.onload = () => resolve(String(reader.result || ""));
+                                                            reader.onerror = () => reject(reader.error || new Error("Failed to read file."));
+                                                            reader.readAsDataURL(file);
+                                                          });
+                                                          const res = await gradeStudentTask({
+                                                            studentId: currentStudent?.id || "",
+                                                            classGroup: currentStudent?.classGroup || "",
+                                                            subject: studentTrackerSubject,
+                                                            weekNumber: wk,
+                                                            submissionUrl: dataUrl
+                                                          });
+                                                          if (!res.success) {
+                                                            toast(res.message || "File upload failed.", "error");
+                                                          } else {
+                                                            setSubmissionFileDrafts(prev => {
+                                                              const next = { ...prev };
+                                                              delete next[uploadDraftKey];
+                                                              return next;
+                                                            });
+                                                            toast(`Uploaded ${file.name} successfully.`, "success");
+                                                          }
+                                                        } catch (error: any) {
+                                                          toast(error.message || "File upload failed.", "error");
+                                                        } finally {
+                                                          setSubmittingUrlMap(prev => ({ ...prev, [wk]: false }));
+                                                        }
+                                                      }}
+                                                      className="rounded-lg bg-zinc-900 px-3 py-1.5 text-[10px] font-extrabold text-white hover:bg-zinc-800 disabled:opacity-50"
+                                                    >
+                                                      {isSubmitting ? "Uploading..." : "Upload & Submit"}
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )}
                                             </div>
                                           )}
                                         </div>
@@ -5088,8 +5139,139 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
         {/* Tab 8: My Profile */}
         {activeTab === "profile" && currentStudent && (() => {
           const isProfileEditAllowed = allowedProfileEditClasses.includes(currentStudent.classGroup);
+          const assignedCollege = colleges.find(c => c.id === currentStudent.college_id);
+          const assignedMentor = mentors.find(m =>
+            Boolean(m.classes?.split(/,|\n/).map(c => c.trim()).includes(currentStudent.classGroup)) &&
+            (m.college_id ? m.college_id === currentStudent.college_id : true)
+          ) || mentors.find(m => Boolean(m.classes?.split(/,|\n/).map(c => c.trim()).includes(currentStudent.classGroup)));
+
+          const studentInitials = (currentStudent.name || "ST")
+            .replace(/^\[[^\]]*\]\s*/, "")
+            .split(" ")
+            .map(n => n[0])
+            .filter(Boolean)
+            .join("")
+            .slice(0, 2)
+            .toUpperCase() || "ST";
+
+          const completedTasksCount = (studentTracker || []).filter(
+            e => e.student_id === currentStudent.id && Boolean(e.submission_url || e.marks !== undefined || e.viva_assessment)
+          ).length;
+
+          const studentInterviewsCount = (interviews || []).filter(
+            i => i.student_id === currentStudent.id
+          ).length;
+
           return (
-            <form onSubmit={handleSaveProfile} className="space-y-6 font-sans">
+            <div className="space-y-6 font-sans animate-fadeIn">
+              {/* Profile Identity & Overview Hero */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Profile Identity Card */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-card flex flex-col items-center justify-between text-center min-h-[300px]">
+                  <div className="flex flex-col items-center space-y-4 w-full">
+                    <div className="h-20 w-20 rounded-2xl bg-zinc-900 border-4 border-amber-500 text-amber-400 flex items-center justify-center text-2xl font-black shadow-md uppercase">
+                      {studentInitials}
+                    </div>
+                    <div>
+                      <h2 className="text-base font-extrabold text-slate-900 leading-tight">{currentStudent.name}</h2>
+                      <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mt-1">Student Scholar • Cohort Academic Member</p>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-1.5 pt-1">
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-900 flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-amber-600 shrink-0" />
+                        <span>{assignedCollege?.name || "Assigned Campus"}</span>
+                      </span>
+                      {currentStudent.department && (
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center gap-1.5">
+                          <GraduationCap className="w-3 h-3 text-slate-500 shrink-0" />
+                          <span>{currentStudent.department}</span>
+                        </span>
+                      )}
+                      {currentStudent.classGroup && (
+                        <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] font-black text-amber-800 flex items-center gap-1.5">
+                          <span>Group: {currentStudent.classGroup}</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="w-full border-t border-slate-100 pt-4 mt-4 text-left space-y-2.5">
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-slate-400">Register Number</span>
+                      <span className="text-slate-800 font-mono text-[11px] font-bold">{currentStudent.register_number || "—"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-slate-400">Roll Number</span>
+                      <span className="text-slate-800 font-mono text-[11px]">{currentStudent.roll_number || "—"}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-slate-400">Faculty Incharge</span>
+                      <span className="text-slate-800 text-[11px] font-bold truncate max-w-[150px]" title={assignedMentor?.name || "Assigned Faculty Mentor"}>
+                        {assignedMentor?.name || "Assigned Faculty"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Academic Standing & Milestones Card */}
+                <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-card space-y-6 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Academic Credentials &amp; Standing</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Attendance Rate</span>
+                        <span className="text-lg font-black text-slate-900 mt-0.5 block">{attendanceCalendarData.monthPercentage}%</span>
+                        <span className="text-[9px] text-slate-500 font-semibold">{attendanceCalendarData.monthPresentDays} Days Present</span>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Skill Submissions</span>
+                        <span className="text-lg font-black text-amber-600 mt-0.5 block">
+                          {completedTasksCount}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-semibold">Tasks Completed</span>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Interviews</span>
+                        <span className="text-lg font-black text-slate-900 mt-0.5 block">
+                          {studentInterviewsCount}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-semibold">Scheduled / Evaluated</span>
+                      </div>
+                      <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Medium of Study</span>
+                        <span className="text-sm font-extrabold text-slate-900 mt-1 block truncate">
+                          {currentStudent.medium || "English"}
+                        </span>
+                        <span className="text-[9px] text-slate-500 font-semibold truncate block">{currentStudent.academic_group || "General"}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-zinc-900 text-amber-400 flex items-center justify-center font-black text-sm">
+                        <Sparkles className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="text-xs font-black text-slate-900">Career &amp; Placement Readiness</div>
+                        <div className="text-[10px] font-semibold text-slate-500">
+                          Keep your portfolio and coding links up-to-date for campus drive evaluations.
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {currentStudent.github_id && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">GitHub Linked</span>
+                      )}
+                      {currentStudent.linkedin_link && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">LinkedIn Linked</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handleSaveProfile} className="space-y-6">
               {/* Access Controller Banner */}
               <div className="flex justify-between items-center bg-white p-4.5 rounded-xl border border-slate-100 shadow-card flex-wrap gap-4">
                 <div className="flex items-center gap-3">
@@ -5872,6 +6054,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                 </div>
               </div>
             </form>
+          </div>
           );
         })()}
         {/* Tab: 1-on-1 Structured Interviews, GMeet & Rubric Assessment Hub */}

@@ -1386,6 +1386,7 @@ export function LndAllocationDashboard() {
             setSwapRequestsTab={setSwapRequestsTab}
             resolveDemoSwap={resolveDemoSwap}
             toast={toast}
+            refreshSessions={() => refreshData()}
           />
         )}
 

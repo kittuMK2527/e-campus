@@ -202,8 +202,8 @@ export default function LndPreviewModal({
                 {/* Generated sessions preview ledger list */}
                 <div className="space-y-2">
                   <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Generated Sessions Ledger Preview</h4>
-                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-hidden max-h-[200px] overflow-y-auto">
-                    <table className="w-full text-left border-collapse text-[10.5px]">
+                  <div className="border border-slate-200 dark:border-slate-800 rounded-xl overflow-x-auto overflow-y-auto max-h-[200px]">
+                    <table className="w-full min-w-[560px] text-left border-collapse text-[10.5px]">
                       <thead>
                         <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase text-[9px]">
                           <th className="p-2.5">Faculty Mentor</th>

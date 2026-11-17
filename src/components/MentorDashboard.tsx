@@ -2814,6 +2814,9 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
   });
   const [rescheduleSelectedSlot, setRescheduleSelectedSlot] = useState<string>("");
   const [rescheduleSubmitting, setRescheduleSubmitting] = useState<boolean>(false);
+  const [rescheduleAvailability, setRescheduleAvailability] = useState<any | null>(null);
+  const [rescheduleAvailabilityLoading, setRescheduleAvailabilityLoading] = useState(false);
+  const [rescheduleAvailabilityError, setRescheduleAvailabilityError] = useState("");
 
   const handleOpenRescheduleModal = (session: any) => {
     setRescheduleModalSession(session);
@@ -2823,6 +2826,33 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     setRescheduleTargetDate(d.toISOString().split("T")[0]);
     setRescheduleSelectedSlot("");
   };
+
+  useEffect(() => {
+    if (!rescheduleModalSession || !rescheduleTargetDate) {
+      setRescheduleAvailability(null);
+      setRescheduleAvailabilityError("");
+      return;
+    }
+
+    let active = true;
+    setRescheduleAvailability(null);
+    setRescheduleAvailabilityError("");
+    setRescheduleAvailabilityLoading(true);
+    fetch(`/api/demo-reallocations?demoSessionId=${encodeURIComponent(rescheduleModalSession.id)}&dateStr=${encodeURIComponent(rescheduleTargetDate)}`)
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.message || "Could not check SME availability.");
+        if (active) setRescheduleAvailability(data);
+      })
+      .catch(error => {
+        if (active) setRescheduleAvailabilityError(error?.message || "Could not check availability. Please retry.");
+      })
+      .finally(() => {
+        if (active) setRescheduleAvailabilityLoading(false);
+      });
+
+    return () => { active = false; };
+  }, [rescheduleModalSession?.id, rescheduleTargetDate]);
 
   // ── Academic Tracker state hooks (Date-wise period topic/unit logging) ──────
   const [acadTrackerSubject, setAcadTrackerSubject] = useState<string>("");
@@ -3241,9 +3271,120 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
   const [trackerPageSize, setTrackerPageSize] = useState<number>(10);
   const [saveStatusMap, setSaveStatusMap] = useState<Record<string, "idle" | "saving" | "saved" | "error">>({});
   const [skillMarksDraft, setSkillMarksDraft] = useState<Record<string, string>>({});
-  const [isSavingAllSkillMarks, setIsSavingAllSkillMarks] = useState(false);
   const [acadMarksDraft, setAcadMarksDraft] = useState<Record<string, { quiz?: string; assessment?: string; assignment?: string; feedback?: string }>>({});
-  const [isSavingAllAcadMarks, setIsSavingAllAcadMarks] = useState(false);
+
+  // ── Explicit Save Handlers (no typing auto-save) ──
+  const saveSkillMarkRow = useCallback(async (sId: string, classGroup: string, subj: string, week: number) => {
+    const draftVal = skillMarksDraft[sId];
+    if (draftVal === undefined || draftVal === "") return;
+    const parsedMarks = Number(draftVal);
+    if (!Number.isFinite(parsedMarks) || parsedMarks < 0 || parsedMarks > 10) {
+      toast("Marks must be between 0 and 10", "error");
+      setSaveStatusMap(prev => ({ ...prev, [sId]: "error" }));
+      return;
+    }
+    setSaveStatusMap(prev => ({ ...prev, [sId]: "saving" }));
+    try {
+      const res = await gradeStudentTask({
+        studentId: sId,
+        classGroup,
+        subject: subj,
+        weekNumber: week,
+        marks: parsedMarks as any,
+        gradedBy: currentMentor?.id || ""
+      });
+      if (res?.success) {
+        setSaveStatusMap(prev => ({ ...prev, [sId]: "saved" }));
+        setSkillMarksDraft(prev => {
+          const next = { ...prev };
+          delete next[sId];
+          return next;
+        });
+        toast("Marks saved successfully", "success");
+        setTimeout(() => {
+          setSaveStatusMap(prev => {
+            if (prev[sId] === "saved") {
+              const next = { ...prev };
+              delete next[sId];
+              return next;
+            }
+            return prev;
+          });
+        }, 3000);
+      } else {
+        setSaveStatusMap(prev => ({ ...prev, [sId]: "error" }));
+        toast(res?.message || "Failed to save marks", "error");
+      }
+    } catch (e: any) {
+      setSaveStatusMap(prev => ({ ...prev, [sId]: "error" }));
+      toast(e?.message || "Error saving marks", "error");
+    }
+  }, [currentMentor?.id, gradeStudentTask, skillMarksDraft, toast]);
+
+  const saveAcadMarkRow = useCallback(async (
+    email: string,
+    studentId: string,
+    classGroup: string,
+    subj: string,
+    week: number,
+    currentAttendance: string,
+    fallbackMarks: { quiz: string; assessment: string; assignment: string; feedback: string }
+  ) => {
+    const draft = acadMarksDraft[email] || {};
+    const qmVal = draft.quiz !== undefined ? draft.quiz : fallbackMarks.quiz;
+    const asmVal = draft.assessment !== undefined ? draft.assessment : fallbackMarks.assessment;
+    const agmVal = draft.assignment !== undefined ? draft.assignment : fallbackMarks.assignment;
+    const fbVal = draft.feedback !== undefined ? draft.feedback : fallbackMarks.feedback;
+
+    const isInvalid = [qmVal, asmVal, agmVal].some(v => v !== "" && (!Number.isFinite(Number(v)) || Number(v) < 0 || Number(v) > 10));
+    if (isInvalid) {
+      toast("Quiz, Assessment, and Assignment marks must be between 0 and 10", "error");
+      setAcadSaveStatusMap(prev => ({ ...prev, [email]: "error" }));
+      return;
+    }
+
+    setAcadSaveStatusMap(prev => ({ ...prev, [email]: "saving" }));
+    try {
+      const res = await gradeStudentAcademicTask({
+        studentEmail: email,
+        studentId,
+        classGroup,
+        subject: subj,
+        weekNumber: week,
+        quizMarks: qmVal !== "" ? parseFloat(qmVal) : null,
+        assessmentMarks: asmVal !== "" ? parseFloat(asmVal) : null,
+        assignmentMarks: agmVal !== "" ? parseFloat(agmVal) : null,
+        attendanceStatus: currentAttendance || "Present",
+        feedback: fbVal || "",
+        gradedBy: currentMentor?.id || ""
+      });
+      if (res?.success) {
+        setAcadSaveStatusMap(prev => ({ ...prev, [email]: "saved" }));
+        setAcadMarksDraft(prev => {
+          const next = { ...prev };
+          delete next[email];
+          return next;
+        });
+        toast("Academic marks saved successfully", "success");
+        setTimeout(() => {
+          setAcadSaveStatusMap(prev => {
+            if (prev[email] === "saved") {
+              const next = { ...prev };
+              delete next[email];
+              return next;
+            }
+            return prev;
+          });
+        }, 3000);
+      } else {
+        setAcadSaveStatusMap(prev => ({ ...prev, [email]: "error" }));
+        toast(res?.message || "Failed to save marks", "error");
+      }
+    } catch (e: any) {
+      setAcadSaveStatusMap(prev => ({ ...prev, [email]: "error" }));
+      toast(e?.message || "Error saving marks", "error");
+    }
+  }, [currentMentor?.id, gradeStudentAcademicTask, acadMarksDraft, toast]);
 
   useEffect(() => {
     setTrackerPage(1);
@@ -6871,52 +7012,66 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
 
         {/* Tab 4: My Profile */}
         {activeTab === "profile" && (
-          <div className="space-y-6 font-sans">
+          <div className="space-y-6 font-sans animate-fadeIn">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Profile Summary Card */}
-              <div className="bg-pastel-cream p-6 rounded-2xl border-transparent shadow-card flex flex-col items-center justify-between text-center min-h-[300px] group hover:shadow-card-lg transition-all duration-300">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-card flex flex-col items-center justify-between text-center min-h-[320px]">
                 <div className="flex flex-col items-center space-y-4 w-full">
-                  <div className="h-20 w-20 rounded-full btn-gradient border-4 border-white text-white flex items-center justify-center text-3xl font-black shadow-md uppercase">
+                  <div className="h-20 w-20 rounded-2xl bg-zinc-900 border-4 border-amber-500 text-amber-400 flex items-center justify-center text-2xl font-black shadow-md uppercase">
                     {currentMentor.name.substring(0, 2)}
                   </div>
                   <div>
-                    <h2 className="text-lg font-extrabold text-slate-900 leading-tight">{currentMentor.name}</h2>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">Faculty Mentor Profile</p>
+                    <h2 className="text-base font-extrabold text-slate-900 leading-tight">{currentMentor.name}</h2>
+                    <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mt-1">Faculty Mentor • Academic Instruction</p>
                   </div>
                   <div className="flex flex-wrap justify-center gap-1.5 pt-1">
-                    <span className="px-2 py-0.5 rounded bg-white/80 border border-slate-100 text-[9px] font-black text-slate-700 uppercase">
-                      Faculty Mentor
+                    <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-900 flex items-center gap-1.5">
+                      <MapPin className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>{colleges.find(c => c.id === currentMentor.college_id)?.name || "Primary Campus"}</span>
                     </span>
-                    <span className="px-2 py-0.5 rounded bg-white/80 border border-slate-100 text-[9px] font-black text-slate-700 uppercase inline-flex items-center gap-1">
-                      <span>{currentMentor.mentor_group}</span>
-                      <CourseInfoButton course={currentMentor.mentor_group} collegeId={currentMentor.college_id} size="xs" />
-                    </span>
+                    {currentMentor.department && (
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center gap-1.5">
+                        <GraduationCap className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span>{currentMentor.department}</span>
+                      </span>
+                    )}
+                    {currentMentor.mentor_group && (
+                      <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center gap-1.5">
+                        <BookOpen className="w-3 h-3 text-slate-500 shrink-0" />
+                        <span>{currentMentor.mentor_group}</span>
+                        <CourseInfoButton course={currentMentor.mentor_group} collegeId={currentMentor.college_id} size="xs" />
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                <div className="w-full border-t border-slate-200/60 pt-4 mt-4 text-left space-y-2">
-                  <div className="flex justify-between text-[11px] font-bold">
-                    <span className="text-slate-500">Faculty ID</span>
-                    <span className="text-slate-800 font-mono">{currentMentor.id}</span>
+                <div className="w-full border-t border-slate-100 pt-4 mt-4 text-left space-y-2.5">
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span className="text-slate-400">Faculty ID</span>
+                    <span className="text-slate-800 font-mono text-[11px]">{currentMentor.id}</span>
                   </div>
-                  <div className="flex justify-between text-[11px] font-bold">
-                    <span className="text-slate-500">Primary Email</span>
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span className="text-slate-400">Primary Email</span>
                     <span className="text-slate-800 truncate max-w-[170px]" title={currentMentor.email}>{currentMentor.email}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span className="text-slate-400">Campus Code</span>
+                    <span className="text-slate-800 font-mono text-[11px]">{currentMentor.college_id || "—"}</span>
                   </div>
                 </div>
               </div>
 
               {/* Teaching Details Card */}
-              <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-6 flex flex-col justify-between">
+              <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-card space-y-6 flex flex-col justify-between">
                 <div>
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Academic & Curricular Assignments</h3>
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Academic &amp; Curricular Assignments</h3>
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Assigned Teaching Subjects</span>
                       <div className="flex flex-wrap gap-2">
                         {currentMentor.subjects && currentMentor.subjects.split(/,|\n/).length > 0 ? (
                           currentMentor.subjects.split(/,|\n/).map((subj, idx) => (
-                            <span key={idx} className="px-2.5 py-1 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-700">
+                            <span key={idx} className="px-3 py-1.5 rounded-xl bg-amber-50 border border-amber-200 text-xs font-bold text-amber-900 shadow-2xs">
                               {subj.trim()}
                             </span>
                           ))
@@ -6931,7 +7086,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       <div className="flex flex-wrap gap-2">
                         {currentMentor.classes && currentMentor.classes.split(/,|\n/).length > 0 ? (
                           currentMentor.classes.split(/,|\n/).map((cls, idx) => (
-                            <span key={idx} className="px-2.5 py-1 rounded-xl bg-teal-50 border border-teal-100 text-xs font-bold text-teal-700">
+                            <span key={idx} className="px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 shadow-2xs">
                               {cls.trim()}
                             </span>
                           ))
@@ -6943,42 +7098,42 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   </div>
                 </div>
 
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3">
+                <div className="bg-amber-50/70 border border-amber-200/80 p-4 rounded-xl flex items-center gap-3">
                   <Sparkles className="h-5 w-5 text-amber-600 shrink-0" />
-                  <div className="text-[11px] text-amber-800 font-semibold leading-normal">
-                    Your academic profile and subjects list are managed by your Campus Manager (CM). Shift changes or subject reallocations will be updated automatically upon approval.
+                  <div className="text-xs text-amber-900 font-medium leading-normal">
+                    Your academic profile, department assignments, and subjects list are managed by your Campus Manager (CM). Shift changes or subject reallocations will be updated automatically upon approval.
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Timetable Statistics */}
-            <div className="bg-pastel-blue p-6 rounded-2xl border-transparent shadow-sm space-y-6">
-              <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest font-sans">Workload & Coverage Metrics</h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-                <div className="p-4 bg-white/80 rounded-xl border border-slate-100/40">
-                  <span className="text-3xl font-extrabold text-slate-900">
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-card space-y-4">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest font-sans">Workload &amp; Coverage Metrics</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-2xl font-black text-slate-900 block">
                     {mySlots.length}
                   </span>
-                  <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block mt-1">Weekly Teaching Slots</span>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">Weekly Teaching Slots</span>
                 </div>
-                <div className="p-4 bg-white/80 rounded-xl border border-slate-100/40">
-                  <span className="text-3xl font-extrabold text-slate-900">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-2xl font-black text-slate-900 block">
                     {memoizedMyRequestsCount}
                   </span>
-                  <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block mt-1">Handovers Requested</span>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">Handovers Requested</span>
                 </div>
-                <div className="p-4 bg-white/80 rounded-xl border border-slate-100/40">
-                  <span className="text-3xl font-extrabold text-slate-900">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-2xl font-black text-slate-900 block">
                     {memoizedMyCoveringApprovedCount}
                   </span>
-                  <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block mt-1">Substitution Duties Covered</span>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">Substitution Duties Covered</span>
                 </div>
-                <div className="p-4 bg-white/80 rounded-xl border border-slate-100/40">
-                  <span className="text-3xl font-extrabold text-slate-900">
+                <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-2xl font-black text-slate-900 block">
                     {memoizedProfileMyAttendance.length}
                   </span>
-                  <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block mt-1">Attendance Records Marked</span>
+                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">Attendance Records Marked</span>
                 </div>
               </div>
             </div>
@@ -8610,8 +8765,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           const subjectOptions: string[] = Array.from(new Set(
             mentorFilteredSubjectObjs.length > 0
               ? mentorFilteredSubjectObjs.map(s => s.name?.trim()).filter(Boolean)
-              : mentorSkillSubjects.length > 0
-                ? mentorSkillSubjects.map(s => s?.trim()).filter(Boolean)
+              : subjectObjs.length > 0
+                ? subjectObjs.map(s => s.name?.trim()).filter(Boolean)
                 : []
           ));
 
@@ -8733,7 +8888,11 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 cursor-pointer"
                         aria-label="Subject"
                       >
-                        {subjectOptions.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                        {subjectOptions.length === 0 ? (
+                          <option value="">No skill subjects found</option>
+                        ) : (
+                          subjectOptions.map((s: string) => <option key={s} value={s}>{s}</option>)
+                        )}
                       </select>
                     </div>
 
@@ -8742,12 +8901,14 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Week</label>
                       <select
                         value={trackerWeek}
-                        onChange={(e) => setTrackerWeek(parseInt(e.target.value, 10))}
+                        onChange={(e) => {
+                          setTrackerWeek(parseInt(e.target.value, 10));
+                        }}
                         className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 cursor-pointer"
                         aria-label="Week"
                       >
                         {Array.from({ length: 15 }, (_, i) => i + 1).map(wk => (
-                          <option key={wk} value={wk}>Week {wk} {wk % 2 === 0 ? "(Assessment)" : ""}</option>
+                          <option key={wk} value={wk}>Week {wk}</option>
                         ))}
                       </select>
                     </div>
@@ -9019,80 +9180,23 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                     ? filteredClassStudents
                     : filteredClassStudents.slice((validPage - 1) * trackerPageSize, validPage * trackerPageSize);
 
-                  // Helper: Save all Skill Dev marks
-                  const handleSaveAllSkillMarks = async () => {
-                    const studentKeys = Object.keys(skillMarksDraft);
-                    if (studentKeys.length === 0) {
-                      toast("All marks are already up to date.", "info");
-                      return;
-                    }
-                    setIsSavingAllSkillMarks(true);
-                    let successCount = 0;
-                    const savedStudentIds: string[] = [];
-                    try {
-                      for (const sId of studentKeys) {
-                        const val = skillMarksDraft[sId];
-                        const sObj = classStudents.find(s => s.id === sId);
-                        if (!sObj) continue;
-                        const entry = studentTracker.find(e => e.student_id === sId && e.subject.toLowerCase().trim() === activeSubj.toLowerCase().trim() && e.week_number === trackerWeek);
-                        if (!entry?.submission_url) continue;
-                        const parsedMarks = val === "" ? null : Number(val);
-                        if (parsedMarks !== null && (!Number.isFinite(parsedMarks) || parsedMarks < 0 || parsedMarks > 10)) {
-                          setSaveStatusMap(prev => ({ ...prev, [sId]: "error" }));
-                          continue;
-                        }
-                        setSaveStatusMap(prev => ({ ...prev, [sId]: "saving" }));
-                        const res = await gradeStudentTask({
-                          studentId: sId,
-                          classGroup: sObj.classGroup || activeClassGroup,
-                          subject: activeSubj,
-                          weekNumber: trackerWeek,
-                          marks: parsedMarks as any,
-                          gradedBy: currentMentor?.id || ""
-                        });
-                        if (res.success) {
-                          successCount++;
-                          savedStudentIds.push(sId);
-                          setSaveStatusMap(prev => ({ ...prev, [sId]: "saved" }));
-                        } else {
-                          setSaveStatusMap(prev => ({ ...prev, [sId]: "error" }));
-                        }
-                      }
-                      toast(successCount > 0
-                        ? `Saved marks for ${successCount} student(s). Unsuccessful drafts were kept for retry.`
-                        : "No marks were saved. Check the submitted rows and mark values, then retry.", successCount > 0 ? "success" : "warning");
-                    } catch (err: any) {
-                      toast("Failed to save marks: " + err.message, "error");
-                    } finally {
-                      if (savedStudentIds.length > 0) {
-                        setSkillMarksDraft(prev => {
-                          const next = { ...prev };
-                          savedStudentIds.forEach(id => delete next[id]);
-                          return next;
-                        });
-                      }
-                      setIsSavingAllSkillMarks(false);
-                      setTimeout(() => {
-                        setSaveStatusMap({});
-                      }, 2500);
-                    }
-                  };
+
 
                   return (
                     <div className="space-y-4">
                       {/* Filters Header Bar */}
-                      <div className="flex flex-col xl:flex-row items-stretch xl:items-center justify-between gap-3 bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100">
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-slate-50 p-3 sm:p-4 rounded-xl border border-slate-100">
                         <div className="flex flex-wrap items-center gap-3">
                           <div className="relative w-full sm:w-auto">
                             <input
                               type="text"
                               value={trackerSearchTerm}
                               onChange={(e) => setTrackerSearchTerm(e.target.value)}
-                              placeholder=" Search by student name or roll..."
+                              placeholder="Search by student name or roll..."
                               className="pl-4 pr-4 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 w-full sm:w-64 bg-white font-medium text-slate-800"
                             />
                           </div>
-                          <select aria-label="Status filter"
+                          <select aria-label="Submission status filter"
                             value={trackerStatusFilter}
                             onChange={(e) => setTrackerStatusFilter(e.target.value)}
                             className="w-full sm:w-auto px-3.5 py-2.5 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white font-bold text-slate-700 cursor-pointer"
@@ -9103,29 +9207,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                           </select>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 min-w-0">
-                          <button
-                            type="button"
-                            onClick={handleSaveAllSkillMarks}
-                            disabled={isSavingAllSkillMarks || Object.keys(skillMarksDraft).length === 0}
-                            className="w-full sm:w-auto justify-center px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isSavingAllSkillMarks ? (
-                              <>
-                                <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                <span>Saving All Marks...</span>
-                              </>
-                            ) : (
-                              <>
-                                <Save className="w-4 h-4" />
-                                <span>Save {Object.keys(skillMarksDraft).length ? `${Object.keys(skillMarksDraft).length} Mark${Object.keys(skillMarksDraft).length === 1 ? "" : "s"}` : "All Marks"} (Week {trackerWeek})</span>
-                              </>
-                            )}
-                          </button>
-
-                          <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider sm:text-right">
-                            Showing {paginatedStudents.length} of {filteredClassStudents.length} Filtered ({classStudents.length} Total)
-                          </div>
+                        <div className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider sm:text-right">
+                          Showing {paginatedStudents.length} of {filteredClassStudents.length} Filtered ({classStudents.length} Total)
                         </div>
                       </div>
 
@@ -9133,12 +9216,13 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         <table className="w-full border-collapse text-left text-xs font-semibold min-w-[980px]">
                           <thead className="sticky top-0 z-10 bg-slate-50 shadow-[0_1px_0_0_rgba(226,232,240,1)]">
                             <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px] whitespace-nowrap">
-                              <th className="p-4 w-[50px] text-center border-r border-slate-100/60">S.No</th>
-                              <th className="p-4 border-r border-slate-100/60 min-w-[180px]">Student Name / Roll</th>
-                              <th className="p-4 border-r border-slate-100/60 min-w-[260px]">15-Week Progress Matrix</th>
-                              <th className="p-4 border-r border-slate-100/60 w-[130px]">W{trackerWeek} Status</th>
-                              <th className="p-4 text-center border-r border-slate-100/60 w-[130px]">Submission Link</th>
-                              <th className="p-4 text-center w-[110px]">Marks (0-10)</th>
+                              <th className="sticky top-0 z-20 bg-slate-50 p-4 w-[50px] text-center border-r border-slate-100/60">S.No</th>
+                              <th className="sticky top-0 z-20 bg-slate-50 p-4 border-r border-slate-100/60 min-w-[180px]">Student Name / Roll</th>
+                              <th className="sticky top-0 z-20 bg-slate-50 p-4 border-r border-slate-100/60 min-w-[260px]">15-Week Progress Matrix</th>
+                              <th className="sticky top-0 z-20 bg-slate-50 p-4 border-r border-slate-100/60 w-[130px]">W{trackerWeek} Status</th>
+                              <th className="sticky top-0 z-20 bg-slate-50 p-4 text-center border-r border-slate-100/60 w-[130px]">Submission Link</th>
+                              <th className="sticky top-0 z-20 bg-slate-50 p-4 text-center border-r border-slate-100/60 w-[110px]">Marks (0-10)</th>
+                              <th className="sticky top-0 z-20 bg-slate-50 p-4 text-center w-[90px]">Action</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
@@ -9213,16 +9297,11 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                           <button
                                             key={wk}
                                             type="button"
-                                            disabled={!isCurrent && Object.keys(skillMarksDraft).length > 0}
                                             onClick={() => {
-                                              if (Object.keys(skillMarksDraft).length > 0) {
-                                                toast("Save your mark changes before switching weeks.", "info");
-                                                return;
-                                              }
                                               setTrackerWeek(wk);
                                             }}
-                                            title={Object.keys(skillMarksDraft).length > 0 && !isCurrent ? "Save mark changes before switching weeks" : `Week ${wk}: ${isSubmitted ? (isGraded ? `Graded (${stEntry?.marks}/10)` : "Submitted") : isAssigned ? "Pending Submission" : "Unassigned"} - Click to view`}
-                                            className={`h-5 w-5 rounded-md text-[8.5px] font-black transition-all flex items-center justify-center cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${colorClass} ${isCurrent ? "ring-2 ring-amber-500 scale-110 z-10 shadow-sm" : ""
+                                            title={`Week ${wk}: ${isSubmitted ? (isGraded ? `Graded (${stEntry?.marks}/10)` : "Submitted") : isAssigned ? "Pending Submission" : "Unassigned"} - Click to view`}
+                                            className={`h-5 w-5 rounded-md text-[8.5px] font-black transition-all flex items-center justify-center cursor-pointer ${colorClass} ${isCurrent ? "ring-2 ring-amber-500 scale-110 z-10 shadow-sm" : ""
                                               }`}
                                           >
                                             {wk}
@@ -9294,8 +9373,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       <span className="text-slate-300 text-xs">—</span>
                                     )}
                                   </td>
-                                  <td className="p-4">
-                                    <div className="space-y-1">
+                                  <td className="p-3 text-center border-r border-slate-100/60">
+                                    <div className="flex items-center justify-center">
                                       <input
                                         type="number"
                                         min="0"
@@ -9304,30 +9383,44 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                         value={skillMarksDraft[student.id] !== undefined ? skillMarksDraft[student.id] : (currentMarks !== "" ? String(currentMarks) : "")}
                                         onChange={(e) => {
                                           const val = e.target.value;
-                                          const matchesSavedValue = val === ""
-                                            ? currentMarks === ""
-                                            : Number(val) === Number(currentMarks);
-                                          setSkillMarksDraft(prev => {
-                                            if (matchesSavedValue) {
-                                              const next = { ...prev };
-                                              delete next[student.id];
-                                              return next;
-                                            }
-                                            return { ...prev, [student.id]: val };
-                                          });
+                                          setSkillMarksDraft(prev => ({ ...prev, [student.id]: val }));
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            saveSkillMarkRow(student.id, student.classGroup || activeClassGroup, activeSubj, trackerWeek);
+                                          }
                                         }}
                                         placeholder="—"
-                                        disabled={!currentUrl || currentMarks !== "" || isSavingAllSkillMarks}
-                                        title={currentMarks !== "" ? "Saved marks are locked. Contact an SME if a correction is required." : undefined}
-                                        className="w-full min-w-16 text-center text-xs font-black px-2 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:ring-1 focus:ring-emerald-400 bg-sunken text-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                        disabled={!currentUrl || (currentMarks !== "" && skillMarksDraft[student.id] === undefined)}
+                                        className="w-16 text-center text-xs font-bold px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 shadow-2xs disabled:bg-slate-50 disabled:text-slate-400"
                                         aria-label="Marks (0-10)"
                                       />
-                                      {currentMarks !== "" && (
-                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-700" title="Saved and locked">
-                                          <Lock className="h-3 w-3" /> Saved
-                                        </span>
-                                      )}
                                     </div>
+                                    {!currentUrl && (
+                                      <span className="block text-[9px] text-slate-400 mt-0.5">Pending work</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-center">
+                                    {currentMarks !== "" && skillMarksDraft[student.id] === undefined ? (
+                                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        <span>Saved</span>
+                                      </span>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        disabled={!currentUrl || skillMarksDraft[student.id] === undefined || status === "saving"}
+                                        onClick={() => saveSkillMarkRow(student.id, student.classGroup || activeClassGroup, activeSubj, trackerWeek)}
+                                        className="inline-flex items-center justify-center gap-1 h-8 px-3 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all active:scale-95 cursor-pointer"
+                                      >
+                                        {status === "saving" ? (
+                                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                        ) : (
+                                          <span>Save</span>
+                                        )}
+                                      </button>
+                                    )}
                                   </td>
                                 </tr>
                               );
@@ -9424,7 +9517,11 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                     className="w-full text-xs font-bold px-3 py-2.5 rounded-xl border border-slate-200 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 bg-white text-slate-800 cursor-pointer truncate"
                                     aria-label="Subject"
                                   >
-                                    {subjectOptions.map((s: string) => <option key={s} value={s}>{s}</option>)}
+                                    {subjectOptions.length === 0 ? (
+                          <option value="">No skill subjects found</option>
+                        ) : (
+                          subjectOptions.map((s: string) => <option key={s} value={s}>{s}</option>)
+                        )}
                                   </select>
                                 </div>
                                 <div className="space-y-1">
@@ -9436,7 +9533,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                     aria-label="Week"
                                   >
                                     {Array.from({ length: 15 }, (_, i) => i + 1).map(wk => (
-                                      <option key={wk} value={wk}>Week {wk} {wk % 2 === 0 ? "(Assessment)" : ""}</option>
+                                      <option key={wk} value={wk}>Week {wk}</option>
                                     ))}
                                   </select>
                                 </div>
@@ -10305,13 +10402,13 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   const mentorFilteredSubjectObjs = subjectObjs.filter(s => mentorSubjectNames.has(s.name.toLowerCase().trim()));
                   const mentorAcadSubjects = explicitMentorSubjects.filter(s => !isSkillSubject(s));
 
-                  // STRICT: ONLY show the mentor's own assigned subjects
+                  // STRICT: ONLY show subjects matching activeWeeklyDept and activeWeeklySem
                   const subjectOptions = Array.from(new Set(
                     mentorFilteredSubjectObjs.length > 0
                       ? mentorFilteredSubjectObjs.map(s => s.name?.trim()).filter(Boolean)
-                      : mentorAcadSubjects.length > 0
-                        ? mentorAcadSubjects.map(s => s?.trim()).filter(Boolean)
-                        : (explicitMentorSubjects.length > 0 ? explicitMentorSubjects.filter(s => !isSkillSubject(s)).map(s => s?.trim()).filter(Boolean) : ["Assigned Academic Subject"])
+                      : subjectObjs.length > 0
+                        ? subjectObjs.map(s => s.name?.trim()).filter(Boolean)
+                        : []
                   ));
 
                   const activeWeeklySubj = acadWeeklySubject && subjectOptions.includes(acadWeeklySubject)
@@ -10651,7 +10748,11 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                 className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 cursor-pointer"
                                 aria-label="Academic Course"
                               >
-                                {subjectOptions.map(s => <option key={s} value={s}>{s}</option>)}
+                                {subjectOptions.length === 0 ? (
+                                  <option value="">No academic subjects found</option>
+                                ) : (
+                                  subjectOptions.map(s => <option key={s} value={s}>{s}</option>)
+                                )}
                               </select>
                             </div>
 
@@ -10660,12 +10761,14 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                               <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Target Week</label>
                               <select
                                 value={acadWeeklyWeek}
-                                onChange={(e) => setAcadWeeklyWeek(parseInt(e.target.value, 10))}
+                                onChange={(e) => {
+                                  setAcadWeeklyWeek(parseInt(e.target.value, 10));
+                                }}
                                 className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 cursor-pointer font-bold text-amber-700"
                                 aria-label="Target Week"
                               >
                                 {Array.from({ length: 15 }, (_, i) => i + 1).map(wk => (
-                                  <option key={wk} value={wk}>Week {wk} (Quiz, Assessment, Assignment)</option>
+                                  <option key={wk} value={wk}>Week {wk}</option>
                                 ))}
                               </select>
                             </div>
@@ -10902,94 +11005,6 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                               </span>
                             </div>
                           </div>
-
-                          {/* Save All Academic Marks Button */}
-                          <div className="flex items-center gap-2.5 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const emails = Object.keys(acadMarksDraft);
-                                if (emails.length === 0) {
-                                  toast("All marks are already up to date.", "info");
-                                  return;
-                                }
-                                setIsSavingAllAcadMarks(true);
-                                let savedCount = 0;
-                                try {
-                                  const targetTaskDate = currentWeeklyTask?.task_date || currentWeeklyTask?.created_at?.slice(0, 10);
-                                  for (const email of emails) {
-                                    const draft = acadMarksDraft[email] || {};
-                                    const student = cohortStudents.find(s => s.email.toLowerCase().trim() === email.toLowerCase().trim());
-                                    if (!student) continue;
-
-                                    const existingEntry = (studentAcademicTracker || []).find(
-                                      e => ((e.student_id && (e.student_id === student.id || e.student_id === student.register_number)) || (student.email && e.student_email && e.student_email.toLowerCase().trim() === student.email.toLowerCase().trim())) &&
-                                        (isSubjectNameMatch(e.subject, activeWeeklySubj) || e.subject.toLowerCase().trim() === activeWeeklySubj.toLowerCase().trim()) &&
-                                        e.week_number === acadWeeklyWeek
-                                    );
-
-                                    let currentAttStatus = existingEntry?.attendance_status || "Present";
-                                    if (currentWeeklyTask) {
-                                      const attLogs = studentAttendance.filter(a => a.studentId === student.id && (!activeWeeklySubj || isSubjectNameMatch(a.coveredSubject || "", activeWeeklySubj)));
-                                      const exactDateLog = targetTaskDate ? attLogs.find(a => a.dateStr === targetTaskDate) : null;
-                                      const effectiveLog = exactDateLog || [...attLogs].sort((a, b) => (b.dateStr || "").localeCompare(a.dateStr || ""))[0];
-                                      if (effectiveLog) {
-                                        const st = (effectiveLog.status || "").toLowerCase();
-                                        currentAttStatus = st === "absent" ? "Absent" : st === "od" ? "OD" : "Present";
-                                      }
-                                    }
-
-                                    const qmVal = draft.quiz !== undefined ? draft.quiz : (existingEntry?.quiz_marks !== undefined && existingEntry?.quiz_marks !== null ? String(existingEntry.quiz_marks) : "");
-                                    const asmVal = draft.assessment !== undefined ? draft.assessment : (existingEntry?.assessment_marks !== undefined && existingEntry?.assessment_marks !== null ? String(existingEntry.assessment_marks) : "");
-                                    const agmVal = draft.assignment !== undefined ? draft.assignment : (existingEntry?.assignment_marks !== undefined && existingEntry?.assignment_marks !== null ? String(existingEntry.assignment_marks) : "");
-                                    const fbVal = draft.feedback !== undefined ? draft.feedback : (existingEntry?.feedback || "");
-
-                                    setAcadSaveStatusMap(prev => ({ ...prev, [email]: "saving" }));
-                                    const res = await gradeStudentAcademicTask({
-                                      studentEmail: email,
-                                      studentId: student.id,
-                                      classGroup: student.classGroup || activeWeeklyClassGroup,
-                                      subject: activeWeeklySubj,
-                                      weekNumber: acadWeeklyWeek,
-                                      quizMarks: qmVal !== "" ? parseFloat(qmVal) : null,
-                                      assessmentMarks: asmVal !== "" ? parseFloat(asmVal) : null,
-                                      assignmentMarks: agmVal !== "" ? parseFloat(agmVal) : null,
-                                      attendanceStatus: currentAttStatus,
-                                      feedback: fbVal,
-                                      gradedBy: currentMentor.id
-                                    });
-                                    if (res.success) {
-                                      savedCount++;
-                                      setAcadSaveStatusMap(prev => ({ ...prev, [email]: "saved" }));
-                                    } else {
-                                      setAcadSaveStatusMap(prev => ({ ...prev, [email]: "error" }));
-                                    }
-                                  }
-                                  setAcadMarksDraft({});
-                                  toast(`Saved academic marks for ${savedCount} student(s) successfully!`, "success");
-                                } catch (err: any) {
-                                  toast("Error saving marks: " + err.message, "error");
-                                } finally {
-                                  setIsSavingAllAcadMarks(false);
-                                  setTimeout(() => setAcadSaveStatusMap({}), 2500);
-                                }
-                              }}
-                              disabled={isSavingAllAcadMarks}
-                              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black flex items-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                            >
-                              {isSavingAllAcadMarks ? (
-                                <>
-                                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                                  <span>Saving All Marks...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <Save className="w-4 h-4" />
-                                  <span>Save All Marks (Week {acadWeeklyWeek})</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
                         </div>
 
                         {/* Filter Bar */}
@@ -11004,7 +11019,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                 className="pl-4 pr-4 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 w-64 bg-white font-medium text-slate-800"
                               />
                             </div>
-                            <select aria-label="Status filter"
+                            <select aria-label="Academic marks status filter"
                               value={acadWeeklyStatusFilter}
                               onChange={(e) => setAcadWeeklyStatusFilter(e.target.value)}
                               className="px-3.5 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 bg-white font-bold text-slate-700 cursor-pointer"
@@ -11032,13 +11047,14 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                 <th className="p-3.5 border-r border-slate-100 w-[110px] text-center bg-purple-50/40 text-purple-900">Assessment (0-10)</th>
                                 <th className="p-3.5 border-r border-slate-100 w-[110px] text-center bg-emerald-50/40 text-emerald-900">Assignment (0-10)</th>
                                 <th className="p-3.5 border-r border-slate-100 w-[120px] text-center bg-amber-50/40 text-zinc-900">Total (30)</th>
-                                <th className="p-3.5 min-w-[200px]">Remarks / Feedback</th>
+                                <th className="p-3.5 border-r border-slate-100 min-w-[200px]">Remarks / Feedback</th>
+                                <th className="p-3.5 w-[90px] text-center">Action</th>
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 bg-white text-slate-700">
                               {paginatedWeeklyStudents.length === 0 ? (
                                 <tr>
-                                  <td colSpan={8} className="p-8 text-center text-xs text-slate-400 italic">
+                                  <td colSpan={9} className="p-8 text-center text-xs text-slate-400 italic">
                                     No student records found matching the current search criteria.
                                   </td>
                                 </tr>
@@ -11054,8 +11070,16 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                   const qm = entry?.quiz_marks !== undefined && entry?.quiz_marks !== null ? entry.quiz_marks : "";
                                   const asm = entry?.assessment_marks !== undefined && entry?.assessment_marks !== null ? entry.assessment_marks : "";
                                   const agm = entry?.assignment_marks !== undefined && entry?.assignment_marks !== null ? entry.assignment_marks : "";
-                                  const totalScore = (qm !== "" || asm !== "" || agm !== "")
-                                    ? ((Number(qm) || 0) + (Number(asm) || 0) + (Number(agm) || 0))
+
+                                  const draft = acadMarksDraft[student.email] || {};
+                                  const curQm = draft.quiz !== undefined ? draft.quiz : (qm !== "" ? String(qm) : "");
+                                  const curAsm = draft.assessment !== undefined ? draft.assessment : (asm !== "" ? String(asm) : "");
+                                  const curAgm = draft.assignment !== undefined ? draft.assignment : (agm !== "" ? String(agm) : "");
+                                  const curFb = draft.feedback !== undefined ? draft.feedback : (entry?.feedback || "");
+
+                                  const hasAnyScore = curQm !== "" || curAsm !== "" || curAgm !== "";
+                                  const totalScore = hasAnyScore
+                                    ? ((Number(curQm) || 0) + (Number(curAsm) || 0) + (Number(curAgm) || 0))
                                     : null;
 
                                   const targetTaskDate = currentWeeklyTask?.task_date || currentWeeklyTask?.created_at?.slice(0, 10);
@@ -11081,6 +11105,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                     }
                                   }
                                   const status = acadSaveStatusMap[student.email] || "idle";
+                                  const fallbackMarks = { quiz: qm !== "" ? String(qm) : "", assessment: asm !== "" ? String(asm) : "", assignment: agm !== "" ? String(agm) : "", feedback: entry?.feedback || "" };
 
                                   return (
                                     <tr key={`${student.email}_wk${acadWeeklyWeek}`} className="hover:bg-slate-50/60 transition-colors">
@@ -11120,146 +11145,71 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                         )}
                                       </td>
                                       {/* Quiz Marks */}
-                                      <td className="p-3 border-r border-slate-100 bg-amber-50/15">
+                                      <td className="p-3 text-center border-r border-slate-100 bg-amber-50/15">
                                         <input
                                           type="number"
                                           min="0"
                                           max="10"
                                           step="0.5"
-                                          value={acadMarksDraft[student.email]?.quiz !== undefined ? acadMarksDraft[student.email].quiz : (qm !== "" ? String(qm) : "")}
+                                          value={curQm}
                                           onChange={(e) => {
                                             const val = e.target.value;
-                                            setAcadMarksDraft(prev => ({
-                                              ...prev,
-                                              [student.email]: { ...(prev[student.email] || {}), quiz: val }
-                                            }));
+                                            setAcadMarksDraft(prev => ({ ...prev, [student.email]: { ...(prev[student.email] || {}), quiz: val } }));
                                           }}
-                                          disabled={qm !== ""}
-                                          title={qm !== "" ? "Saved mark is locked." : undefined}
-                                          onBlur={async (e) => {
-                                            const val = e.target.value;
-                                            if (val === String(qm)) return;
-                                            if (val !== "" && (parseFloat(val) < 0 || parseFloat(val) > 10)) {
-                                              toast("Quiz marks must be between 0 and 10.", "warning");
-                                              return;
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              saveAcadMarkRow(student.email, student.id, student.classGroup || activeWeeklyClassGroup, activeWeeklySubj, acadWeeklyWeek, currentAttStatus, fallbackMarks);
                                             }
-                                            setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: "saving" }));
-                                            const res = await gradeStudentAcademicTask({
-                                              studentEmail: student.email,
-                                              studentId: student.id,
-                                              classGroup: student.classGroup || activeWeeklyClassGroup,
-                                              subject: activeWeeklySubj,
-                                              weekNumber: acadWeeklyWeek,
-                                              quizMarks: val !== "" ? parseFloat(val) : null,
-                                              assessmentMarks: asm !== "" ? parseFloat(String(asm)) : null,
-                                              assignmentMarks: agm !== "" ? parseFloat(String(agm)) : null,
-                                              attendanceStatus: currentAttStatus,
-                                              feedback: entry?.feedback,
-                                              gradedBy: currentMentor.id
-                                            });
-                                            setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: res.success ? "saved" : "error" }));
-                                            setTimeout(() => {
-                                              setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: "idle" }));
-                                            }, 2000);
                                           }}
                                           placeholder="—"
-                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-amber-200 focus:outline-none focus:ring-1 focus:ring-amber-500 bg-white text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                                          className="w-16 text-center text-xs font-bold px-1.5 py-1.5 rounded-lg border border-amber-200 bg-white text-slate-900 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 shadow-2xs"
                                           aria-label="Quiz (0-10)"
                                         />
                                       </td>
                                       {/* Assessment Marks */}
-                                      <td className="p-3 border-r border-slate-100 bg-purple-50/15">
+                                      <td className="p-3 text-center border-r border-slate-100 bg-purple-50/15">
                                         <input
                                           type="number"
                                           min="0"
                                           max="10"
                                           step="0.5"
-                                          value={acadMarksDraft[student.email]?.assessment !== undefined ? acadMarksDraft[student.email].assessment : (asm !== "" ? String(asm) : "")}
+                                          value={curAsm}
                                           onChange={(e) => {
                                             const val = e.target.value;
-                                            setAcadMarksDraft(prev => ({
-                                              ...prev,
-                                              [student.email]: { ...(prev[student.email] || {}), assessment: val }
-                                            }));
+                                            setAcadMarksDraft(prev => ({ ...prev, [student.email]: { ...(prev[student.email] || {}), assessment: val } }));
                                           }}
-                                          disabled={asm !== ""}
-                                          title={asm !== "" ? "Saved mark is locked." : undefined}
-                                          onBlur={async (e) => {
-                                            const val = e.target.value;
-                                            if (val === String(asm)) return;
-                                            if (val !== "" && (parseFloat(val) < 0 || parseFloat(val) > 10)) {
-                                              toast("Assessment marks must be between 0 and 10.", "warning");
-                                              return;
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              saveAcadMarkRow(student.email, student.id, student.classGroup || activeWeeklyClassGroup, activeWeeklySubj, acadWeeklyWeek, currentAttStatus, fallbackMarks);
                                             }
-                                            setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: "saving" }));
-                                            const res = await gradeStudentAcademicTask({
-                                              studentEmail: student.email,
-                                              studentId: student.id,
-                                              classGroup: student.classGroup || activeWeeklyClassGroup,
-                                              subject: activeWeeklySubj,
-                                              weekNumber: acadWeeklyWeek,
-                                              quizMarks: qm !== "" ? parseFloat(String(qm)) : null,
-                                              assessmentMarks: val !== "" ? parseFloat(val) : null,
-                                              assignmentMarks: agm !== "" ? parseFloat(String(agm)) : null,
-                                              attendanceStatus: currentAttStatus,
-                                              feedback: entry?.feedback,
-                                              gradedBy: currentMentor.id
-                                            });
-                                            setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: res.success ? "saved" : "error" }));
-                                            setTimeout(() => {
-                                              setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: "idle" }));
-                                            }, 2000);
                                           }}
                                           placeholder="—"
-                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-purple-200 focus:outline-none focus:ring-1 focus:ring-purple-500 bg-white text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                                          className="w-16 text-center text-xs font-bold px-1.5 py-1.5 rounded-lg border border-purple-200 bg-white text-slate-900 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500/30 shadow-2xs"
                                           aria-label="Assessment (0-10)"
                                         />
                                       </td>
                                       {/* Assignment Marks */}
-                                      <td className="p-3 border-r border-slate-100 bg-emerald-50/15">
+                                      <td className="p-3 text-center border-r border-slate-100 bg-emerald-50/15">
                                         <input
                                           type="number"
                                           min="0"
                                           max="10"
                                           step="0.5"
-                                          value={acadMarksDraft[student.email]?.assignment !== undefined ? acadMarksDraft[student.email].assignment : (agm !== "" ? String(agm) : "")}
+                                          value={curAgm}
                                           onChange={(e) => {
                                             const val = e.target.value;
-                                            setAcadMarksDraft(prev => ({
-                                              ...prev,
-                                              [student.email]: { ...(prev[student.email] || {}), assignment: val }
-                                            }));
+                                            setAcadMarksDraft(prev => ({ ...prev, [student.email]: { ...(prev[student.email] || {}), assignment: val } }));
                                           }}
-                                          disabled={agm !== ""}
-                                          title={agm !== "" ? "Saved mark is locked." : undefined}
-                                          onBlur={async (e) => {
-                                            const val = e.target.value;
-                                            if (val === String(agm)) return;
-                                            if (val !== "" && (parseFloat(val) < 0 || parseFloat(val) > 10)) {
-                                              toast("Assignment marks must be between 0 and 10.", "warning");
-                                              return;
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              saveAcadMarkRow(student.email, student.id, student.classGroup || activeWeeklyClassGroup, activeWeeklySubj, acadWeeklyWeek, currentAttStatus, fallbackMarks);
                                             }
-                                            setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: "saving" }));
-                                            const res = await gradeStudentAcademicTask({
-                                              studentEmail: student.email,
-                                              studentId: student.id,
-                                              classGroup: student.classGroup || activeWeeklyClassGroup,
-                                              subject: activeWeeklySubj,
-                                              weekNumber: acadWeeklyWeek,
-                                              quizMarks: qm !== "" ? parseFloat(String(qm)) : null,
-                                              assessmentMarks: asm !== "" ? parseFloat(String(asm)) : null,
-                                              assignmentMarks: val !== "" ? parseFloat(val) : null,
-                                              attendanceStatus: currentAttStatus,
-                                              feedback: entry?.feedback,
-                                              gradedBy: currentMentor.id
-                                            });
-                                            setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: res.success ? "saved" : "error" }));
-                                            setTimeout(() => {
-                                              setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: "idle" }));
-                                            }, 2000);
                                           }}
                                           placeholder="—"
-                                          className="w-full text-center text-xs font-black px-2 py-1.5 rounded-lg border border-emerald-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 bg-white text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                                          className="w-16 text-center text-xs font-bold px-1.5 py-1.5 rounded-lg border border-emerald-200 bg-white text-slate-900 focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/30 shadow-2xs"
                                           aria-label="Assignment (0-10)"
                                         />
                                       </td>
@@ -11275,48 +11225,47 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                           <span className="text-slate-300 text-xs">—</span>
                                         )}
                                       </td>
-                                      {/* Remarks & Save Status */}
-                                      <td className="p-3">
-                                        <div className="flex items-center gap-2">
-                                          <input
-                                            type="text"
-                                            defaultValue={entry?.feedback || ""}
-                                            onBlur={async (e) => {
-                                              const val = e.target.value.trim();
-                                              if (val === (entry?.feedback || "")) return;
-                                              setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: "saving" }));
-                                              const res = await gradeStudentAcademicTask({
-                                                studentEmail: student.email,
-                                                studentId: student.id,
-                                                classGroup: student.classGroup || activeWeeklyClassGroup,
-                                                subject: activeWeeklySubj,
-                                                weekNumber: acadWeeklyWeek,
-                                                quizMarks: qm !== "" ? parseFloat(String(qm)) : null,
-                                                assessmentMarks: asm !== "" ? parseFloat(String(asm)) : null,
-                                                assignmentMarks: agm !== "" ? parseFloat(String(agm)) : null,
-                                                attendanceStatus: currentAttStatus,
-                                                feedback: val,
-                                                gradedBy: currentMentor.id
-                                              });
-                                              setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: res.success ? "saved" : "error" }));
-                                              setTimeout(() => {
-                                                setAcadSaveStatusMap(prev => ({ ...prev, [student.email]: "idle" }));
-                                              }, 2000);
-                                            }}
-                                            placeholder="Enter feedback or notes..."
-                                            className="flex-1 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-sunken text-slate-800"
-                                            aria-label="Remarks / Feedback"
-                                          />
-                                          {status === "saving" && (
-                                            <span className="w-3.5 h-3.5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0"></span>
-                                          )}
-                                          {status === "saved" && (
-                                            <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
-                                          )}
-                                          {status === "error" && (
-                                            <AlertCircle className="h-4 w-4 text-rose-500 shrink-0" />
-                                          )}
-                                        </div>
+                                      {/* Remarks */}
+                                      <td className="p-3 border-r border-slate-100">
+                                        <input
+                                          type="text"
+                                          value={curFb}
+                                          onChange={(e) => {
+                                            const val = e.target.value;
+                                            setAcadMarksDraft(prev => ({ ...prev, [student.email]: { ...(prev[student.email] || {}), feedback: val } }));
+                                          }}
+                                          onKeyDown={(e) => {
+                                            if (e.key === "Enter") {
+                                              e.preventDefault();
+                                              saveAcadMarkRow(student.email, student.id, student.classGroup || activeWeeklyClassGroup, activeWeeklySubj, acadWeeklyWeek, currentAttStatus, fallbackMarks);
+                                            }
+                                          }}
+                                          placeholder="Enter feedback or notes..."
+                                          className="w-full text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 shadow-2xs"
+                                          aria-label="Remarks / Feedback"
+                                        />
+                                      </td>
+                                      {/* Action Column */}
+                                      <td className="p-3 text-center">
+                                        {status === "saved" || (entry && (entry.quiz_marks !== null || entry.assessment_marks !== null || entry.assignment_marks !== null) && !acadMarksDraft[student.email]) ? (
+                                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200">
+                                            <CheckCircle className="w-3.5 h-3.5" />
+                                            <span>Saved</span>
+                                          </span>
+                                        ) : (
+                                          <button
+                                            type="button"
+                                            disabled={status === "saving" || !acadMarksDraft[student.email]}
+                                            onClick={() => saveAcadMarkRow(student.email, student.id, student.classGroup || activeWeeklyClassGroup, activeWeeklySubj, acadWeeklyWeek, currentAttStatus, fallbackMarks)}
+                                            className="inline-flex items-center justify-center gap-1 h-8 px-3 rounded-lg text-xs font-bold bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-40 disabled:cursor-not-allowed shadow-xs transition-all active:scale-95 cursor-pointer"
+                                          >
+                                            {status === "saving" ? (
+                                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            ) : (
+                                              <span>Save</span>
+                                            )}
+                                          </button>
+                                        )}
                                       </td>
                                     </tr>
                                   );
@@ -12699,7 +12648,6 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
       {/* ─── Mentor Self-Directed Demo Reschedule Modal ─── */}
       {rescheduleModalSession && (() => {
         const targetDateObj = new Date(rescheduleTargetDate + "T12:00:00");
-        const targetDayName = targetDateObj.toLocaleDateString("en-US", { weekday: "long" });
         const targetFormatted = targetDateObj.toLocaleDateString("en-IN", {
           weekday: "long",
           day: "numeric",
@@ -12710,16 +12658,9 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
         const isSunday = targetDateObj.getDay() === 0;
         const holidayConflict = (holidays || []).find(h => h.date === rescheduleTargetDate);
 
-        // Standard academic time slots
-        const availableCollegeSlots = [
-          "09:00 AM - 10:00 AM",
-          "10:00 AM - 11:00 AM",
-          "11:15 AM - 12:15 PM",
-          "12:15 PM - 01:15 PM",
-          "02:00 PM - 03:00 PM",
-          "03:00 PM - 04:00 PM",
-          "04:00 PM - 05:00 PM"
-        ];
+        const availabilityForDate = rescheduleAvailability?.alternatives?.find(
+          (date: any) => date.dateStr === rescheduleTargetDate
+        );
 
         // Mentor approved leave on target date
         const mentorLeaveOnDate = (facultyLeaves || []).find(
@@ -12845,81 +12786,49 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                     </span>
                   </label>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {availableCollegeSlots.map(slot => {
-                      // Check if mentor has a class on targetDayName at this slot
-                      const mentorClass = (slots || []).find(
-                        (s: any) => s.mentorId === (currentMentor?.id || (rescheduleModalSession as any).mentorId) &&
-                          s.day?.toLowerCase() === targetDayName.toLowerCase() &&
-                          (s.time === slot || s.time?.replace(/\./g, ":").includes(slot.replace(/\./g, ":")) || slot.replace(/\./g, ":").includes(s.time?.replace(/\./g, ":")))
-                      );
-
-                      // Check if mentor has another demo at this date & slot
-                      const mentorOtherDemo = (demoSessions || []).find(
-                        (ds: any) => ds.mentorId === (currentMentor?.id || (rescheduleModalSession as any).mentorId) &&
-                          ds.dateStr === rescheduleTargetDate &&
-                          ds.timeSlot === slot &&
-                          ds.id !== rescheduleModalSession.id &&
-                          ds.status !== "not_conducted"
-                      );
-
-                      // Check if SME has another demo at this date & slot
-                      const smeDemoClash = (demoSessions || []).find(
-                        (ds: any) => ds.smeId === rescheduleModalSession.smeId &&
-                          ds.dateStr === rescheduleTargetDate &&
-                          ds.timeSlot === slot &&
-                          ds.id !== rescheduleModalSession.id &&
-                          ds.status !== "not_conducted"
-                      );
-
-                      // Is this slot mutually free?
-                      const isFree = !mentorClass && !mentorOtherDemo && !smeDemoClash;
-                      const isSelected = rescheduleSelectedSlot === slot;
-
-                      let clashReason = "";
-                      if (mentorClass) clashReason = `Class: ${mentorClass.course || "Lecture"}`;
-                      else if (mentorOtherDemo) clashReason = "You have another demo";
-                      else if (smeDemoClash) clashReason = "SME busy with demo";
-
-                      return (
-                        <button
-                          key={slot}
-                          type="button"
-                          disabled={!isFree}
-                          onClick={() => setRescheduleSelectedSlot(slot)}
-                          className={`p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-1.5 cursor-pointer ${isSelected
-                              ? "bg-amber-50 dark:bg-indigo-950/30 border-amber-500 ring-2 ring-indigo-500 shadow-xs"
-                              : isFree
-                                ? "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-amber-300 hover:bg-slate-50"
-                                : "bg-slate-50/60 dark:bg-slate-800/20 border-slate-200/50 dark:border-slate-800 opacity-60 cursor-not-allowed"
-                            }`}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span className={`text-xs font-black ${isSelected ? "text-amber-700 dark:text-amber-300" : isFree ? "text-slate-800 dark:text-white" : "text-slate-400"}`}>
-                              {slot}
+                  {rescheduleAvailabilityLoading ? (
+                    <p className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-xs font-semibold text-slate-500">Checking your timetable and {rescheduleModalSession.smeName}&apos;s demo availability…</p>
+                  ) : rescheduleAvailabilityError ? (
+                    <p className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-xs font-semibold text-rose-700" role="alert">{rescheduleAvailabilityError}</p>
+                  ) : !availabilityForDate?.periods?.length ? (
+                    <p className="rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-xs font-semibold text-slate-500">No timetable periods were found for this date.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {availabilityForDate.periods.map((period: any) => {
+                        const slot = period.period;
+                        const isFree = Boolean(period.mutuallyFree);
+                        const isSelected = rescheduleSelectedSlot === slot;
+                        return (
+                          <button
+                            key={slot}
+                            type="button"
+                            disabled={!isFree}
+                            onClick={() => setRescheduleSelectedSlot(slot)}
+                            className={`min-h-16 p-3 rounded-xl border text-left transition-all flex flex-col justify-between gap-1.5 cursor-pointer ${isSelected
+                                ? "bg-amber-50 dark:bg-indigo-950/30 border-amber-500 ring-2 ring-indigo-500 shadow-xs"
+                                : isFree
+                                  ? "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-amber-300 hover:bg-slate-50"
+                                  : "bg-slate-50/60 dark:bg-slate-800/20 border-slate-200/50 dark:border-slate-800 opacity-70 cursor-not-allowed"
+                              }`}
+                          >
+                            <div className="flex items-center justify-between w-full gap-2">
+                              <span className={`text-xs font-black ${isSelected ? "text-amber-700 dark:text-amber-300" : isFree ? "text-slate-800 dark:text-white" : "text-slate-500"}`}>
+                                {slot}
+                              </span>
+                              {isSelected ? <CheckCircle className="h-4 w-4 text-amber-600 shrink-0" /> : null}
+                            </div>
+                            <span className={`text-[10px] font-bold ${isFree ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                              {isFree
+                                ? "Mentor free · SME free"
+                                : !period.mentorFree
+                                  ? `Mentor busy: ${period.mentorReason || "not available"}`
+                                  : `SME busy: ${period.smeReason || "not available"}`}
                             </span>
-                            {isSelected ? (
-                              <CheckCircle className="h-4 w-4 text-amber-600 shrink-0" />
-                            ) : isFree ? (
-                              <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-                            ) : null}
-                          </div>
-
-                          <div className="text-[9.5px]">
-                            {isFree ? (
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">
-                                ✓ Mutually Free
-                              </span>
-                            ) : (
-                              <span className="text-rose-500 font-medium">
-                                {clashReason}
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -12935,7 +12844,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
               </button>
               <button
                 type="button"
-                disabled={!rescheduleSelectedSlot || isSunday || !!holidayConflict || !!mentorLeaveOnDate || rescheduleSubmitting}
+                disabled={!rescheduleSelectedSlot || isSunday || !!holidayConflict || !!mentorLeaveOnDate || rescheduleSubmitting || rescheduleAvailabilityLoading || !!rescheduleAvailabilityError}
                 onClick={async () => {
                   setRescheduleSubmitting(true);
                   const res = await rescheduleDemoSession(

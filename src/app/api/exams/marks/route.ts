@@ -126,8 +126,17 @@ export async function GET(request: Request) {
     const allParams: any[] = [];
 
     if (collegeId && collegeId !== "all") {
-      allQuery += " AND (sem.college_id = ? OR es.college_id = ?)";
-      allParams.push(collegeId, collegeId);
+      const collegeRow = await db.get(
+        "SELECT id, name FROM colleges WHERE LOWER(id) = LOWER(?) OR LOWER(name) = LOWER(?)",
+        [collegeId, collegeId]
+      );
+      if (collegeRow) {
+        allQuery += " AND (LOWER(sem.college_id) = LOWER(?) OR LOWER(sem.college_id) = LOWER(?) OR LOWER(es.college_id) = LOWER(?) OR LOWER(es.college_id) = LOWER(?))";
+        allParams.push(collegeRow.id, collegeRow.name, collegeRow.id, collegeRow.name);
+      } else {
+        allQuery += " AND (LOWER(sem.college_id) = LOWER(?) OR LOWER(es.college_id) = LOWER(?))";
+        allParams.push(collegeId, collegeId);
+      }
     }
 
     const examType = searchParams.get("exam_type");

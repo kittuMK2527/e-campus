@@ -1404,6 +1404,34 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   const [camTimeSlot, setCamTimeSlot] = useState("8.20 AM - 9.10 AM");
   const [cmGmeetLink, setCmGmeetLink] = useState("");
   const [isAssigning, setIsAssigning] = useState(false);
+  const [isGeneratingMeet, setIsGeneratingMeet] = useState(false);
+
+  const handleGenerateMeetViaAppsScript = async (targetReq: any) => {
+    setIsGeneratingMeet(true);
+    try {
+      const res = await apiFetch("/api/interviews/generate-meet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `Interview - ${targetReq?.department || "Faculty Assessment"}`,
+          targetDate: targetReq?.date,
+          interviewId: targetReq?.id,
+          startTime: camTimeSlot?.split("-")[0]?.trim() || "08:20 AM",
+          endTime: camTimeSlot?.split("-")[1]?.trim() || "09:10 AM"
+        })
+      });
+      if (res?.success && res?.gmeet_link) {
+        setCmGmeetLink(res.gmeet_link);
+        toast("Genuine Google Meet link generated via Google Apps Script.", "success");
+      } else {
+        toast(res?.error || "Could not generate link. Please verify Apps Script configuration or enter a link manually.", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Failed to contact Google Apps Script service.", "error");
+    } finally {
+      setIsGeneratingMeet(false);
+    }
+  };
 
   const [isMarkingComplete, setIsMarkingComplete] = useState<string | null>(null);
   const [viewingStudentRosterModal, setViewingStudentRosterModal] = useState<any | null>(null);
@@ -4203,6 +4231,20 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                           Google Meet Link <span className="text-slate-400 font-normal">(Virtual Panel)</span>
                                         </label>
                                         <div className="flex items-center gap-1.5">
+                                          <button
+                                            type="button"
+                                            disabled={isGeneratingMeet}
+                                            onClick={() => handleGenerateMeetViaAppsScript(req)}
+                                            className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-bold shadow-xs transition-all cursor-pointer flex items-center gap-1 disabled:opacity-50"
+                                            title="Generate a valid Google Meet link via Google Apps Script / Google Calendar API"
+                                          >
+                                            {isGeneratingMeet ? (
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                            ) : (
+                                              <Sparkles className="w-3 h-3 text-amber-100" />
+                                            )}
+                                            <span>Generate from Apps Script</span>
+                                          </button>
                                           <a
                                             href="https://meet.google.com/new"
                                             target="_blank"

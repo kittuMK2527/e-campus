@@ -34,15 +34,15 @@ function doPost(e) {
     var action = data.action || "create_calendar_event";
 
     // ── ACTION 1: Create Real Google Meet & Calendar Event ─────────────────
-    if (action === "create_calendar_event" || action === "create_meeting") {
-      var summary = data.summary || "Structured Interview Assessment Session";
+    if (action === "create_calendar_event" || action === "create_meeting" || action === "generate_meet") {
+      var summary = data.summary || data.title || "Structured Interview Assessment Session";
       var description = data.description || "Faculty evaluation session conducted via Zentra.";
       var timeZone = data.timeZone || "Asia/Kolkata";
       
       // Calculate start and end ISO DateTimes
-      var startDate = data.start_date || new Date().toISOString().slice(0, 10);
-      var startTime = data.start_time || "08:20 AM";
-      var endTime = data.end_time || "09:10 AM";
+      var startDate = data.start_date || data.targetDate || new Date().toISOString().slice(0, 10);
+      var startTime = data.start_time || data.startTime || "08:20 AM";
+      var endTime = data.end_time || data.endTime || "09:10 AM";
 
       var startISO = formatToISO(startDate, startTime, timeZone);
       var endISO = formatToISO(startDate, endTime, timeZone);
@@ -92,21 +92,13 @@ function doPost(e) {
           sendUpdates: data.sendUpdates || "none"
         });
       } catch (calApiErr) {
-        // Fallback: If Advanced Calendar service is not enabled, use CalendarApp
-        Logger.log("Advanced Calendar API error, falling back to CalendarApp: " + calApiErr);
-        var cal = CalendarApp.getDefaultCalendar();
-        var fallbackEvent = cal.createEvent(summary, new Date(startISO), new Date(endISO), {
-          description: description,
-          guests: attendees.map(function(a) { return a.email; }).join(",")
-        });
-        
+        // Fallback: If Advanced Calendar service is not enabled, return explicit error
+        Logger.log("Advanced Calendar API error: " + calApiErr);
         return jsonResponse({
-          success: true,
-          event_id: fallbackEvent.getId(),
-          meet_url: "https://meet.google.com/new",
-          html_link: "https://calendar.google.com/calendar/r/eventedit/" + fallbackEvent.getId(),
-          note: "Event created with CalendarApp fallback. Enable Advanced Calendar API in Services for direct meet.google.com link generation."
-        });
+          success: false,
+          error: "Google Calendar API service not enabled in Apps Script. Please click '+' next to Services in Apps Script editor, add 'Google Calendar API', and redeploy.",
+          details: calApiErr.toString()
+        }, 500);
       }
 
       // Extract generated Google Meet URL
@@ -121,9 +113,19 @@ function doPost(e) {
         }
       }
 
+      if (!meetUrl) {
+        return jsonResponse({
+          success: false,
+          event_id: createdEvent.id,
+          html_link: createdEvent.htmlLink,
+          error: "Google Calendar event created, but no Google Meet link was returned by Google."
+        }, 500);
+      }
+
       return jsonResponse({
         success: true,
-        meet_url: meetUrl || "https://meet.google.com/new",
+        meet_url: meetUrl,
+        gmeet_link: meetUrl,
         event_id: createdEvent.id,
         html_link: createdEvent.htmlLink,
         start_time: startISO,

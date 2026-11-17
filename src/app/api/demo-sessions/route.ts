@@ -7,6 +7,8 @@ import { requireRole, requireSession, apiAuthErrorResponse, normalizeRole } from
 import { generateId } from "@/lib/id";
 import { dispatchSystemNotification } from "@/lib/notifications";
 import { ensureMigration } from "@/lib/migrations";
+import { checkMentorAvailability, checkSmeAvailability } from "@/lib/availability";
+import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
 
 function parseTimeToMinutes(t: string): number {
   if (!t) return -1;
@@ -20,6 +22,15 @@ function parseTimeToMinutes(t: string): number {
   return hr * 60 + min;
 }
 
+function parseTimeSlotRange(value: string): { start: number; end: number } {
+  const match = String(value || "").match(/(\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)\s*[-–]\s*(\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)/i);
+  if (!match) {
+    const start = parseTimeToMinutes(value);
+    return { start, end: start };
+  }
+  return { start: parseTimeToMinutes(match[1]), end: parseTimeToMinutes(match[2]) };
+}
+
 /**
  * Phase A (Demo Workflow Redesign): validate that a (SME, date, time) booking falls
  * inside one of the SME's ACTIVE demo-type availability windows (sme_availability,
@@ -29,7 +40,7 @@ function parseTimeToMinutes(t: string): number {
  */
 /** Column list must stay in sync with evaluateSmeDemoWindows below. */
 const SME_WINDOWS_SQL =
-  "SELECT start_time, end_time FROM sme_availability WHERE sme_id = ? AND UPPER(TRIM(day_of_week)) = UPPER(TRIM(?)) AND is_active != 0";
+  "SELECT start_time, end_time, slot_type FROM sme_availability WHERE sme_id = ? AND (UPPER(TRIM(day_of_week)) = UPPER(TRIM(?)) OR UPPER(TRIM(day_of_week)) = UPPER(TRIM(?))) AND is_active != 0";
 
 function weekdayOf(dateStr: string): string {
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", { weekday: "long" });
@@ -37,7 +48,9 @@ function weekdayOf(dateStr: string): string {
 
 /** One slice of the booking batch, so the window gate costs no extra round trip. */
 function smeWindowsSlice(smeId: string, dateStr: string) {
-  return { sql: SME_WINDOWS_SQL, params: [smeId, weekdayOf(dateStr)] };
+  const weekday = weekdayOf(dateStr);
+  const weekdayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(weekday) + 1;
+  return { sql: SME_WINDOWS_SQL, params: [smeId, weekday, `Day ${weekdayOrder}`] };
 }
 
 /**
@@ -54,14 +67,16 @@ function evaluateSmeDemoWindows(
   if (!windows || windows.length === 0) {
     return { ok: false, reason: `SME has no demo availability configured on ${dayName} (${dateStr}).` };
   }
-  const demoWindows = windows.filter((w: any) => (w.slot_type || "demo") === "demo");
-  const usable = demoWindows.length > 0 ? demoWindows : windows;
-  const target = parseTimeToMinutes(timeSlot);
-  if (target < 0) return { ok: true };
+  const usable = windows.filter((w: any) => String(w.slot_type || "demo").trim().toLowerCase() === "demo");
+  if (usable.length === 0) {
+    return { ok: false, reason: `SME has no demo availability configured on ${dayName} (${dateStr}).` };
+  }
+  const target = parseTimeSlotRange(timeSlot);
+  if (target.start < 0) return { ok: true };
   const within = usable.some((w: any) => {
     const s = parseTimeToMinutes(w.start_time);
     const e = parseTimeToMinutes(w.end_time);
-    return target >= s && target < Math.max(e, s + 1);
+    return target.start >= s && (target.end <= target.start || target.end <= Math.max(e, s + 1));
   });
   if (!within) {
     const cover = usable.map((w: any) => `${w.start_time}-${w.end_time}`).join(", ");
@@ -142,7 +157,7 @@ export async function POST(request: Request) {
     const { action } = body;
 
     // Role-based authorization
-    if (action === "book" || action === "bulk-book" || action === "update" || action === "swap") {
+    if (action === "book" || action === "bulk-book" || action === "update" || action === "swap" || action === "makeup-book") {
       await requireRole(request, "admin", "L and D", "head_sme");
     } else if (action === "evaluate") {
       await requireRole(request, "sme", "head_sme", "admin", "L and D");
@@ -188,7 +203,7 @@ export async function POST(request: Request) {
         {
           label: "reservation",
           sql: `SELECT id FROM demo_reallocation_requests
-                WHERE status IN ('pending', 'approved') AND smeId = ? AND proposed_date_str = ?
+                WHERE status IN ('pending', 'approved') AND sme_id = ? AND proposed_date_str = ?
                   AND (proposed_time_slot = ? OR ? LIKE ('%' || proposed_time_slot || '%') OR proposed_time_slot LIKE ('%' || ? || '%'))`,
           params: [smeId, dateStr, timeSlot, timeSlot, timeSlot],
         },
@@ -234,6 +249,118 @@ export async function POST(request: Request) {
       );
 
       return NextResponse.json({ success: true, message: "L&D session allocated successfully!" });
+
+    } else if (action === "makeup-book") {
+      const { originalSessionId, dateStr, timeSlot } = body;
+      if (!originalSessionId || !dateStr || !timeSlot) {
+        return NextResponse.json({ success: false, message: "Missing original session, date or period." }, { status: 400 });
+      }
+
+      await ensureMigration("demo_session_makeup_link");
+      await ensureMigration("demo_reallocation_requests");
+      const original = await db.get("SELECT * FROM demo_sessions WHERE id = ?", [originalSessionId]);
+      if (!original) return NextResponse.json({ success: false, message: "Original L&D session was not found." }, { status: 404 });
+      if (original.status !== "not_conducted") {
+        return NextResponse.json({ success: false, message: "Only sessions marked Not Conducted can be carried forward." }, { status: 400 });
+      }
+
+      const targetDay = new Date(`${String(dateStr).slice(0, 10)}T12:00:00`);
+      const today = parseLocalDate(getInstitutionDateStr());
+      const daysUntilMonday = ((8 - today.getDay()) % 7) || 7;
+      const nextMonday = new Date(today.getFullYear(), today.getMonth(), today.getDate() + daysUntilMonday, 12, 0, 0);
+      const nextSunday = new Date(nextMonday.getFullYear(), nextMonday.getMonth(), nextMonday.getDate() + 6, 12, 0, 0);
+      if (Number.isNaN(targetDay.getTime()) || targetDay < nextMonday || targetDay > nextSunday) {
+        return NextResponse.json({ success: false, message: "Choose a date in the upcoming calendar week." }, { status: 400 });
+      }
+
+      const existingMakeup = await db.get("SELECT id FROM demo_sessions WHERE makeup_of_session_id = ? LIMIT 1", [originalSessionId]);
+      if (existingMakeup) {
+        return NextResponse.json({ success: false, message: "A make-up session has already been scheduled for this missed session." }, { status: 409 });
+      }
+
+      const targetDate = String(dateStr).slice(0, 10);
+      const dayName = weekdayOf(targetDate);
+      if (dayName === "Sunday") return NextResponse.json({ success: false, message: "Campus is closed on Sunday. Choose another date in the following week." }, { status: 400 });
+      const slices = [
+        {
+          label: "mentorDemoClash",
+          sql: `SELECT id FROM demo_sessions WHERE mentorId = ? AND dateStr = ? AND id != ? AND status NOT IN ('completed', 'not_conducted')
+                AND (timeSlot = ? OR ? LIKE ('%' || timeSlot || '%') OR timeSlot LIKE ('%' || ? || '%'))`,
+          params: [original.mentorId, targetDate, originalSessionId, timeSlot, timeSlot, timeSlot],
+        },
+        {
+          label: "smeDemoClash",
+          sql: `SELECT id FROM demo_sessions WHERE smeId = ? AND dateStr = ? AND id != ? AND status NOT IN ('completed', 'not_conducted')
+                AND (timeSlot = ? OR ? LIKE ('%' || timeSlot || '%') OR timeSlot LIKE ('%' || ? || '%'))`,
+          params: [original.smeId, targetDate, originalSessionId, timeSlot, timeSlot, timeSlot],
+        },
+        { label: "smeWindows", ...smeWindowsSlice(original.smeId, targetDate) },
+        { label: "holiday", sql: "SELECT date FROM holidays WHERE date = ? LIMIT 1", params: [targetDate] },
+        {
+          label: "reservation",
+          sql: `SELECT id FROM demo_reallocation_requests
+                WHERE status IN ('pending', 'approved') AND sme_id = ? AND proposed_date_str = ?
+                  AND (proposed_time_slot = ? OR ? LIKE ('%' || proposed_time_slot || '%') OR proposed_time_slot LIKE ('%' || ? || '%'))`,
+          params: [original.smeId, targetDate, timeSlot, timeSlot, timeSlot],
+        },
+      ];
+      const failed: QueryFailure[] = [];
+      const reads = await db.multiQuery(slices, failed);
+      if (failed.length) return preflightFailureResponse(failed, "schedule make-up");
+      const [mentorClashes, smeClashes, smeWindows, holidayRows, reservations] = reads;
+      if (holidayRows?.length) return NextResponse.json({ success: false, message: "The selected date is a campus holiday." }, { status: 400 });
+      if (mentorClashes?.length) return NextResponse.json({ success: false, message: "The original mentor is already booked during this period." }, { status: 409 });
+      if (smeClashes?.length) return NextResponse.json({ success: false, message: `SME ${original.smeName || "evaluator"} is already booked during this period.` }, { status: 409 });
+
+      const mentorAvailability = await checkMentorAvailability(db, {
+        mentorId: original.mentorId,
+        dateStr: targetDate,
+        dayOfWeek: dayName,
+        timeSlot,
+      });
+      if (!mentorAvailability.available) {
+        return NextResponse.json({ success: false, message: `Mentor is not free: ${mentorAvailability.reason || "timetable conflict"}.` }, { status: 409 });
+      }
+
+      const windowCheck = evaluateSmeDemoWindows(smeWindows || [], dayName, targetDate, timeSlot);
+      if (!windowCheck.ok) return NextResponse.json({ success: false, message: windowCheck.reason }, { status: 409 });
+      const smeAvailability = await checkSmeAvailability(db, { smeId: original.smeId, dateStr: targetDate, timeSlot });
+      if (!smeAvailability.available) {
+        return NextResponse.json({ success: false, message: `SME is not free: ${smeAvailability.reason || "availability conflict"}.` }, { status: 409 });
+      }
+      if (reservations?.length) return NextResponse.json({ success: false, message: "This SME period is reserved for another L&D reallocation." }, { status: 409 });
+
+      const makeupId = generateId("ds");
+      try {
+        await db.run(
+          `INSERT INTO demo_sessions (id, mentorId, mentorName, smeId, smeName, dateStr, timeSlot, subject, stream, week, status, created_at, makeup_of_session_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'scheduled', ?, ?)`,
+          [makeupId, original.mentorId, original.mentorName, original.smeId, original.smeName, targetDate, timeSlot, original.subject, original.stream, original.week, new Date().toISOString(), originalSessionId]
+        );
+      } catch (error: any) {
+        if (/unique|duplicate/i.test(String(error?.message || ""))) {
+          return NextResponse.json({ success: false, message: "A make-up session was scheduled by another L&D user. Refresh the queue." }, { status: 409 });
+        }
+        throw error;
+      }
+
+      await db.run(
+        `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp)
+         VALUES (?, 'demo_makeup_scheduled', ?, 'Learning and Development', 'L&D', ?)`,
+        [generateId("audit"), `Make-up L&D session scheduled for ${original.mentorName} (${original.subject}) on ${targetDate} (${timeSlot}); original session ${originalSessionId} retained.`, new Date().toISOString()]
+      ).catch(() => {});
+
+      await dispatchSystemNotification(db, {
+        userIds: [original.mentorId, original.smeId].filter(Boolean),
+        title: "L&D Make-up Session Scheduled",
+        message: `Your ${original.subject} make-up session is scheduled for ${targetDate} (${timeSlot}).`,
+        link: "/mentor/demo_evaluations",
+        type: "success",
+        domain: "demos",
+        action: "reallocated",
+      }).catch(() => {});
+
+      return NextResponse.json({ success: true, message: "Make-up session scheduled for the following week.", sessionId: makeupId });
 
     } else if (action === "bulk-book") {
       const sessions = body.sessions;
@@ -559,19 +686,21 @@ export async function POST(request: Request) {
         },
         {
           label: "mentorDemoClash",
-          sql: "SELECT id FROM demo_sessions WHERE mentorId = ? AND dateStr = ? AND timeSlot = ? AND id != ? AND status NOT IN ('not_conducted')",
-          params: [mentorId, newDateStr, newTimeSlot, sessionId],
+          sql: "SELECT id FROM demo_sessions WHERE mentorId = ? AND dateStr = ? AND id != ? AND status NOT IN ('completed', 'not_conducted') AND (timeSlot = ? OR ? LIKE ('%' || timeSlot || '%') OR timeSlot LIKE ('%' || ? || '%'))",
+          params: [mentorId, newDateStr, sessionId, newTimeSlot, newTimeSlot, newTimeSlot],
         },
+        { label: "holiday", sql: "SELECT date FROM holidays WHERE date = ? LIMIT 1", params: [newDateStr] },
         {
           label: "smeDemoClash",
-          sql: "SELECT id FROM demo_sessions WHERE smeId = ? AND dateStr = ? AND timeSlot = ? AND id != ? AND status NOT IN ('not_conducted')",
-          params: [session.smeId, newDateStr, newTimeSlot, sessionId],
+          sql: "SELECT id FROM demo_sessions WHERE smeId = ? AND dateStr = ? AND id != ? AND status NOT IN ('completed', 'not_conducted') AND (timeSlot = ? OR ? LIKE ('%' || timeSlot || '%') OR timeSlot LIKE ('%' || ? || '%'))",
+          params: [session.smeId, newDateStr, sessionId, newTimeSlot, newTimeSlot, newTimeSlot],
         },
+        { label: "smeWindows", ...smeWindowsSlice(session.smeId, newDateStr) },
         {
           label: "reservation",
           sql: `SELECT id FROM demo_reallocation_requests
                 WHERE status IN ('pending', 'approved') AND id != (SELECT id FROM demo_reallocation_requests WHERE demo_session_id = ? AND status = 'pending' LIMIT 1)
-                  AND smeId = ? AND proposed_date_str = ?
+                  AND sme_id = ? AND proposed_date_str = ?
                   AND (proposed_time_slot = ? OR ? LIKE ('%' || proposed_time_slot || '%') OR proposed_time_slot LIKE ('%' || ? || '%'))`,
           params: [sessionId, session.smeId, newDateStr, newTimeSlot, newTimeSlot, newTimeSlot],
         },
@@ -579,7 +708,14 @@ export async function POST(request: Request) {
       const reschedFailed: QueryFailure[] = [];
       const reschedReads = await db.multiQuery(reschedSlices, reschedFailed);
       if (reschedFailed.length > 0) return preflightFailureResponse(reschedFailed, "reschedule");
-      const [mentorLeaveRows, mentorDemoClashRows, smeDemoClashRows, reservationRows] = reschedReads;
+      const [mentorLeaveRows, mentorDemoClashRows, holidayRows, smeDemoClashRows, smeWindowRows, reservationRows] = reschedReads;
+
+      if (weekdayOf(newDateStr) === "Sunday") {
+        return NextResponse.json({ success: false, message: "Campus is closed on Sunday. Please choose another date." }, { status: 400 });
+      }
+      if (holidayRows?.length) {
+        return NextResponse.json({ success: false, message: "The selected date is a campus holiday." }, { status: 400 });
+      }
 
       if (mentorLeaveRows?.[0]) {
         return NextResponse.json({ success: false, message: `Cannot reschedule: You have an approved ${mentorLeaveRows[0].request_type || 'leave'} on ${newDateStr}.` }, { status: 400 });
@@ -587,8 +723,29 @@ export async function POST(request: Request) {
       if (mentorDemoClashRows?.length) {
         return NextResponse.json({ success: false, message: "You already have another demo session scheduled at this date/time." }, { status: 400 });
       }
+      const mentorAvailability = await checkMentorAvailability(db, {
+        mentorId,
+        dateStr: newDateStr,
+        dayOfWeek: weekdayOf(newDateStr),
+        timeSlot: newTimeSlot,
+      });
+      if (!mentorAvailability.available) {
+        return NextResponse.json({ success: false, message: `Cannot reschedule: ${mentorAvailability.reason || "You are not free at this time."}` }, { status: 400 });
+      }
       if (smeDemoClashRows?.length) {
         return NextResponse.json({ success: false, message: `Assigned SME ${session.smeName} already has another demo session at this date/time.` }, { status: 400 });
+      }
+      const smeWindowCheck = evaluateSmeDemoWindows(smeWindowRows || [], weekdayOf(newDateStr), newDateStr, newTimeSlot);
+      if (!smeWindowCheck.ok) {
+        return NextResponse.json({ success: false, message: `Cannot reschedule: ${smeWindowCheck.reason}` }, { status: 400 });
+      }
+      const smeSwapAvailability = await checkSmeAvailability(db, {
+        smeId: session.smeId,
+        dateStr: newDateStr,
+        timeSlot: newTimeSlot,
+      });
+      if (!smeSwapAvailability.available) {
+        return NextResponse.json({ success: false, message: `Cannot reschedule: ${smeSwapAvailability.reason || "The assigned SME is not free at this time."}` }, { status: 400 });
       }
       if (reservationRows?.length) {
         return NextResponse.json({ success: false, message: "Target period is reserved for a pending demo reallocation (awaiting L&D approval)." }, { status: 400 });

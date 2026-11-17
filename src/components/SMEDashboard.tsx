@@ -48,8 +48,9 @@ import {
 import { WeeklyPlanViewer } from "./WeeklyPlanStudio";
 import { SkillTrackerPanel } from "./SkillTrackerPanel";
 import { DemoEvalCriteriaPanel, EvaluationChecklist, ChecklistEntry } from "./DemoEvalCriteriaPanel";
+import { SMEProfileTab } from "@/components/sme/SMEProfileTab";
 
-type TabKey = "overview" | "demo_list" | "weekly_plans" | "skill_approvals" | "availability" | "reallocation" | "history" | "calendar" | "reallocation_hub" | "eval_criteria" | "more_menu";
+type TabKey = "overview" | "demo_list" | "weekly_plans" | "skill_approvals" | "availability" | "reallocation" | "history" | "calendar" | "reallocation_hub" | "eval_criteria" | "more_menu" | "profile";
 
 interface SMEDashboardProps {
   activeTab?: TabKey;
@@ -1535,6 +1536,11 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 </div>
               </div>
             </Panel>
+          )}
+
+          {/* ═══════════════ TAB 5: EVALUATOR PROFILE ═══════════════ */}
+          {activeTab === "profile" && (
+            <SMEProfileTab />
           )}
 
           {/* ═══════════════ REALLOCATION MODAL (AVAILABILITY WIZARD) ═══════════════ */}

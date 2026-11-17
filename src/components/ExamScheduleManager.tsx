@@ -386,10 +386,14 @@ export const ExamScheduleManager: React.FC<{
     return getSemestersForCourse(matched?.years || 3);
   }, [coursesList, batchDept]);
 
-  const allAvailableSemesters = useMemo(() => {
+  const filteredSemesters = useMemo(() => {
+    if (selectedDeptFilter !== "all") {
+      const matched = (coursesList || []).find(c => c.name.toLowerCase().trim() === selectedDeptFilter.toLowerCase().trim());
+      return getSemestersForCourse(matched?.years || 3);
+    }
     const maxYears = Math.max(...(coursesList || []).map(c => c.years || 3), 3);
     return getSemestersForCourse(maxYears);
-  }, [coursesList]);
+  }, [coursesList, selectedDeptFilter]);
 
   const examsQuery = useQuery({
     queryKey: qk.exams(collegeId),
@@ -1036,14 +1040,14 @@ export const ExamScheduleManager: React.FC<{
 
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
             {/* Main Sub-Tab Pill Switcher */}
-            <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/50">
+            <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/60 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setActiveMainTab("schedules")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
                   activeMainTab === "schedules"
-                    ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold border border-slate-200/80"
+                    : "text-slate-600 hover:text-slate-900 font-semibold"
                 }`}
               >
                 Timetables ({exams.length})
@@ -1051,10 +1055,10 @@ export const ExamScheduleManager: React.FC<{
               <button
                 type="button"
                 onClick={() => setActiveMainTab("marks_registry")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
                   activeMainTab === "marks_registry"
-                    ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold border border-slate-200/80"
+                    : "text-slate-600 hover:text-slate-900 font-semibold"
                 }`}
               >
                 Mark Submissions ({campusMarksList.length})
@@ -1062,13 +1066,13 @@ export const ExamScheduleManager: React.FC<{
             </div>
 
             {/* Action Buttons Group */}
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
               {activeMainTab === "schedules" ? (
                 <>
                   <button
                     type="button"
                     onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-[0.98]"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Schedule Timetable</span>
@@ -1095,7 +1099,7 @@ export const ExamScheduleManager: React.FC<{
                     type="button"
                     onClick={() => marksQuery.refetch()}
                     disabled={loadingCampusMarks}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-sunken hover:bg-white border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 transition-all cursor-pointer"
+                    className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer active:scale-[0.98]"
                   >
                     <RefreshCw className={`h-3.5 w-3.5 ${loadingCampusMarks ? "animate-spin text-amber-500" : ""}`} />
                     <span>Refresh</span>
@@ -1104,7 +1108,7 @@ export const ExamScheduleManager: React.FC<{
                   <button
                     type="button"
                     onClick={handleExportMarksCSV}
-                    className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                    className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs active:scale-[0.98]"
                   >
                     <Download className="h-4 w-4 text-emerald-600" />
                     <span>Export Marksheet CSV</span>
@@ -1118,14 +1122,14 @@ export const ExamScheduleManager: React.FC<{
         /* Embedded Toolbar Mode */
         <div className="bg-white border border-slate-100 rounded-2xl p-3.5 sm:p-4 shadow-card flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/50">
+            <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/60 w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => setActiveMainTab("schedules")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
                   activeMainTab === "schedules"
-                    ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold border border-slate-200/80"
+                    : "text-slate-600 hover:text-slate-900 font-semibold"
                 }`}
               >
                 Timetables ({exams.length})
@@ -1133,10 +1137,10 @@ export const ExamScheduleManager: React.FC<{
               <button
                 type="button"
                 onClick={() => setActiveMainTab("marks_registry")}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-initial px-3.5 py-1.5 text-xs rounded-lg transition-all cursor-pointer ${
                   activeMainTab === "marks_registry"
-                    ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
-                    : "text-slate-500 hover:text-slate-800"
+                    ? "bg-white text-slate-900 shadow-xs font-extrabold border border-slate-200/80"
+                    : "text-slate-600 hover:text-slate-900 font-semibold"
                 }`}
               >
                 Mark Submissions ({campusMarksList.length})
@@ -1155,7 +1159,7 @@ export const ExamScheduleManager: React.FC<{
                 <button
                   type="button"
                   onClick={handleExportCSV}
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-sunken hover:bg-white border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs transition-all cursor-pointer active:scale-[0.98]"
                 >
                   <Download className="h-4 w-4 text-emerald-600" />
                   <span>Export CSV</span>
@@ -1164,7 +1168,7 @@ export const ExamScheduleManager: React.FC<{
                 <button
                   type="button"
                   onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm transition-all cursor-pointer"
+                  className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-[0.98]"
                 >
                   <Plus className="h-4 w-4" />
                   <span>Schedule Timetable</span>
@@ -1199,32 +1203,32 @@ export const ExamScheduleManager: React.FC<{
       {activeMainTab === "schedules" ? (
         <>
           {/* KPI Stats Bar */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-slate-300/80 transition-all">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-slate-300 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Timetable Batches</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Timetable Batches</p>
                 <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
                   <CalendarRange className="h-4 w-4" />
                 </div>
               </div>
               <p className="text-2xl font-black text-slate-900 mt-1">{groupedExamBatches.length}</p>
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Active scheduled batches</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Active scheduled batches</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-slate-300 transition-all">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-slate-300 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Exam Slots</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total Exam Slots</p>
                 <div className="p-2 rounded-xl bg-slate-100 text-slate-700">
                   <Clock className="h-4 w-4" />
                 </div>
               </div>
               <p className="text-2xl font-black text-slate-900 mt-1">{exams.length}</p>
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Subject time slots</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Subject time slots</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-teal-200 transition-all">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-slate-300 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Departments Active</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Departments Active</p>
                 <div className="p-2 rounded-xl bg-teal-50 text-teal-600">
                   <Building2 className="h-4 w-4" />
                 </div>
@@ -1232,12 +1236,12 @@ export const ExamScheduleManager: React.FC<{
               <p className="text-2xl font-black text-slate-900 mt-1">
                 {Array.from(new Set(exams.map((e) => e.department))).length}
               </p>
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Academic departments</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Academic departments</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-purple-200 transition-all">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-slate-300 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-purple-600">Assessment Types</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Assessment Types</p>
                 <div className="p-2 rounded-xl bg-purple-50 text-purple-600">
                   <Award className="h-4 w-4" />
                 </div>
@@ -1245,21 +1249,30 @@ export const ExamScheduleManager: React.FC<{
               <p className="text-2xl font-black text-slate-900 mt-1">
                 {Array.from(new Set(exams.map((e) => e.exam_type))).length}
               </p>
-              <p className="text-[11px] text-purple-600/80 font-medium mt-0.5">CIA &amp; Semester finals</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">CIA &amp; Semester finals</p>
             </div>
           </div>
 
           {/* Filters & Search */}
-          <div className="bg-white border border-slate-100 rounded-2xl p-3.5 sm:p-4 shadow-card flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-2.5">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
+            <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
               {/* Department Filter */}
-              <div className="relative inline-flex items-center">
-                <span className="absolute left-3 text-slate-400 text-[10px] font-bold uppercase pointer-events-none">Dept:</span>
+              <div className="relative">
                 <select
                   aria-label="Department"
                   value={selectedDeptFilter}
-                  onChange={(e) => setSelectedDeptFilter(e.target.value)}
-                  className="h-10 pl-14 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80"
+                  onChange={(e) => {
+                    const nextDept = e.target.value;
+                    setSelectedDeptFilter(nextDept);
+                    if (nextDept !== "all") {
+                      const matched = (coursesList || []).find(c => c.name.toLowerCase().trim() === nextDept.toLowerCase().trim());
+                      const sems = getSemestersForCourse(matched?.years || 3);
+                      if (selectedSemFilter !== "all" && !sems.includes(selectedSemFilter)) {
+                        setSelectedSemFilter("all");
+                      }
+                    }
+                  }}
+                  className="h-9 w-full sm:w-auto pl-3 pr-8 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                 >
                   <option value="all">All Departments</option>
                   {availableDepartments.map((d) => (
@@ -1268,26 +1281,25 @@ export const ExamScheduleManager: React.FC<{
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-2.5 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
 
               {/* Semester Filter */}
-              <div className="relative inline-flex items-center">
-                <span className="absolute left-3 text-slate-400 text-[10px] font-bold uppercase pointer-events-none">Sem:</span>
+              <div className="relative">
                 <select
                   aria-label="Semester"
                   value={selectedSemFilter}
                   onChange={(e) => setSelectedSemFilter(e.target.value)}
-                  className="h-10 pl-13 pr-8 bg-sunken hover:bg-white/80 border border-slate-200 inset-shadow-well rounded-xl text-xs font-bold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:bg-white focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80"
+                  className="h-9 w-full sm:w-auto pl-3 pr-8 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 outline-none cursor-pointer appearance-none transition-all focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
                 >
                   <option value="all">All Semesters</option>
-                  {allAvailableSemesters.map((s) => (
+                  {filteredSemesters.map((s) => (
                     <option key={s} value={s}>
                       {s}
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="absolute right-2.5 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+                <ChevronDown className="absolute right-2.5 top-2.5 h-4 w-4 text-slate-400 pointer-events-none" />
               </div>
 
               {(selectedDeptFilter !== "all" || selectedSemFilter !== "all" || searchQuery) && (
@@ -1298,9 +1310,9 @@ export const ExamScheduleManager: React.FC<{
                     setSelectedSemFilter("all");
                     setSearchQuery("");
                   }}
-                  className="h-10 px-3 inline-flex items-center gap-1 rounded-xl text-xs font-bold text-slate-500 hover:text-slate-800 bg-slate-100/80 hover:bg-slate-200/80 transition-all cursor-pointer"
+                  className="col-span-2 sm:col-span-1 h-9 px-3 inline-flex items-center justify-center gap-1 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 transition-all cursor-pointer"
                 >
-                  <RotateCcw className="h-3 w-3" />
+                  <RotateCcw className="h-3.5 w-3.5" />
                   <span>Reset</span>
                 </button>
               )}
@@ -1308,20 +1320,20 @@ export const ExamScheduleManager: React.FC<{
 
             {/* Search */}
             <div className="relative w-full md:w-72">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <input
                 type="text"
                 aria-label="Search exam, subject, hall"
                 placeholder="Search exam, subject, hall..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="h-10 w-full pl-9 pr-8 bg-sunken border border-slate-200 inset-shadow-well rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 transition-all"
+                className="h-9 w-full pl-9 pr-8 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 top-3 text-slate-400 hover:text-slate-600"
+                  className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -1349,15 +1361,23 @@ export const ExamScheduleManager: React.FC<{
                 ))}
               </div>
             ) : groupedExamBatches.length === 0 ? (
-              <div className="bg-white border border-slate-100 rounded-2xl p-12 text-center text-slate-400 shadow-card">
-                <div className="flex flex-col items-center justify-center gap-2">
-                  <div className="h-12 w-12 rounded-2xl bg-amber-50 flex items-center justify-center text-amber-500 mb-1">
+              <div className="bg-white border border-slate-200/80 rounded-2xl p-8 sm:p-12 text-center shadow-xs">
+                <div className="flex flex-col items-center justify-center gap-2.5 max-w-sm mx-auto">
+                  <div className="h-12 w-12 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600 mb-1 shadow-2xs">
                     <Award className="h-6 w-6" />
                   </div>
-                  <p className="font-extrabold text-slate-700 text-sm">No Exam Timetables Published</p>
-                  <p className="text-xs text-slate-400 max-w-md">
-                    Click <strong>&quot;Schedule Timetable&quot;</strong> above to select a department and schedule assessment dates for all subjects.
+                  <h3 className="font-extrabold text-slate-900 text-sm">No Exam Timetables Published</h3>
+                  <p className="text-xs text-slate-500 leading-relaxed">
+                    Select a department and schedule internal assessments or semester final exam dates for all assigned subjects.
                   </p>
+                  <button
+                    type="button"
+                    onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
+                    className="mt-2 inline-flex items-center gap-1.5 h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-[0.98]"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Schedule Timetable</span>
+                  </button>
                 </div>
               </div>
             ) : (
@@ -1567,65 +1587,65 @@ export const ExamScheduleManager: React.FC<{
         /* MARK SUBMISSIONS & PERFORMANCE VIEW */
         <div className="space-y-5">
           {/* Performance Summary KPI Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-slate-300/80 transition-all">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-3.5">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-slate-300 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Records</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">Total Records</p>
                 <div className="p-2 rounded-xl bg-slate-100 text-slate-600">
                   <FileSpreadsheet className="h-4 w-4" />
                 </div>
               </div>
               <p className="text-2xl font-black text-slate-900 mt-1">{campusMarksStats.total}</p>
-              <p className="text-[11px] text-slate-400 font-medium mt-0.5">Submitted grades</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">Submitted grades</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-emerald-200 transition-all">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-emerald-200 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Passed Records</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Passed Records</p>
                 <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
                   <CheckCircle2 className="h-4 w-4" />
                 </div>
               </div>
               <p className="text-2xl font-black text-emerald-700 mt-1">{campusMarksStats.passed}</p>
-              <p className="text-[11px] text-emerald-600/80 font-medium mt-0.5">Scored ≥ passing</p>
+              <p className="text-xs text-emerald-700/80 font-medium mt-0.5">Scored ≥ passing</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-rose-200 transition-all">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-rose-200 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-rose-600">Arrears / Fail</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-rose-700">Arrears / Fail</p>
                 <div className="p-2 rounded-xl bg-rose-50 text-rose-600">
                   <AlertTriangle className="h-4 w-4" />
                 </div>
               </div>
               <p className="text-2xl font-black text-rose-700 mt-1">{campusMarksStats.arrears}</p>
-              <p className="text-[11px] text-rose-600/80 font-medium mt-0.5">Need re-appearance</p>
+              <p className="text-xs text-rose-700/80 font-medium mt-0.5">Need re-appearance</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-amber-200 transition-all">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-amber-200 transition-all">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Absentees</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-700">Absentees</p>
                 <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
                   <Clock className="h-4 w-4" />
                 </div>
               </div>
               <p className="text-2xl font-black text-amber-700 mt-1">{campusMarksStats.absent}</p>
-              <p className="text-[11px] text-amber-600/80 font-medium mt-0.5">Missed assessments</p>
+              <p className="text-xs text-amber-700/80 font-medium mt-0.5">Missed assessments</p>
             </div>
 
-            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card hover:border-emerald-200 transition-all">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs hover:border-emerald-200 transition-all col-span-2 sm:col-span-1">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Campus Pass Rate</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-emerald-700">Campus Pass Rate</p>
                 <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
                   <TrendingUp className="h-4 w-4" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-emerald-600 mt-1">{campusMarksStats.passRate}%</p>
-              <p className="text-[11px] text-emerald-600/80 font-medium mt-0.5">Overall qualification</p>
+              <p className="text-2xl font-black text-emerald-700 mt-1">{campusMarksStats.passRate}%</p>
+              <p className="text-xs text-emerald-700/80 font-medium mt-0.5">Overall qualification</p>
             </div>
           </div>
 
           {/* Marks Filter & Search Bar */}
-          <div className="bg-white border border-slate-100 rounded-2xl p-3.5 sm:p-4 shadow-card flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-2.5">
             <div className="flex flex-wrap items-center gap-2.5">
               {/* Exam Type Pill Tabs */}
               <div className="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/50 flex-wrap gap-1">
@@ -1893,14 +1913,14 @@ export const ExamScheduleManager: React.FC<{
               </div>
 
               {/* Step Navigation Indicator */}
-              <div className="flex items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-xs font-bold">
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200/70">
                 <button
                   type="button"
                   onClick={() => setFormStep(1)}
-                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                     formStep === 1
-                      ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-white text-slate-900 shadow-xs font-extrabold border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900 font-semibold"
                   }`}
                 >
                   1. Setup
@@ -1923,10 +1943,10 @@ export const ExamScheduleManager: React.FC<{
                     applyStartDateToRows(batchStartDate, batchDefaultDayOrder);
                     setFormStep(2);
                   }}
-                  className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                     formStep === 2
-                      ? "bg-zinc-900 text-amber-400 shadow-xs font-black border border-amber-500/50"
-                      : "text-slate-600 hover:text-slate-900"
+                      ? "bg-white text-slate-900 shadow-xs font-extrabold border border-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900 font-semibold"
                   }`}
                 >
                   2. Timetable
@@ -1991,7 +2011,15 @@ export const ExamScheduleManager: React.FC<{
                           required
                           aria-label="Department"
                           value={batchDept}
-                          onChange={(e) => setBatchDept(e.target.value)}
+                          onChange={(e) => {
+                            const newDept = e.target.value;
+                            setBatchDept(newDept);
+                            const matched = (coursesList || []).find(c => c.name.toLowerCase().trim() === newDept.toLowerCase().trim());
+                            const sems = getSemestersForCourse(matched?.years || 3);
+                            if (sems.length > 0 && !sems.includes(batchSem)) {
+                              setBatchSem(sems[0]);
+                            }
+                          }}
                           className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                         >
                           {availableDepartments.map((d) => (

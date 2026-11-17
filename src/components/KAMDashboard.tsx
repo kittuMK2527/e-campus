@@ -1417,44 +1417,78 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "profile" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
-                <div className="flex items-center gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-zinc-900 text-amber-400 font-black text-xl flex items-center justify-center shadow-md">
-                    {(currentKAM?.name || "KAM").substring(0, 2).toUpperCase()}
+              <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-800 shadow-card space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-6">
+                  <div className="flex items-center gap-4">
+                    <div className="w-16 h-16 rounded-2xl bg-zinc-900 border-4 border-amber-500 text-amber-400 font-black text-xl flex items-center justify-center shadow-md">
+                      {(currentKAM?.name || "KAM").substring(0, 2).toUpperCase()}
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
+                        {currentKAM?.name || "Key Account Manager"}
+                      </h3>
+                      <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
+                        {currentKAM?.title || "Key Account Manager (KAM)"} • Institutional Portfolio Lead
+                      </p>
+                      <p className="text-xs text-slate-400 font-medium mt-0.5 font-mono">
+                        {currentKAM?.email || "kam@faceprep.in"}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-extrabold text-slate-900 dark:text-white">
-                      {currentKAM?.name || "Key Account Manager"}
-                    </h3>
-                    <p className="text-xs font-bold text-amber-600 dark:text-amber-400">
-                      Key Account Manager (KAM) • Institutional Portfolio
-                    </p>
-                    <p className="text-xs text-slate-400 font-medium mt-0.5">
-                      {currentKAM?.email || "kam@faceprep.in"}
-                    </p>
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                      Portfolio Executive
+                    </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6">
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Supervised Institutions</span>
-                    <div className="text-xl font-black text-slate-900 dark:text-white">
+                    <div className="text-2xl font-black text-slate-900 dark:text-white">
                       {scopedColleges.length} Campuses
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1">
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Enrolled Students</span>
-                    <div className="text-xl font-black text-slate-900 dark:text-white">
+                    <div className="text-2xl font-black text-slate-900 dark:text-white">
                       {kamMetrics.kpis.totalStudents} Students
                     </div>
                   </div>
 
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 space-y-1">
+                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-1">
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Security Access Level</span>
-                    <div className="text-xl font-black text-amber-500">
-                      Portfolio Read-Only
+                    <div className="text-2xl font-black text-amber-500">
+                      Portfolio Read &amp; Review
                     </div>
+                  </div>
+                </div>
+
+                {/* Supervised Campuses List */}
+                <div className="space-y-3 pt-2">
+                  <h4 className="text-xs font-black text-slate-400 uppercase tracking-widest">
+                    Assigned Campus Portfolio Directory ({scopedColleges.length})
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {scopedColleges.map((col) => (
+                      <div
+                        key={col.id}
+                        className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                            {col.name}
+                          </p>
+                          <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                            ID: {col.id}
+                          </p>
+                        </div>
+                        <span className="shrink-0 px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/60 text-[9px] font-bold">
+                          Active
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>

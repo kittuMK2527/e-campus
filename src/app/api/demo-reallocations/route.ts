@@ -9,6 +9,7 @@ import { requireRole, requireSession, apiAuthErrorResponse } from "@/lib/api-aut
 import { generateId } from "@/lib/id";
 import { dispatchSystemNotification } from "@/lib/notifications";
 import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
+import { mapDayOrderToDayName } from "@/lib/utils";
 
 /**
  * Leave-driven Demo Reallocation flow:
@@ -23,6 +24,51 @@ import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
  */
 
 const ACTIVE_RESERVATION_STATUSES = ["pending", "approved"];
+
+function parseClockMinutes(value: unknown): number {
+  const match = String(value || "").match(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/i);
+  if (!match) return -1;
+  let hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  const meridiem = match[3]?.toUpperCase();
+  if (meridiem === "PM" && hours < 12) hours += 12;
+  if (meridiem === "AM" && hours === 12) hours = 0;
+  return hours * 60 + minutes;
+}
+
+function slotTimeRange(value: unknown): { start: number; end: number } {
+  const text = String(value || "");
+  const range = text.match(/(\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)\s*[-–]\s*(\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)/i);
+  if (!range) {
+    const start = parseClockMinutes(text);
+    return { start, end: start };
+  }
+  return { start: parseClockMinutes(range[1]), end: parseClockMinutes(range[2]) };
+}
+
+function smeDemoWindowReason(windows: any[], weekday: string, period: string): string | null {
+  const dayWindows = (windows || []).filter((window: any) => {
+    const day = String(window.day_of_week || "").trim().toLowerCase();
+    const target = weekday.toLowerCase();
+    const mappedDay = mapDayOrderToDayName(window.day_of_week, "").toLowerCase();
+    return day === target || day.startsWith(target.slice(0, 3)) || mappedDay === target;
+  });
+  const demoWindows = dayWindows.filter((window: any) =>
+    String(window.slot_type || window.slotType || "demo").toLowerCase() === "demo"
+  );
+  if (!demoWindows.length) return `No SME demo availability configured for ${weekday}.`;
+
+  const slot = slotTimeRange(period);
+  if (slot.start < 0) return null;
+  const fits = demoWindows.some((window: any) => {
+    const start = parseClockMinutes(window.start_time);
+    const end = parseClockMinutes(window.end_time);
+    return start >= 0 && end >= 0 && slot.start >= start && (slot.end <= slot.start || slot.end <= end);
+  });
+  if (fits) return null;
+  const ranges = demoWindows.map((window: any) => `${window.start_time}-${window.end_time}`).join(", ");
+  return `SME demo periods are ${ranges}; this slot is outside those hours.`;
+}
 
 async function ensureTable(db: any) {
   await db.exec(`
@@ -64,6 +110,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const demoSessionId = searchParams.get("demoSessionId");
+    const requestedDate = searchParams.get("dateStr");
     const leaveRequestId = searchParams.get("leaveRequestId");
     const status = searchParams.get("status");
 
@@ -74,19 +121,21 @@ export async function GET(request: Request) {
         return NextResponse.json({ success: false, message: "L&D session not found" }, { status: 404 });
       }
 
-      const collegeId = (demo as any).college_id || null;
+      const mentorRecord = await db.get("SELECT college_id FROM mentors WHERE id = ?", [demo.mentorId]).catch(() => null);
+      const collegeId = (demo as any).college_id || mentorRecord?.college_id || null;
 
       // College, timetable periods, holidays and outstanding reservations are four
       // independent reads, so one round trip serves all of them. A missed reservation
       // or holiday slice would offer a clashing alternative as free, so discovery is
       // refused instead of guessed at.
       const discoveryFailures: QueryFailure[] = [];
-      const [collegeRows, slotRows, holidayRows, reservationRows] = await db.multiQuery(
+      const [collegeRows, slotRows, holidayRows, reservationRows, smeWindowRows] = await db.multiQuery(
         [
           { sql: "SELECT * FROM colleges WHERE id = ?", params: [collegeId] },
           { sql: "SELECT * FROM slots WHERE college_id = ?", params: [collegeId] },
           { sql: "SELECT date, title FROM holidays" },
           { sql: "SELECT demo_session_id, proposed_date_str, proposed_time_slot, mentor_id, sme_id FROM demo_reallocation_requests WHERE status IN ('pending', 'approved')" },
+          { sql: "SELECT day_of_week, start_time, end_time, slot_type FROM sme_availability WHERE sme_id = ? AND is_active != 0", params: [demo.smeId] },
         ],
         discoveryFailures
       );
@@ -117,9 +166,20 @@ export async function GET(request: Request) {
       // Candidate dates: next 21 days, skipping Sundays & configured holidays
       const holidays: any[] = holidayRows;
       const holidaySet = new Set(holidays.map(h => h.date));
-      const candidateDates: { dateStr: string; label: string }[] = [];
+      const candidateDates: { dateStr: string; label: string; isHoliday?: boolean }[] = [];
       const today = parseLocalDate(getInstitutionDateStr());
-      for (let i = 1; i <= 21 && candidateDates.length < 12; i++) {
+      if (requestedDate) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(requestedDate) || Number.isNaN(parseLocalDate(requestedDate).getTime())) {
+          return NextResponse.json({ success: false, message: "Invalid target date." }, { status: 400 });
+        }
+        const d = parseLocalDate(requestedDate);
+        candidateDates.push({
+          dateStr: requestedDate,
+          label: `${d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} (${d.toLocaleDateString("en-US", { weekday: "long" })})`,
+          isHoliday: holidaySet.has(requestedDate),
+        });
+      }
+      for (let i = 1; !requestedDate && i <= 21 && candidateDates.length < 12; i++) {
         const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i, 12, 0, 0);
         const dow = d.getDay();
         if (dow === 0) continue;
@@ -235,6 +295,8 @@ export async function GET(request: Request) {
               ctx: ctx ?? undefined
             });
 
+          const smeWindowReason = smeDemoWindowReason(smeWindowRows || [], weekday, period);
+
           // SME also blocked by other demo_sessions at same date+slot
           const smeOtherDemo = smeOtherDemos
             ? hasSelfDemoAt(smeOtherDemos, cd.dateStr, period)
@@ -246,19 +308,19 @@ export async function GET(request: Request) {
               ).catch(() => null);
 
           const mentorFree = mentorAvail.available;
-          const smeFree = smeAvail.available && !smeOtherDemo;
+          const smeFree = smeAvail.available && !smeOtherDemo && !smeWindowReason;
 
           periods.push({
             period,
             mentorFree,
             mentorReason: mentorFree ? null : (mentorAvail as any).reason || "Mentor busy",
             smeFree,
-            smeReason: smeFree ? null : (smeOtherDemo ? "SME has another demo at this period." : (smeAvail as any).reason || "SME busy"),
+            smeReason: smeFree ? null : (smeWindowReason || (smeOtherDemo ? "SME has another demo at this period." : (smeAvail as any).reason || "SME busy")),
             mutuallyFree: mentorFree && smeFree
           });
         }
 
-        alternatives.push({ dateStr: cd.dateStr, label: cd.label, weekday, periods });
+        alternatives.push({ dateStr: cd.dateStr, label: cd.label, weekday, isSunday: weekday === "Sunday", isHoliday: Boolean(cd.isHoliday || holidaySet.has(cd.dateStr)), periods });
       }
 
       return NextResponse.json({
@@ -321,6 +383,46 @@ export async function POST(request: Request) {
       if ((demo as any).status === "completed" || (demo as any).status === "not_conducted") {
         return NextResponse.json({ success: false, message: "Completed L&D sessions cannot be reallocated." }, { status: 400 });
       }
+
+      const weekday = new Date(proposedDateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(proposedDateStr) || Number.isNaN(new Date(proposedDateStr + "T12:00:00").getTime())) {
+        return NextResponse.json({ success: false, message: "Choose a valid proposed date." }, { status: 400 });
+      }
+      if (weekday === "Sunday") return NextResponse.json({ success: false, message: "Campus is closed on Sunday." }, { status: 400 });
+
+      const proposalFailures: QueryFailure[] = [];
+      const [proposalWindows, proposalHolidays, proposalClashes, proposalReservations] = await db.multiQuery(
+        [
+          { sql: "SELECT day_of_week, start_time, end_time, slot_type FROM sme_availability WHERE sme_id = ? AND is_active != 0", params: [demo.smeId] },
+          { sql: "SELECT date FROM holidays WHERE date = ? LIMIT 1", params: [proposedDateStr] },
+          {
+            sql: `SELECT id FROM demo_sessions WHERE dateStr = ? AND id != ? AND status NOT IN ('completed', 'not_conducted')
+                  AND (mentorId = ? OR smeId = ?)
+                  AND (timeSlot = ? OR ? LIKE ('%' || timeSlot || '%') OR timeSlot LIKE ('%' || ? || '%'))`,
+            params: [proposedDateStr, demoSessionId, demo.mentorId, demo.smeId, proposedTimeSlot, proposedTimeSlot, proposedTimeSlot],
+          },
+          {
+            sql: `SELECT id FROM demo_reallocation_requests WHERE status IN ('pending', 'approved') AND demo_session_id != ?
+                  AND (mentor_id = ? OR sme_id = ?) AND proposed_date_str = ?
+                  AND (proposed_time_slot = ? OR ? LIKE ('%' || proposed_time_slot || '%') OR proposed_time_slot LIKE ('%' || ? || '%'))`,
+            params: [demoSessionId, demo.mentorId, demo.smeId, proposedDateStr, proposedTimeSlot, proposedTimeSlot, proposedTimeSlot],
+          },
+        ],
+        proposalFailures
+      );
+      if (proposalFailures.length) return NextResponse.json({ success: false, message: "Could not verify mentor and SME availability. Please retry." }, { status: 500 });
+      if (proposalHolidays?.length) return NextResponse.json({ success: false, message: "The proposed date is a campus holiday." }, { status: 400 });
+      if (proposalClashes?.length) return NextResponse.json({ success: false, message: "The mentor or SME already has an L&D session during this period." }, { status: 409 });
+      if (proposalReservations?.length) return NextResponse.json({ success: false, message: "This period is already reserved for another L&D reallocation." }, { status: 409 });
+
+      const [mentorAvailable, smeAvailable] = await Promise.all([
+        checkMentorAvailability(db, { mentorId: demo.mentorId, dateStr: proposedDateStr, dayOfWeek: weekday, timeSlot: proposedTimeSlot }),
+        checkSmeAvailability(db, { smeId: demo.smeId, dateStr: proposedDateStr, timeSlot: proposedTimeSlot }),
+      ]);
+      if (!mentorAvailable.available) return NextResponse.json({ success: false, message: "Mentor is not free: " + (mentorAvailable.reason || "timetable conflict") }, { status: 409 });
+      if (!smeAvailable.available) return NextResponse.json({ success: false, message: "SME is not free: " + (smeAvailable.reason || "availability conflict") }, { status: 409 });
+      const proposalWindowReason = smeDemoWindowReason(proposalWindows || [], weekday, proposedTimeSlot);
+      if (proposalWindowReason) return NextResponse.json({ success: false, message: proposalWindowReason }, { status: 409 });
 
       // Replace any existing pending reservation for this demo
       await db.run(
@@ -428,7 +530,54 @@ export async function POST(request: Request) {
       }
 
       // ── APPROVED: move the demo, release the original slot ────────────
-      // Re-verify target is still free (another demo may have taken it meanwhile)
+      // Re-check live timetable, SME windows and reservations at decision time.
+      const targetDate = String(req.proposed_date_str || "");
+      const targetWeekday = new Date(targetDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+      if (targetWeekday === "Sunday") {
+        return NextResponse.json({ success: false, message: "Cannot approve: campus is closed on Sunday." }, { status: 409 });
+      }
+      const approvalFailures: QueryFailure[] = [];
+      const [smeWindows, holidays] = await db.multiQuery(
+        [
+          { sql: "SELECT day_of_week, start_time, end_time, slot_type FROM sme_availability WHERE sme_id = ? AND is_active != 0", params: [req.sme_id] },
+          { sql: "SELECT date FROM holidays WHERE date = ? LIMIT 1", params: [targetDate] },
+        ],
+        approvalFailures
+      );
+      if (approvalFailures.length) {
+        return NextResponse.json({ success: false, message: "Could not re-check the SME timetable. Please retry." }, { status: 500 });
+      }
+      if (holidays?.length) {
+        return NextResponse.json({ success: false, message: "Cannot approve: the selected date is a campus holiday." }, { status: 409 });
+      }
+      const windowReason = smeDemoWindowReason(smeWindows || [], targetWeekday, String(req.proposed_time_slot || ""));
+      if (windowReason) {
+        return NextResponse.json({ success: false, message: "Cannot approve: " + windowReason }, { status: 409 });
+      }
+      const [mentorStatus, smeStatus] = await Promise.all([
+        checkMentorAvailability(db, { mentorId: req.mentor_id, dateStr: targetDate, dayOfWeek: targetWeekday, timeSlot: req.proposed_time_slot }),
+        checkSmeAvailability(db, { smeId: req.sme_id, dateStr: targetDate, timeSlot: req.proposed_time_slot }),
+      ]);
+      if (!mentorStatus.available) {
+        return NextResponse.json({ success: false, message: "Cannot approve: mentor is no longer free. " + (mentorStatus.reason || "") }, { status: 409 });
+      }
+      if (!smeStatus.available) {
+        return NextResponse.json({ success: false, message: "Cannot approve: SME is no longer free. " + (smeStatus.reason || "") }, { status: 409 });
+      }
+
+      const competingReservation = await db.get(
+        `SELECT id FROM demo_reallocation_requests
+         WHERE id != ? AND status IN ('pending', 'approved')
+           AND (mentor_id = ? OR sme_id = ?) AND proposed_date_str = ?
+           AND (proposed_time_slot = ? OR ? LIKE ('%' || proposed_time_slot || '%') OR proposed_time_slot LIKE ('%' || ? || '%'))
+         LIMIT 1`,
+        [requestId, req.mentor_id, req.sme_id, targetDate, req.proposed_time_slot, req.proposed_time_slot, req.proposed_time_slot]
+      );
+      if (competingReservation) {
+        return NextResponse.json({ success: false, message: "Cannot approve: this period is reserved for another reallocation." }, { status: 409 });
+      }
+
+      // Re-verify target is still free (another demo may have taken it meanwhile).
       const clash = await db.get(
         `SELECT id FROM demo_sessions
          WHERE dateStr = ? AND id != ? AND status NOT IN ('completed', 'not_conducted')

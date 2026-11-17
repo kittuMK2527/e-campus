@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Panel } from "../Panel";
+import { getInstitutionDateStr } from "@/lib/localDate";
 
 interface LndQueueTabProps {
   demoSessions: any[];
@@ -18,6 +19,7 @@ interface LndQueueTabProps {
   setSwapRequestsTab: (tab: "pending" | "resolved") => void;
   resolveDemoSwap: (id: string, decision: "approved" | "rejected") => Promise<{ success: boolean; message?: string }>;
   toast: (m: string, k?: any) => void;
+  refreshSessions: () => Promise<any>;
 }
 
 export default function LndQueueTab({
@@ -33,9 +35,102 @@ export default function LndQueueTab({
   swapRequestsTab,
   setSwapRequestsTab,
   resolveDemoSwap,
-  toast
+  toast,
+  refreshSessions
 }: LndQueueTabProps) {
   const [resolvingSwapId, setResolvingSwapId] = useState<string | null>(null);
+  const [makeupSession, setMakeupSession] = useState<any | null>(null);
+  const [makeupDate, setMakeupDate] = useState("");
+  const [makeupPeriods, setMakeupPeriods] = useState<any[]>([]);
+  const [makeupSlot, setMakeupSlot] = useState("");
+  const [loadingMakeupAvailability, setLoadingMakeupAvailability] = useState(false);
+  const [makeupAvailabilityError, setMakeupAvailabilityError] = useState("");
+  const [makeupDateBlockedReason, setMakeupDateBlockedReason] = useState("");
+  const [savingMakeup, setSavingMakeup] = useState(false);
+  const missedSessions = demoSessions.filter((session: any) =>
+    session.status === "not_conducted" &&
+    !demoSessions.some((candidate: any) => candidate.makeup_of_session_id === session.id)
+  );
+
+  const formatDateInput = (date: Date) => [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  const getNextWeekRange = () => {
+    const today = new Date(getInstitutionDateStr() + "T12:00:00");
+    const daysUntilMonday = ((8 - today.getDay()) % 7) || 7;
+    const start = new Date(today);
+    start.setDate(start.getDate() + daysUntilMonday);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    return { start, end };
+  };
+
+  const openMakeupScheduler = (session: any) => {
+    const { start } = getNextWeekRange();
+    setMakeupSession(session);
+    setMakeupDate(formatDateInput(start));
+    setMakeupSlot("");
+    setMakeupPeriods([]);
+    setMakeupAvailabilityError("");
+    setMakeupDateBlockedReason("");
+  };
+
+  useEffect(() => {
+    if (!makeupSession || !makeupDate) return;
+    let active = true;
+    setLoadingMakeupAvailability(true);
+    setMakeupAvailabilityError("");
+    setMakeupDateBlockedReason("");
+    setMakeupPeriods([]);
+    setMakeupSlot("");
+    fetch("/api/demo-reallocations?demoSessionId=" + encodeURIComponent(makeupSession.id) + "&dateStr=" + encodeURIComponent(makeupDate))
+      .then(async response => {
+        const data = await response.json();
+        if (!response.ok || !data?.success) throw new Error(data?.message || "Could not check next-week availability.");
+        if (active) {
+          const dateAvailability = data.alternatives?.[0];
+          const blockedReason = dateAvailability?.isSunday
+            ? "Campus is closed on Sunday. Choose another date in the upcoming week."
+            : dateAvailability?.isHoliday
+              ? "This date is a campus holiday. Choose another date in the upcoming week."
+              : "";
+          setMakeupDateBlockedReason(blockedReason);
+          setMakeupPeriods(blockedReason ? [] : dateAvailability?.periods || []);
+        }
+      })
+      .catch(error => {
+        if (active) setMakeupAvailabilityError(error?.message || "Could not check availability. Please retry.");
+      })
+      .finally(() => {
+        if (active) setLoadingMakeupAvailability(false);
+      });
+    return () => { active = false; };
+  }, [makeupSession?.id, makeupDate]);
+
+  const scheduleMakeup = async () => {
+    if (!makeupSession || !makeupDate || !makeupSlot || savingMakeup) return;
+    setSavingMakeup(true);
+    try {
+      const response = await fetch("/api/demo-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "makeup-book", originalSessionId: makeupSession.id, dateStr: makeupDate, timeSlot: makeupSlot }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success) throw new Error(data?.message || "Could not schedule the make-up session.");
+      toast(data.message || "Make-up session scheduled for the following week.", "success");
+      setMakeupSession(null);
+      setMakeupSlot("");
+      await refreshSessions();
+    } catch (error: any) {
+      toast(error?.message || "Could not schedule the make-up session.", "error");
+    } finally {
+      setSavingMakeup(false);
+    }
+  };
   return (
     <Panel
       title="Reallocation Queue & Diagnostics"
@@ -48,7 +143,7 @@ export default function LndQueueTab({
               Not Conducted Sessions
             </span>
             <span className="text-lg font-black leading-tight text-rose-900 dark:text-rose-200">
-              {demoSessions.filter(d => d.status === "not_conducted").length}
+              {missedSessions.length}
             </span>
             <p className="text-[10px] font-semibold text-rose-700/80 dark:text-rose-300/80">
               Sessions requiring re-booking.
@@ -66,6 +161,78 @@ export default function LndQueueTab({
             </p>
           </div>
         </div>
+
+        <section className="space-y-3" aria-labelledby="missed-lnd-sessions-title">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+            <div>
+              <h3 id="missed-lnd-sessions-title" className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300">Missed L&amp;D Sessions</h3>
+              <p className="mt-1 text-[10px] font-medium text-slate-500">Keep the original mentor and schedule a linked make-up in the following week.</p>
+            </div>
+            <span className="rounded-full bg-rose-50 px-2.5 py-1 text-[10px] font-black text-rose-700 dark:bg-rose-950/30 dark:text-rose-300">{missedSessions.length} need make-up</span>
+          </div>
+
+          {missedSessions.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 py-5 text-center text-xs font-semibold text-slate-400 dark:border-slate-800">No missed L&amp;D sessions need a make-up right now.</div>
+          ) : missedSessions.map((session: any) => (
+            <article key={session.id} className="flex flex-col gap-3 rounded-xl border border-rose-100 bg-rose-50/40 p-3 dark:border-rose-900/40 dark:bg-rose-950/10 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-black text-slate-900 dark:text-white">{session.subject || "L&D session"}</span>
+                  <span className="rounded-full bg-white px-2 py-0.5 text-[9px] font-black text-rose-700 dark:bg-slate-900 dark:text-rose-300">NOT CONDUCTED</span>
+                </div>
+                <p className="mt-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">{session.mentorName} · {session.smeName || "No SME"}{session.stream ? " · " + session.stream : ""}</p>
+                <p className="text-[10px] text-slate-500">Original: {session.dateStr} · {session.timeSlot}</p>
+              </div>
+              <button type="button" onClick={() => openMakeupScheduler(session)} className="min-h-11 w-full rounded-lg bg-slate-900 px-4 py-2 text-xs font-bold text-white transition hover:bg-slate-700 sm:w-auto">Schedule next week</button>
+            </article>
+          ))}
+
+          {makeupSession && (() => {
+            const { start: minDate, end: maxDate } = getNextWeekRange();
+            return (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 dark:border-amber-800/50 dark:bg-amber-950/10">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black text-slate-900 dark:text-white">Make-up for {makeupSession.mentorName} · {makeupSession.subject}</p>
+                    <p className="mt-1 text-[10px] font-medium text-slate-600 dark:text-slate-400">The original stays in history. The same mentor and SME are retained when both are free.</p>
+                  </div>
+                  <label className="flex flex-col gap-1 text-[10px] font-bold text-slate-600 dark:text-slate-300">Date in the following week
+                    <input type="date" value={makeupDate} min={formatDateInput(minDate)} max={formatDateInput(maxDate)} onChange={event => setMakeupDate(event.target.value)} className="min-h-11 rounded-lg border border-slate-200 bg-white px-3 text-xs dark:border-slate-700 dark:bg-slate-900" />
+                  </label>
+                </div>
+                {loadingMakeupAvailability && <p className="mt-3 text-xs font-semibold text-slate-500">Checking mentor and SME timetable availability…</p>}
+                {makeupAvailabilityError && <p className="mt-3 text-xs font-bold text-rose-700" role="alert">{makeupAvailabilityError}</p>}
+                {makeupDateBlockedReason && <p className="mt-3 text-xs font-bold text-rose-700" role="alert">{makeupDateBlockedReason}</p>}
+                {!loadingMakeupAvailability && !makeupAvailabilityError && makeupPeriods.length > 0 && (
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {makeupPeriods.map((period: any) => {
+                      const free = Boolean(period.mutuallyFree);
+                      const selected = makeupSlot === period.period;
+                      const classes = selected
+                        ? "border-amber-500 bg-amber-100 ring-2 ring-amber-300 dark:bg-amber-950/40"
+                        : free
+                          ? "border-emerald-200 bg-white dark:bg-slate-900"
+                          : "border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-800 dark:bg-slate-900/50";
+                      return (
+                        <button key={period.period} type="button" disabled={!free} onClick={() => setMakeupSlot(period.period)} className={"min-h-14 rounded-lg border p-3 text-left " + classes}>
+                          <span className="block text-xs font-black">{period.period}</span>
+                          <span className={"mt-1 block text-[10px] font-bold " + (free ? "text-emerald-700 dark:text-emerald-400" : "text-rose-600")}>
+                            {free ? "Mentor free · SME free" : !period.mentorFree ? "Mentor busy: " + (period.mentorReason || "not available") : "SME busy: " + (period.smeReason || "not available")}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {!loadingMakeupAvailability && !makeupAvailabilityError && !makeupDateBlockedReason && makeupPeriods.length === 0 && <p className="mt-3 text-xs font-semibold text-slate-500">No timetable periods were found for this date.</p>}
+                <div className="mt-4 flex flex-col-reverse gap-2 border-t border-amber-200 pt-3 dark:border-amber-800/50 sm:flex-row sm:justify-end">
+                  <button type="button" onClick={() => setMakeupSession(null)} className="min-h-11 rounded-lg px-4 py-2 text-xs font-bold text-slate-600 hover:bg-white/70 dark:text-slate-300">Cancel</button>
+                  <button type="button" disabled={!makeupSlot || savingMakeup || loadingMakeupAvailability || !!makeupDateBlockedReason} onClick={scheduleMakeup} className="min-h-11 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-black text-white disabled:cursor-not-allowed disabled:opacity-50">{savingMakeup ? "Scheduling…" : "Confirm Make-up"}</button>
+                </div>
+              </div>
+            );
+          })()}
+        </section>
 
         {/* ── Leave-Driven L&D Reallocation Requests (L & D Approval) ── */}
         <div className="space-y-3">

@@ -533,6 +533,13 @@ const migrations: Migration[] = [
     }
   },
   {
+    name: "demo_session_makeup_link",
+    run: async (db) => {
+      await db.exec("ALTER TABLE demo_sessions ADD COLUMN IF NOT EXISTS makeup_of_session_id TEXT").catch(() => {});
+      await db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_demo_sessions_makeup_source ON demo_sessions(makeup_of_session_id) WHERE makeup_of_session_id IS NOT NULL").catch(() => {});
+    }
+  },
+  {
     name: "campus_audits_tables",
     run: async (db) => {
       await db.exec(`

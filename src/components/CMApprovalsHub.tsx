@@ -13,10 +13,14 @@ interface CMApprovalsHubProps {
 }
 
 export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubProps = {}) {
-  const { requests, mentors, colleges, currentCAM, approvedHandovers, handleRequest, currentRole } = useApp();
+  const { requests, mentors, colleges, currentCAM, approvedHandovers, handleRequest, currentRole, currentUser } = useApp();
   const { toast } = useToast();
   
-  const isCmUser = currentRole === "cm";
+  const isCmUser = 
+    currentRole === "cm" || 
+    (currentUser?.role as string) === "cm" || 
+    (currentUser?.role as string) === "campus_manager" ||
+    (typeof window !== "undefined" && window.location.pathname.startsWith("/cm"));
 
   // Internal campus selection: For CM, lock strictly to their assigned college
   const [selectedCampus, setSelectedCampus] = useState<string>(() => collegeId || (isCmUser ? (currentCAM?.college_id || "") : "all"));
@@ -227,45 +231,60 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 flex items-center gap-2">
               Approvals & Leaves Hub
             </h1>
-            <p className="text-xs sm:text-sm font-semibold text-slate-500 mt-0.5 flex items-center gap-1.5">
-              <MapPin className="w-3.5 h-3.5 text-amber-500" />
-              {activeCollege?.name || (isCmUser ? (currentCAM?.college_id || "My Campus") : "All Supervised Campuses")}
-            </p>
+            {(!colleges || colleges.length === 0 || isCmUser) && (
+              <p className="text-xs sm:text-sm font-semibold text-slate-500 mt-0.5 flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5 text-amber-500" />
+                {activeCollege?.name || currentCAM?.college_name || (isCmUser ? (currentCAM?.college_id || "My Campus") : "All Supervised Campuses")}
+              </p>
+            )}
           </div>
           {!isCmUser && colleges && colleges.length > 0 && (
-            <select
-              aria-label="Filter Campus"
-              value={selectedCampus}
-              onChange={e => {
-                const val = e.target.value;
-                setSelectedCampus(val);
-                onCollegeChange?.(val);
-              }}
-              className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-800 outline-none ml-0 sm:ml-4"
-            >
-              <option value="all">All Supervised Campuses ({colleges.length})</option>
-              {colleges.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1.5 ml-0 sm:ml-4">
+              <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <select
+                aria-label="Filter Campus"
+                value={selectedCampus}
+                onChange={e => {
+                  const val = e.target.value;
+                  setSelectedCampus(val);
+                  onCollegeChange?.(val);
+                }}
+                className="text-xs font-bold bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-slate-800 outline-none"
+              >
+                <option value="all">All Supervised Campuses ({colleges.length})</option>
+                {colleges.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
           )}
         </div>
         
-        <div className="flex bg-slate-100 p-1 rounded-lg self-start sm:self-auto">
+        <div className="flex bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 self-start sm:self-auto gap-1">
           <button
             onClick={() => setActiveTab("pending")}
-            className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold transition-all ${activeTab === "pending" ? "bg-white text-amber-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
+              activeTab === "pending"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900"
+            )}
           >
-            Pending Requests
+            <span>Pending Requests</span>
             {pendingRequests.length > 0 && (
-              <span className="ml-2 inline-flex items-center justify-center bg-rose-500 text-white text-[10px] w-4 h-4 rounded-full">
+              <span className="inline-flex items-center justify-center bg-rose-500 text-white text-[10px] font-black h-4 min-w-[16px] px-1 rounded-full">
                 {pendingRequests.length}
               </span>
             )}
           </button>
           <button
             onClick={() => setActiveTab("history")}
-            className={`px-3 sm:px-4 py-1.5 rounded-md text-xs sm:text-sm font-bold transition-all ${activeTab === "history" ? "bg-white text-amber-700 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
+              activeTab === "history"
+                ? "bg-white text-slate-900 shadow-xs border border-slate-200/80"
+                : "text-slate-600 hover:text-slate-900"
+            )}
           >
             Handover History
           </button>
@@ -340,8 +359,8 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
           
           {/* Left Pane: Master List */}
           <div className={cn(
-            "w-full md:w-1/3 md:min-w-[320px] md:max-w-[420px] bg-white border-r border-slate-200 flex-col z-0",
-            selectedRequestId ? "hidden md:flex" : "flex"
+            "w-full lg:w-80 xl:w-96 lg:shrink-0 bg-white border-r border-slate-200 flex-col z-0",
+            selectedRequestId ? "hidden lg:flex" : "flex"
           )}>
             <div className="p-4 border-b border-slate-100 space-y-3">
               <div className="relative">
@@ -351,17 +370,20 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                   placeholder="Search requests..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-lg text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 transition-all"
+                  className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold focus:bg-white focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 transition-all placeholder:text-slate-400"
                 />
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
                 {["all", "Late Attendance", "Late Punch", "Substitution", "Exam Mark Edit"].map(cat => (
                   <button
                     key={cat}
                     onClick={() => setCategoryFilter(cat as any)}
-                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-all whitespace-nowrap ${categoryFilter === cat 
-                      ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold" 
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                    className={cn(
+                      "shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap border cursor-pointer min-h-[32px] flex items-center justify-center",
+                      categoryFilter === cat 
+                        ? "bg-slate-900 text-white border-slate-900 shadow-xs" 
+                        : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+                    )}
                   >
                     {cat === "all" ? "All Requests" : cat}
                   </button>
@@ -374,9 +396,12 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                 <div 
                   key={req.id}
                   onClick={() => setSelectedRequestId(req.id)}
-                  className={`p-4 rounded-xl cursor-pointer border transition-all ${selectedRequestId === req.id 
-                    ? "bg-amber-50/50 border-indigo-300 shadow-sm ring-1 ring-indigo-500/20" 
-                    : "bg-white border-slate-200 hover:border-amber-300 hover:shadow-sm"}`}
+                  className={cn(
+                    "p-3.5 sm:p-4 rounded-xl cursor-pointer border transition-all text-left",
+                    selectedRequestId === req.id 
+                      ? "bg-amber-50/70 border-amber-300 shadow-xs ring-1 ring-amber-400/30" 
+                      : "bg-white border-slate-200/90 hover:border-slate-300 hover:shadow-2xs"
+                  )}
                 >
                   <div className="flex justify-between items-start mb-2">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10px] font-black uppercase border ${getStatusColor(req.reasonCategory)}`}>
@@ -401,12 +426,12 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
           {/* Right Pane: Detail View */}
           <div className={cn(
             "flex-1 bg-slate-50/50 overflow-y-auto relative",
-            selectedRequestId ? "flex flex-col" : "hidden md:flex flex-col"
+            selectedRequestId ? "flex flex-col" : "hidden lg:flex flex-col"
           )}>
             {selectedRequest ? (
               <>
-                {/* Mobile Back Button Bar */}
-                <div className="md:hidden flex items-center gap-2 p-3 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-2xs">
+                {/* Mobile / Tablet Back Button Bar */}
+                <div className="lg:hidden flex items-center gap-2 p-3 bg-white border-b border-slate-200 sticky top-0 z-20 shadow-2xs">
                   <button
                     type="button"
                     onClick={() => setSelectedRequestId(null)}
@@ -484,14 +509,41 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
 
                       <div>
                         <h4 className="text-sm font-black text-slate-800 mb-2">2. Confirm Subject to be Taught</h4>
-                        <div className="flex gap-2">
-                          <button onClick={() => setHandoverSubject("original")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "original" ? "btn-gradient text-white border-amber-500 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setHandoverSubject("original")}
+                            className={cn(
+                              "px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer min-h-[32px]",
+                              handoverSubject === "original"
+                                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            )}
+                          >
                             Original ({selectedRequest.course})
                           </button>
-                          <button onClick={() => setHandoverSubject("substitute_own")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "substitute_own" ? "btn-gradient text-white border-amber-500 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
-                            Cover Faculty's Own Subject
+                          <button
+                            type="button"
+                            onClick={() => setHandoverSubject("substitute_own")}
+                            className={cn(
+                              "px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer min-h-[32px]",
+                              handoverSubject === "substitute_own"
+                                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            )}
+                          >
+                            Cover Faculty&apos;s Own Subject
                           </button>
-                          <button onClick={() => setHandoverSubject("custom")} className={`px-4 py-2 rounded-lg text-xs font-bold border transition-all ${handoverSubject === "custom" ? "btn-gradient text-white border-amber-500 shadow-sm" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"}`}>
+                          <button
+                            type="button"
+                            onClick={() => setHandoverSubject("custom")}
+                            className={cn(
+                              "px-3.5 py-1.5 rounded-lg text-xs font-bold border transition-all cursor-pointer min-h-[32px]",
+                              handoverSubject === "custom"
+                                ? "bg-slate-900 text-white border-slate-900 shadow-xs"
+                                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                            )}
+                          >
                             Custom
                           </button>
                         </div>
@@ -506,22 +558,25 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                     </div>
                   )}
 
-                  <div className="space-y-3">
-                    <label className="text-sm font-black text-slate-800 block">3. Add Internal Remarks (Optional)</label>
+                  <div className="space-y-2">
+                    <label className="text-sm font-black text-slate-800 block">
+                      {selectedRequest.reasonCategory === "Substitution" ? "3. Add Internal Remarks (Optional)" : "Decision Remarks (Optional)"}
+                    </label>
                     <textarea 
                       placeholder="Add a note about this decision..."
                       value={reviewReason}
                       onChange={e => setReviewReason(e.target.value)}
-                      className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 min-h-[80px] resize-none"
+                      rows={3}
+                      className="w-full bg-slate-50 border border-slate-200 focus:bg-white rounded-xl px-4 py-3 text-sm font-semibold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 min-h-[80px] resize-none placeholder:text-slate-400"
                     />
                   </div>
 
-                  <div className="flex items-center gap-3 pt-4 border-t border-slate-100 md:border-t-0 sticky bottom-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm -mx-6 -mb-6 p-4 border-t border-slate-200 dark:border-slate-800 z-10">
+                  <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
                     <button
                       type="button"
                       disabled={actionLoading[selectedRequest.id]}
                       onClick={() => handleRequestAction(selectedRequest.id, "approved")}
-                      className="flex-1 min-h-[48px] py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-black shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="flex-1 h-11 px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-xs active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {actionLoading[selectedRequest.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                       <span>Approve Request</span>
@@ -531,7 +586,7 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                       type="button"
                       disabled={actionLoading[selectedRequest.id]}
                       onClick={() => handleRequestAction(selectedRequest.id, "rejected")}
-                      className="flex-1 min-h-[48px] py-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-black shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+                      className="flex-1 h-11 px-5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-sm font-bold shadow-xs active:scale-[0.99] transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                     >
                       {actionLoading[selectedRequest.id] ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
                       <span>Decline Request</span>

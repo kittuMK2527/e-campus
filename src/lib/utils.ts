@@ -49,7 +49,7 @@ export function getRoleHomePath(role?: string | null): string {
   return ROLE_HOME_PATHS[normalized] || `/${normalized}`;
 }
 
-const SME_TABS = ["overview", "demo_list", "weekly_plans", "skill_approvals", "availability", "reallocation", "history", "eval_criteria"] as const;
+const SME_TABS = ["overview", "demo_list", "weekly_plans", "skill_approvals", "availability", "reallocation", "history", "eval_criteria", "profile"] as const;
 const FEE_MANAGER_TABS = ["overview", "colleges", "students", "transactions"] as const;
 
 export function resolveSmeTab(value: unknown): typeof SME_TABS[number] {

@@ -111,7 +111,7 @@ const StudentNpsTab = dynamic(() => import("./admin/reports/StudentNpsTab").then
 
 import {
   Building2, GraduationCap, Users, Calendar, ClipboardList, Sparkles,
-  AlertTriangle, BookOpen, Clock, CheckCircle2, XCircle, Search,
+  AlertTriangle, BookOpen, Clock, CheckCircle2, XCircle, Search, MapPin,
   PlusCircle, Check, ArrowRight, Settings, MessageSquare, ShieldAlert, ShieldCheck, Zap,
   Award, Trophy, Medal, TrendingUp, FileText, FileSpreadsheet, RefreshCw, Plus, Trash2, Edit2, Edit, Grid, Download, Upload, ChevronDown, Loader2, Save,
   ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, CheckCircle, User, SlidersHorizontal, CalendarCheck2, IndianRupee, BadgePercent, X, Mail, Lock, Menu, Briefcase, Layers, Info, Ticket, CalendarRange, UserCheck, Printer, Star,
@@ -5095,7 +5095,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   setTicketAttachmentFilter(ticketAttachmentFilter === "with_image" ? "all" : "with_image");
                 }}
                 className={`p-3.5 rounded-xl border transition-all cursor-pointer hover:scale-[1.01] ${ticketAttachmentFilter === "with_image"
-                  ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-md ring-1 ring-amber-500/40 font-bold"
+                  ? "bg-slate-900 text-white border-slate-900 shadow-md ring-1 ring-slate-800 font-bold"
                   : "bg-amber-50/60 border-amber-200 text-zinc-900 hover:bg-amber-100/60"
                   }`}
                 title="Click to filter tickets with uploaded screenshots / images"
@@ -5430,8 +5430,8 @@ export const CAMCampusInsightPanel: React.FC<{
                   type="button"
                   onClick={() => setTicketAttachmentFilter(ticketAttachmentFilter === "with_image" ? "all" : "with_image")}
                   className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${ticketAttachmentFilter === "with_image"
-                    ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold"
-                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
+                    ? "bg-slate-900 text-white border border-slate-900 shadow-xs font-bold"
+                    : "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50"
                     }`}
                   title="Filter tickets that contain student-uploaded screenshot image proof"
                 >
@@ -8445,7 +8445,7 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
                                 disabled={isMarking}
                                 onClick={() => openReasonModal(m, "OD")}
                                 className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${m.status === "OD"
-                                  ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold"
+                                  ? "bg-amber-600 text-white border border-amber-600 shadow-xs font-bold"
                                   : "bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200"
                                   }`}
                               >
@@ -10311,8 +10311,12 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(false);
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("fp_sidebar_collapsed") === "true";
-      setIsCollapsed(stored);
+      const stored = localStorage.getItem("fp_sidebar_collapsed");
+      if (stored !== null) {
+        setIsCollapsed(stored === "true");
+      } else if (window.innerWidth < 1024) {
+        setIsCollapsed(true);
+      }
     }
   }, []);
 
@@ -16924,15 +16928,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           </div>
 
                           {hasShifts && (
-                            <div className="flex items-center gap-1.5 bg-slate-50 p-1 rounded-xl border border-slate-200 shadow-sm">
+                            <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-xl border border-slate-200/80 shadow-xs">
                               {(["shift_1", "shift_2", "general"] as const).map(sh => (
                                 <button
                                   key={sh}
                                   type="button"
                                   onClick={() => handleViewerShiftChange(sh)}
-                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${viewerShift === sh
-                                    ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold"
-                                    : "text-slate-500 hover:text-slate-700"
+                                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${viewerShift === sh
+                                    ? "bg-white text-slate-900 shadow-xs font-bold border border-slate-200/80"
+                                    : "text-slate-600 hover:text-slate-900"
                                     }`}
                                 >
                                   {sh === "shift_1" ? "Shift 1" : sh === "shift_2" ? "Shift 2" : "General"}
@@ -17107,10 +17111,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                 key={day}
                                 type="button"
                                 onClick={() => setMobileTimetableDay(day)}
-                                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
+                                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer border ${
                                   (mobileTimetableDay || DAYS[0]) === day
-                                    ? "bg-zinc-900 text-amber-400 border border-amber-500 shadow-xs font-bold"
-                                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                    ? "bg-slate-900 text-white border-slate-900 shadow-xs font-bold"
+                                    : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
                                 }`}
                               >
                                 {day}
@@ -21986,7 +21990,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white text-slate-800 cursor-pointer"
                     >
                       {Array.from({ length: 15 }, (_, i) => i + 1).map(wk => (
-                        <option key={wk} value={wk}>Week {wk} {wk % 2 === 0 ? "(Assessment)" : ""}</option>
+                        <option key={wk} value={wk}>Week {wk}</option>
                       ))}
                     </select>
                   </div>
@@ -22503,18 +22507,19 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     }
 
                     return (
-                      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm">
-                        <Table className="w-full border-collapse text-left text-xs min-w-[560px]">
+                      <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm bg-white scroll-touch">
+                        <Table className="w-full border-collapse text-left text-xs min-w-[760px]">
                           <TableHeader>
-                            <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9.5px]">
-                              <TableHead className="p-3 w-[25%]">Student Info</TableHead>
-                              <TableHead className="p-3 w-[30%]">Submission Link</TableHead>
-                              <TableHead className="p-3 w-[35%]">VIVA Feedback / Assessment Comments</TableHead>
-                              <TableHead className="p-3 w-[10%] text-center">Marks (0-10)</TableHead>
+                            <TableRow className="bg-slate-50 border-b border-slate-200 text-slate-500 font-extrabold uppercase text-[9.5px] whitespace-nowrap">
+                              <TableHead className="p-3 w-12 text-center border-r border-slate-100">#</TableHead>
+                              <TableHead className="p-3 border-r border-slate-100 min-w-[180px]">Student Info</TableHead>
+                              <TableHead className="p-3 border-r border-slate-100 w-[180px]">Submission Link</TableHead>
+                              <TableHead className="p-3 border-r border-slate-100 min-w-[220px]">VIVA Feedback / Assessment Comments</TableHead>
+                              <TableHead className="p-3 w-[120px] text-center">Marks (0-10)</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody className="divide-y divide-slate-100 bg-white">
-                            {classStudents.map(student => {
+                            {classStudents.map((student, sIdx) => {
                               const entry = studentTracker.find(
                                 e => e.student_id === student.id &&
                                   (isAllSubjects || isSubjectNameMatch(e.subject, activeSubject) || e.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim()) &&
@@ -22527,44 +22532,51 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                               let badgeBg = "bg-slate-50 border-slate-200 text-slate-500";
                               if (marks !== null) {
-                                if (marks >= 8) badgeBg = "bg-teal-50 border-teal-100 text-teal-700";
-                                else if (marks >= 5) badgeBg = "bg-amber-50 border-amber-100 text-amber-700";
-                                else badgeBg = "bg-rose-50 border-rose-100 text-rose-700";
+                                if (marks >= 8) badgeBg = "bg-teal-50 border-teal-200 text-teal-700";
+                                else if (marks >= 5) badgeBg = "bg-amber-50 border-amber-200 text-amber-700";
+                                else badgeBg = "bg-rose-50 border-rose-200 text-rose-700";
                               }
 
                               return (
                                 <TableRow key={student.id} className="hover:bg-slate-50/40 transition-colors text-slate-700">
-                                  <TableCell className="p-3">
-                                    <div className="font-bold text-slate-800">{student.name}</div>
-                                    <div className="text-[9px] text-slate-400 mt-0.5">{student.classGroup || "—"}</div>
-                                    <div className="text-[9px] text-slate-400 font-mono">{student.id}</div>
+                                  <TableCell className="p-3 text-center font-bold text-slate-400 border-r border-slate-100">
+                                    {sIdx + 1}
                                   </TableCell>
-                                  <TableCell className="p-3">
+                                  <TableCell className="p-3 border-r border-slate-100">
+                                    <div className="font-bold text-slate-900 leading-tight">{student.name}</div>
+                                    <div className="text-[10px] text-amber-600 font-mono font-bold mt-0.5">{student.email || student.id}</div>
+                                    <div className="text-[9.5px] text-slate-400 font-mono">{student.classGroup || "—"} {student.register_number ? `• Reg: ${student.register_number}` : ""}</div>
+                                  </TableCell>
+                                  <TableCell className="p-3 border-r border-slate-100">
                                     {submissionUrl ? (
                                       <a
                                         href={submissionUrl}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-500 hover:underline max-w-[220px] truncate cursor-pointer"
+                                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline max-w-[200px] truncate cursor-pointer"
                                         title={submissionUrl}
                                       >
                                         <BookOpen className="h-3.5 w-3.5 shrink-0" />
-                                        {submissionUrl}
+                                        <span className="truncate">{submissionUrl}</span>
                                       </a>
                                     ) : (
                                       <span className="text-[10px] text-slate-400 italic">No submission yet</span>
                                     )}
                                   </TableCell>
-                                  <TableCell className="p-3 font-semibold text-slate-600">
-                                    {feedback || <span className="text-[10px] text-slate-300 italic">No feedback entered</span>}
+                                  <TableCell className="p-3 font-semibold text-slate-600 border-r border-slate-100">
+                                    {feedback ? (
+                                      <p className="line-clamp-2 text-xs">{feedback}</p>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-300 italic">No feedback entered</span>
+                                    )}
                                   </TableCell>
                                   <TableCell className="p-3 text-center">
                                     {marks !== null ? (
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded-lg border text-xs font-black uppercase tracking-wider ${badgeBg}`}>
+                                      <span className={`inline-flex items-center px-2.5 py-1 rounded-lg border text-xs font-black uppercase tracking-wider ${badgeBg}`}>
                                         {marks} / 10
                                       </span>
                                     ) : (
-                                      <span className="text-[10px] text-slate-400 italic">Pending</span>
+                                      <span className="text-[10px] text-slate-400 font-bold bg-slate-50 border border-slate-200 px-2 py-0.5 rounded">Pending</span>
                                     )}
                                   </TableCell>
                                 </TableRow>
@@ -25085,46 +25097,53 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             <div className="space-y-6 font-sans">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Profile Summary Card */}
-                <div className="bg-pastel-cream p-6 rounded-2xl border-transparent shadow-card flex flex-col items-center justify-between text-center min-h-[300px] group hover:shadow-card-lg transition-all duration-300">
+                <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-card flex flex-col items-center justify-between text-center min-h-[320px]">
                   <div className="flex flex-col items-center space-y-4 w-full">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-tr from-zinc-900 to-zinc-800 border-4 border-white text-white flex items-center justify-center text-3xl font-black shadow-md uppercase">
+                    <div className="h-20 w-20 rounded-2xl bg-zinc-900 border-4 border-amber-500 text-amber-400 flex items-center justify-center text-2xl font-black shadow-md uppercase">
                       {((isKAMView ? currentKAM?.name : currentCAM?.name) || "User").substring(0, 2)}
                     </div>
                     <div>
-                      <h2 className="text-lg font-extrabold text-slate-900 leading-tight">
+                      <h2 className="text-base font-extrabold text-slate-900 leading-tight">
                         {isKAMView ? currentKAM?.name || "Key Account Manager" : currentCAM?.name || "Campus Manager"}
                       </h2>
-                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mt-1">
-                        {isKAMView ? "Key Account Manager (KAM)" : "Campus Manager (CM)"}
+                      <p className="text-[10px] text-amber-600 font-bold uppercase tracking-wider mt-1">
+                        {isKAMView ? "Key Account Manager (KAM) • Portfolio Lead" : "Campus Operations Manager (CM)"}
                       </p>
                     </div>
                     <div className="flex flex-wrap justify-center gap-1.5 pt-1">
-                      <span className="px-2 py-0.5 rounded bg-white/80 border border-slate-100 text-[9px] font-black text-slate-700 uppercase">
-                        {activeCollegeName}
+                      <span className="px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-[10px] font-bold text-amber-900 flex items-center gap-1.5">
+                        <MapPin className="w-3 h-3 text-amber-600 shrink-0" />
+                        <span>{activeCollegeName}</span>
                       </span>
                     </div>
                   </div>
 
-                  <div className="w-full border-t border-slate-200/60 pt-4 mt-4 text-left space-y-2">
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-500">User ID</span>
-                      <span className="text-slate-800 font-mono">{isKAMView ? currentKAM?.id || "kam_user" : currentCAM?.id || "cam_user"}</span>
+                  <div className="w-full border-t border-slate-100 pt-4 mt-4 text-left space-y-2.5">
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-slate-400">User ID</span>
+                      <span className="text-slate-800 font-mono text-[11px]">{isKAMView ? currentKAM?.id || "kam_user" : currentCAM?.id || "cam_user"}</span>
                     </div>
-                    <div className="flex justify-between text-[11px] font-bold">
-                      <span className="text-slate-500">Primary Email</span>
+                    <div className="flex justify-between items-center text-xs font-semibold">
+                      <span className="text-slate-400">Primary Email</span>
                       <span className="text-slate-800 truncate max-w-[170px]" title={isKAMView ? currentKAM?.email : currentCAM?.email}>
                         {isKAMView ? currentKAM?.email || "kam@faceprep.in" : currentCAM?.email || "cam@faceprep.in"}
                       </span>
                     </div>
+                    {!isKAMView && (
+                      <div className="flex justify-between items-center text-xs font-semibold">
+                        <span className="text-slate-400">Supervising KAM</span>
+                        <span className="text-slate-800 font-bold text-[11px]">{currentCAM?.kam_name || currentCAM?.kam_id || "KAM Portfolio Lead"}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Campus Assignment Details Card */}
-                <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-card space-y-6 flex flex-col justify-between">
+                <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-card space-y-6 flex flex-col justify-between">
                   <div>
-                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Campus & Operations Jurisdiction</h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="space-y-1">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Campus &amp; Operations Jurisdiction</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div className="space-y-1 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Assigned Campus</span>
                         <span className="text-sm font-extrabold text-slate-800 block leading-snug">
                           {activeCollegeName}
@@ -25132,7 +25151,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <span className="text-[10px] text-slate-500 font-semibold block">Campus Operations Administrator</span>
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Campus ID Reference</span>
                         <span className="text-sm font-extrabold text-slate-800 block">
                           {activeCollegeId || "Primary Campus"}
@@ -25140,56 +25159,56 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         <span className="text-[10px] text-slate-500 font-semibold block">{activeCollegeName || "Campus"} Ecosystem</span>
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Active Academic Session</span>
                         <span className="text-sm font-extrabold text-slate-800 block">{getCurrentAcademicYear()} (Odd/Even Sem Cycle)</span>
                         <span className="text-[10px] text-slate-500 font-semibold block">Timetable Generation Period</span>
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Role Authority Level</span>
                         <span className="text-sm font-extrabold text-slate-800 block">Campus Operations Manager</span>
-                        <span className="text-[10px] text-slate-500 font-semibold block">SLA Compliance & Space Coordinator</span>
+                        <span className="text-[10px] text-slate-500 font-semibold block">SLA Compliance &amp; Space Coordinator</span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3">
+                  <div className="bg-amber-50/70 border border-amber-200/80 p-4 rounded-xl flex items-center gap-3">
                     <Sparkles className="h-5 w-5 text-amber-500 shrink-0" />
-                    <div className="text-xs text-amber-800 font-bold leading-normal">
-                      Manage campus schedules, classrooms, class allocations, and scheduling conflicts.
+                    <div className="text-xs text-amber-900 font-medium leading-normal">
+                      Manage campus schedules, classrooms, faculty allocations, attendance submissions, and scheduling conflicts under this administrative console.
                     </div>
                   </div>
                 </div>
               </div>
 
               {/* Campus Portfolio Statistics */}
-              <div className="bg-pastel-blue p-6 rounded-2xl border-transparent shadow-sm space-y-6">
-                <h3 className="text-xs font-black text-slate-600 uppercase tracking-widest font-sans">Campus Portfolio Metrics</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-center">
-                  <div className="p-4 bg-white/80 rounded-xl border border-slate-100/40">
-                    <span className="text-3xl font-extrabold text-slate-900">
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-card space-y-4">
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest font-sans">Campus Portfolio Metrics</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-2xl font-black text-slate-900 block">
                       {collegeMentors.length}
                     </span>
-                    <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block mt-1">Campus Faculty</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">Campus Faculty</span>
                   </div>
-                  <div className="p-4 bg-white/80 rounded-xl border border-slate-100/40">
-                    <span className="text-3xl font-extrabold text-slate-900">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-2xl font-black text-slate-900 block">
                       {collegeStudents.length}
                     </span>
-                    <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block mt-1">Active Students</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">Active Students</span>
                   </div>
-                  <div className="p-4 bg-white/80 rounded-xl border border-slate-100/40">
-                    <span className="text-3xl font-extrabold text-slate-900">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-2xl font-black text-slate-900 block">
                       {collegeCourses.length}
                     </span>
-                    <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block mt-1">Active Courses</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">Active Courses</span>
                   </div>
-                  <div className="p-4 bg-white/80 rounded-xl border border-slate-100/40">
-                    <span className="text-3xl font-extrabold text-slate-900">
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-2xl font-black text-slate-900 block">
                       {collegeSlots.length}
                     </span>
-                    <span className="text-[9px] text-slate-500 font-extrabold uppercase tracking-wider block mt-1">Timetable Slots</span>
+                    <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mt-1">Timetable Slots</span>
                   </div>
                 </div>
               </div>

@@ -28,7 +28,8 @@ export type AdminTab =
   | "report_mentor_nps"
   | "report_student_nps"
   | "report_client_nps"
-  | "more_menu";
+  | "more_menu"
+  | "profile";
 
 export interface AdminDashboardProps {
   activeTab?: AdminTab;

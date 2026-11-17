@@ -196,9 +196,27 @@ export function UserProfileBar({ onOpenChangePassword }: UserProfileBarProps) {
     currentSME
   ]);
 
+  const profilePath = useMemo(() => {
+    const role = normalizeRoleValue(currentRole);
+    if (role === "mentor") return "/mentor/profile";
+    if (role === "cm") return "/cm/profile";
+    if (role === "kam") return "/kam/profile";
+    if (role === "student") return "/student/profile";
+    if (role === "sme") return "/sme/profile";
+    if (role === "admin") return "/admin/profile";
+    return null;
+  }, [currentRole]);
+
   const handleToggle = useCallback(() => {
     setIsOpen((prev) => !prev);
   }, []);
+
+  const handleNavigateProfile = useCallback(() => {
+    setIsOpen(false);
+    if (profilePath) {
+      router.push(profilePath);
+    }
+  }, [profilePath, router]);
 
   const handleOpenPasswordModal = useCallback(() => {
     setIsOpen(false);
@@ -291,6 +309,18 @@ export function UserProfileBar({ onOpenChangePassword }: UserProfileBarProps) {
 
           {/* Actions List */}
           <div className="p-1.5 space-y-0.5">
+            {profilePath && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={handleNavigateProfile}
+                className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-100 hover:bg-amber-50 dark:hover:bg-amber-950/30 hover:text-amber-800 dark:hover:text-amber-300 transition-all cursor-pointer"
+              >
+                <User className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <span>My Profile</span>
+              </button>
+            )}
+
             <button
               type="button"
               role="menuitem"

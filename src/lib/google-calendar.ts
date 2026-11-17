@@ -27,6 +27,7 @@ export interface GoogleCalendarResult {
   meet_id: string | null;
   ics_content: string;
   event_created?: boolean;
+  error?: string;
 }
 
 /** Accept only a specific HTTPS Meet room, never the generic /new launcher or a fake code. */
@@ -43,8 +44,14 @@ export function normalizeGoogleMeetLink(value?: string | null): string | null {
   }
 }
 
-function getCalendarAppsScriptUrl(): string | null {
-  const candidate = (process.env.GOOGLE_CALENDAR_GAS_URL || "").trim();
+export function getCalendarAppsScriptUrl(): string | null {
+  const candidate = (
+    process.env.GOOGLE_CALENDAR_GAS_URL ||
+    process.env.NEXT_PUBLIC_GAS_MAIL_URL ||
+    process.env.GOOGLE_APPS_SCRIPT_URL ||
+    process.env.GAS_URL ||
+    ""
+  ).trim();
   if (!candidate) return null;
   try {
     const url = new URL(candidate);
