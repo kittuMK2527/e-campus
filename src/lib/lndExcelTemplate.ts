@@ -230,8 +230,8 @@ export async function buildLndDemoTemplate(
         const hasClass = slots.some(s => {
           if (s.mentorId !== mentorId) return false;
           const sDay = (s.day || "").toLowerCase().trim();
-          const targetEffDay = mDayInfo.effectiveTimetableDay.toLowerCase().trim();
-          const targetDayOrder = mDayInfo.dayOrder.toLowerCase().trim();
+          const targetEffDay = (mDayInfo.effectiveTimetableDay || "").toLowerCase().trim();
+          const targetDayOrder = (mDayInfo.dayOrder || "").toLowerCase().trim();
           const mappedSlotDay = (mapDayOrderToDayName(s.day, "") || "").toLowerCase().trim();
           const mappedTargetDayOrder = (mapDayOrderToDayName(mDayInfo.dayOrder, "") || "").toLowerCase().trim();
 
@@ -404,8 +404,8 @@ export async function buildLndDemoTemplate(
             const hasClass = slots.some(s => {
               if (s.mentorId !== m.id) return false;
               const sDay = (s.day || "").toLowerCase().trim();
-              const targetEffDay = mDayInfo.effectiveTimetableDay.toLowerCase().trim();
-              const targetDayOrder = mDayInfo.dayOrder.toLowerCase().trim();
+              const targetEffDay = (mDayInfo.effectiveTimetableDay || "").toLowerCase().trim();
+              const targetDayOrder = (mDayInfo.dayOrder || "").toLowerCase().trim();
               const mappedSlotDay = (mapDayOrderToDayName(s.day, "") || "").toLowerCase().trim();
               const mappedTargetDayOrder = (mapDayOrderToDayName(mDayInfo.dayOrder, "") || "").toLowerCase().trim();
 

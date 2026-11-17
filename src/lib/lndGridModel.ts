@@ -575,8 +575,8 @@ export function computeFreeMentorsForSlot(
     const mentorTimetableSlots = ctx.slotsByMentor.get(m.id) || [];
     const hasClass = mentorTimetableSlots.some(s => {
       const sDay = (s.day || "").toLowerCase().trim();
-      const targetEffDay = mDayInfo.effectiveTimetableDay.toLowerCase().trim();
-      const targetDayOrder = mDayInfo.dayOrder.toLowerCase().trim();
+      const targetEffDay = (mDayInfo.effectiveTimetableDay || "").toLowerCase().trim();
+      const targetDayOrder = (mDayInfo.dayOrder || "").toLowerCase().trim();
       const mappedSlotDay = (mapDayOrderToDayName(s.day, "") || "").toLowerCase().trim();
       const mappedTargetDayOrder = (mapDayOrderToDayName(mDayInfo.dayOrder, "") || "").toLowerCase().trim();
 

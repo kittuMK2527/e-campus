@@ -41,13 +41,24 @@ export async function GET(request: Request) {
       const mentors = mentorRows || [];
       const availCtx = await loadAvailabilityContext(db, {
         mentorIds: mentors.map((m: any) => m.id),
-        dateStrs: [availableForDate],
+        dates: [availableForDate],
       });
 
-      const availableMentors = mentors.filter((m: any) => {
-        const status = checkMentorAvailability(availCtx, m.id, availableForDate, slot.time);
-        return status.available;
-      });
+      const availabilityChecks = await Promise.all(
+        mentors.map(async (m: any) => {
+          const status = await checkMentorAvailability(db, {
+            mentorId: m.id,
+            dateStr: availableForDate,
+            timeSlot: slot.time,
+            ctx: availCtx,
+          });
+          return { mentor: m, available: status.available };
+        })
+      );
+
+      const availableMentors = availabilityChecks
+        .filter((c) => c.available)
+        .map((c) => c.mentor);
 
       return NextResponse.json({ success: true, mentors: availableMentors });
     }

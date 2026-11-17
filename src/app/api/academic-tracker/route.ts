@@ -562,17 +562,11 @@ export async function POST(request: Request) {
         );
       }
 
-      // Day order validation - ensures CM has set a valid day schedule
-      if (!dayConfig || !dayConfig.day_type || dayConfig.day_order === "None") {
+      // Sunday is a weekly holiday unless configured as a working day by CM
+      const todayObj = new Date(todayStr + "T00:00:00");
+      if (todayObj.getDay() === 0 && (!dayConfig || dayConfig.day_type !== "working")) {
         return NextResponse.json(
-          { success: false, message: "Day order has not been configured by Campus Manager for today. The CM must set today's day schedule before period conduction can be logged." },
-          { status: 422 }
-        );
-      }
-
-      if (!dayConfig.day_order || dayConfig.day_order === "None") {
-        return NextResponse.json(
-          { success: false, message: "Campus Manager has not specified a Day Order for today. Period logging requires an active CM Day Order setting." },
+          { success: false, message: "Sunday is a weekly holiday. Period conduction cannot be logged unless configured as a working Sunday by the Campus Manager." },
           { status: 422 }
         );
       }

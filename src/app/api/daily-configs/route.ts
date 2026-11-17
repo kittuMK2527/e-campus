@@ -113,6 +113,14 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
     }
   }
 
+  // Cross-reference official holidays for the campus across next week
+  const scheduledHolidays = await db.all(
+    `SELECT date, title FROM holidays WHERE (college_id = ? OR college_id IS NULL OR college_id = '') AND date IN (?, ?, ?, ?, ?, ?, ?)`,
+    [college_id, ...nextDates]
+  ).catch(() => []);
+  const holidayMap = new Map<string, string>();
+  scheduledHolidays.forEach((h: any) => holidayMap.set(h.date, h.title || "Holiday"));
+
   let dayOrderCounter = lastDayOrderIndex !== -1 ? lastDayOrderIndex + 1 : 0;
   const insertedConfigs: any[] = [];
   const configRows: any[][] = [];
@@ -131,11 +139,12 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
 
     // Weekend rules: Sunday is always holiday; Saturday is holiday on 5-day campus or if skip_sundays is set
     const isWeekendToSkip = isSunday || (workingDaysCount === 5 && isSaturday) || (skip_sundays && isSaturday);
+    const institutionalHoliday = holidayMap.get(nextDateStr);
 
-    if (isWeekendToSkip) {
+    if (isWeekendToSkip || institutionalHoliday) {
       dayType = "holiday";
       dayOrder = "None";
-      notesVal = isSunday ? "Sunday Weekend" : "Saturday Weekend";
+      notesVal = institutionalHoliday || (isSunday ? "Sunday Weekend" : "Saturday Weekend");
     } else {
       dayType = "working";
       dayOrder = dayOrders[dayOrderCounter % workingDaysCount];
@@ -184,7 +193,15 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
 }
 
 async function handleAutoFillCurrentWeek(db: any, body: any) {
-  const { college_id, reference_date } = body;
+  const {
+    college_id,
+    reference_date,
+    anchor_date,
+    anchor_day_order,
+    anchor_day_type,
+    session_mode,
+    notes
+  } = body;
   if (!college_id) {
     return NextResponse.json({ success: false, message: "college_id is required" }, { status: 400, headers: noCacheHeaders });
   }
@@ -192,7 +209,7 @@ async function handleAutoFillCurrentWeek(db: any, body: any) {
   const collegeRow = await db.get("SELECT working_days FROM colleges WHERE id = ?", [college_id]);
   const workingDaysCount = (collegeRow && Number(collegeRow.working_days) === 6) ? 6 : 5;
 
-  const refDateStr = reference_date || getInstitutionDateStr();
+  const refDateStr = anchor_date || reference_date || getInstitutionDateStr();
   const weekInfo = getWeekBoundaries(refDateStr);
   const weekDates = weekInfo.weekDates;
 
@@ -202,17 +219,37 @@ async function handleAutoFillCurrentWeek(db: any, body: any) {
     [college_id, ...weekDates]
   );
 
+  // Cross-reference official campus holidays across the week
+  const scheduledHolidays = await db.all(
+    `SELECT date, title FROM holidays WHERE (college_id = ? OR college_id IS NULL OR college_id = '') AND date IN (?, ?, ?, ?, ?, ?, ?)`,
+    [college_id, ...weekDates]
+  ).catch(() => []);
+  const holidayMap = new Map<string, string>();
+  scheduledHolidays.forEach((h: any) => holidayMap.set(h.date, h.title || "Holiday"));
+
   // If no anchor in this week, find latest prior day order before this week
   const priorConfig = await db.get(
     "SELECT day_order FROM campus_daily_configs WHERE college_id = ? AND day_order != 'None' AND day_order LIKE 'Day %' AND dateStr < ? ORDER BY dateStr DESC LIMIT 1",
     [college_id, weekDates[0]]
   );
 
+  const explicitAnchor = anchor_date && anchor_day_order && anchor_day_order !== "None"
+    ? {
+        dateStr: anchor_date,
+        dayOrder: anchor_day_order,
+        dayType: anchor_day_type || "working",
+        sessionMode: session_mode || "Offline",
+        notes: notes || ""
+      }
+    : null;
+
   const plan = autoFillWeekFromAnchor(
     weekDates,
     existingConfigs,
     workingDaysCount,
-    priorConfig?.day_order || null
+    priorConfig?.day_order || null,
+    holidayMap,
+    explicitAnchor
   );
 
   const configRows: any[][] = [];
@@ -412,8 +449,8 @@ export async function POST(request: Request) {
       return await handleAutoAdaptNextWeek(db, body);
     }
 
-    // Handle auto-fill current week action
-    if (action === "auto_fill_current_week") {
+    // Handle auto-fill / auto-adapt current week action
+    if (action === "auto_fill_current_week" || action === "auto_adapt_current_week") {
       return await handleAutoFillCurrentWeek(db, body);
     }
 
@@ -479,7 +516,12 @@ export async function POST(request: Request) {
       let currentDayOrder = effectiveDayOrder;
 
       // Handle weekend skipping (Sunday always; Saturday if 5-day campus and skipping weekends)
-      const shouldSkipSundays = body.skip_sundays === true || body.skip_sundays === "true" || body.skip_sundays === undefined;
+      // When explicitly configuring a single date as "working" (e.g. Sunday Schedule override),
+      // do NOT auto-convert it to holiday unless skip_sundays is explicitly true!
+      const isExplicitSingleDay = datesToProcess.length === 1;
+      const shouldSkipSundays = isExplicitSingleDay
+        ? (body.skip_sundays === true || body.skip_sundays === "true")
+        : (body.skip_sundays === true || body.skip_sundays === "true" || body.skip_sundays === undefined);
       const shouldAutoAdvance = auto_advance !== false && auto_advance !== "false" && auto_advance !== 0;
 
       const isWeekendToSkip = (shouldSkipSundays && isSunday) ||
@@ -488,12 +530,18 @@ export async function POST(request: Request) {
       if (effectiveDayOrder === "None" || effectiveDayOrder === "none") {
         // If explicitly set to None, force None for all dates in range without cycling
         currentDayOrder = "None";
-      } else if (day_type === "holiday" || day_type === "event" || isWeekendToSkip) {
-        // Holidays, events, or auto-skipped weekends get None and DO NOT advance the working day order counter!
+      } else if (day_type === "holiday" || isWeekendToSkip) {
+        // Only holidays or auto-skipped weekends get None and DO NOT advance the working day order counter!
         if (isWeekendToSkip && day_type === "working") {
           currentDayType = "holiday";
         }
         currentDayOrder = "None";
+      } else if (day_type === "event" || day_type === "exam_day") {
+        // Campus Events and Exam Days RETAIN their configured day_order (e.g., Event on Day 3)
+        currentDayOrder = (effectiveDayOrder && effectiveDayOrder !== "None") ? effectiveDayOrder : (shouldAutoAdvance && initialIndex !== -1 ? dayOrders[dayOrderCounter % workingDaysCount] : "None");
+        if (shouldAutoAdvance && initialIndex !== -1 && currentDayOrder !== "None") {
+          dayOrderCounter++;
+        }
       } else if (shouldAutoAdvance && initialIndex !== -1) {
         // Continuous next day sequence modulo campus working day count (e.g. Day 1 -> Day 5 on 5-day campus)
         currentDayOrder = dayOrders[dayOrderCounter % workingDaysCount];
@@ -510,8 +558,14 @@ export async function POST(request: Request) {
 
     if (shouldCascade) {
       const targetDate = datesToProcess[0];
-      const weekInfo = getWeekBoundaries(targetDate);
-      const subsequentDates = weekInfo.weekDates.filter(d => d > targetDate);
+      // Multi-week cascade: carry the Day Order sequence forward across 14 subsequent days
+      const subsequentDates: string[] = [];
+      let curShift = parseLocalDate(targetDate);
+      curShift.setDate(curShift.getDate() + 1);
+      for (let s = 0; s < 14; s++) {
+        subsequentDates.push(getInstitutionDateStr(curShift));
+        curShift.setDate(curShift.getDate() + 1);
+      }
 
       if (subsequentDates.length > 0) {
         const subsequentConfigs = await db.all(

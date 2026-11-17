@@ -752,27 +752,28 @@ export async function POST(request: Request) {
     }
 
     // ── DAY ORDER / TYPE GUARD ────────────────────────────────────────────
-    // Attendance cannot be submitted unless the CAM has configured the day
-    // order and type for this date. Check campus_daily_configs for the
-    // slot's college. Skip this check only for CAM-initiated corrections
-    // (action === "correct") and direct period marks (action === "mark_period")
-    // which are handled above — so anything reaching here is a mentor submit.
+    // Attendance cannot be submitted if the date is a declared Holiday, or if it
+    // is a Sunday without a working-day override. On regular weekdays where no
+    // daily override is explicitly configured, normal timetable attendance applies.
     const collegeIdForSlot = slot.college_id || null;
     if (collegeIdForSlot) {
       const dayConfig = await db.get(
         "SELECT day_type, day_order FROM campus_daily_configs WHERE college_id = ? AND dateStr = ?",
         [collegeIdForSlot, dateStr]
       );
-      if (!dayConfig || !dayConfig.day_type || dayConfig.day_order === "None") {
-        return NextResponse.json({
-          success: false,
-          message: "Day order/type has not been configured for this date. The CM must set the day schedule before attendance can be marked."
-        }, { status: 422 });
-      }
-      if (dayConfig.day_type === "holiday") {
+      if (dayConfig && dayConfig.day_type === "holiday") {
         return NextResponse.json({
           success: false,
           message: "This date is marked as a Holiday by the CM. Attendance cannot be recorded on a holiday."
+        }, { status: 422 });
+      }
+
+      // Sunday is a weekly holiday unless explicitly configured as a working day
+      const dateObj = new Date(dateStr + "T00:00:00");
+      if (dateObj.getDay() === 0 && (!dayConfig || dayConfig.day_type !== "working")) {
+        return NextResponse.json({
+          success: false,
+          message: "Sunday is a weekly holiday. Attendance cannot be marked unless configured as a working Sunday by the CM."
         }, { status: 422 });
       }
     }
@@ -914,7 +915,7 @@ export async function DELETE(request: NextRequest) {
       }
       // kam_colleges never existed; the KAM portfolio lives on colleges.kam_id.
       const kamCollegeIds = await resolveKamCollegeIds(db, actor);
-      const kamCids = new Set((kamCollegeIds || []).map((id) => id.toLowerCase()));
+      const kamCids = new Set((kamCollegeIds || []).map((id: string) => id.toLowerCase()));
       if (!kamCids.has(effectiveCollegeId.toLowerCase())) {
         return NextResponse.json({ success: false, message: "Unauthorized: Campus is not assigned to your account." }, { status: 403 });
       }

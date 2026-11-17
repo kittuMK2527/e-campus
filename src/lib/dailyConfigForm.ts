@@ -193,11 +193,28 @@ export interface WeekDayPlan {
  * or continues from the last known working Day Order prior to that week.
  * Preserves weekends (Sunday, and Saturday on 5-day campus) as holidays.
  */
+export interface ExplicitAnchor {
+  dateStr: string;
+  dayOrder: string;
+  dayType?: string;
+  sessionMode?: string;
+  notes?: string;
+}
+
+/**
+ * Auto-fills a 7-day week (Monday to Sunday) given any single configured anchor day in that week,
+ * or continues from the last known working Day Order prior to that week.
+ * If an explicitAnchor is provided (e.g. user sets Today as Day 1 in the form and clicks Auto-Adapt),
+ * the entire week is re-aligned sequentially both forward and backward around that anchor day.
+ * Preserves weekends (Sunday, and Saturday on 5-day campus) and institutional holidays.
+ */
 export function autoFillWeekFromAnchor(
   weekDates: string[],
   configsList: any[] = [],
   workingDayCount: number = 5,
-  priorLastDayOrder?: string | null
+  priorLastDayOrder?: string | null,
+  holidayMap?: Map<string, string> | Record<string, string>,
+  explicitAnchor?: ExplicitAnchor | null
 ): WeekDayPlan[] {
   const count = workingDayCount === 6 ? 6 : 5;
   const existingMap = new Map<string, any>();
@@ -207,21 +224,42 @@ export function autoFillWeekFromAnchor(
     }
   });
 
-  // Find any existing working day order anchor in this week
-  const anchorEntry = weekDates
-    .map((dStr, idx) => ({ dStr, idx, cfg: existingMap.get(dStr) }))
-    .find(item => item.cfg && item.cfg.day_order && item.cfg.day_order !== "None" && item.cfg.day_type !== "holiday");
+  if (explicitAnchor && explicitAnchor.dateStr && explicitAnchor.dayOrder) {
+    existingMap.set(explicitAnchor.dateStr, {
+      dateStr: explicitAnchor.dateStr,
+      day_type: explicitAnchor.dayType || "working",
+      day_order: explicitAnchor.dayOrder,
+      session_mode: explicitAnchor.sessionMode || "Offline",
+      notes: explicitAnchor.notes || ""
+    });
+  }
+
+  const getHolidayTitle = (dStr: string): string | null => {
+    if (!holidayMap) return null;
+    if (holidayMap instanceof Map) return holidayMap.get(dStr) || null;
+    return (holidayMap as Record<string, string>)[dStr] || null;
+  };
 
   let baseDayOrderNum = 1;
   let baseIndex = 0;
 
-  if (anchorEntry) {
-    baseDayOrderNum = parseDayOrder(anchorEntry.cfg.day_order) || 1;
-    baseIndex = anchorEntry.idx;
+  if (explicitAnchor && explicitAnchor.dateStr && weekDates.includes(explicitAnchor.dateStr) && explicitAnchor.dayOrder && explicitAnchor.dayOrder !== "None") {
+    baseIndex = weekDates.indexOf(explicitAnchor.dateStr);
+    baseDayOrderNum = parseDayOrder(explicitAnchor.dayOrder) || 1;
   } else {
-    const priorNum = parseDayOrder(priorLastDayOrder);
-    baseDayOrderNum = priorNum > 0 ? ((priorNum % count) + 1) : 1;
-    baseIndex = 0;
+    // Find any existing working day order anchor in this week
+    const anchorEntry = weekDates
+      .map((dStr, idx) => ({ dStr, idx, cfg: existingMap.get(dStr) }))
+      .find(item => item.cfg && item.cfg.day_order && item.cfg.day_order !== "None" && item.cfg.day_type !== "holiday");
+
+    if (anchorEntry) {
+      baseDayOrderNum = parseDayOrder(anchorEntry.cfg.day_order) || 1;
+      baseIndex = anchorEntry.idx;
+    } else {
+      const priorNum = parseDayOrder(priorLastDayOrder);
+      baseDayOrderNum = priorNum > 0 ? ((priorNum % count) + 1) : 1;
+      baseIndex = 0;
+    }
   }
 
   const dayFlags = weekDates.map((dStr) => {
@@ -231,11 +269,15 @@ export function autoFillWeekFromAnchor(
     const isSunday = dayOfWeek === 0;
     const isSaturday = dayOfWeek === 6;
     const isWeekend = isSunday || (count === 5 && isSaturday);
-    const isHoliday = existing ? existing.day_type === "holiday" : isWeekend;
-    return { dStr, existing, isHoliday, isSunday, isSaturday, isWeekend };
+    const holidayTitle = getHolidayTitle(dStr);
+    const isHoliday = existing ? existing.day_type === "holiday" : (isWeekend || Boolean(holidayTitle));
+    return { dStr, existing, isHoliday, isSunday, isSaturday, isWeekend, holidayTitle };
   });
 
   const dayOrdersArr: string[] = new Array(7).fill("None");
+
+  // When explicitAnchor is supplied, re-align the whole week based on that anchor!
+  const shouldRealignAll = Boolean(explicitAnchor && explicitAnchor.dayOrder && explicitAnchor.dayOrder !== "None");
 
   // Forward pass from baseIndex
   let currentNum = baseDayOrderNum;
@@ -244,7 +286,10 @@ export function autoFillWeekFromAnchor(
     if (item.isHoliday) {
       dayOrdersArr[i] = "None";
     } else {
-      if (item.existing && item.existing.day_order && item.existing.day_order !== "None") {
+      if (shouldRealignAll) {
+        dayOrdersArr[i] = `Day ${currentNum}`;
+        currentNum = (currentNum % count) + 1;
+      } else if (item.existing && item.existing.day_order && item.existing.day_order !== "None") {
         dayOrdersArr[i] = item.existing.day_order;
         currentNum = (parseDayOrder(item.existing.day_order) % count) + 1;
       } else {
@@ -261,7 +306,10 @@ export function autoFillWeekFromAnchor(
     if (item.isHoliday) {
       dayOrdersArr[i] = "None";
     } else {
-      if (item.existing && item.existing.day_order && item.existing.day_order !== "None") {
+      if (shouldRealignAll) {
+        dayOrdersArr[i] = `Day ${prevNum}`;
+        prevNum = ((prevNum - 2 + count) % count) + 1;
+      } else if (item.existing && item.existing.day_order && item.existing.day_order !== "None") {
         dayOrdersArr[i] = item.existing.day_order;
         const parsed = parseDayOrder(item.existing.day_order);
         prevNum = ((parsed - 2 + count) % count) + 1;
@@ -275,23 +323,26 @@ export function autoFillWeekFromAnchor(
   const result: WeekDayPlan[] = [];
   for (let i = 0; i < 7; i++) {
     const item = dayFlags[i];
+    const holidayNote = item.holidayTitle || (item.isSunday ? "Sunday Weekend" : item.isSaturday ? "Saturday Weekend" : "Holiday");
+    const dayType = item.isHoliday ? "holiday" : (item.existing ? normalizeDayType(item.existing.day_type) : "working");
+
     if (item.existing) {
       result.push({
         dateStr: item.dStr,
-        dayType: normalizeDayType(item.existing.day_type) as any,
+        dayType: dayType as any,
         dayOrder: dayOrdersArr[i],
         sessionMode: (item.existing.session_mode as any) || "Offline",
-        notes: item.existing.notes || "",
+        notes: item.isHoliday ? (item.existing.notes || holidayNote) : (item.existing.notes || ""),
         isExisting: true,
         existingId: item.existing.id || item.dStr
       });
     } else {
       result.push({
         dateStr: item.dStr,
-        dayType: item.isHoliday ? "holiday" : "working",
+        dayType: dayType as any,
         dayOrder: dayOrdersArr[i],
         sessionMode: "Offline",
-        notes: item.isHoliday ? (item.isSunday ? "Sunday Weekend" : item.isSaturday ? "Saturday Weekend" : "Holiday") : "",
+        notes: item.isHoliday ? holidayNote : "",
         isExisting: false
       });
     }

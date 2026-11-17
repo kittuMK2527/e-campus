@@ -79,7 +79,7 @@ const MentorWeeklyPlanStudio = dynamic(() => import("./WeeklyPlanStudio").then(m
 const SkillTrackerPanel = dynamic(() => import("./SkillTrackerPanel").then(m => m.SkillTrackerPanel), { ssr: false });
 
 import { CourseInfoButton } from "./CourseInfoModal";
-import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatching, isCohortMatch, getDeptFromClassGroup, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, isAcademicSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes } from "@/lib/utils";
+import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatching, isCohortMatch, getDeptFromClassGroup, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, isAcademicSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes, mapDayOrderToDayName } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
 import { ActionMenu } from "@/components/ui/ActionMenu";
 import { Dialog } from "@/components/ui/dialog";
@@ -3001,14 +3001,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     }
 
     if (dailyConfig && dailyConfig.day_order && dailyConfig.day_order !== "None") {
-      const match = dailyConfig.day_order.match(/^Day (\d+)$/i);
-      if (match) {
-        const orderNum = parseInt(match[1], 10);
-        const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        if (orderNum >= 1 && orderNum <= dayNames.length) {
-          return dayNames[orderNum - 1];
-        }
-      }
+      return mapDayOrderToDayName(dailyConfig.day_order, defaultDay);
     }
 
     return defaultDay;
@@ -8556,14 +8549,12 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
               const dayName = defaultDay;
 
               const isHoliday = dayType === "holiday" || mappedDay === "holiday";
-              const isConfigured = Boolean(dailyConfig && dailyConfig.day_type && dailyConfig.day_type !== "None" && dailyConfig.day_order && dailyConfig.day_order !== "None");
+              // Day is considered ready if either CM explicitly configured it (and not a holiday),
+              // or no config is set so default weekday timetable applies.
+              const isConfigured = Boolean(!dailyConfig || (dailyConfig.day_type && dailyConfig.day_type !== "holiday"));
 
               if (isHoliday) {
                 return { dateSlots: [], dayOrder, dayType: "holiday", mappedDay: "holiday", dayName, isConfigured, isHoliday: true };
-              }
-
-              if (!isConfigured) {
-                return { dateSlots: [], dayOrder, dayType, mappedDay, dayName, isConfigured: false, isHoliday: false };
               }
 
               // 1. Regular assigned slots for this CM day order / weekday
@@ -8587,8 +8578,6 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
 
               if (isHoliday) {
                 toast("Today is declared a Holiday by Campus Manager. Period logging is disabled.", "warning");
-              } else if (!isConfigured) {
-                toast("The Campus Manager has not set the Day Order for today yet. Period logging requires CM Day Order setting.", "warning");
               }
 
               // Prefer slots that have already started

@@ -8073,9 +8073,8 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
           </div>
         </div>
 
-        {/* Second Row: Date & Range Controls Toolbar (when in roster mode) */}
-        {subView === "roster" && (
-          <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+        {/* Second Row: Date & Range Controls Toolbar */}
+        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-800/60 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
               <span className="text-xs font-bold text-slate-500 pl-2">From:</span>
               <input aria-label="Start date"
@@ -8120,7 +8119,6 @@ const CAMMentorAttendanceTab: React.FC<{ collegeId: string; camName: string; rea
               </button>
             )}
           </div>
-        )}
       </div>
 
       <>
@@ -13386,17 +13384,18 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
   const handleAutoFillCurrentWeek = async () => {
     if (!activeCollegeId) {
-      toast("Please select a college before auto-filling current week.", "error");
+      toast("Please select a college before auto-adapting the week.", "error");
       return;
     }
 
     const targetDate = dailyStartDateStr || getLocalDateStr();
+    const orderToUse = dailyDayType === "holiday" ? "None" : (dailyDayOrder || "Day 1");
     const weekInfo = getWeekBoundaries(targetDate);
 
     const ok = await showConfirm({
-      title: "Auto-Fill Current Week",
-      message: `Auto-fill and continue Day Orders for week (${weekInfo.startDate} to ${weekInfo.endDate})? Any already set day(s) will be continued sequentially across remaining days.`,
-      confirmLabel: "Auto-Fill Week"
+      title: "Auto-Adapt This Week",
+      message: `Auto-adapt entire week (${weekInfo.startDate} to ${weekInfo.endDate}) setting ${targetDate} as ${orderToUse}? All working days in this week will be sequentially aligned around ${orderToUse}.`,
+      confirmLabel: "Auto-Adapt Week"
     });
     if (!ok) return;
 
@@ -13409,19 +13408,26 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
           college_id: activeCollegeId,
           action: "auto_fill_current_week",
           reference_date: targetDate,
+          anchor_date: targetDate,
+          anchor_day_order: orderToUse,
+          anchor_day_type: dailyDayType,
+          session_mode: dailySessionMode,
+          notes: dailyNotes,
           skip_sundays: skipSundays
         })
       });
       const data = await res.json();
       if (data.success) {
-        toast(data.message || "Current week schedule auto-filled successfully.", "success");
+        toast(data.message || `Week schedule auto-adapted successfully (${targetDate} set as ${orderToUse}).`, "success");
+        setIsDailyConfigModalOpen(false);
+        resetDailyConfigForm();
         await fetchDailyConfigs();
         notifyDataChanged("daily-configs");
       } else {
-        toast(data.message || "Failed to auto-fill current week schedule.", "error");
+        toast(data.message || "Failed to auto-adapt week schedule.", "error");
       }
     } catch (err: any) {
-      toast("Error auto-filling current week: " + err.message, "error");
+      toast("Error auto-adapting week: " + err.message, "error");
     } finally {
       setIsDailySaving(false);
     }
@@ -28229,10 +28235,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   onClick={handleAutoFillCurrentWeek}
                   disabled={isDailySaving || isDailyLoading}
                   className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
-                  title="Auto-fill and continue Day Orders across the current week from any set day"
+                  title="Auto-adapt this entire week from the selected date and Day Order"
                 >
                   <Sparkles className="h-3.5 w-3.5 text-indigo-600" />
-                  Auto-Fill Current Week
+                  Auto-Adapt This Week
                 </button>
                 <button
                   type="button"

@@ -6,15 +6,22 @@
  * Automatically cleans up expired/unregistered endpoints (410 Gone / 404 Not Found).
  */
 
-import * as webpushModule from "web-push";
-const webpush = (webpushModule as any).default || webpushModule;
+let webpush: any = null;
+try {
+  // Optional dependency: loaded dynamically so build environments without web-push do not fail
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const webpushModule = require("web-push");
+  webpush = webpushModule?.default || webpushModule;
+} catch {
+  // web-push optional dependency not available
+}
 import { logger } from "./logger";
 
 const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 const privateKey = process.env.VAPID_PRIVATE_KEY || "";
 const subject = process.env.VAPID_SUBJECT || "mailto:support@faceprep.in";
 
-if (publicKey && privateKey) {
+if (webpush && publicKey && privateKey) {
   try {
     webpush.setVapidDetails(subject, publicKey, privateKey);
   } catch (err: any) {
@@ -98,7 +105,7 @@ export async function sendWebPushNotification(
       return [];
     });
 
-    if (!subscriptions || subscriptions.length === 0) {
+    if (!webpush || !subscriptions || subscriptions.length === 0) {
       return { success: true, sentCount: 0, failedCount: 0 };
     }
 

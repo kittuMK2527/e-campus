@@ -48,7 +48,7 @@ import {
   Percent,
   AlertTriangle
 } from "lucide-react";
-import { formatTimeLabel, calculateShiftSchedule, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatch, isCohortMatching, getDeptFromClassGroup, isSubjectNameMatch, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes } from "@/lib/utils";
+import { formatTimeLabel, calculateShiftSchedule, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatch, isCohortMatching, getDeptFromClassGroup, isSubjectNameMatch, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes, mapDayOrderToDayName } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { CourseInfoButton } from "./CourseInfoModal";
@@ -1005,14 +1005,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     }
 
     if (dailyConfig && dailyConfig.day_order && dailyConfig.day_order !== "None") {
-      const match = dailyConfig.day_order.match(/^Day (\d+)$/i);
-      if (match) {
-        const orderNum = parseInt(match[1]);
-        const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-        if (orderNum >= 1 && orderNum <= dayNames.length) {
-          return dayNames[orderNum - 1];
-        }
-      }
+      return mapDayOrderToDayName(dailyConfig.day_order, defaultDay);
     }
 
     return defaultDay;
