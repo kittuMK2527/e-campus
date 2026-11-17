@@ -7,6 +7,7 @@ import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/apiFetch";
 import { qk } from "@/lib/queryKeys";
 import { getLocalDateStr } from "@/lib/localDate";
+import { getServerNow, getServerDateStr, isPastServerDeadline } from "@/lib/serverTime";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "./Button";
 import {
@@ -3093,7 +3094,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
         {/* Tab 5: Examinations, Test Marks & Assessment Hub */}
         {activeTab === "exams" && (() => {
-          const todayStr = getLocalDateStr();
+          const todayStr = getServerDateStr();
           const allExams = studentExamsList || [];
           const pastExams = allExams.filter((ex: any) => ex.exam_date < todayStr);
           const upcomingExams = allExams.filter((ex: any) => ex.exam_date >= todayStr);
@@ -4848,7 +4849,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             (() => {
                               const taskAssignedDate = parseDbDate(task.created_at || task.updated_at);
                               const deadlineDate = new Date(taskAssignedDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-                              const isPastDeadline = new Date() > deadlineDate;
+                              const isPastDeadline = isPastServerDeadline(deadlineDate);
 
                               return (
                                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">

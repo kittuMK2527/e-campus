@@ -227,6 +227,39 @@ export async function PUT(request: Request) {
         );
       }
 
+      // Authoritative Server-Side Deadline Enforcement:
+      // Fetch the assigned task and verify against server clock in UTC / IST.
+      // Changing the client / mobile device clock cannot bypass this check.
+      const assignedTask = await db.get(
+        `SELECT id, task_name, created_at, updated_at 
+         FROM weekly_tasks 
+         WHERE LOWER(TRIM(class_group)) = LOWER(TRIM(?)) 
+           AND LOWER(TRIM(subject)) = LOWER(TRIM(?)) 
+           AND week_number = ?`,
+        [classGroup.trim(), subject.trim(), weekNumber]
+      );
+
+      if (!assignedTask) {
+        return NextResponse.json(
+          { success: false, message: "No task is assigned for this week and subject." },
+          { status: 404 }
+        );
+      }
+
+      const taskBaseDate = new Date(assignedTask.updated_at || assignedTask.created_at || Date.now());
+      const deadlineEpoch = taskBaseDate.getTime() + 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() > deadlineEpoch) {
+        return NextResponse.json(
+          { 
+            success: false, 
+            message: "Submission deadline has passed. Submissions are closed.",
+            serverTime: new Date().toISOString(),
+            deadline: new Date(deadlineEpoch).toISOString()
+          },
+          { status: 403 }
+        );
+      }
+
       const now = new Date().toISOString();
       // Conditional conflict update closes the race between simultaneous submissions.
       const saveResult = await db.run(

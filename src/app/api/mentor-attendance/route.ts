@@ -363,7 +363,18 @@ export async function POST(request: Request) {
     const markedBy = isSelf ? "self" : actor.name;
     const markedById = actor.reference_id;
 
-    const effectiveDate = dateStr || getInstitutionDateStr();
+    // Authoritative Server-Side Date & Time Enforcement:
+    // If self-punching, the date MUST be the server's current date in IST, and the punch time
+    // MUST be the server's authoritative clock in IST. Mobile device clock tampering cannot spoof this.
+    const serverTodayStr = getInstitutionDateStr();
+    const serverNowTime = new Date().toLocaleTimeString("en-IN", {
+      timeZone: "Asia/Kolkata",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+
+    const effectiveDate = isSelf ? serverTodayStr : (dateStr || serverTodayStr);
     const recordId = `att_${mentorId}_${effectiveDate}`;
 
     // The mentor's college (only needed when the caller did not send one) and the day's
@@ -399,7 +410,7 @@ export async function POST(request: Request) {
       }
     }
 
-    const punchTime = punchInTime || currentTime;
+    const punchTime = isSelf ? serverNowTime : (punchInTime || serverNowTime);
 
     await db.run(
       `INSERT INTO mentor_attendance (id, mentor_id, college_id, date_str, status, punch_in_time, reason, marked_by, marked_by_id, updated_at)

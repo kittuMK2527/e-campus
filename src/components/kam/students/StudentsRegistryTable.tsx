@@ -432,8 +432,8 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
                 <TableHead className="text-[10px] font-black uppercase tracking-wider text-zinc-500 text-center">
                   Compliance Status
                 </TableHead>
-                <TableHead className="text-[10px] font-black uppercase tracking-wider text-zinc-500 text-right">
-                  Quick Actions
+                <TableHead className="text-[10px] font-black uppercase tracking-wider text-zinc-500 text-right pr-6">
+                  Record Audit
                 </TableHead>
               </TableRow>
             </TableHeader>

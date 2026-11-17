@@ -73,7 +73,12 @@ export async function GET(request: Request) {
     query += " ORDER BY exam_date ASC, start_time ASC";
 
     const exams = await db.all(query, args);
-    return NextResponse.json({ success: true, exams: exams || [] }, { headers: noCacheHeaders });
+    return NextResponse.json({ 
+      success: true, 
+      exams: exams || [], 
+      serverDate: getInstitutionDateStr(), 
+      serverTime: new Date().toISOString() 
+    }, { headers: noCacheHeaders });
   } catch (error: any) {
     console.error("Error fetching exams:", error);
     return NextResponse.json({ success: false, message: error.message || "Failed to fetch exams" }, { status: 500, headers: noCacheHeaders });

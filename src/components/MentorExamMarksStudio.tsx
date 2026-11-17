@@ -31,6 +31,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/Pagination";
 import { isAnyPendingCmRequest } from "@/lib/requestStatus";
+import { getServerNow, getServerDateStr } from "@/lib/serverTime";
 
 interface ExamItem {
   id: string;
@@ -110,7 +111,7 @@ export const MentorExamMarksStudio: React.FC = () => {
   const [rosterPage, setRosterPage] = useState(1);
   const [rosterPageSize, setRosterPageSize] = useState(25);
 
-  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayStr = useMemo(() => getServerDateStr(), []);
 
   // Subject/department scope: mentors must not see exams they do not teach.
   const mentorScope = useMemo(() => {
@@ -178,14 +179,12 @@ export const MentorExamMarksStudio: React.FC = () => {
   // Check if exam is officially completed (date and end time have passed)
   const isExamOver = useMemo(() => {
     if (!selectedExam || !selectedExam.exam_date) return true;
-    // Client-side, so the browser's own zone is the institution's zone for these
-    // users; the UTC string would still read yesterday before 05:30 IST.
-    const today = new Date().toLocaleDateString("en-CA");
+    // Authoritative server-calibrated date in IST to prevent mobile clock manipulation
+    const today = getServerDateStr();
     if (selectedExam.exam_date < today) return true;
     if (selectedExam.exam_date > today) return false;
 
-    // Same day: check end time. session_time is free text and commonly
-    // "9.00 AM to 12.00 PM", which has no hyphen to split on.
+    // Same day: check end time against authoritative server clock
     const endTimeStr = (
       (selectedExam.session_time || "").split(/\s*(?:to|–|-)\s*/i)[1] ||
       selectedExam.end_time ||
@@ -198,9 +197,8 @@ export const MentorExamMarksStudio: React.FC = () => {
     const isPM = (match[3] || "").toUpperCase() === "PM" || endTimeStr.toLowerCase().includes("pm");
     if (isPM && h !== 12) h += 12;
     if (!isPM && h === 12) h = 0;
-    const now = new Date();
-    const endDateTime = new Date();
-    endDateTime.setHours(h, m || 0, 0, 0);
+    const now = getServerNow();
+    const endDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m || 0, 0, 0);
     return now >= endDateTime;
   }, [selectedExam]);
 

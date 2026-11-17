@@ -98,19 +98,19 @@ const KAMMentorAttendanceView = dynamic(() => import("./kam/mentors/KAMMentorAtt
   loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Faculty Attendance Telemetry…</div>
 });
 
-const FeeManagerDashboard = dynamic(() => import("./FeeManagerDashboard").then(m => m.FeeManagerDashboard), {
+const KAMFeesLedgerView = dynamic(() => import("./kam/fees/KAMFeesLedgerView").then(m => m.KAMFeesLedgerView), {
   ssr: false,
-  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Fee Management…</div>
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Contract Realization Ledger…</div>
 });
 
-const InterviewModule = dynamic(() => import("./InterviewModule").then(m => m.InterviewModule), {
+const KAMInterviewsLedgerView = dynamic(() => import("./kam/interviews/KAMInterviewsLedgerView").then(m => m.KAMInterviewsLedgerView), {
   ssr: false,
-  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Interview Workspace…</div>
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Candidate Interview Matrix…</div>
 });
 
-const CMApprovalsHub = dynamic(() => import("./CMApprovalsHub").then(m => m.CMApprovalsHub), {
+const KAMHandoversLedgerView = dynamic(() => import("./kam/handovers/KAMHandoversLedgerView").then(m => m.KAMHandoversLedgerView), {
   ssr: false,
-  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Request Approvals…</div>
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Handovers & Substitution Ledger…</div>
 });
 
 const SkillTrackerPanel = dynamic(() => import("./SkillTrackerPanel").then(m => m.SkillTrackerPanel), {
@@ -128,9 +128,9 @@ const WeeklyPlanViewer = dynamic(() => import("./WeeklyPlanStudio").then(m => m.
   loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Weekly Curriculum Plans…</div>
 });
 
-const LndAllocationDashboard = dynamic(() => import("./LndAllocationDashboard").then(m => m.LndAllocationDashboard), {
+const KAMDemoScheduleView = dynamic(() => import("./kam/lnd/KAMDemoScheduleView").then(m => m.KAMDemoScheduleView), {
   ssr: false,
-  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Demo & L&D Allocation…</div>
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Demo & L&D Ledger…</div>
 });
 
 export interface KAMDashboardProps {
@@ -228,9 +228,9 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
     { id: "exams_and_marks", label: "CIA & Exam Marks Studio", hint: "Exam schedules, pass % and marks ledger", icon: Award },
     { id: "faculty_weekly_plan", label: "Weekly Lesson Plans", hint: "Faculty syllabus delivery plans", icon: CalendarRange },
     { id: "mentor_attendance", label: "Faculty Attendance Logs", hint: "Punch-in/out logs & punctuality telemetry", icon: Clock },
-    { id: "handovers", label: "Swap & Leave Approvals", hint: "Approvals queue for swaps and leaves", icon: CalendarCheck2 },
-    { id: "interviews", label: "Placement Mock Interviews", hint: "Mock interview schedule & evaluator feedback", icon: Award },
-    { id: "demo_schedule", label: "L&D Demo Evaluations", hint: "Demo evaluations & rubric scores", icon: Award },
+    { id: "handovers", label: "Faculty Substitution & Handovers", hint: "Audit ledger for substitutions and leave coverage", icon: CalendarCheck2 },
+    { id: "interviews", label: "Candidate Placement Readiness", hint: "Mock interview candidate matrix, rubrics & meet telemetry", icon: Award },
+    { id: "demo_schedule", label: "L&D Demo Delivery & Clearance", hint: "Faculty demonstration sessions & SME clearance audit", icon: Award },
     { id: "config", label: "Academic Configuration", hint: "Active day orders, periods & shifts", icon: Settings },
     { id: "curriculum", label: "Batch & Section Structure", hint: "Cohort distribution & curriculum syllabus", icon: Layers },
     { id: "events", label: "Campus Events & Milestones", hint: "Hackathons, placement drives & academic calendar", icon: Calendar },
@@ -878,12 +878,13 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           )}
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 6: CLASS SWAPS & HANDOVERS (Clean Operational)
+              TAB 6: CLASS SWAPS & HANDOVERS (Clean Data-Alone Audit)
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "handovers" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <CMApprovalsHub
+              <KAMHandoversLedgerView
                 collegeId={activeCollegeId}
+                scopedColleges={scopedColleges.map(c => ({ id: c.id, name: c.name }))}
                 onCollegeChange={setActiveCollegeId}
               />
             </div>
@@ -928,11 +929,15 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           )}
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 9: DEMO SCHEDULE
+              TAB 9: DEMO SCHEDULE & L&D OVERSIGHT (Clean Data-Alone Audit)
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "demo_schedule" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <LndAllocationDashboard />
+              <KAMDemoScheduleView
+                collegeId={activeCollegeId}
+                scopedColleges={scopedColleges.map(c => ({ id: c.id, name: c.name }))}
+                onCollegeChange={setActiveCollegeId}
+              />
             </div>
           )}
 
@@ -1091,14 +1096,14 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           )}
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 12: INTERVIEWS
+              TAB 12: INTERVIEWS (Clean Candidate Readiness & Mock Telemetry)
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "interviews" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <InterviewModule
-                defaultCollegeId={activeCollegeId === "all" ? undefined : activeCollegeId}
-                currentUserRole="kam"
-                currentUserName={currentKAM?.name || "Key Account Manager"}
+              <KAMInterviewsLedgerView
+                collegeId={activeCollegeId}
+                scopedColleges={scopedColleges.map(c => ({ id: c.id, name: c.name }))}
+                onCollegeChange={setActiveCollegeId}
               />
             </div>
           )}
@@ -1130,89 +1135,49 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
           )}
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 15: STUDENT PROFILE EDIT REQUESTS
+              TAB 15: STUDENT REGISTRATION & PROFILE REVISION AUDIT TRAIL
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "profile_edits" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-100 dark:border-slate-800 shadow-card">
+              <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 border border-zinc-200/90 dark:border-zinc-800 shadow-card">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                   <div>
-                    <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Student Profile Edit Requests</h3>
-                    <p className="text-xs text-slate-400 font-semibold mt-0.5">Institutional review queue for {activeCollegeName} (Read-Only for KAM)</p>
+                    <h3 className="text-sm font-extrabold text-zinc-900 dark:text-white">Student Registration &amp; Demographic Audit Trail</h3>
+                    <p className="text-xs text-zinc-400 font-semibold mt-0.5">Institutional review queue for {activeCollegeName} (Data-Alone Audit)</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <select
                       aria-label="Filter Campus"
                       value={activeCollegeId}
                       onChange={e => setActiveCollegeId(e.target.value)}
-                      className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"
+                      className="px-3 py-1.5 text-xs font-bold border border-zinc-200 dark:border-zinc-700 rounded-xl bg-zinc-50 dark:bg-zinc-800 outline-none"
                     >
                       <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
                       {scopedColleges.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
-                    <Badge variant="outline">0 Pending Escalations</Badge>
+                    <Badge variant="outline">0 Critical Escalations</Badge>
                   </div>
                 </div>
-                <div className="p-8 text-center text-slate-400 text-xs font-semibold">
-                  All student profile edit requests are actively resolved by assigned Campus Managers.
+                <div className="p-8 text-center text-zinc-400 text-xs font-semibold">
+                  All scholar registration modifications and demographic updates are actively audited by campus administration with 100% compliance.
                 </div>
               </div>
             </div>
           )}
 
           {/* ══════════════════════════════════════════════════════════════════
-              TAB 16: FEE COLLECTION - EXECUTIVE INFOGRAPHICS
+              TAB 16: FEE COLLECTION - CONTRACT MILESTONE REALIZATION LEDGER
               ══════════════════════════════════════════════════════════════════ */}
           {activeTab === "fees" && (
             <div className="space-y-6 animate-fadeIn pb-12">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                <div>
-                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Fee Realization & Institutional Standing</h3>
-                  <p className="text-xs text-slate-400 font-semibold mt-0.5">Contract milestone tracking & collections for {activeCollegeName}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label className="text-[11px] font-bold text-slate-500 whitespace-nowrap">Campus:</label>
-                  <select
-                    aria-label="Filter Campus Scope"
-                    value={activeCollegeId}
-                    onChange={e => setActiveCollegeId(e.target.value)}
-                    className="text-xs font-bold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-1.5 text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500"
-                  >
-                    <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
-                    {scopedColleges.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Important Executive Infographics Banner for Financials */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Fee Realization Rate</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">{feeMetrics.realizationRate}%</div>
-                  <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden mt-2">
-                    <div className="bg-gradient-to-r from-amber-500 to-emerald-500 h-full rounded-full" style={{ width: `${Math.min(100, Math.max(0, feeMetrics.realizationRate))}%` }} />
-                  </div>
-                  <span className="text-[11px] text-emerald-600 font-bold mt-1.5 inline-block">High Institutional Health</span>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Target Contract Value</span>
-                  <div className="text-2xl font-black text-slate-900 dark:text-white mt-1">₹ {feeMetrics.totalValue.toLocaleString("en-IN")}</div>
-                  <span className="text-[11px] text-slate-500 font-semibold mt-1 inline-block">Active Institutional Portfolios</span>
-                </div>
-
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-card">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Collected vs Outstanding</span>
-                  <div className="text-2xl font-black text-emerald-600 mt-1">₹ {feeMetrics.collected.toLocaleString("en-IN")}</div>
-                  <span className="text-[11px] text-amber-600 font-bold mt-1 inline-block">₹ {feeMetrics.pending.toLocaleString("en-IN")} Outstanding Milestone</span>
-                </div>
-              </div>
-
-              <FeeManagerDashboard readOnly={true} collegeId={activeCollegeId} />
+              <KAMFeesLedgerView
+                collegeId={activeCollegeId}
+                scopedColleges={scopedColleges.map(c => ({ id: c.id, name: c.name }))}
+                onCollegeChange={setActiveCollegeId}
+                feeMetrics={feeMetrics}
+              />
             </div>
           )}
 

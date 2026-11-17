@@ -15,7 +15,8 @@ import {
   normalizeDayType,
   parseDayOrder,
   getWeekBoundaries,
-  predictNextDayOrder
+  predictNextDayOrder,
+  autoAdaptDayConfig
 } from "@/lib/dailyConfigForm";
 import { cmMobileTabs, cmMoreTabIds, cmMoreTabs, cmNavGroups } from "@/lib/cmNav";
 import { isAwaitingCm, isAnyPendingCmRequest, isNeedsCmAllocation, isInCmQueue, isAwaitingCmCapacity, isLateAttendanceRequest } from "@/lib/requestStatus";
@@ -13230,6 +13231,30 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     if (!dailyEndDateStr || dailyEndDateStr < val) {
       setDailyEndDateStr(val);
     }
+    const daysLimit = workingDays.length > 0 ? workingDays.length : (Number(colleges.find(c => c.id === activeCollegeId)?.working_days) === 6 ? 6 : 5);
+    const adapted = autoAdaptDayConfig(val, dailyConfigsList, daysLimit);
+    if (adapted.isExisting) {
+      setEditingDailyId(adapted.existingId || val);
+      setDailyDayType(adapted.dayType);
+      setDailyDayOrder(adapted.dayOrder);
+      setDailySessionMode(adapted.sessionMode);
+      const deptMatch = (adapted.notes || "").match(/\[Dept:\s*([^\]]+)\]/i);
+      if (deptMatch && deptMatch[1]) {
+        setDailyDeptScope(deptMatch[1].trim());
+        setDailyNotes((adapted.notes || "").replace(/\[Dept:\s*[^\]]+\]/i, "").trim());
+      } else {
+        setDailyDeptScope("All Departments");
+        setDailyNotes(adapted.notes || "");
+      }
+      toast(`Loaded existing configuration for ${val}`, "info");
+    } else {
+      setEditingDailyId(null);
+      setDailyDayType(adapted.dayType);
+      setDailyDayOrder(adapted.dayOrder);
+      setDailySessionMode(adapted.sessionMode);
+      setDailyNotes(adapted.notes || "");
+      setDailyDeptScope("All Departments");
+    }
   };
 
   const handleDeleteDailyConfig = async (id: string, dateStr: string) => {
@@ -13297,16 +13322,35 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     }
   };
 
-  const resetDailyConfigForm = () => {
-    const today = getLocalDateStr();
+  const resetDailyConfigForm = (targetDate?: string) => {
+    const target = targetDate || getLocalDateStr();
     setEditingDailyId(null);
-    setDailyStartDateStr(today);
-    setDailyEndDateStr(today);
-    setDailyDayType("working");
-    setDailyDayOrder("Day 1");
+    setDailyStartDateStr(target);
+    setDailyEndDateStr(target);
     setDailySessionMode("Offline");
-    setDailyNotes("");
     setDailyDeptScope("All Departments");
+
+    const daysLimit = workingDays.length > 0 ? workingDays.length : (Number(colleges.find(c => c.id === activeCollegeId)?.working_days) === 6 ? 6 : 5);
+    const adapted = autoAdaptDayConfig(target, dailyConfigsList, daysLimit);
+    if (adapted.isExisting) {
+      setEditingDailyId(adapted.existingId || target);
+      setDailyDayType(adapted.dayType);
+      setDailyDayOrder(adapted.dayOrder);
+      setDailySessionMode(adapted.sessionMode);
+      setDailyNotes(adapted.notes || "");
+    } else {
+      setDailyDayType(adapted.dayType);
+      setDailyDayOrder(adapted.dayOrder);
+      setDailySessionMode(adapted.sessionMode);
+      setDailyNotes(adapted.notes || "");
+    }
+  };
+
+  const handleOpenDailyConfigModal = () => {
+    if (!editingDailyId) {
+      resetDailyConfigForm(dailyStartDateStr || getLocalDateStr());
+    }
+    setIsDailyConfigModalOpen(true);
   };
 
   const handleStartEditDailyConfig = (cfg: any) => {
@@ -13336,22 +13380,18 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     setEditingDailyId(null);
     setDailyStartDateStr(dStr);
     setDailyEndDateStr(dStr);
-    setDailyDayType("working");
 
-    // Predict next Day Order based on previous working Day Order for this campus
-    const priorConfigs = (dailyConfigsList || [])
-      .filter((c: any) => c.dateStr && c.dateStr < dStr && c.day_order && c.day_order !== "None")
-      .sort((a: any, b: any) => b.dateStr.localeCompare(a.dateStr));
-    const lastDayOrder = priorConfigs[0]?.day_order || null;
-    const daysLimit = workingDays.length > 0 ? workingDays.length : 5;
-    const predicted = predictNextDayOrder(lastDayOrder, daysLimit);
-    setDailyDayOrder(predicted);
-    setDailySessionMode("Offline");
-    setDailyNotes("");
+    const daysLimit = workingDays.length > 0 ? workingDays.length : (Number(colleges.find(c => c.id === activeCollegeId)?.working_days) === 6 ? 6 : 5);
+    const adapted = autoAdaptDayConfig(dStr, dailyConfigsList, daysLimit);
+
+    setDailyDayType(adapted.dayType);
+    setDailyDayOrder(adapted.dayOrder);
+    setDailySessionMode(adapted.sessionMode);
+    setDailyNotes(adapted.notes || "");
 
     const panel = document.getElementById("daily-config-form")?.closest("[role=dialog]");
     panel?.scrollTo({ top: 0, behavior: "smooth" });
-    toast(`Pre-filled configuration for ${dStr} (${predicted})`, "info");
+    toast(`Pre-filled configuration for ${dStr} (${adapted.dayOrder})`, "info");
   };
 
   const handleCancelDailyEdit = () => {
@@ -13381,6 +13421,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         body: JSON.stringify({
           college_id: activeCollegeId,
           action: "auto_adapt_next_week",
+          reference_date: dailyStartDateStr || getLocalDateStr(),
           skip_sundays: skipSundays
         })
       });
@@ -15265,7 +15306,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                         <button
                           type="button"
-                          onClick={() => setIsDailyConfigModalOpen(true)}
+                          onClick={handleOpenDailyConfigModal}
                           className="p-3 rounded-xl bg-slate-50/80 hover:bg-zinc-100/90 border border-slate-100 hover:border-zinc-200 flex items-center gap-2 text-left transition-all cursor-pointer group"
                         >
                           <CalendarCheck2 className="h-4.5 w-4.5 text-slate-500 group-hover:text-amber-500 shrink-0 transition-colors" />
@@ -15353,7 +15394,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   <Button
                     variant="primary"
                     size="md"
-                    onClick={() => setIsDailyConfigModalOpen(true)}
+                    onClick={handleOpenDailyConfigModal}
                     className="bg-slate-900 hover:bg-slate-800 text-white shadow-sm font-extrabold"
                     icon={<Calendar className="h-4 w-4" />}
                   >
@@ -28055,7 +28096,17 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 <select
                   aria-label="Day Type"
                   value={dailyDayType}
-                  onChange={e => setDailyDayType(e.target.value)}
+                  onChange={e => {
+                    const newType = e.target.value;
+                    setDailyDayType(newType);
+                    if (newType === "holiday") {
+                      setDailyDayOrder("None");
+                    } else if (newType === "working" && (dailyDayOrder === "None" || !dailyDayOrder)) {
+                      const daysLimit = workingDays.length > 0 ? workingDays.length : (Number(colleges.find(c => c.id === activeCollegeId)?.working_days) === 6 ? 6 : 5);
+                      const adapted = autoAdaptDayConfig(dailyStartDateStr, dailyConfigsList, daysLimit);
+                      setDailyDayOrder(adapted.dayOrder === "None" ? "Day 1" : adapted.dayOrder);
+                    }
+                  }}
                   className="w-full px-3 py-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-2 focus:ring-[#4F46E5]/20 outline-none shadow-xs cursor-pointer text-slate-800"
                 >
                   {!isCanonicalDayType(dailyDayType) && (

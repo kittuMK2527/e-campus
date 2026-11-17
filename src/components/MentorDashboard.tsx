@@ -7,6 +7,7 @@ import { useToast } from "@/context/ToastContext";
 import { apiFetch } from "@/lib/apiFetch";
 import { announceDataChanged } from "@/lib/dataSync";
 import { getLocalDateStr, getInstitutionDateStr, getInstitutionDateStrOffset } from "@/lib/localDate";
+import { getServerNow, getServerDateStr, isPastServerDeadline } from "@/lib/serverTime";
 import { ALL_SEMESTERS, DEFAULT_SEMESTERS, getSemestersForCourse } from "@/lib/semesters";
 import { qk } from "@/lib/queryKeys";
 import { prefetchRoleTab } from "@/lib/prefetch";
@@ -141,7 +142,8 @@ const MentorPunchWidget: React.FC<{ mentor: Mentor }> = ({ mentor }) => {
     // ROLE_UI_AUDIT T1 (P1): use the shared parser instead of the fragile regex —
     // it handles 24-hour times ("14:30"), "8.30AM", and AM/PM variants.
     const totalMinutes = parseTimeToMinutes(collegeStartTimeStr);
-    const now = new Date();
+    // Authoritative server-calibrated time (prevents mobile clock manipulation)
+    const now = getServerNow();
     let hours = 8;
     let minutes = 30;
     if (totalMinutes > 0) {
@@ -3601,7 +3603,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     if (batchMatch) {
       const batchStart = parseInt(batchMatch[1], 10);
       const batchEnd = parseInt(batchMatch[2], 10);
-      const now = new Date();
+      // Authoritative server-calibrated time (prevents mobile clock manipulation)
+    const now = getServerNow();
       const academicYear = now.getMonth() >= 5 ? now.getFullYear() : now.getFullYear() - 1;
       const yearLabels = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
       const maxYear = Math.max(1, batchEnd - batchStart);
@@ -3635,7 +3638,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     const period = match[3].replace(/\./g, "").toUpperCase();
     if (period === "PM" && hours !== 12) hours += 12;
     if (period === "AM" && hours === 12) hours = 0;
-    const now = new Date();
+    // Authoritative server-calibrated time (prevents mobile clock manipulation)
+    const now = getServerNow();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes, 0);
   };
 
@@ -3721,7 +3725,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     // If Admin has disabled attendance mark lock, past periods remain open for marking
     if (!attendanceLockEnabled) {
       const startTime = parseSlotStartTimeForDate(timeStr, dateStr);
-      const now = new Date();
+      // Authoritative server-calibrated time (prevents mobile clock manipulation)
+    const now = getServerNow();
       if (startTime && now < startTime) {
         return { open: false, reason: "future", message: "Class has not started yet." };
       }
@@ -3732,7 +3737,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     const endTime = parseSlotEndTimeForDate(timeStr, dateStr);
     if (!startTime || !endTime) return { open: true };
 
-    const now = new Date();
+    // Authoritative server-calibrated time (prevents mobile clock manipulation)
+    const now = getServerNow();
     if (now < startTime) {
       return { open: false, reason: "future", message: "Class has not started yet." };
     }
@@ -9053,7 +9059,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                           {(() => {
                             const assigned = parseDbDate(currentTask.created_at || currentTask.updated_at);
                             const deadline = new Date(assigned.getTime() + 7 * 24 * 60 * 60 * 1000);
-                            const isExpired = new Date() > deadline;
+                            const isExpired = isPastServerDeadline(deadline);
                             return (
                               <>
                                 <div className="flex items-center gap-1">

@@ -108,3 +108,73 @@ export function getWeekBoundaries(referenceDateStr?: string): {
   };
 }
 
+export interface AutoAdaptedDayConfig {
+  dateStr: string;
+  dayType: "working" | "holiday" | "event" | "exam_day";
+  dayOrder: string;
+  sessionMode: "Offline" | "Online" | "Hybrid";
+  notes: string;
+  isExisting: boolean;
+  existingId?: string;
+}
+
+/**
+ * Smartly auto-adapts Day Order and Day Type configuration for a specified date:
+ * 1. If an existing configuration exists in configsList, returns that record.
+ * 2. If it is a weekend (Sunday, or Saturday on a 5-day campus), auto-adapts to holiday / None.
+ * 3. If it is a working weekday, finds the latest working Day Order before this date and predicts the next sequential Day Order.
+ */
+export function autoAdaptDayConfig(
+  targetDateStr: string,
+  configsList: any[] = [],
+  workingDayCount: number = 5
+): AutoAdaptedDayConfig {
+  const existing = (configsList || []).find((c: any) => c.dateStr === targetDateStr);
+  if (existing) {
+    return {
+      dateStr: targetDateStr,
+      dayType: normalizeDayType(existing.day_type) as any,
+      dayOrder: existing.day_order || "Day 1",
+      sessionMode: (existing.session_mode as any) || "Offline",
+      notes: existing.notes || "",
+      isExisting: true,
+      existingId: existing.id || targetDateStr
+    };
+  }
+
+  const [y, m, d] = targetDateStr.split("-").map(Number);
+  const dateObj = new Date(y, m - 1, d);
+  const dayOfWeek = dateObj.getDay(); // 0 = Sun, 6 = Sat
+  const isSunday = dayOfWeek === 0;
+  const isSaturday = dayOfWeek === 6;
+  const isWeekend = isSunday || (workingDayCount === 5 && isSaturday);
+
+  if (isWeekend) {
+    return {
+      dateStr: targetDateStr,
+      dayType: "holiday",
+      dayOrder: "None",
+      sessionMode: "Offline",
+      notes: isSunday ? "Sunday Weekend" : "Saturday Weekend",
+      isExisting: false
+    };
+  }
+
+  // Find most recent prior working config before targetDateStr
+  const priorConfigs = (configsList || [])
+    .filter((c: any) => c.dateStr && c.dateStr < targetDateStr && c.day_order && c.day_order !== "None" && c.day_type !== "holiday")
+    .sort((a: any, b: any) => b.dateStr.localeCompare(a.dateStr));
+
+  const lastOrder = priorConfigs[0]?.day_order || null;
+  const predicted = predictNextDayOrder(lastOrder, workingDayCount);
+
+  return {
+    dateStr: targetDateStr,
+    dayType: "working",
+    dayOrder: predicted,
+    sessionMode: "Offline",
+    notes: "",
+    isExisting: false
+  };
+}
+

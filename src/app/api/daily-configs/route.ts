@@ -6,9 +6,10 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
-import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
+import { getInstitutionDateStr, parseLocalDate, shiftDateStr } from "@/lib/localDate";
 import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 import { dispatchSystemNotification } from "@/lib/notifications";
+import { getWeekBoundaries } from "@/lib/dailyConfigForm";
 import crypto from "crypto";
 
 const noCacheHeaders = {
@@ -53,7 +54,8 @@ async function bulkUpsertDailyConfigs(db: any, rows: any[][]) {
 }
 
 async function handleAutoAdaptNextWeek(db: any, body: any) {
-  const { college_id, reference_date, skip_sundays = false } = body;
+  const { college_id, reference_date } = body;
+  const skip_sundays = body.skip_sundays === true || body.skip_sundays === "true" || body.skip_sundays === undefined;
 
   if (!college_id) {
     return NextResponse.json({ success: false, message: "college_id is required" }, { status: 400, headers: noCacheHeaders });
@@ -64,24 +66,17 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
   const workingDaysCount = (collegeRow && Number(collegeRow.working_days) === 6) ? 6 : 5;
   const dayOrders = Array.from({ length: workingDaysCount }, (_, idx) => `Day ${idx + 1}`);
 
-  // Determine reference week (default: current week)
-  const refDate = reference_date ? new Date(reference_date) : new Date();
-  const refDayOfWeek = refDate.getDay(); // 0=Sun, 1=Mon, ...
-  const refMonday = new Date(refDate);
-  refMonday.setDate(refDate.getDate() - (refDayOfWeek === 0 ? 6 : refDayOfWeek - 1));
+  // Reference week boundaries in institution timezone
+  const refDateStr = reference_date || getInstitutionDateStr();
+  const refWeek = getWeekBoundaries(refDateStr);
+  const refDates = refWeek.weekDates;
 
-  // Next week starts 7 days after reference Monday
-  const nextMonday = new Date(refMonday);
-  nextMonday.setDate(refMonday.getDate() + 7);
+  // Next week starts exactly 7 days after reference Monday
+  const nextMondayStr = shiftDateStr(refWeek.startDate, 7);
+  const nextWeek = getWeekBoundaries(nextMondayStr);
+  const nextDates = nextWeek.weekDates;
 
   // Fetch reference week configs
-  const refDates: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(refMonday);
-    d.setDate(refMonday.getDate() + i);
-    refDates.push(getInstitutionDateStr(d));
-  }
-
   const refConfigs = await db.all(
     "SELECT * FROM campus_daily_configs WHERE college_id = ? AND dateStr IN (?, ?, ?, ?, ?, ?, ?)",
     [college_id, ...refDates]
@@ -91,11 +86,11 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
   const refConfigMap = new Map<string, any>();
   refConfigs.forEach((c: any) => refConfigMap.set(c.dateStr, c));
 
-  // Find the last day order of reference week to continue the sequence
+  // Find the last working day order of reference week to continue the sequence
   let lastDayOrderIndex = -1;
   for (let i = 6; i >= 0; i--) {
     const refConfig = refConfigMap.get(refDates[i]);
-    if (refConfig && refConfig.day_order && refConfig.day_order !== "None") {
+    if (refConfig && refConfig.day_order && refConfig.day_order !== "None" && refConfig.day_type !== "holiday") {
       const match = refConfig.day_order.match(/^Day (\d+)$/i);
       if (match) {
         lastDayOrderIndex = (parseInt(match[1], 10) - 1) % workingDaysCount;
@@ -104,11 +99,11 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
     }
   }
 
-  // If reference week has no configured day orders, check the latest configured day order for this campus
+  // If reference week has no configured day orders, check the latest configured working day order before next week
   if (lastDayOrderIndex === -1) {
     const latestConfig = await db.get(
-      "SELECT day_order FROM campus_daily_configs WHERE college_id = ? AND day_order != 'None' AND day_order LIKE 'Day %' ORDER BY dateStr DESC LIMIT 1",
-      [college_id]
+      "SELECT day_order FROM campus_daily_configs WHERE college_id = ? AND day_order != 'None' AND day_order LIKE 'Day %' AND dateStr < ? ORDER BY dateStr DESC LIMIT 1",
+      [college_id, nextDates[0]]
     );
     if (latestConfig?.day_order) {
       const match = latestConfig.day_order.match(/^Day (\d+)$/i);
@@ -118,47 +113,33 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
     }
   }
 
-  // Generate next week configs
-  const nextDates: string[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(nextMonday);
-    d.setDate(nextMonday.getDate() + i);
-    nextDates.push(getInstitutionDateStr(d));
-  }
-
-  let dayOrderCounter = lastDayOrderIndex + 1;
+  let dayOrderCounter = lastDayOrderIndex !== -1 ? lastDayOrderIndex + 1 : 0;
   const insertedConfigs: any[] = [];
   const configRows: any[][] = [];
 
   for (let i = 0; i < nextDates.length; i++) {
     const nextDateStr = nextDates[i];
-    const refDateStr = refDates[i];
-    const refConfig = refConfigMap.get(refDateStr);
-    const dateObj = new Date(nextDateStr + "T00:00:00");
+    const dateObj = parseLocalDate(nextDateStr);
     const isSunday = dateObj.getDay() === 0;
     const isSaturday = dateObj.getDay() === 6;
     const id = `${college_id}_${nextDateStr}`;
 
-    let dayType = refConfig?.day_type || "working";
-    let dayOrder = refConfig?.day_order || "None";
-    const sessionMode = refConfig?.session_mode || "Offline";
-    const notesVal = refConfig?.notes || "";
+    let dayType = "working";
+    let dayOrder = "None";
+    const sessionMode = "Offline";
+    let notesVal = "";
 
-    // Handle weekend skipping (Sunday always; Saturday if 5-day campus and skipping weekends)
-    const isWeekendToSkip = skip_sundays && (isSunday || (workingDaysCount === 5 && isSaturday));
+    // Weekend rules: Sunday is always holiday; Saturday is holiday on 5-day campus or if skip_sundays is set
+    const isWeekendToSkip = isSunday || (workingDaysCount === 5 && isSaturday) || (skip_sundays && isSaturday);
 
     if (isWeekendToSkip) {
       dayType = "holiday";
       dayOrder = "None";
+      notesVal = isSunday ? "Sunday Weekend" : "Saturday Weekend";
     } else {
-      if (dayType !== "holiday" && dayType !== "event") {
-        dayType = "working";
-      }
-      if (dayType === "working") {
-        // Continue day order sequence dynamically modulo workingDaysCount
-        dayOrder = dayOrders[dayOrderCounter % workingDaysCount];
-        dayOrderCounter++;
-      }
+      dayType = "working";
+      dayOrder = dayOrders[dayOrderCounter % workingDaysCount];
+      dayOrderCounter++;
     }
 
     configRows.push([id, college_id, nextDateStr, dayType, dayOrder, sessionMode, notesVal]);
@@ -335,8 +316,11 @@ export async function POST(request: Request) {
       let currentDayOrder = effectiveDayOrder;
 
       // Handle weekend skipping (Sunday always; Saturday if 5-day campus and skipping weekends)
-      const isWeekendToSkip = (body.skip_sundays === true && isSunday) ||
-        (workingDaysCount === 5 && body.skip_sundays === true && isSaturday);
+      const shouldSkipSundays = body.skip_sundays === true || body.skip_sundays === "true" || body.skip_sundays === undefined;
+      const shouldAutoAdvance = auto_advance !== false && auto_advance !== "false" && auto_advance !== 0;
+
+      const isWeekendToSkip = (shouldSkipSundays && isSunday) ||
+        (workingDaysCount === 5 && shouldSkipSundays && isSaturday);
 
       if (effectiveDayOrder === "None" || effectiveDayOrder === "none") {
         // If explicitly set to None, force None for all dates in range without cycling
@@ -347,7 +331,7 @@ export async function POST(request: Request) {
           currentDayType = "holiday";
         }
         currentDayOrder = "None";
-      } else if (auto_advance !== false && initialIndex !== -1) {
+      } else if (shouldAutoAdvance && initialIndex !== -1) {
         // Continuous next day sequence modulo campus working day count (e.g. Day 1 -> Day 5 on 5-day campus)
         currentDayOrder = dayOrders[dayOrderCounter % workingDaysCount];
         dayOrderCounter++;

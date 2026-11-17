@@ -4,7 +4,8 @@ import {
   getWeekBoundaries,
   parseDayOrder,
   dayOrderCeiling,
-  dayOrderOptions
+  dayOrderOptions,
+  autoAdaptDayConfig
 } from "@/lib/dailyConfigForm";
 
 describe("predictNextDayOrder", () => {
@@ -52,5 +53,71 @@ describe("getWeekBoundaries", () => {
     const bounds = getWeekBoundaries("2026-11-16");
     expect(bounds.startDate).toBe("2026-11-16");
     expect(bounds.endDate).toBe("2026-11-22");
+  });
+});
+
+describe("autoAdaptDayConfig", () => {
+  it("pre-fills existing configuration when target date is already configured", () => {
+    const configs = [
+      { id: "cfg_1", dateStr: "2026-11-18", day_type: "exam_day", day_order: "Day 3", session_mode: "Offline", notes: "Midterm Exam" }
+    ];
+    const res = autoAdaptDayConfig("2026-11-18", configs, 5);
+    expect(res.isExisting).toBe(true);
+    expect(res.dayType).toBe("exam_day");
+    expect(res.dayOrder).toBe("Day 3");
+    expect(res.notes).toBe("Midterm Exam");
+  });
+
+  it("auto-adapts Sunday to holiday / None with weekend notes", () => {
+    const res = autoAdaptDayConfig("2026-11-22", [], 5); // 2026-11-22 is Sunday
+    expect(res.isExisting).toBe(false);
+    expect(res.dayType).toBe("holiday");
+    expect(res.dayOrder).toBe("None");
+    expect(res.notes).toContain("Sunday Weekend");
+  });
+
+  it("auto-adapts Saturday to holiday on a 5-day campus", () => {
+    const res = autoAdaptDayConfig("2026-11-21", [], 5); // 2026-11-21 is Saturday
+    expect(res.isExisting).toBe(false);
+    expect(res.dayType).toBe("holiday");
+    expect(res.dayOrder).toBe("None");
+  });
+
+  it("auto-adapts Saturday to working on a 6-day campus", () => {
+    const configs = [
+      { id: "cfg_fri", dateStr: "2026-11-20", day_type: "working", day_order: "Day 5" }
+    ];
+    const res = autoAdaptDayConfig("2026-11-21", configs, 6);
+    expect(res.isExisting).toBe(false);
+    expect(res.dayType).toBe("working");
+    expect(res.dayOrder).toBe("Day 6");
+  });
+
+  it("predicts sequential day order from prior working days", () => {
+    const configs = [
+      { id: "cfg_mon", dateStr: "2026-11-16", day_type: "working", day_order: "Day 1" }
+    ];
+    const res = autoAdaptDayConfig("2026-11-17", configs, 5); // Tuesday
+    expect(res.isExisting).toBe(false);
+    expect(res.dayType).toBe("working");
+    expect(res.dayOrder).toBe("Day 2");
+  });
+
+  it("loops Day 5 back to Day 1 on a 5-day campus", () => {
+    const configs = [
+      { id: "cfg_fri", dateStr: "2026-11-20", day_type: "working", day_order: "Day 5" }
+    ];
+    // Next Monday is 2026-11-23
+    const res = autoAdaptDayConfig("2026-11-23", configs, 5);
+    expect(res.isExisting).toBe(false);
+    expect(res.dayType).toBe("working");
+    expect(res.dayOrder).toBe("Day 1");
+  });
+
+  it("defaults to Day 1 when no prior configurations exist", () => {
+    const res = autoAdaptDayConfig("2026-11-16", [], 5);
+    expect(res.isExisting).toBe(false);
+    expect(res.dayType).toBe("working");
+    expect(res.dayOrder).toBe("Day 1");
   });
 });

@@ -332,6 +332,27 @@ export async function POST(request: Request) {
         }
       }
 
+      // Authoritative Server-Side Date Window Enforcement:
+      // Prevent client clock manipulation from backdating or future-dating attendance.
+      const serverToday = getInstitutionDateStr();
+      if (dateStr > serverToday) {
+        return NextResponse.json(
+          { success: false, message: "Attendance cannot be marked for future dates." },
+          { status: 400 }
+        );
+      }
+
+      // Mentors can only mark attendance within 7 days; older dates require CM/Admin correction.
+      if (actorRole === "mentor") {
+        const minAllowedDate = getInstitutionDateStrOffset(-7);
+        if (dateStr < minAllowedDate) {
+          return NextResponse.json(
+            { success: false, message: "Attendance window closed. Dates older than 7 days require Campus Manager approval." },
+            { status: 403 }
+          );
+        }
+      }
+
       if (status === "not_marked") {
         await db.run(
           "DELETE FROM student_attendance WHERE studentId = ? AND slotId = ? AND dateStr = ?",
@@ -445,9 +466,15 @@ export async function POST(request: Request) {
       const upsertRows: any[] = [];
       let skippedRecords = 0;
 
+      const serverToday = getInstitutionDateStr();
       for (const item of records) {
         const { studentId, slotId, dateStr, status, classGroup } = item;
         if (!studentId || !dateStr || !status) continue;
+        // Server-side guard: do not allow future attendance
+        if (dateStr > serverToday) {
+          skippedRecords++;
+          continue;
+        }
 
         if (slotId) {
           // Explicit slotId format (period-specific marks from client-side resolution).

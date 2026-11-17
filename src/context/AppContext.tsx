@@ -10,6 +10,7 @@ import { queryRootsForDomain } from "@/lib/queryKeys";
 import { announceDataChanged } from "@/lib/dataSync";
 import { describeFailedSections, describeLoadFailure } from "@/lib/dataLoadStatus";
 import { generateId } from "@/lib/id";
+import { setupServerTimeAutoSync } from "@/lib/serverTime";
 
 export interface AuthenticatedUser {
   id: string;
@@ -864,6 +865,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   );
 
   const [customShiftTimeSlots, setCustomShiftTimeSlots] = useState<any>(SHIFT_TIME_SLOTS);
+
+  // Initialize server-authoritative time synchronization to protect against mobile clock tampering
+  useEffect(() => {
+    return setupServerTimeAutoSync();
+  }, []);
 
   useEffect(() => {
     // Determine active college ID
