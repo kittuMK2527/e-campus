@@ -83,6 +83,7 @@ import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetai
 import { Pagination } from "@/components/ui/Pagination";
 import { ActionMenu } from "@/components/ui/ActionMenu";
 import { Dialog } from "@/components/ui/dialog";
+import { StudentLogStudio } from "./mentor/StudentLogStudio";
 
 const formatPunchTime = (timeStr?: string | null) => {
   if (!timeStr) return "—";
@@ -1299,8 +1300,8 @@ const MentorStudyMaterialsStudio: React.FC<MentorStudyMaterialsStudioProps> = ({
 };
 
 export interface MentorDashboardProps {
-  activeTab?: "home" | "timetable" | "handovers" | "attendance" | "exams" | "profile" | "tracker" | "academic_tracker" | "materials" | "demo_evaluations" | "more_menu" | "leave_requests" | "interviews" | "weekly_plan" | "my_skill_tracker";
-  onTabChange?: (tab: "home" | "timetable" | "handovers" | "attendance" | "exams" | "profile" | "tracker" | "academic_tracker" | "materials" | "demo_evaluations" | "more_menu" | "leave_requests" | "interviews" | "weekly_plan" | "my_skill_tracker") => void;
+  activeTab?: "home" | "timetable" | "handovers" | "attendance" | "exams" | "profile" | "tracker" | "academic_tracker" | "materials" | "demo_evaluations" | "more_menu" | "leave_requests" | "interviews" | "weekly_plan" | "my_skill_tracker" | "student_log";
+  onTabChange?: (tab: "home" | "timetable" | "handovers" | "attendance" | "exams" | "profile" | "tracker" | "academic_tracker" | "materials" | "demo_evaluations" | "more_menu" | "leave_requests" | "interviews" | "weekly_plan" | "my_skill_tracker" | "student_log") => void;
 }
 
 export const MentorDashboard: React.FC<MentorDashboardProps> = ({
@@ -1816,7 +1817,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
   const [selectedLocationFilter, setSelectedLocationFilter] = useState<string | null>(null);
 
   // Active Dashboard Tab State
-  const [localActiveTab, setLocalActiveTab] = useState<"home" | "timetable" | "handovers" | "attendance" | "exams" | "profile" | "tracker" | "academic_tracker" | "materials" | "demo_evaluations" | "more_menu" | "leave_requests" | "interviews" | "weekly_plan" | "my_skill_tracker">("home");
+  const [localActiveTab, setLocalActiveTab] = useState<"home" | "timetable" | "handovers" | "attendance" | "exams" | "profile" | "tracker" | "academic_tracker" | "materials" | "demo_evaluations" | "more_menu" | "leave_requests" | "interviews" | "weekly_plan" | "my_skill_tracker" | "student_log">("home");
 
   const mentorTabAliases: Record<string, typeof localActiveTab> = {
     "dashboard": "home",
@@ -1838,13 +1839,17 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     "weekly_plan": "weekly_plan",
     "skill-tracker": "my_skill_tracker",
     "my_skill_tracker": "my_skill_tracker",
+    "student_log": "student_log",
+    "student-log": "student_log",
+    "student_logs": "student_log",
+    "student-logs": "student_log",
     "profile": "profile",
     "academic-tracker": "academic_tracker",
     "academic_tracker": "academic_tracker",
     "leave_requests": "handovers",
     "leave": "handovers"
   };
-  const MENTOR_TAB_IDS = ["home", "timetable", "handovers", "attendance", "exams", "profile", "tracker", "academic_tracker", "materials", "demo_evaluations", "more_menu", "leave_requests", "interviews", "weekly_plan", "my_skill_tracker"];
+  const MENTOR_TAB_IDS = ["home", "timetable", "handovers", "attendance", "exams", "profile", "tracker", "academic_tracker", "materials", "demo_evaluations", "more_menu", "leave_requests", "interviews", "weekly_plan", "my_skill_tracker", "student_log"];
   // Unknown slugs (e.g. a stale notification link stored in the DB) fall back to the
   // default tab instead of rendering an empty workspace.
   const resolvedPropTab = (() => {
@@ -2852,7 +2857,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     return m;
   }, [dailyConfigsList]);
 
-  // Ensure Saturday is dynamically included in weekDates whenever 6-day working, Saturday slots exist, or Saturday has daily config
+  // Campus working_days is authoritative: only 6-day campuses display Saturday.
   const effectiveWeekDates = useMemo(() => {
     if (weekDates.length >= 6) return weekDates;
     if (weekDates.length === 0) return weekDates;
@@ -2862,17 +2867,10 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     sat.setDate(mon.getDate() + 5);
     const satDateStr = sat.toISOString().split("T")[0];
 
-    const hasSatConfig = (() => {
-      const c = dailyConfigsMap.get(satDateStr);
-      if (!c) return false;
-      return (c.day_order && c.day_order !== "None") || c.day_type === "working" || c.day_type === "regular" || c.day_type === "event" || c.day_type === "exam_day";
-    })();
-
-    const hasSatSlots = mySlots.some(s => s.day === "Saturday");
     const activeCollege = colleges.find(c => c.id === currentMentor?.college_id);
     const is6DaysCollege = Number(activeCollege?.working_days) === 6;
 
-    if (is6DaysCollege || hasSatSlots || hasSatConfig) {
+    if (is6DaysCollege) {
       return [
         ...weekDates,
         {
@@ -2884,7 +2882,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     }
 
     return weekDates;
-  }, [weekDates, dailyConfigsMap, mySlots, colleges, currentMentor]);
+  }, [weekDates, colleges, currentMentor]);
 
   // Extra coverage hours for the current week (from approved handovers scheduled in this week's dates)
   const currentWeekDateStrings = useMemo(() => effectiveWeekDates.map(d => d.dateStr), [effectiveWeekDates]);
@@ -4024,6 +4022,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   { id: "academic_tracker", label: "Academic Tracker", icon: BookOpen },
                   { id: "materials", label: "Study Materials Hub", icon: Book },
                   { id: "tracker", label: "Skill Development Tracker", icon: GraduationCap },
+                  { id: "student_log", label: "Student Log", icon: FileText },
                   { id: "my_skill_tracker", label: "My Skill Tracker", icon: Award },
                   { id: "weekly_plan", label: "Weekly Teaching Plan", icon: CalendarRange },
                   { id: "handovers", label: "Handovers", icon: Clock },
@@ -5946,6 +5945,17 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Tab: Student Log Studio */}
+        {activeTab === "student_log" && (
+          <StudentLogStudio
+            mentorId={currentMentor?.id || ""}
+            mentorName={currentMentor?.name || ""}
+            collegeId={mentorCollegeId || currentMentor?.college_id || ""}
+            slots={slots}
+            students={students}
+          />
         )}
 
         {/* Tab: Student Attendance — Daily Feed View */}

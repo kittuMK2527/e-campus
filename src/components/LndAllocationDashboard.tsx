@@ -81,7 +81,11 @@ export function LndAllocationDashboard() {
     facultyLeaves,
     holidays,
     demoSwapRequests,
-    resolveDemoSwap
+    resolveDemoSwap,
+    isDataLoading,
+    dataLoadError,
+    dataLoadMessage,
+    retryDataLoad
   } = useApp();
 
   const { toast, confirm: showConfirm } = useToast();
@@ -1070,6 +1074,9 @@ export function LndAllocationDashboard() {
               colleges={colleges}
               mentors={mentors}
               smes={smes}
+              isDataLoading={isDataLoading}
+              dataLoadError={dataLoadError ? (dataLoadMessage || "Could not load dashboard options.") : null}
+              onRetryDataLoad={retryDataLoad}
               selectedCollegeId={selectedCollegeId}
               selectedGroupId={selectedGroupId}
               selectedSmeId={selectedSmeId}

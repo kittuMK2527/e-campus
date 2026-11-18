@@ -144,7 +144,8 @@ export async function POST(request: Request) {
       const start_time = formatToCanonicalTime12(rawStart);
       const end_time = formatToCanonicalTime12(rawEnd);
       const session_time = `${start_time} - ${end_time}`;
-      const day_order = item.day_order || "Day 1";
+      // Keep the legacy column populated, but new exams no longer define campus day order.
+      const day_order = item.day_order || "None";
       const hall_room = item.hall_room || "Main Examination Hall";
       const max_marks = parseFloat(item.max_marks) || 50;
       const passing_marks = parseFloat(item.passing_marks) || (max_marks * 0.4);
@@ -161,7 +162,7 @@ export async function POST(request: Request) {
           id: `${college_id}_${exam_date}`,
           college_id,
           exam_date,
-          day_order,
+          day_order: "",
           notes: `${exam_type} Examination`
         },
         inserted: { id, exam_type, subject_name, exam_date, session_time, start_time, end_time, day_order, department, semester }
@@ -218,8 +219,8 @@ export async function POST(request: Request) {
       }
     });
 
-    // Auto-sync campus_daily_configs to recognize each imported date as an active
-    // exam day with the specified day_order. Derived data, so it stays best-effort
+      // Auto-sync campus_daily_configs to recognize each imported date as an active
+      // exam day without changing the campus's independent academic day order. Derived data, so it stays best-effort
     // after the import commits — but the outcome is reported instead of discarded.
     let dailyConfigSynced = true;
     try {
@@ -234,7 +235,7 @@ export async function POST(request: Request) {
           ) VALUES ${placeholders}
           ON CONFLICT(id) DO UPDATE SET
             day_type = 'exam_day',
-            day_order = CASE WHEN excluded.day_order IS NOT NULL AND excluded.day_order != '' THEN excluded.day_order ELSE campus_daily_configs.day_order END,
+            day_order = CASE WHEN excluded.day_order IS NOT NULL AND excluded.day_order != '' AND excluded.day_order != 'None' THEN excluded.day_order ELSE campus_daily_configs.day_order END,
             notes = excluded.notes,
             updated_at = CURRENT_TIMESTAMP
           WHERE campus_daily_configs.day_type != 'holiday'`,

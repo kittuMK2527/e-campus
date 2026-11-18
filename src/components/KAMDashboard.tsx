@@ -9,6 +9,7 @@ import {
   Calendar,
   Award,
   ShieldCheck,
+  ShieldAlert,
   FileText,
   Settings,
   Layers,
@@ -133,6 +134,11 @@ const KAMDemoScheduleView = dynamic(() => import("./kam/lnd/KAMDemoScheduleView"
   loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Demo & L&D Ledger…</div>
 });
 
+const CampusLogTab = dynamic(() => import("./kam/CampusLogTab").then(m => m.CampusLogTab), {
+  ssr: false,
+  loading: () => <div className="p-12 text-center text-slate-400 font-bold text-sm">Loading Campus Log & Concerns…</div>
+});
+
 export interface KAMDashboardProps {
   activeTab?: string;
   onTabChange?: (tab: string) => void;
@@ -149,7 +155,6 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
     subjectsList,
     coursesList,
     departmentsList,
-    daysOfWeek,
     timeSlots,
     academicYears,
     requests,
@@ -221,6 +226,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
   ], []);
 
   const kamMoreModules = useMemo(() => [
+    { id: "campus_log", label: "Campus Log & Concerns", hint: "Campus student logs, mentor performance & operational concerns", icon: ShieldAlert },
     { id: "faculty", label: "Faculty Staffing", hint: "Workload distribution & mentor matrix", icon: Users },
     { id: "timetable", label: "Timetables & Presence", hint: "Master timetable matrix & session presence", icon: Calendar },
     { id: "audit", label: "Campus E-Audit & NPS", hint: "Compliance grading, tickets & client feedback", icon: ShieldCheck },
@@ -451,6 +457,13 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
     if (timeSlots && timeSlots.length > 0) return timeSlots.map(t => typeof t === "string" ? t : (t as any).label || (t as any).time);
     return ["9.00 AM - 9.50 AM", "9.50 AM - 10.40 AM", "10.55 AM - 11.45 AM", "12.20 PM - 1.10 PM", "1.10 PM - 2.00 PM", "2.00 PM - 2.50 PM"];
   }, [collegeSlots, timeSlots]);
+
+  const timetableDays = useMemo(() => {
+    const isSixDayCampus = activeCollegeId === "all"
+      ? scopedColleges.some(college => Number(college.working_days) === 6)
+      : Number(activeCollege?.working_days) === 6;
+    return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].slice(0, isSixDayCampus ? 6 : 5);
+  }, [activeCollegeId, activeCollege, scopedColleges]);
 
   return (
     <div className="flex-1 flex w-full relative min-h-0">
@@ -1001,7 +1014,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                       </tr>
                     </thead>
                     <tbody>
-                      {(daysOfWeek && daysOfWeek.length > 0 ? daysOfWeek : ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]).map((day: string) => (
+                      {timetableDays.map((day: string) => (
                         <tr key={day} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20">
                           <td className="p-3 font-extrabold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40">
                             {day}
@@ -1235,6 +1248,17 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
                 collegeName={activeCollegeName}
                 role="kam"
                 userName={currentKAM?.name || "Key Account Manager"}
+              />
+            </div>
+          )}
+
+          {/* TAB: CAMPUS LOG & CONCERNS */}
+          {activeTab === "campus_log" && (
+            <div className="space-y-6 animate-fadeIn pb-12">
+              <CampusLogTab
+                kamId={currentKAM?.id || ""}
+                kamName={currentKAM?.name || "Key Account Manager"}
+                scopedColleges={scopedColleges.map(c => ({ id: c.id, name: c.name }))}
               />
             </div>
           )}

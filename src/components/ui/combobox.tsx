@@ -3,7 +3,7 @@
 import * as React from "react";
 import { useState, useRef, useEffect, useCallback, useId } from "react";
 import { cn } from "@/lib/utils";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { Check, ChevronDown, LoaderCircle, Search } from "lucide-react";
 
 export interface ComboboxOption {
   value: string;
@@ -23,6 +23,11 @@ export interface ComboboxProps {
   searchPlaceholder?: string;
   searchable?: boolean;
   disabled?: boolean;
+  isLoading?: boolean;
+  error?: string | null;
+  loadingMessage?: string;
+  emptyMessage?: string;
+  onRetry?: () => void;
   className?: string;
 }
 
@@ -36,6 +41,11 @@ export function Combobox({
   searchPlaceholder = "Search...",
   searchable = true,
   disabled = false,
+  isLoading = false,
+  error = null,
+  loadingMessage = "Loading options...",
+  emptyMessage = "No options available",
+  onRetry,
   className
 }: ComboboxProps) {
   const uid = useId();
@@ -76,12 +86,14 @@ export function Combobox({
     }
   }, [open]);
 
+  // Do not leave stale choices selectable while a dependent list refreshes or fails.
+  const availableOptions = isLoading || error ? [] : options;
   const filteredOptions = searchable && search.trim()
-    ? options.filter((o) =>
+    ? availableOptions.filter((o) =>
         o.label.toLowerCase().includes(search.toLowerCase().trim()) ||
         (o.subtext && o.subtext.toLowerCase().includes(search.toLowerCase().trim()))
       )
-    : options;
+    : availableOptions;
 
   const selectOption = useCallback((option: ComboboxOption | undefined) => {
     if (!option) return;
@@ -167,8 +179,8 @@ export function Combobox({
     value
   ]);
 
-  const selectedOption = options.find((o) => o.value === value);
-  const hasSearchField = searchable && options.length > 5;
+  const selectedOption = availableOptions.find((o) => o.value === value);
+  const hasSearchField = searchable && availableOptions.length > 5;
   const activeOptionId = open && filteredOptions.length > 0 ? optionId(activeIndex) : undefined;
   // aria-activedescendant belongs on the focused element: the search field when it exists, else the trigger.
   const onTriggerActiveDescendant = open && !hasSearchField ? activeOptionId : undefined;
@@ -208,7 +220,7 @@ export function Combobox({
             refocusOnClose.current = true;
             setOpen(false);
           } else {
-            openList(Math.max(0, options.findIndex((o) => o.value === value)));
+            openList(Math.max(0, availableOptions.findIndex((o) => o.value === value)));
           }
         }}
         className={cn(
@@ -221,17 +233,21 @@ export function Combobox({
         <span className="truncate pr-2 flex items-center gap-2">
           {selectedOption?.icon && <span className="shrink-0">{selectedOption.icon}</span>}
           <span className={selectedOption ? "font-bold text-slate-800 dark:text-slate-100" : "text-slate-400 font-normal"}>
-            {selectedOption ? selectedOption.label : placeholder}
+            {selectedOption ? selectedOption.label : isLoading ? loadingMessage : placeholder}
           </span>
         </span>
-        <ChevronDown
-          strokeWidth={2.4}
-          className={cn(
-            "w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0 transition-transform duration-200",
-            open && "rotate-180 text-amber-500"
-          )}
-          aria-hidden="true"
-        />
+        {isLoading ? (
+          <LoaderCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 animate-spin" aria-hidden="true" />
+        ) : (
+          <ChevronDown
+            strokeWidth={2.4}
+            className={cn(
+              "w-3.5 h-3.5 text-slate-500 dark:text-slate-400 shrink-0 transition-transform duration-200",
+              open && "rotate-180 text-amber-500"
+            )}
+            aria-hidden="true"
+          />
+        )}
       </button>
 
       {open && (
@@ -243,7 +259,7 @@ export function Combobox({
           tabIndex={-1}
           className="absolute left-0 top-full mt-1.5 w-full min-w-[220px] bg-white dark:bg-[#181820] border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xl z-[200] overflow-hidden p-1.5 animate-scaleUp"
         >
-          {searchable && options.length > 5 && (
+          {searchable && availableOptions.length > 5 && (
             <div className="p-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-black/20">
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" aria-hidden="true" />
@@ -267,9 +283,26 @@ export function Combobox({
           )}
 
           <div className="max-h-56 overflow-y-auto custom-scrollbar p-1 space-y-0.5">
-            {filteredOptions.length === 0 ? (
+            {isLoading ? (
+              <div role="status" aria-live="polite" className="p-3 text-center text-xs text-slate-500 font-medium">
+                {loadingMessage}
+              </div>
+            ) : error ? (
+              <div role="alert" className="p-3 text-center text-xs text-rose-600 dark:text-rose-400 font-medium">
+                <p>{error}</p>
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="mt-2 min-h-11 px-3 rounded-lg font-bold text-amber-700 dark:text-amber-400 hover:bg-amber-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                  >
+                    Try again
+                  </button>
+                )}
+              </div>
+            ) : filteredOptions.length === 0 ? (
               <div role="status" className="p-3 text-center text-xs text-slate-400 font-medium">
-                No matching options found
+                {availableOptions.length === 0 ? emptyMessage : "No matching options found"}
               </div>
             ) : (
               filteredOptions.map((opt, index) => {

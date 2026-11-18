@@ -90,6 +90,11 @@ const CAMPlacementPanel = dynamic(() => import("./CAMPlacementPanel").then(mod =
   loading: () => <div className="p-8 text-center text-xs text-slate-400 font-bold">Loading Placement Panel...</div>
 });
 
+const FacultyConcernsTab = dynamic(() => import("./cam/FacultyConcernsTab").then(mod => mod.FacultyConcernsTab), {
+  ssr: false,
+  loading: () => <div className="p-8 text-center text-xs text-slate-400 font-bold">Loading Campus Concerns Studio...</div>
+});
+
 const SkillTrackerPanel = dynamic(() => import("./SkillTrackerPanel").then(mod => mod.SkillTrackerPanel), {
   ssr: false,
   loading: () => <div className="p-8 text-center text-xs text-slate-400 font-bold">Loading Skill Tracker...</div>
@@ -2542,13 +2547,13 @@ export const CAMCampusInsightPanel: React.FC<{
         roomMap.get(loc)!.push(s);
       });
 
-      const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+      const days = workingDays;
       const records = Array.from(roomMap.entries()).map(([roomName, slots], idx) => {
         const lower = roomName.toLowerCase();
         const isLab = lower.includes("lab") || lower.includes("computer") || lower.includes("iot") || lower.includes("workshop") || lower.includes("studio") || slots.some(s => (s.course || "").toLowerCase().includes("lab"));
         const spaceType = isLab ? "Specialized Lab" : "Lecture Hall / Class";
         const totalBookedHours = slots.length;
-        const weeklyCapacity = 35; // Standard 5 days * 7 periods
+        const weeklyCapacity = days.length * 7;
         const utilizationPct = Math.min(100, Math.round((totalBookedHours / weeklyCapacity) * 100));
 
         const dayCounts: Record<string, number> = {};
@@ -2599,12 +2604,12 @@ export const CAMCampusInsightPanel: React.FC<{
       }
 
       return filtered.sort((a, b) => b.totalBookedHours - a.totalBookedHours);
-    }, [campusSlots, infraTypeFilter, infraUtilizationFilter, deferredSearchQuery]);
+    }, [campusSlots, infraTypeFilter, infraUtilizationFilter, deferredSearchQuery, workingDays]);
 
     const infrastructureMetrics = useMemo(() => {
       const totalRooms = infrastructureData.length;
       const totalBooked = infrastructureData.reduce((s, r) => s + r.totalBookedHours, 0);
-      const totalCapacity = totalRooms * 35;
+      const totalCapacity = infrastructureData.reduce((total, room) => total + room.weeklyCapacity, 0);
       const avgUtilization = totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
       const labsCount = infrastructureData.filter(r => r.isLab).length;
       const classroomsCount = totalRooms - labsCount;
@@ -10963,6 +10968,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [editingShiftVal, setEditingShiftVal] = useState("general");
 
   // Faculty Filters
+  const [facultySubTab, setFacultySubTab] = useState<"workload" | "concerns">("workload");
   const [facultySearch, setFacultySearch] = useState("");
   const [facultyDeptFilter, setFacultyDeptFilter] = useState("all");
   const [showSubstitutionModal, setShowSubstitutionModal] = useState(false);
@@ -14057,7 +14063,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
         const rows: any[][] = XLSX.utils.sheet_to_json(gridSheet, { header: 1 });
         const timeSlots = getTimeSlots(activeShift, activeSem);
-        const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+        const days = workingDays;
 
         const parsedSlots: any[] = [];
         const validationWarnings: any[] = [];
@@ -15070,7 +15076,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             })();
 
             // Real Calculation 3: Day-by-day timetable slot distribution curve for this campus
-            const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            const days = workingDays;
             const weekSlotCounts = days.map(day => {
               const daySlots = (collegeSlots || []).filter(s => (s.day || "").toLowerCase() === day.toLowerCase());
               return {
@@ -15663,29 +15669,24 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     />
                   </div>
 
-                  {/* Working days toggle */}
+                  {/* Keep the operating-day choices aligned with campus creation settings. */}
                   <div className="pt-2">
                     <label className="text-slate-400 block mb-2 text-[9px] uppercase font-bold">College Active Days ({workingDays.length} Days)</label>
                     <div className="flex flex-wrap gap-2.5">
-                      {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map(day => {
-                        const active = workingDays.includes(day);
-                        return (
-                          <Button
-                            key={day}
-                            variant={active ? "primary" : "secondary"}
-                            size="sm"
-                            onClick={() => {
-                              if (active) {
-                                setWorkingDays(workingDays.filter(d => d !== day));
-                              } else {
-                                setWorkingDays([...workingDays, day]);
-                              }
-                            }}
-                          >
-                            {day}
-                          </Button>
-                        );
-                      })}
+                      <Button
+                        variant={workingDays.length !== 6 ? "primary" : "secondary"}
+                        size="sm"
+                        onClick={() => setWorkingDays(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"])}
+                      >
+                        5 Days (Mon-Fri)
+                      </Button>
+                      <Button
+                        variant={workingDays.length === 6 ? "primary" : "secondary"}
+                        size="sm"
+                        onClick={() => setWorkingDays(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"])}
+                      >
+                        6 Days (Mon-Sat)
+                      </Button>
                     </div>
 
                     <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
@@ -16136,8 +16137,43 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
           {/* 4. FACULTY ALLOCATION */}
           {activeTab === "faculty" && (
-            <Panel
-              title="Faculty Deployment & Workloads"
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl w-fit border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setFacultySubTab("workload")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                    facultySubTab === "workload"
+                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  <Users className="h-4 w-4 text-indigo-600" />
+                  <span>Workload & Deployment</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFacultySubTab("concerns")}
+                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
+                    facultySubTab === "concerns"
+                      ? "bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span>Concerns ⚠️</span>
+                </button>
+              </div>
+
+              {facultySubTab === "concerns" ? (
+                <FacultyConcernsTab
+                  collegeId={activeCollegeId || ""}
+                  collegeName={activeCollegeName || "Campus"}
+                  readOnly={readOnly}
+                />
+              ) : (
+                <Panel
+                  title="Faculty Deployment & Workloads"
               headerActions={
                 <>
                   <div className="relative w-full sm:w-auto">
@@ -16452,6 +16488,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 </div>
               </div>
             </Panel>
+              )}
+            </div>
           )}
 
           {/* Faculty: Weekly Plan */}

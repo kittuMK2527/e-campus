@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/Pagination";
 import { College } from "@/context/AppContext";
 import { ALL_SEMESTERS } from "@/lib/semesters";
+import { useServerClock } from "@/hooks/useServerClock";
+import { getExamTimeRange, getExamTimelineStatus } from "@/lib/examScheduleTime";
 
 interface ExamSchedule {
   id: string;
@@ -52,6 +54,10 @@ interface ExamMark {
   semester?: string;
   subject_name?: string;
   exam_type?: string;
+  exam_date?: string;
+  session_time?: string;
+  start_time?: string;
+  end_time?: string;
   marks_obtained: number | null;
   max_marks: number;
   passing_marks?: number;
@@ -76,6 +82,7 @@ export function KAMExamsView({ scopedColleges, collegeId = "all", onCollegeChang
   
   const [page, setPage] = useState<number>(1);
   const PAGE_SIZE = 12;
+  const now = useServerClock();
 
   React.useEffect(() => {
     setSelectedCampus(collegeId);
@@ -439,7 +446,7 @@ export function KAMExamsView({ scopedColleges, collegeId = "all", onCollegeChang
                       <th className="py-3 px-3">Department</th>
                       <th className="py-3 px-3">Semester</th>
                       <th className="py-3 px-3">Exam Date & Time</th>
-                      <th className="py-3 px-3">Exam Type</th>
+                      <th className="py-3 px-3">Exam Type / Date & Time</th>
                       <th className="py-3 px-3">Hall / Room</th>
                       <th className="py-3 px-3 text-right">Status</th>
                     </tr>
@@ -471,7 +478,7 @@ export function KAMExamsView({ scopedColleges, collegeId = "all", onCollegeChang
                             </div>
                             <div className="text-[10px] text-slate-400 font-semibold flex items-center gap-1 mt-0.5">
                               <Clock className="h-2.5 w-2.5" />
-                              <span>{e.start_time} - {e.end_time}</span>
+                              <span>{getExamTimeRange(e)}</span>
                             </div>
                           </td>
                           <td className="py-3 px-3 font-semibold text-slate-700 dark:text-slate-300">
@@ -483,8 +490,14 @@ export function KAMExamsView({ scopedColleges, collegeId = "all", onCollegeChang
                             {e.hall_room || "Main Hall"}
                           </td>
                           <td className="py-3 px-3 text-right">
-                            <Badge variant={e.status === "Completed" ? "success" : "default"}>
-                              {e.status || "Scheduled"}
+                              <Badge variant={getExamTimelineStatus(e, now) === "completed" ? "success" : getExamTimelineStatus(e, now) === "cancelled" ? "destructive" : "default"}>
+                                {getExamTimelineStatus(e, now) === "completed"
+                                  ? "Completed"
+                                  : getExamTimelineStatus(e, now) === "in_progress"
+                                    ? "In Progress"
+                                    : getExamTimelineStatus(e, now) === "cancelled"
+                                      ? "Cancelled"
+                                      : "Scheduled"}
                             </Badge>
                           </td>
                         </tr>
@@ -569,6 +582,11 @@ export function KAMExamsView({ scopedColleges, collegeId = "all", onCollegeChang
                           </td>
                           <td className="py-3 px-3 text-slate-500">
                             {m.exam_type || "CIA"}
+                            {m.exam_date && (
+                              <div className="mt-0.5 text-[10px] text-slate-400 font-medium">
+                                {m.exam_date} · {getExamTimeRange(m)}
+                              </div>
+                            )}
                           </td>
                           <td className="py-3 px-3 text-center font-bold">
                             {isAbsent ? (

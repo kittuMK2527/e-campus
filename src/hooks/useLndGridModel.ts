@@ -90,10 +90,17 @@ export function useLndGridModel({
   previewSessions,
   generationStep
 }: LndGridModelInputs) {
-  // Derived: List of 5 consecutive dates of the week containing selectedDateStr
+  // The selected campus controls the visible week; "all" uses the union of assigned campuses.
+  const workingDaysCount = useMemo(() => {
+    if (selectedCollegeId === "all") {
+      return colleges.some(college => Number(college.working_days) === 6) ? 6 : 5;
+    }
+    return Number(colleges.find(college => college.id === selectedCollegeId)?.working_days) === 6 ? 6 : 5;
+  }, [colleges, selectedCollegeId]);
+
   const currentWeekDates = useMemo(() => {
-    return getWeekDates(0, selectedDateStr);
-  }, [selectedDateStr]);
+    return getWeekDates(0, selectedDateStr, workingDaysCount);
+  }, [selectedDateStr, workingDaysCount]);
 
   // Week number is whatever the visible week is — kept derived so it can never drift from it.
   const selectedWeek = useMemo(() => calculateWeekNumber(selectedDateStr), [selectedDateStr]);

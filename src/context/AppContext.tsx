@@ -851,11 +851,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentCAM?.college_id || 
     currentMentor?.college_id || 
     currentStudent?.college_id || 
+    currentSME?.college_id ||
     colleges[0]?.id;
   const activeCollegeObj = colleges.find(c => c.id === activeCollegeId);
   const collegeWorkingDays = activeCollegeObj ? Number(activeCollegeObj.working_days) : 5;
-  const hasSaturdaySlots = slots.some(s => s.day === "Saturday");
-  const workingDays = (collegeWorkingDays === 6 || hasSaturdaySlots) ? 6 : 5;
+  const workingDays = collegeWorkingDays === 6 ? 6 : 5;
+  const daysOfWeek = useMemo(() => DAYS_OF_WEEK.slice(0, workingDays), [workingDays]);
 
   // Memoised because it is a context value dependency: a fresh array every render rebuilt the
   // context object, so every useApp() consumer re-rendered on every provider render.
@@ -3884,7 +3885,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentAdmin,
     currentSME,
     timeSlots: customShiftTimeSlots[currentShift] || [],
-    daysOfWeek: DAYS_OF_WEEK,
+    daysOfWeek,
     weekDates,
     weekOffset,
     setWeekOffset,
@@ -4060,6 +4061,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentSME,
     customShiftTimeSlots,
     currentShift,
+    daysOfWeek,
     weekDates,
     weekOffset,
     isLoading,

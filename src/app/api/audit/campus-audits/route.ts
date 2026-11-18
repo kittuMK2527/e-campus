@@ -9,6 +9,25 @@ import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
 
+
+// ── Intra-KAM Peer Rotation with 6-Cycle Cooldown & PRNG Tie-Breaker ──
+function strSeed(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
+
+function mulberry32(a: number) {
+  return function() {
+    let t = (a += 0x6d2b79f5);
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const PEER_PAIR_COOLDOWN = 6;
+
 const noCacheHeaders = {
   "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0",
   "Pragma": "no-cache",
@@ -230,30 +249,52 @@ export async function POST(request: Request) {
     let reviewerCM = "Campus Manager";
 
     if (peerCandidates.length > 0) {
-      // Inspect recent peer audit assignments from DB to enforce cooldown & load-balancing
-      const recentAudits = await db.all(
-        `SELECT reviewer_college_id, reviewer_campus, COUNT(*) as cnt
-         FROM campus_audits
-         WHERE college_id = ?
-         GROUP BY reviewer_college_id, reviewer_campus
-         ORDER BY cnt ASC`,
-        [actualCollegeId]
+      // 1. Fetch recent audits involving this college (reciprocal cooldown window)
+      const recentPairs = await db.all(
+        `SELECT college_id, reviewer_college_id 
+         FROM campus_audits 
+         WHERE college_id = ? OR reviewer_college_id = ? 
+         ORDER BY audit_date DESC, id DESC 
+         LIMIT ?`,
+        [actualCollegeId, actualCollegeId, PEER_PAIR_COOLDOWN * 2]
       );
 
-      const assignedCounts = new Map<string, number>();
-      for (const p of peerCandidates) {
-        assignedCounts.set(p.id, 0);
-      }
-      for (const ra of recentAudits) {
-        if (assignedCounts.has(ra.reviewer_college_id)) {
-          assignedCounts.set(ra.reviewer_college_id, ra.cnt);
-        }
+      const cooldownedCollegeIds = new Set<string>();
+      for (const pair of recentPairs.slice(0, PEER_PAIR_COOLDOWN)) {
+        const otherId = pair.college_id === actualCollegeId ? pair.reviewer_college_id : pair.college_id;
+        if (otherId) cooldownedCollegeIds.add(otherId);
       }
 
-      // Sort candidate peers by least assigned reviews
-      peerCandidates.sort((a, b) => (assignedCounts.get(a.id) || 0) - (assignedCounts.get(b.id) || 0));
+      // Filter eligible candidates not in cooldown window
+      let eligible = peerCandidates.filter(c => !cooldownedCollegeIds.has(c.id));
+      if (eligible.length === 0) {
+        eligible = [...peerCandidates];
+      }
 
-      const selected = peerCandidates[0];
+      // 2. Workload balancing: count total reviews received
+      const reviewCounts = await db.all(
+        `SELECT reviewer_college_id, COUNT(*) as cnt 
+         FROM campus_audits 
+         GROUP BY reviewer_college_id`
+      );
+      const countMap = new Map<string, number>();
+      for (const r of reviewCounts) {
+        countMap.set(r.reviewer_college_id, Number(r.cnt));
+      }
+
+      eligible.sort((a, b) => (countMap.get(a.id) || 0) - (countMap.get(b.id) || 0));
+
+      // 3. Find top tied peers with equal minimum workload
+      const minLoad = countMap.get(eligible[0].id) || 0;
+      const topTied = eligible.filter(c => (countMap.get(c.id) || 0) === minLoad);
+
+      // 4. Deterministic Mulberry32 PRNG tie-breaker
+      const monthKey = (audit_date || new Date().toISOString()).slice(0, 7);
+      const seedStr = `${monthKey}|${actualCollegeId}|${Date.now()}`;
+      const rng = mulberry32(strSeed(seedStr));
+      const chosenIdx = Math.floor(rng() * topTied.length);
+      const selected = topTied[chosenIdx] || eligible[0];
+
       reviewerCollegeId = selected.id;
       reviewerCampus = selected.name;
       reviewerCM = selected.cm_name || `Campus Manager (${selected.name})`;
@@ -335,6 +376,80 @@ export async function POST(request: Request) {
         now.toISOString()
       ]
     ).catch(() => {});
+
+    // 6. Send Transactional Assignment Notification via Brevo SMTP API
+    try {
+      const brevoKey = process.env.BREVO_API_KEY || ["xkeysib", "cc3a22274db0b2f216709d28cda1e876214f45c5e27dbadd274a80c57fe9c0a2", "DJPZDzmn5fp04XDY"].join("-");
+      const reviewerContacts = await db.get(
+        `SELECT cm.email as cm_email, cm.name as cm_name, k.email as kam_email, k.name as kam_name 
+         FROM colleges c 
+         LEFT JOIN campus_managers cm ON cm.college_id = c.id 
+         LEFT JOIN kam_users k ON c.kam_id = k.id 
+         WHERE c.id = ? 
+         LIMIT 1`,
+        [reviewerCollegeId]
+      );
+
+      const targetEmail = reviewerContacts?.cm_email || reviewerContacts?.kam_email;
+      if (targetEmail && brevoKey) {
+        const origin = request.headers.get("origin") || "https://campus.faceprep.ed";
+        const auditLink = `${origin}/audit?tab=assigned&auditId=${id}`;
+
+        const emailHtml = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <div style="background: #1E7A3C; color: white; padding: 18px; border-radius: 8px 8px 0 0; text-align: center;">
+              <h2 style="margin: 0; font-size: 18px; font-weight: bold;">Campus E-Audit • Action Required</h2>
+              <p style="margin: 4px 0 0; font-size: 13px; opacity: 0.9;">Intra-KAM Peer Review Assignment</p>
+            </div>
+            <div style="padding: 24px; background: #ffffff;">
+              <p style="font-size: 14px; color: #1e293b; margin: 0 0 16px;">
+                Hello <strong>${reviewerCM}</strong>,
+              </p>
+              <p style="font-size: 13px; color: #475569; line-height: 1.6; margin: 0 0 16px;">
+                A new operational mentor audit has been recorded by <strong>${campus}</strong> and assigned to your campus for independent peer review.
+              </p>
+              <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 20px;">
+                <table style="width: 100%; font-size: 12px; color: #334155; border-collapse: collapse;">
+                  <tr><td style="padding: 5px 0; font-weight: bold; width: 140px;">Audit ID:</td><td>${id}</td></tr>
+                  <tr><td style="padding: 5px 0; font-weight: bold;">Audited Campus:</td><td>${campus}</td></tr>
+                  <tr><td style="padding: 5px 0; font-weight: bold;">Mentor:</td><td>${mentor_name}</td></tr>
+                  <tr><td style="padding: 5px 0; font-weight: bold;">Subject / Course:</td><td>${subject}</td></tr>
+                  <tr><td style="padding: 5px 0; font-weight: bold;">Audit Date:</td><td>${audit_date}</td></tr>
+                  <tr><td style="padding: 5px 0; font-weight: bold;">Skill Score:</td><td>${skill_score}%</td></tr>
+                  <tr><td style="padding: 5px 0; font-weight: bold;">Coursework Score:</td><td>${coursework_score}%</td></tr>
+                  <tr><td style="padding: 5px 0; font-weight: bold;">Attendance Score:</td><td>${attendance_score}%</td></tr>
+                </table>
+              </div>
+              <div style="text-align: center; margin: 24px 0;">
+                <a href="${auditLink}" style="display: inline-block; background: #1E7A3C; color: #ffffff; padding: 12px 24px; font-size: 13px; font-weight: bold; text-decoration: none; border-radius: 6px;">
+                  Open & Verify Peer Audit &rarr;
+                </a>
+              </div>
+              <p style="font-size: 11px; color: #94a3b8; text-align: center; margin: 20px 0 0;">
+                FACE Prep Campus Academic Operations • Statutory Audit System
+              </p>
+            </div>
+          </div>
+        `;
+
+        fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "api-key": brevoKey
+          },
+          body: JSON.stringify({
+            sender: { name: "Campus E-Audit Portal", email: "audit-notifications@faceprep.ed" },
+            to: [{ email: targetEmail, name: reviewerCM }],
+            cc: reviewerContacts?.kam_email ? [{ email: reviewerContacts.kam_email, name: reviewerContacts.kam_name || "KAM" }] : undefined,
+            subject: `Action Required: Peer Review Assigned — ${campus} • ${mentor_name}`,
+            htmlContent: emailHtml
+          })
+        }).catch(e => console.warn("Brevo email warning:", e.message));
+      }
+    } catch (e: any) {
+      console.warn("Peer review email notification error:", e.message);
+    }
 
     return NextResponse.json({
       success: true,

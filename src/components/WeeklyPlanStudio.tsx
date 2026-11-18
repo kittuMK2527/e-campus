@@ -361,7 +361,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
 
   // Dynamically resolve college working days and period slots from system configuration
   const activeCollege = useMemo(() => colleges.find(c => c.id === collegeId), [colleges, collegeId]);
-  const workingDaysCount = activeCollege?.working_days !== undefined ? Number(activeCollege.working_days) : 6;
+  const workingDaysCount = activeCollege?.working_days !== undefined ? Number(activeCollege.working_days) : 5;
 
   const availableDays = useMemo(() => {
     if (ctxDaysOfWeek && ctxDaysOfWeek.length > 0) {

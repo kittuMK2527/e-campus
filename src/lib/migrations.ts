@@ -1000,6 +1000,36 @@ const migrations: Migration[] = [
         await db.exec("ALTER TABLE mentor_skill_clearances ADD COLUMN submission_link TEXT").catch(() => {});
       });
     }
+  },
+  {
+    name: "student_concerns_log_table",
+    run: async (db) => {
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS student_concerns_log (
+          id VARCHAR(100) PRIMARY KEY,
+          college_id VARCHAR(100) NOT NULL,
+          mentor_id VARCHAR(100) NOT NULL,
+          mentor_name VARCHAR(255) NOT NULL,
+          student_id VARCHAR(100) NOT NULL,
+          student_name VARCHAR(255) NOT NULL,
+          student_reg_no VARCHAR(100),
+          department VARCHAR(100),
+          class_group VARCHAR(100),
+          subject VARCHAR(255),
+          category VARCHAR(50) NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          details TEXT,
+          metrics_json TEXT,
+          status VARCHAR(50) DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_scl_college ON student_concerns_log(college_id);
+        CREATE INDEX IF NOT EXISTS idx_scl_student ON student_concerns_log(student_id);
+        CREATE INDEX IF NOT EXISTS idx_scl_mentor ON student_concerns_log(mentor_id);
+        CREATE INDEX IF NOT EXISTS idx_scl_category ON student_concerns_log(category);
+      `).catch((err: any) => console.warn("[migrations] student_concerns_log_table:", err?.message || err));
+    }
   }
 ];
 

@@ -11,6 +11,10 @@ import { apiFetch } from "@/lib/apiFetch";
 import { getLocalDateStr } from "@/lib/localDate";
 import {
   ShieldCheck,
+  Trophy,
+  Activity,
+  Flame,
+  ShieldAlert,
   Building2,
   BookOpen,
   Calendar,
@@ -791,7 +795,8 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
   }, [collegeMentors]);
 
   // Main navigation tabs inside the module
-  const [activeSubTab, setActiveSubTab] = useState<"assigned" | "submitted" | "record">("assigned");
+  const [activeSubTab, setActiveSubTab] = useState<"assigned" | "submitted" | "record" | "leaderboard" | "triage">("assigned");
+  const [leaderboardDeptFilter, setLeaderboardDeptFilter] = useState("all");
   const [assignedStatusFilter, setAssignedStatusFilter] = useState<"pending" | "completed">("pending");
   const [auditSubmittedSuccess, setAuditSubmittedSuccess] = useState(false);
 
@@ -882,6 +887,180 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
   useEffect(() => {
     if (collegeName) setWizCampus(collegeName);
   }, [collegeName]);
+
+
+  // --------------------------------------------------------------------------
+  // LIVE DATA AUTO-PREPOPULATION ENGINE (With 100% Manual Override)
+  // --------------------------------------------------------------------------
+  const [isAutoFetching, setIsAutoFetching] = useState(false);
+  const [hasAutoFetched, setHasAutoFetched] = useState(false);
+  const [autoFetchedSourceInfo, setAutoFetchedSourceInfo] = useState<{
+    slotFound: boolean;
+    planFound: boolean;
+    trackerFound: boolean;
+    attFound: boolean;
+  } | null>(null);
+
+  const fetchPrepopulatedData = useCallback(async (mId: string, mName: string, date: string) => {
+    if (!mId && !mName) return;
+    setIsAutoFetching(true);
+    try {
+      const q = new URLSearchParams({
+        collegeId: collegeId || "",
+        mentorId: mId || "",
+        mentorName: mName || "",
+        dateStr: date || getLocalDateStr()
+      });
+      const res = await apiFetch<any>(`/api/audit/prepopulate?${q.toString()}`);
+      if (res?.success && res.data) {
+        const d = res.data;
+        if (d.session?.subject) setWizSubject(d.session.subject);
+        if (d.session?.department) {
+          setWizDeptName(d.session.department);
+          setWizDepartment(d.session.department);
+        }
+        if (d.tasks?.assigned !== undefined) setWizSkillAssigned(d.tasks.assigned);
+        if (d.tasks?.completed !== undefined) setWizSkillCompleted(d.tasks.completed);
+        if (d.tasks?.proofLink) setWizSkillProofLink(d.tasks.proofLink);
+
+        // Pre-populate criteria checks based on real system facts
+        if (d.suggestedCriteria) {
+          setWizSkillWeeklyPlan(Boolean(d.suggestedCriteria.skill?.weeklyPlan));
+          setWizSkillTracker(Boolean(d.suggestedCriteria.skill?.tracker));
+          setWizSkillAssignment(Boolean(d.suggestedCriteria.skill?.assignment));
+          setWizSkillAssessment(Boolean(d.suggestedCriteria.skill?.assessment));
+          setWizSkillGenuine(Boolean(d.suggestedCriteria.skill?.genuine));
+
+          setWizAcadAssignment(Boolean(d.suggestedCriteria.coursework?.assignmentGenuine));
+          setWizAcadAssessment(Boolean(d.suggestedCriteria.coursework?.assessmentGenuine));
+          setWizAcadBeforeDeadline(Boolean(d.suggestedCriteria.coursework?.beforeDeadline));
+          setWizAcadStudyMaterial(Boolean(d.suggestedCriteria.coursework?.studyMaterial));
+
+          setWizAttMarkedDaily(Boolean(d.suggestedCriteria.attendance?.markedDaily));
+          setWizAttCrossVerified(Boolean(d.suggestedCriteria.attendance?.crossVerified));
+          setWizAttNoProxy(Boolean(d.suggestedCriteria.attendance?.noProxy));
+          setWizAttMatchesTracker(Boolean(d.suggestedCriteria.attendance?.matchesTracker));
+        }
+
+        if (d.attendance?.below75Count !== undefined) {
+          setWizAttBelow75(d.attendance.below75Count);
+        }
+
+        setAutoFetchedSourceInfo({
+          slotFound: Boolean(d.session?.slotId),
+          planFound: Boolean(d.weeklyPlan?.id),
+          trackerFound: Boolean(d.academicTracker?.id),
+          attFound: Boolean(d.attendance?.totalEnrolled > 0)
+        });
+        setHasAutoFetched(true);
+        toast(`⚡ Live system data loaded for ${mName}! All fields remain editable.`, "success");
+      }
+    } catch (e: any) {
+      console.warn("Auto-fetch prepopulation notice:", e.message);
+    } finally {
+      setIsAutoFetching(false);
+    }
+  }, [collegeId, toast]);
+
+  // --------------------------------------------------------------------------
+  // LEADERBOARD & TRIAGE DATA COMPUTATIONS
+  // --------------------------------------------------------------------------
+  const leaderboardMentors = useMemo(() => {
+    const mentorMap = new Map<string, {
+      mentor_name: string;
+      department: string;
+      subject: string;
+      campus: string;
+      auditCount: number;
+      avgSkill: number;
+      avgAcad: number;
+      avgAtt: number;
+      compositeScore: number;
+      latestAuditDate: string;
+      latestAuditId: string;
+      status: "Excellent" | "Good" | "Needs Review";
+      missingProofCount: number;
+    }>();
+
+    for (const audit of submittedAudits) {
+      const mName = audit.mentor_name.trim();
+      const sScore = Number(audit.skill_score) || 0;
+      const aScore = Number(audit.coursework_score) || 0;
+      const attScore = Number(audit.attendance_score) || 0;
+      const comp = Math.round((sScore * 0.35) + (aScore * 0.35) + (attScore * 0.30));
+      const hasProof = Boolean(audit.skill_proof_link && audit.skill_proof_link.trim().length > 0);
+
+      const existing = mentorMap.get(mName);
+      if (!existing) {
+        mentorMap.set(mName, {
+          mentor_name: mName,
+          department: audit.dept_name || audit.department || "General",
+          subject: audit.subject,
+          campus: audit.campus,
+          auditCount: 1,
+          avgSkill: sScore,
+          avgAcad: aScore,
+          avgAtt: attScore,
+          compositeScore: comp,
+          latestAuditDate: audit.audit_date,
+          latestAuditId: audit.id,
+          status: comp >= 85 ? "Excellent" : comp >= 70 ? "Good" : "Needs Review",
+          missingProofCount: hasProof ? 0 : 1
+        });
+      } else {
+        const newCount = existing.auditCount + 1;
+        const newSkill = Math.round((existing.avgSkill * existing.auditCount + sScore) / newCount);
+        const newAcad = Math.round((existing.avgAcad * existing.auditCount + aScore) / newCount);
+        const newAtt = Math.round((existing.avgAtt * existing.auditCount + attScore) / newCount);
+        const newComp = Math.round((newSkill * 0.35) + (newAcad * 0.35) + (newAtt * 0.30));
+        existing.auditCount = newCount;
+        existing.avgSkill = newSkill;
+        existing.avgAcad = newAcad;
+        existing.avgAtt = newAtt;
+        existing.compositeScore = newComp;
+        existing.status = newComp >= 85 ? "Excellent" : newComp >= 70 ? "Good" : "Needs Review";
+        if (audit.audit_date > existing.latestAuditDate) {
+          existing.latestAuditDate = audit.audit_date;
+          existing.latestAuditId = audit.id;
+        }
+        if (!hasProof) existing.missingProofCount += 1;
+      }
+    }
+
+    let list = Array.from(mentorMap.values()).sort((a, b) => b.compositeScore - a.compositeScore);
+    if (leaderboardDeptFilter !== "all") {
+      list = list.filter(m => m.department.toLowerCase() === leaderboardDeptFilter.toLowerCase());
+    }
+    return list;
+  }, [submittedAudits, leaderboardDeptFilter]);
+
+  const needsAttentionAudits = useMemo(() => {
+    return submittedAudits.filter(a => {
+      const sScore = Number(a.skill_score) || 0;
+      const aScore = Number(a.coursework_score) || 0;
+      const attScore = Number(a.attendance_score) || 0;
+      const comp = Math.round((sScore * 0.35) + (aScore * 0.35) + (attScore * 0.30));
+      const below75 = Number(a.below_75_count) || 0;
+      const missingProof = !a.skill_proof_link || a.skill_proof_link.trim().length === 0;
+      return comp < 70 || below75 > 10 || missingProof;
+    });
+  }, [submittedAudits]);
+
+  const domainSummary = useMemo(() => {
+    if (submittedAudits.length === 0) {
+      return { avgSkill: 0, avgAcad: 0, avgAtt: 0, peerCompletionRate: 0 };
+    }
+    const totalSkill = submittedAudits.reduce((acc, a) => acc + (Number(a.skill_score) || 0), 0);
+    const totalAcad = submittedAudits.reduce((acc, a) => acc + (Number(a.coursework_score) || 0), 0);
+    const totalAtt = submittedAudits.reduce((acc, a) => acc + (Number(a.attendance_score) || 0), 0);
+    const completedPeer = submittedAudits.filter(a => a.peer_status === "Completed").length;
+    return {
+      avgSkill: Math.round(totalSkill / submittedAudits.length),
+      avgAcad: Math.round(totalAcad / submittedAudits.length),
+      avgAtt: Math.round(totalAtt / submittedAudits.length),
+      peerCompletionRate: Math.round((completedPeer / submittedAudits.length) * 100)
+    };
+  }, [submittedAudits]);
 
   // Calculate scores
   const calculatedSkillScore = useMemo(() => {
@@ -1103,6 +1282,54 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
         </div>
 
         {/* Dynamic Database-Driven Tab Navigation */}
+        
+        {/* Domain Compliance KPI Progress Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Skill Compliance</span>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-base font-black text-slate-900">{domainSummary.avgSkill}%</span>
+              <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Target ≥80%</span>
+            </div>
+            <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div className="bg-emerald-500 h-full rounded-full transition-all" style={{ width: `${Math.min(100, domainSummary.avgSkill)}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Coursework Sign-Off</span>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-base font-black text-slate-900">{domainSummary.avgAcad}%</span>
+              <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-1.5 py-0.5 rounded">Verified</span>
+            </div>
+            <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div className="bg-teal-500 h-full rounded-full transition-all" style={{ width: `${Math.min(100, domainSummary.avgAcad)}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Attendance Integrity</span>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-base font-black text-slate-900">{domainSummary.avgAtt}%</span>
+              <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded">Biometric</span>
+            </div>
+            <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div className="bg-indigo-500 h-full rounded-full transition-all" style={{ width: `${Math.min(100, domainSummary.avgAtt)}%` }} />
+            </div>
+          </div>
+
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-3">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Peer Review Rate</span>
+            <div className="flex items-center justify-between mt-1">
+              <span className="text-base font-black text-slate-900">{domainSummary.peerCompletionRate}%</span>
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded">Intra-KAM</span>
+            </div>
+            <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
+              <div className="bg-amber-500 h-full rounded-full transition-all" style={{ width: `${Math.min(100, domainSummary.peerCompletionRate)}%` }} />
+            </div>
+          </div>
+        </div>
+
         <div className="flex items-center gap-2 pt-1 border-t border-slate-100 flex-wrap">
           <button
             type="button"
@@ -1158,6 +1385,46 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
           >
             <Send className="h-4 w-4" />
             <span>+ Record New Audit</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("leaderboard")}
+            className={`px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+              activeSubTab === "leaderboard"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+            }`}
+          >
+            <Trophy className="h-4 w-4 text-amber-400" />
+            <span>Mentor Leaderboard</span>
+            {leaderboardMentors.length > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeSubTab === "leaderboard" ? "bg-white text-emerald-800" : "bg-slate-200 text-slate-700"
+              }`}>
+                {leaderboardMentors.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveSubTab("triage")}
+            className={`px-4 py-2 text-xs font-black rounded-xl transition-all cursor-pointer flex items-center gap-2 ${
+              activeSubTab === "triage"
+                ? "bg-rose-600 text-white shadow-xs"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-600"
+            }`}
+          >
+            <AlertTriangle className="h-4 w-4 text-rose-500" />
+            <span>Needs Attention</span>
+            {needsAttentionAudits.length > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                activeSubTab === "triage" ? "bg-white text-rose-800" : "bg-rose-500 text-white animate-pulse"
+              }`}>
+                {needsAttentionAudits.length}
+              </span>
+            )}
           </button>
         </div>
       </div>
@@ -1581,6 +1848,29 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
           {/* STAGE 1: SETUP */}
           {wizardStage === 1 && (
             <div className="space-y-4">
+              {hasAutoFetched && (
+                <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-center justify-between gap-3 text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <Sparkles className="h-5 w-5 text-emerald-600 shrink-0" />
+                    <div>
+                      <p className="font-extrabold text-emerald-950">
+                        ⚡ Live System Data Auto-Populated for {wizMentor} ({wizDate})
+                      </p>
+                      <p className="text-[11px] text-emerald-800 font-medium mt-0.5">
+                        Verified class schedule, weekly plans, task ratios, and attendance counts have been pre-filled. Every field below remains 100% manually editable.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fetchPrepopulatedData(wizMentorId, wizMentor, wizDate)}
+                    disabled={isAutoFetching}
+                    className="shrink-0 px-3 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-xs font-bold cursor-pointer transition-colors shadow-xs"
+                  >
+                    {isAutoFetching ? "Refreshing…" : "↻ Refetch Live"}
+                  </button>
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">Audited Campus</label>
@@ -1629,8 +1919,10 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                           if ((m as any).subject) {
                             setWizSubject((m as any).subject);
                           }
+                          fetchPrepopulatedData(m.id, m.name, wizDate);
                         } else {
                           setWizMentor("");
+                          setHasAutoFetched(false);
                         }
                       }}
                       className="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-hidden focus:ring-1 focus:ring-emerald-500 bg-white"
@@ -1982,6 +2274,197 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                   <span>Submit Audit &amp; Dispatch to Peer</span>
                 </LoadingButton>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 5. MENTOR GENUINENESS LEADERBOARD TAB                                 */}
+      {/* ==================================================================== */}
+      {activeSubTab === "leaderboard" && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <Trophy className="h-5 w-5 text-amber-500" />
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                  Campus Mentor Genuineness Leaderboard
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">
+                Ranked by weighted composite score: Skill Development (35%) + Coursework (35%) + Attendance (30%).
+              </p>
+            </div>
+
+            {/* Department Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Department:</span>
+              <select
+                aria-label="Department Filter"
+                value={leaderboardDeptFilter}
+                onChange={(e) => setLeaderboardDeptFilter(e.target.value)}
+                className="px-3 py-1.5 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white"
+              >
+                <option value="all">All Departments ({leaderboardMentors.length} mentors)</option>
+                {collegeDepartments.map((deptName) => (
+                  <option key={deptName} value={deptName}>{deptName}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {leaderboardMentors.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs">
+              No mentor audit records found for this campus yet. Record audits to rank mentors here.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse min-w-[700px]">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 font-bold uppercase text-[9.5px]">
+                    <th className="p-3 w-12 text-center">Rank</th>
+                    <th className="p-3">Mentor Name</th>
+                    <th className="p-3">Department</th>
+                    <th className="p-3 text-center">Skill (35%)</th>
+                    <th className="p-3 text-center">Coursework (35%)</th>
+                    <th className="p-3 text-center">Attendance (30%)</th>
+                    <th className="p-3 text-center">Genuineness Score</th>
+                    <th className="p-3 text-center">Status</th>
+                    <th className="p-3 text-right">Audits</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                  {leaderboardMentors.map((m, idx) => (
+                    <tr key={m.mentor_name} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-3 text-center font-bold">
+                        {idx === 0 ? (
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100 text-amber-800 font-black text-xs">🥇</span>
+                        ) : idx === 1 ? (
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-slate-200 text-slate-700 font-black text-xs">🥈</span>
+                        ) : idx === 2 ? (
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-50 text-amber-700 font-black text-xs">🥉</span>
+                        ) : (
+                          <span className="font-mono text-slate-400 text-xs">#{idx + 1}</span>
+                        )}
+                      </td>
+                      <td className="p-3 font-extrabold text-slate-900">{m.mentor_name}</td>
+                      <td className="p-3 text-slate-600">{m.department}</td>
+                      <td className="p-3 text-center font-bold text-slate-800">{m.avgSkill}%</td>
+                      <td className="p-3 text-center font-bold text-slate-800">{m.avgAcad}%</td>
+                      <td className="p-3 text-center font-bold text-slate-800">{m.avgAtt}%</td>
+                      <td className="p-3 text-center">
+                        <span className="text-sm font-black text-slate-900">{m.compositeScore}%</span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border ${
+                          m.status === "Excellent"
+                            ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                            : m.status === "Good"
+                            ? "bg-amber-50 text-amber-800 border-amber-200"
+                            : "bg-rose-50 text-rose-800 border-rose-200"
+                        }`}>
+                          {m.status}
+                        </span>
+                      </td>
+                      <td className="p-3 text-right font-mono text-slate-500 font-bold">{m.auditCount}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 6. "NEEDS ATTENTION" HIGH-RISK TRIAGE QUEUE                          */}
+      {/* ==================================================================== */}
+      {activeSubTab === "triage" && (
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card space-y-5">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <AlertTriangle className="h-5 w-5 text-rose-600" />
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                  Needs Attention Triage Queue
+                </h3>
+                <p className="text-xs text-slate-500 font-medium mt-0.5">
+                  Mentors flagged with composite score &lt; 70%, missing evidence proof links, or high student absentee rates.
+                </p>
+              </div>
+            </div>
+            <span className="px-3 py-1 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-black">
+              {needsAttentionAudits.length} At-Risk Audits Flagged
+            </span>
+          </div>
+
+          {needsAttentionAudits.length === 0 ? (
+            <div className="p-12 text-center text-slate-400 text-xs bg-slate-50 rounded-xl border border-slate-100">
+              <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2" />
+              <p className="font-extrabold text-slate-800 text-sm">All Audits Compliant</p>
+              <p className="text-slate-400 text-xs mt-1">No mentors currently below quality or attendance thresholds.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {needsAttentionAudits.map((a) => {
+                const sScore = Number(a.skill_score) || 0;
+                const aScore = Number(a.coursework_score) || 0;
+                const attScore = Number(a.attendance_score) || 0;
+                const comp = Math.round((sScore * 0.35) + (aScore * 0.35) + (attScore * 0.30));
+                const missingProof = !a.skill_proof_link || a.skill_proof_link.trim().length === 0;
+
+                return (
+                  <div key={a.id} className="border border-rose-200 bg-rose-50/30 rounded-2xl p-5 space-y-3">
+                    <div className="flex items-center justify-between border-b border-rose-100 pb-2">
+                      <div>
+                        <span className="font-mono text-[10px] text-slate-400 font-bold block">{a.id}</span>
+                        <h4 className="text-sm font-black text-slate-900 mt-0.5">{a.mentor_name}</h4>
+                        <span className="text-xs text-slate-500 font-medium">{a.dept_name} • {a.subject}</span>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-xl bg-rose-600 text-white font-black text-xs">
+                        {comp}%
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      {comp < 70 && (
+                        <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold text-[10.5px]">
+                          ⚠️ Low Genuineness Score (&lt;70%)
+                        </span>
+                      )}
+                      {missingProof && (
+                        <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10.5px]">
+                          🔗 Missing GitHub/Drive Evidence Link
+                        </span>
+                      )}
+                      {Number(a.below_75_count) > 10 && (
+                        <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold text-[10.5px]">
+                          👥 High Absenteeism ({a.below_75_count} students &lt; 75%)
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-rose-100 flex items-center justify-between text-xs">
+                      <span className="text-slate-400 text-[11px] font-medium">Audited: {a.audit_date}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setWizMentor(a.mentor_name);
+                          setWizSubject(a.subject);
+                          setWizDeptName(a.dept_name || "");
+                          setWizDepartment(a.dept_name || "");
+                          setActiveSubTab("record");
+                          setWizardStage(1);
+                        }}
+                        className="px-3 py-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold rounded-lg text-xs cursor-pointer shadow-xs"
+                      >
+                        Re-Audit Mentor &rarr;
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

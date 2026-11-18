@@ -31,7 +31,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/Pagination";
 import { isAnyPendingCmRequest } from "@/lib/requestStatus";
-import { getServerNow, getServerDateStr } from "@/lib/serverTime";
+import { useServerClock } from "@/hooks/useServerClock";
+import { getExamTimeRange, getExamTimelineStatus } from "@/lib/examScheduleTime";
 
 interface ExamItem {
   id: string;
@@ -73,6 +74,7 @@ export const MentorExamMarksStudio: React.FC = () => {
   const { currentMentor, coursesList, subjectsList } = useApp();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const now = useServerClock();
 
   const mentorCollegeId = currentMentor?.college_id || "";
   const examsQuery = useQuery({
@@ -111,8 +113,6 @@ export const MentorExamMarksStudio: React.FC = () => {
   const [rosterPage, setRosterPage] = useState(1);
   const [rosterPageSize, setRosterPageSize] = useState(25);
 
-  const todayStr = useMemo(() => getServerDateStr(), []);
-
   // Subject/department scope: mentors must not see exams they do not teach.
   const mentorScope = useMemo(() => {
     const subjects = (currentMentor?.subjects || "")
@@ -148,14 +148,14 @@ export const MentorExamMarksStudio: React.FC = () => {
 
       if (!matchesSearch) return false;
 
-      // Status / Date Filter
-      const isPastOrToday = ex.exam_date <= todayStr;
-      if (examTabFilter === "ready" && !isPastOrToday) return false;
-      if (examTabFilter === "upcoming" && isPastOrToday) return false;
+      // Keep the Ready filter aligned with the marks-unlock end-time rule.
+      const timelineStatus = getExamTimelineStatus(ex, now);
+      if (examTabFilter === "ready" && timelineStatus !== "completed") return false;
+      if (examTabFilter === "upcoming" && timelineStatus === "completed") return false;
 
       return true;
     });
-  }, [exams, mentorScope, examSearch, examTabFilter, todayStr]);
+  }, [exams, mentorScope, examSearch, examTabFilter, now]);
 
   // Unique exam types for Step 0 grouping
   const uniqueExamTypes = useMemo(() => {
@@ -176,31 +176,10 @@ export const MentorExamMarksStudio: React.FC = () => {
   const [editReason, setEditReason] = useState<string>("");
   const [isSubmittingEditReq, setIsSubmittingEditReq] = useState(false);
 
-  // Check if exam is officially completed (date and end time have passed)
-  const isExamOver = useMemo(() => {
-    if (!selectedExam || !selectedExam.exam_date) return true;
-    // Authoritative server-calibrated date in IST to prevent mobile clock manipulation
-    const today = getServerDateStr();
-    if (selectedExam.exam_date < today) return true;
-    if (selectedExam.exam_date > today) return false;
-
-    // Same day: check end time against authoritative server clock
-    const endTimeStr = (
-      (selectedExam.session_time || "").split(/\s*(?:to|–|-)\s*/i)[1] ||
-      selectedExam.end_time ||
-      "05:00 PM"
-    ).trim();
-    const match = endTimeStr.match(/(\d+)(?::|\.)(\d+)\s*(AM|PM)?/i);
-    if (!match) return true;
-    let h = parseInt(match[1], 10);
-    const m = parseInt(match[2], 10);
-    const isPM = (match[3] || "").toUpperCase() === "PM" || endTimeStr.toLowerCase().includes("pm");
-    if (isPM && h !== 12) h += 12;
-    if (!isPM && h === 12) h = 0;
-    const now = getServerNow();
-    const endDateTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m || 0, 0, 0);
-    return now >= endDateTime;
-  }, [selectedExam]);
+  const isExamOver = useMemo(
+    () => !selectedExam || getExamTimelineStatus(selectedExam, now) === "completed",
+    [selectedExam, now]
+  );
 
   // Pending CAM edit requests for the selected exam (no prefetch: GET /api/requests has side effects)
   const editRequestsQuery = useQuery({
@@ -666,7 +645,7 @@ export const MentorExamMarksStudio: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {uniqueExamTypes.map((examType) => {
                 const typeExams = filteredExams.filter(e => e.exam_type === examType);
-                const conductedCount = typeExams.filter(e => e.exam_date <= todayStr).length;
+                const conductedCount = typeExams.filter(e => getExamTimelineStatus(e, now) === "completed").length;
                 const minDate = typeExams.map(e => e.exam_date).sort()[0];
                 const maxDate = typeExams.map(e => e.exam_date).sort().reverse()[0];
                 return (
@@ -721,7 +700,8 @@ export const MentorExamMarksStudio: React.FC = () => {
                 </div>
               ) : (
                 examTypeExams.map((ex) => {
-                  const isPastOrToday = ex.exam_date <= todayStr;
+                  const timelineStatus = getExamTimelineStatus(ex, now);
+                  const canEnterMarks = timelineStatus === "completed";
                   return (
                     <div
                       key={ex.id}
@@ -733,11 +713,15 @@ export const MentorExamMarksStudio: React.FC = () => {
                             {ex.exam_type}
                           </span>
                           <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase ${
-                            isPastOrToday
+                            timelineStatus === "completed"
                               ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                              : "bg-slate-100 text-slate-600"
+                              : timelineStatus === "in_progress"
+                                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : timelineStatus === "cancelled"
+                                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                                  : "bg-slate-100 text-slate-600"
                           }`}>
-                            {isPastOrToday ? "Ready" : "Upcoming"}
+                            {timelineStatus === "completed" ? "Ready" : timelineStatus === "in_progress" ? "In Progress" : timelineStatus === "cancelled" ? "Cancelled" : "Upcoming"}
                           </span>
                         </div>
 
@@ -756,15 +740,10 @@ export const MentorExamMarksStudio: React.FC = () => {
                               <Calendar className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                               <span>Date: <strong>{ex.exam_date}</strong></span>
                             </div>
-                            {ex.day_order && ex.day_order !== "None" && (
-                              <span className="px-2 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-[9.5px] font-black uppercase">
-                                {ex.day_order}
-                              </span>
-                            )}
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                            <span>Timing: <strong>{ex.session_time || `${ex.start_time} - ${ex.end_time}`}</strong></span>
+                            <span>Timing: <strong>{getExamTimeRange(ex)}</strong></span>
                           </div>
                         </div>
                       </div>
@@ -775,7 +754,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                         className="w-full py-2.5 px-4 rounded-xl bg-slate-900 hover:btn-gradient text-white text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
                       >
                         <Edit3 className="h-4 w-4" />
-                        <span>{isPastOrToday ? "Mark Attendance & Enter Marks →" : "Preview Roster →"}</span>
+                        <span>{canEnterMarks ? "Mark Attendance & Enter Marks →" : "Preview Roster →"}</span>
                       </button>
                     </div>
                   );
@@ -809,17 +788,12 @@ export const MentorExamMarksStudio: React.FC = () => {
                     <span className="px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-700 font-black text-xs uppercase border border-amber-200">
                       {selectedExam?.exam_type}
                     </span>
-                    {selectedExam?.day_order && selectedExam?.day_order !== "None" && (
-                      <span className="px-2.5 py-0.5 rounded-md bg-purple-50 text-purple-700 font-black text-xs uppercase border border-purple-200">
-                        {selectedExam.day_order}
-                      </span>
-                    )}
                     <h2 className="text-base font-black text-slate-900">
                       {selectedExam?.subject_name}
                     </h2>
                   </div>
                   <p className="text-xs text-slate-500 font-semibold mt-0.5">
-                    {selectedExam?.department} • {selectedExam?.semester} • Date: <strong>{selectedExam?.exam_date}</strong> • Timing: <strong>{selectedExam?.session_time || `${selectedExam?.start_time} - ${selectedExam?.end_time}`}</strong> • Hall: <strong>{selectedExam?.hall_room}</strong>
+                    {selectedExam?.department} • {selectedExam?.semester} • Date: <strong>{selectedExam?.exam_date}</strong> • Timing: <strong>{selectedExam ? getExamTimeRange(selectedExam) : "Time not set"}</strong> • Hall: <strong>{selectedExam?.hall_room}</strong>
                   </p>
                 </div>
               </div>
@@ -865,7 +839,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                     🔒 Examination in Progress / Scheduled
                   </div>
                   <p className="text-xs text-amber-700 mt-0.5">
-                    This examination concludes on <strong>{selectedExam?.exam_date}</strong> at <strong>{selectedExam?.session_time || `${selectedExam?.start_time} - ${selectedExam?.end_time}`}</strong>. You can preview the student roster, but marks and attendance entry will automatically unlock once the examination session is completed.
+                    This examination concludes on <strong>{selectedExam?.exam_date}</strong> at <strong>{selectedExam ? getExamTimeRange(selectedExam) : "Time not set"}</strong>. You can preview the student roster, but marks and attendance entry will automatically unlock once the examination session is completed.
                   </p>
                 </div>
               </div>

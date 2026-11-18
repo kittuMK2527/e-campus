@@ -23,6 +23,9 @@ interface LndFilterBarProps {
   colleges: any[];
   mentors: any[];
   smes: any[];
+  isDataLoading?: boolean;
+  dataLoadError?: string | null;
+  onRetryDataLoad?: () => void;
   selectedCollegeId: string;
   selectedGroupId: string;
   selectedSmeId: string;
@@ -46,6 +49,9 @@ export default function LndFilterBar({
   colleges,
   mentors,
   smes,
+  isDataLoading = false,
+  dataLoadError = null,
+  onRetryDataLoad,
   selectedCollegeId,
   selectedGroupId,
   selectedSmeId,
@@ -122,6 +128,9 @@ export default function LndFilterBar({
               options={evaluatorFilterOptions}
               placeholder="All Evaluators"
               searchPlaceholder="Search evaluators..."
+              isLoading={isDataLoading}
+              error={dataLoadError}
+              onRetry={onRetryDataLoad}
             />
           </div>
           <div className="min-w-[220px] flex-1 sm:max-w-xs">
@@ -132,6 +141,9 @@ export default function LndFilterBar({
               options={campusFilterOptions}
               placeholder="All Colleges"
               searchPlaceholder="Search campuses..."
+              isLoading={isDataLoading}
+              error={dataLoadError}
+              onRetry={onRetryDataLoad}
             />
           </div>
           <div className="min-w-[220px] flex-1 sm:max-w-xs">
@@ -142,6 +154,9 @@ export default function LndFilterBar({
               options={departmentFilterOptions}
               placeholder="All Departments"
               searchPlaceholder="Search departments..."
+              isLoading={isDataLoading}
+              error={dataLoadError}
+              onRetry={onRetryDataLoad}
             />
           </div>
 

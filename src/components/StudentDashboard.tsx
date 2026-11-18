@@ -8,6 +8,7 @@ import { apiFetch } from "@/lib/apiFetch";
 import { qk } from "@/lib/queryKeys";
 import { getLocalDateStr } from "@/lib/localDate";
 import { getServerNow, getServerDateStr, isPastServerDeadline } from "@/lib/serverTime";
+import { getExamTimeRange, getExamTimelineStatus } from "@/lib/examScheduleTime";
 import { Dialog } from "@/components/ui/dialog";
 import { Button } from "./Button";
 import {
@@ -165,6 +166,18 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   })();
   const activeTab = (resolvedPropTab || localActiveTab) as typeof localActiveTab;
   const setActiveTab = onTabChange || setLocalActiveTab;
+  const [examClockNow, setExamClockNow] = useState(() => getServerNow());
+
+  useEffect(() => {
+    if (activeTab !== "exams") return;
+    const refreshExamClock = () => setExamClockNow(getServerNow());
+    const interval = window.setInterval(refreshExamClock, 30_000);
+    document.addEventListener("visibilitychange", refreshExamClock);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshExamClock);
+    };
+  }, [activeTab]);
 
   const [highlightedDate, setHighlightedDate] = useState<string | null>(null);
   const [highlightedWeek, setHighlightedWeek] = useState<number | null>(null);
@@ -971,7 +984,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
 
 
-  // Ensure Saturday is dynamically included in weekDates whenever 6-day working, Saturday slots exist, or Saturday has daily config
+  // Campus working_days is authoritative: only 6-day campuses display Saturday.
   const effectiveWeekDates = useMemo(() => {
     if (weekDates.length >= 6) return weekDates;
     if (weekDates.length === 0) return weekDates;
@@ -981,16 +994,10 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     sat.setDate(mon.getDate() + 5);
     const satDateStr = sat.toISOString().split("T")[0];
 
-    const hasSatConfig = dailyConfigsList.some((c: any) => {
-      if (c.dateStr !== satDateStr) return false;
-      return (c.day_order && c.day_order !== "None") || c.day_type === "working" || c.day_type === "regular" || c.day_type === "event" || c.day_type === "exam_day";
-    });
-
-    const hasSatSlots = myClassSlots.some(s => s.day === "Saturday");
     const activeCollege = colleges.find(c => c.id === currentStudent?.college_id);
     const is6DaysCollege = Number(activeCollege?.working_days) === 6;
 
-    if (is6DaysCollege || hasSatSlots || hasSatConfig) {
+    if (is6DaysCollege) {
       return [
         ...weekDates,
         {
@@ -1002,7 +1009,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     }
 
     return weekDates;
-  }, [weekDates, dailyConfigsList, myClassSlots, colleges, currentStudent]);
+  }, [weekDates, colleges, currentStudent]);
 
   // Helper to resolve the active day for a calendar date, accounting for CAM Day Order overrides
   const getMappedDayForDate = (dateStr: string, defaultDay: string) => {
@@ -3096,10 +3103,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
         {/* Tab 5: Examinations, Test Marks & Assessment Hub */}
         {activeTab === "exams" && (() => {
-          const todayStr = getServerDateStr();
           const allExams = studentExamsList || [];
-          const pastExams = allExams.filter((ex: any) => ex.exam_date < todayStr);
-          const upcomingExams = allExams.filter((ex: any) => ex.exam_date >= todayStr);
+          const pastExams = allExams.filter((ex: any) => getExamTimelineStatus(ex, examClockNow) === "completed");
+          const upcomingExams = allExams.filter((ex: any) => getExamTimelineStatus(ex, examClockNow) !== "completed");
           const displayMarks = studentMarksList || [];
 
           // Compute summary stats for student results
@@ -3471,7 +3477,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               <TableHeader>
                                 <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
                                   <TableHead className="p-3">Subject Details</TableHead>
-                                  <TableHead className="p-3">Test Date</TableHead>
+                                  <TableHead className="p-3">Test Date & Time</TableHead>
                                   <TableHead className="p-3 text-center">Marks Scored</TableHead>
                                   <TableHead className="p-3 text-center">Score %</TableHead>
                                   <TableHead className="p-3 text-center">Grade</TableHead>
@@ -3502,6 +3508,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                       </td>
                                       <td className="p-3 text-slate-700 font-bold whitespace-nowrap">
                                         {m.exam_date}
+                                        <div className="text-[10px] text-slate-400 font-normal">{getExamTimeRange(m)}</div>
                                       </td>
                                       <td className="p-3 text-center font-extrabold">
                                         {isAbs ? (
@@ -3584,6 +3591,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                                 {/* 2. Scheduled Pending Exams */}
                                 {group.pendingExams.map((ex: any, idx: number) => {
+                                  const timelineStatus = getExamTimelineStatus(ex, examClockNow);
                                   return (
                                     <tr
                                       key={ex.id || `pending-${idx}`}
@@ -3599,9 +3607,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                       </td>
                                       <td className="p-3 text-slate-600 font-medium whitespace-nowrap">
                                         {ex.exam_date}
-                                        {ex.session_time && (
-                                          <div className="text-[10px] text-slate-400 font-normal">{ex.session_time}</div>
-                                        )}
+                                        <div className="text-[10px] text-slate-400 font-normal">{getExamTimeRange(ex)}</div>
                                       </td>
                                       <td className="p-3 text-center">
                                         <span className="text-amber-600 italic text-[11px] font-medium">
@@ -3610,8 +3616,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                       </td>
                                       <td className="p-3 text-center text-slate-400">—</td>
                                       <td className="p-3 text-center">
-                                        <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-500 text-[9.5px] font-bold uppercase">
-                                          Scheduled
+                                        <span className={`px-2 py-0.5 rounded text-[9.5px] font-bold uppercase ${timelineStatus === "completed" ? "bg-slate-100 text-slate-500" : timelineStatus === "in_progress" ? "bg-emerald-50 text-emerald-700" : timelineStatus === "cancelled" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>
+                                          {timelineStatus === "completed" ? "Concluded" : timelineStatus === "in_progress" ? "In Progress" : timelineStatus === "cancelled" ? "Cancelled" : "Scheduled"}
                                         </span>
                                       </td>
                                       <td className="p-3 text-center">
@@ -3665,17 +3671,12 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               <Calendar className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                               <span>{ex.exam_date}</span>
                             </div>
-                            {ex.day_order && ex.day_order !== "None" ? (
-                              <span className="inline-flex items-center w-max px-2 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-[9.5px] font-black uppercase">
-                                {ex.day_order}
-                              </span>
-                            ) : null}
                           </div>
                         </td>
                         <td className="p-3 text-slate-600">
                           <div className="flex items-center gap-1.5 text-[10.5px]">
                             <Clock className="h-3 w-3 text-slate-400 shrink-0" />
-                            <span className="font-semibold text-slate-800">{ex.session_time || `${ex.start_time} - ${ex.end_time}`}</span>
+                            <span className="font-semibold text-slate-800">{getExamTimeRange(ex)}</span>
                           </div>
                         </td>
                         <td className="p-3">
@@ -3684,10 +3685,19 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           </span>
                         </td>
                         <td className="p-3 text-center">
-                          {isPast ? (
+                          {getExamTimelineStatus(ex, examClockNow) === "completed" ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black uppercase">
                               <Check className="h-3 w-3" />
                               Concluded
+                            </span>
+                          ) : getExamTimelineStatus(ex, examClockNow) === "in_progress" ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[10px] font-black uppercase">
+                              <Clock className="h-3 w-3" />
+                              In Progress
+                            </span>
+                          ) : getExamTimelineStatus(ex, examClockNow) === "cancelled" ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-black uppercase">
+                              Cancelled
                             </span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-black uppercase">
@@ -3717,7 +3727,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
                               <TableHead className="p-3">Exam / Assessment</TableHead>
                               <TableHead className="p-3">Subject Details</TableHead>
-                              <TableHead className="p-3">Exam Date & Day Order</TableHead>
+                              <TableHead className="p-3">Exam Date</TableHead>
                               <TableHead className="p-3">Session & Timings</TableHead>
                               <TableHead className="p-3">Total Marks</TableHead>
                               <TableHead className="p-3 text-center">Status</TableHead>
@@ -3755,7 +3765,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                               <TableRow className="bg-sunken border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px] whitespace-nowrap">
                                 <TableHead className="p-3">Exam / Assessment</TableHead>
                                 <TableHead className="p-3">Subject Details</TableHead>
-                                <TableHead className="p-3">Exam Date & Day Order</TableHead>
+                                <TableHead className="p-3">Exam Date</TableHead>
                                 <TableHead className="p-3">Session & Timings</TableHead>
                                 <TableHead className="p-3">Total Marks</TableHead>
                                 <TableHead className="p-3 text-center">Status</TableHead>

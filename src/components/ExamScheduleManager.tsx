@@ -54,6 +54,13 @@ import {
   getCollegeOperatingHours,
   parseTimeToMinutes
 } from "@/lib/utils";
+import { getExamTimeRange } from "@/lib/examScheduleTime";
+import {
+  getCampusWorkingDateSequence,
+  getNextCampusWorkingDate,
+  isCampusWorkingDate,
+  normalizeCampusWorkingDays
+} from "@/lib/campusWorkingDays";
 
 interface ExamSchedule {
   id: string;
@@ -83,7 +90,6 @@ interface SubjectFormRow {
   subject_type?: string;
   included: boolean;
   exam_date: string;
-  day_order: string;
   start_time: string;
   end_time: string;
   hall_room?: string;
@@ -112,6 +118,11 @@ export const ExamScheduleManager: React.FC<{
   const { currentCAM, departmentsList, coursesList, subjectsList, colleges, slots } = useApp();
   const { toast, confirm: showConfirm } = useToast();
   const queryClient = useQueryClient();
+  const collegeId = overrideCollegeId || currentCAM?.college_id || colleges[0]?.id || "";
+  const campusWorkingDays = useMemo(
+    () => normalizeCampusWorkingDays(colleges.find((college) => college.id === collegeId)?.working_days),
+    [collegeId, colleges]
+  );
 
   const [selectedDeptFilter, setSelectedDeptFilter] = useState("all");
   const [selectedSemFilter, setSelectedSemFilter] = useState("all");
@@ -130,13 +141,12 @@ export const ExamScheduleManager: React.FC<{
 
   // Modal: Batch Timetable Creator Popup
   const [isPopupOpen, setIsPopupOpen] = useState(false);
-  const [formStep, setFormStep] = useState<1 | 2>(1);
+  const [formStep, setFormStep] = useState<1 | 2 | 3>(1);
   const [batchExamName, setBatchExamName] = useState("CIA 1");
   const [batchDept, setBatchDept] = useState("");
   const [batchSem, setBatchSem] = useState("Semester 1");
   const [batchStartDate, setBatchStartDate] = useState(getLocalDateStr());
   const [batchDefaultHall, setBatchDefaultHall] = useState("");
-  const [batchDefaultDayOrder, setBatchDefaultDayOrder] = useState("Day 1");
   const [batchCustomStartTime, setBatchCustomStartTime] = useState("10:00 AM");
   const [batchCustomEndTime, setBatchCustomEndTime] = useState("01:00 PM");
 
@@ -150,13 +160,12 @@ export const ExamScheduleManager: React.FC<{
     setBatchExamName("CIA 1");
     setBatchDept(departmentsList[0]?.name || "");
     setBatchSem("Semester 1");
-    setBatchStartDate(getLocalDateStr());
+    setBatchStartDate(getNextCampusWorkingDate(getLocalDateStr(), campusWorkingDays));
     setBatchDefaultHall("");
-    setBatchDefaultDayOrder("Day 1");
     setBatchCustomStartTime("10:00 AM");
     setBatchCustomEndTime("01:00 PM");
     setSubjectRows([]);
-  }, [departmentsList]);
+  }, [campusWorkingDays, departmentsList]);
 
   const handleCloseCreateModal = useCallback(() => {
     setIsPopupOpen(false);
@@ -165,10 +174,9 @@ export const ExamScheduleManager: React.FC<{
 
   const handleOpenCreateModal = useCallback(() => {
     resetCreateExamForm();
+    setBatchStartDate(getNextCampusWorkingDate(getLocalDateStr(), campusWorkingDays));
     setIsPopupOpen(true);
-  }, [resetCreateExamForm]);
-
-  const collegeId = overrideCollegeId || currentCAM?.college_id || colleges[0]?.id || "";
+  }, [campusWorkingDays, resetCreateExamForm]);
 
   // Helper to format 12-hour time string
   const formatTimeLabel = (totalMinutes: number): string => {
@@ -278,54 +286,37 @@ export const ExamScheduleManager: React.FC<{
     );
   };
 
-  // Auto-syncs dates and day orders sequentially across subject rows
-  const applyStartDateToRows = (newDate: string = batchStartDate, orderStr: string = batchDefaultDayOrder) => {
+  // Spread included subjects across this campus's configured working days.
+  const applyStartDateToRows = (newDate: string = batchStartDate) => {
     if (!newDate) return;
-
-    let currentDate = parseLocalDate(newDate);
-    while (currentDate.getDay() === 0) {
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    const match = orderStr.match(/\d+/);
-    const startDay = match ? parseInt(match[0], 10) : 1;
-
-    let seqIdx = 0;
-    setSubjectRows((prev) =>
-      prev.map((row) => {
+    setSubjectRows((prev) => {
+      const dates = getCampusWorkingDateSequence(
+        newDate,
+        prev.filter((row) => row.included).length,
+        campusWorkingDays
+      );
+      let seqIdx = 0;
+      return prev.map((row) => {
         if (!row.included) return row;
-        if (seqIdx > 0) {
-          currentDate.setDate(currentDate.getDate() + 1);
-          while (currentDate.getDay() === 0) {
-            currentDate.setDate(currentDate.getDate() + 1);
-          }
-        }
-        const orderNum = ((startDay - 1 + seqIdx) % 6) + 1;
-        seqIdx++;
+        const examDate = dates[seqIdx++];
 
         return {
           ...row,
-          exam_date: formatLocalDate(currentDate),
-          day_order: orderStr !== "None" ? `Day ${orderNum}` : row.day_order || "None",
+          exam_date: examDate,
           start_time: row.start_time || batchCustomStartTime,
           end_time: row.end_time || batchCustomEndTime
         };
-      })
-    );
+      });
+    });
   };
 
   // Handler for global batch start date change - auto-syncs dates sequentially to subject rows below
   const handleBatchStartDateChange = (newDate: string) => {
-    setBatchStartDate(newDate);
     if (newDate) {
-      applyStartDateToRows(newDate, batchDefaultDayOrder);
+      const nextWorkingDate = getNextCampusWorkingDate(newDate, campusWorkingDays);
+      setBatchStartDate(nextWorkingDate);
+      applyStartDateToRows(nextWorkingDate);
     }
-  };
-
-  // Handler for global batch day order change - auto-syncs day orders sequentially to subject rows below
-  const handleBatchDayOrderChange = (newOrder: string) => {
-    setBatchDefaultDayOrder(newOrder);
-    applyStartDateToRows(batchStartDate, newOrder);
   };
 
   // Handler for individual subject row start time
@@ -520,7 +511,6 @@ export const ExamScheduleManager: React.FC<{
           subject_type: "ACADEMIC",
           included: true,
           exam_date: batchStartDate || formatLocalDate(new Date()),
-          day_order: batchDefaultDayOrder || "Day 1",
           start_time: batchCustomStartTime,
           end_time: batchCustomEndTime
         }
@@ -528,13 +518,7 @@ export const ExamScheduleManager: React.FC<{
       return;
     }
 
-    let currentDate = parseLocalDate(batchStartDate);
-    while (currentDate.getDay() === 0) {
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    const match = batchDefaultDayOrder.match(/\d+/);
-    const startDay = match ? parseInt(match[0], 10) : 1;
+    const initialDates = getCampusWorkingDateSequence(batchStartDate, deptSubjects.length, campusWorkingDays);
 
     let startT = batchCustomStartTime;
     let endT = batchCustomEndTime;
@@ -546,30 +530,19 @@ export const ExamScheduleManager: React.FC<{
     }
 
     const initialRows: SubjectFormRow[] = deptSubjects.map((sub: any, idx: number) => {
-      if (idx > 0) {
-        currentDate.setDate(currentDate.getDate() + 1);
-        while (currentDate.getDay() === 0) {
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      }
-      const dStr = formatLocalDate(currentDate);
-      const orderNum = ((startDay - 1 + idx) % 6) + 1;
-      const dOrder = batchDefaultDayOrder !== "None" ? `Day ${orderNum}` : "None";
-
       return {
         subject_name: sub.name,
         subject_code: sub.code || undefined,
         subject_type: (sub.type || "ACADEMIC").toUpperCase(),
         included: true,
-        exam_date: dStr,
-        day_order: dOrder,
+        exam_date: initialDates[idx],
         start_time: startT,
         end_time: endT
       };
     });
 
     setSubjectRows(initialRows);
-  }, [isPopupOpen, batchDept, batchSem, deptSubjects]);
+  }, [isPopupOpen, batchDept, batchSem, deptSubjects, campusWorkingDays]);
 
   // Auto-recalculate dates sequentially
   const handleAutoSequenceDates = () => {
@@ -578,55 +551,32 @@ export const ExamScheduleManager: React.FC<{
       return;
     }
 
-    let currentDate = parseLocalDate(batchStartDate);
-    while (currentDate.getDay() === 0) {
-      // Skip Sunday on start date
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    const match = batchDefaultDayOrder.match(/\d+/);
-    const startDay = match ? parseInt(match[0], 10) : 1;
-
+    const dates = getCampusWorkingDateSequence(
+      batchStartDate,
+      subjectRows.filter((row) => row.included).length,
+      campusWorkingDays
+    );
     let seqIdx = 0;
     const updated = subjectRows.map((row) => {
       if (!row.included) return row;
-      if (seqIdx > 0) {
-        currentDate.setDate(currentDate.getDate() + 1);
-        while (currentDate.getDay() === 0) {
-          // Skip Sunday
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
-      }
-      const orderNum = ((startDay - 1 + seqIdx) % 6) + 1;
-      seqIdx++;
 
       return {
         ...row,
-        exam_date: formatLocalDate(currentDate),
-        day_order: batchDefaultDayOrder !== "None" ? `Day ${orderNum}` : "None"
+        exam_date: dates[seqIdx++]
       };
     });
 
     setSubjectRows(updated);
-    toast("Auto-sequenced consecutive exam dates and Day Orders (skipping Sundays)", "success");
+    toast(`Auto-sequenced on this campus's ${campusWorkingDays}-day schedule`, "success");
   };
 
   const handleAddSubjectRow = () => {
-    let nextDate = parseLocalDate(batchStartDate);
-    const count = subjectRows.length;
-    for (let i = 0; i < count; i++) {
-      nextDate.setDate(nextDate.getDate() + 1);
-      while (nextDate.getDay() === 0) {
-        nextDate.setDate(nextDate.getDate() + 1);
-      }
-    }
-    while (nextDate.getDay() === 0) {
-      nextDate.setDate(nextDate.getDate() + 1);
-    }
-    const match = batchDefaultDayOrder.match(/\d+/);
-    const startDay = match ? parseInt(match[0], 10) : 1;
-    const orderNum = ((startDay - 1 + count) % 6) + 1;
-
+    const scheduledDates = subjectRows
+      .filter((row) => row.included && row.exam_date)
+      .map((row) => row.exam_date)
+      .sort();
+    const lastScheduledDate = scheduledDates[scheduledDates.length - 1] || batchStartDate;
+    const nextDate = getNextCampusWorkingDate(lastScheduledDate, campusWorkingDays, false);
     setSubjectRows(prev => [
       ...prev,
       {
@@ -634,8 +584,7 @@ export const ExamScheduleManager: React.FC<{
         subject_code: "",
         subject_type: "ACADEMIC",
         included: true,
-        exam_date: formatLocalDate(nextDate),
-        day_order: batchDefaultDayOrder !== "None" ? `Day ${orderNum}` : "None",
+        exam_date: nextDate,
         start_time: batchCustomStartTime,
         end_time: batchCustomEndTime
       }
@@ -660,46 +609,81 @@ export const ExamScheduleManager: React.FC<{
     );
   };
 
-  // Submit complete batch exam timetable
-  const handlePublishTimetable = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const validateTimetableDraft = (): boolean => {
     if (!batchExamName.trim()) {
       toast("Please enter an exam title (e.g. CIA 1)", "warning");
-      return;
+      return false;
     }
     if (!batchDept) {
       toast("Please select a department", "warning");
-      return;
+      return false;
     }
 
     const selectedToSchedule = subjectRows.filter((r) => r.included);
     if (selectedToSchedule.length === 0) {
       toast("Please select at least one subject to schedule", "warning");
-      return;
+      return false;
     }
 
-    // Validate that all exam timings fall strictly within college operating hours and end > start
     for (const row of selectedToSchedule) {
+      if (!row.subject_name.trim() || !row.exam_date) {
+        toast("Each included subject needs a name and exam date", "warning");
+        return false;
+      }
+      if (!isCampusWorkingDate(row.exam_date, campusWorkingDays)) {
+        const campusDays = campusWorkingDays === 6 ? "Monday to Saturday" : "Monday to Friday";
+        toast(`${row.exam_date} is not a working day for this campus (${campusDays})`, "warning");
+        return false;
+      }
       const sMin = parseTimeToMinutes(row.start_time);
       const eMin = parseTimeToMinutes(row.end_time);
 
       if (!sMin || !eMin) {
         toast(`Please choose valid start and end times for ${row.subject_name}`, "warning");
-        return;
+        return false;
       }
       if (eMin <= sMin) {
         toast(`End time must be later than start time for ${row.subject_name} (${row.start_time} - ${row.end_time})`, "warning");
-        return;
+        return false;
       }
       if (sMin < collegeHours.startMinutes) {
         toast(`Start time (${row.start_time}) cannot be earlier than college start time (${collegeHours.startTimeStr}) for ${row.subject_name}`, "warning");
-        return;
+        return false;
       }
       if (eMin > collegeHours.endMinutes) {
         toast(`End time (${row.end_time}) cannot exceed college closing time (${collegeHours.endTimeStr}) for ${row.subject_name}`, "warning");
-        return;
+        return false;
       }
     }
+    return true;
+  };
+
+  const handleReviewTimetable = () => {
+    if (validateTimetableDraft()) setFormStep(3);
+  };
+
+  const handleOpenTimetableStep = () => {
+    if (!batchExamName.trim()) {
+      toast("Please enter an Exam Title", "warning");
+      return;
+    }
+    if (!batchDept) {
+      toast("Please select a Department", "warning");
+      return;
+    }
+    if (!batchStartDate) {
+      toast("Please pick a starting date", "warning");
+      return;
+    }
+    if (formStep === 1) applyStartDateToRows(batchStartDate);
+    setFormStep(2);
+  };
+
+  // Publish only from the explicit review step.
+  const handlePublishTimetable = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (formStep !== 3 || !validateTimetableDraft()) return;
+    const selectedToSchedule = subjectRows.filter((r) => r.included);
 
     setIsSubmitting(true);
     try {
@@ -716,7 +700,7 @@ export const ExamScheduleManager: React.FC<{
           subject_code: row.subject_code,
           subject_type: row.subject_type || "ACADEMIC",
           exam_date: row.exam_date,
-          day_order: row.day_order || batchDefaultDayOrder || "Day 1",
+          day_order: "None",
           start_time: row.start_time,
           end_time: row.end_time,
           session_time: sessionTimeStr,
@@ -993,7 +977,7 @@ export const ExamScheduleManager: React.FC<{
       }
     }
 
-    const headers = ["Department", "Semester", "Exam_Name", "Subject_Name", "Subject_Type", "Exam_Date", "Day_Order", "Session_Time"];
+    const headers = ["Department", "Semester", "Exam_Name", "Subject_Name", "Subject_Type", "Exam_Date", "Session_Time"];
     const rows = deduplicatedSlots.map((ex) => [
       `"${(ex.department || "").replace(/"/g, '""')}"`,
       `"${(ex.semester || "").replace(/"/g, '""')}"`,
@@ -1001,7 +985,6 @@ export const ExamScheduleManager: React.FC<{
       `"${(ex.subject_name || "").replace(/"/g, '""')}"`,
       `"${(ex.subject_type || "").replace(/"/g, '""')}"`,
       `"${(ex.exam_date || "").replace(/"/g, '""')}"`,
-      `"${(ex.day_order || "Day 1").replace(/"/g, '""')}"`,
       `"${(ex.session_time || `${ex.start_time} - ${ex.end_time}`).replace(/"/g, '""')}"`
     ]);
 
@@ -1508,13 +1491,10 @@ export const ExamScheduleManager: React.FC<{
                                 <div className="flex items-center gap-1.5 font-bold">
                                   <Calendar className="h-3 w-3 text-amber-500 shrink-0" />
                                   <span>{slot.exam_date}</span>
-                                  {slot.day_order && slot.day_order !== "None" && (
-                                    <span className="px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 text-[9px] font-black">{slot.day_order}</span>
-                                  )}
                                 </div>
                                 <div className="flex items-center gap-1 font-semibold text-slate-500">
                                   <Clock className="h-3 w-3 text-slate-400 shrink-0" />
-                                  <span>{slot.session_time || `${slot.start_time} - ${slot.end_time}`}</span>
+                                  <span>{getExamTimeRange(slot)}</span>
                                 </div>
                                 <button
                                   type="button"
@@ -1541,7 +1521,7 @@ export const ExamScheduleManager: React.FC<{
                               <TableHead className="p-3.5 w-12 text-center">#</TableHead>
                               <TableHead className="p-3.5">Subject & Code</TableHead>
                               <TableHead className="p-3.5">Type</TableHead>
-                              <TableHead className="p-3.5">Exam Date & Day Order</TableHead>
+                              <TableHead className="p-3.5">Exam Date</TableHead>
                               <TableHead className="p-3.5">Timing & Session</TableHead>
                               <TableHead className="p-3.5 text-right">Actions</TableHead>
                             </TableRow>
@@ -1581,17 +1561,12 @@ export const ExamScheduleManager: React.FC<{
                                         <Calendar className="h-3.5 w-3.5 text-amber-500 shrink-0" />
                                         <span>{slot.exam_date}</span>
                                       </div>
-                                      {slot.day_order && slot.day_order !== "None" ? (
-                                        <span className="inline-flex items-center w-max px-2 py-0.5 rounded-full bg-purple-50 border border-purple-200 text-purple-700 text-[9.5px] font-black uppercase">
-                                          {slot.day_order}
-                                        </span>
-                                      ) : null}
                                     </div>
                                   </TableCell>
                                   <TableCell className="p-3.5 text-slate-600">
                                     <div className="flex items-center gap-1.5">
                                       <Clock className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                                      <span className="font-semibold text-slate-800">{slot.session_time || `${slot.start_time} - ${slot.end_time}`}</span>
+                                      <span className="font-semibold text-slate-800">{getExamTimeRange(slot)}</span>
                                     </div>
                                   </TableCell>
                                   <TableCell className="p-3.5 text-right">
@@ -1853,7 +1828,9 @@ export const ExamScheduleManager: React.FC<{
                                 </span>
                                 <span className="font-extrabold text-slate-900">{m.subject_name}</span>
                               </div>
-                              <div className="text-[10px] text-slate-400 mt-0.5">Date: {m.exam_date}</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Date: {m.exam_date} · {getExamTimeRange(m)}
+                              </div>
                             </TableCell>
                             <TableCell className="p-3.5 text-center font-mono font-bold text-slate-900">
                               {isAbs ? (
@@ -1924,7 +1901,7 @@ export const ExamScheduleManager: React.FC<{
         </div>
       )}
 
-      {/* POPUP MODAL: Schedule Exam Timetable (Two-Step Workflow) */}
+      {/* POPUP MODAL: Schedule Exam Timetable (Setup, Draft, Review) */}
       {isPopupOpen && (
         <Dialog
           open={true}
@@ -1942,13 +1919,17 @@ export const ExamScheduleManager: React.FC<{
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-900">Schedule Exam Timetable</h3>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    {formStep === 1 ? "Step 1: Configure parameters" : `Step 2: ${batchDept} • ${batchSem}`}
+                    {formStep === 1
+                      ? "Step 1: Configure parameters"
+                      : formStep === 2
+                        ? `Step 2: ${batchDept} • ${batchSem}`
+                        : "Step 3: Review before publishing"}
                   </p>
                 </div>
               </div>
 
               {/* Step Navigation Indicator */}
-              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200/70">
+              <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold border border-slate-200/70">
                 <button
                   type="button"
                   onClick={() => setFormStep(1)}
@@ -1962,22 +1943,7 @@ export const ExamScheduleManager: React.FC<{
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (!batchExamName.trim()) {
-                      toast("Please enter an Exam Title", "warning");
-                      return;
-                    }
-                    if (!batchDept) {
-                      toast("Please select a Department", "warning");
-                      return;
-                    }
-                    if (!batchStartDate) {
-                      toast("Please pick a starting date", "warning");
-                      return;
-                    }
-                    applyStartDateToRows(batchStartDate, batchDefaultDayOrder);
-                    setFormStep(2);
-                  }}
+                  onClick={handleOpenTimetableStep}
                   className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
                     formStep === 2
                       ? "bg-white text-slate-900 shadow-xs font-extrabold border border-slate-200/80"
@@ -1985,6 +1951,18 @@ export const ExamScheduleManager: React.FC<{
                   }`}
                 >
                   2. Timetable
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { if (formStep === 3) setFormStep(3); }}
+                  disabled={formStep !== 3}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    formStep === 3
+                      ? "bg-white text-slate-900 shadow-xs font-extrabold border border-slate-200/80 cursor-pointer"
+                      : "text-slate-400 font-semibold cursor-not-allowed"
+                  }`}
+                >
+                  3. Review
                 </button>
               </div>
 
@@ -2081,8 +2059,8 @@ export const ExamScheduleManager: React.FC<{
                       </div>
                     </div>
 
-                    {/* Dates & Day Order */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
+                    {/* Starting date */}
+                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200/80">
                       <div className="space-y-1">
                         <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
                           Starting Exam Date <span className="text-rose-500">*</span>
@@ -2095,26 +2073,9 @@ export const ExamScheduleManager: React.FC<{
                           onChange={(e) => handleBatchStartDateChange(e.target.value)}
                           className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                         />
-                      </div>
-
-                      <div className="space-y-1">
-                        <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider">
-                          Starting Day Order
-                        </label>
-                        <select
-                          aria-label="Starting Day Order"
-                          value={batchDefaultDayOrder}
-                          onChange={(e) => handleBatchDayOrderChange(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-200 rounded-lg bg-white text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
-                        >
-                          <option value="Day 1">Day 1</option>
-                          <option value="Day 2">Day 2</option>
-                          <option value="Day 3">Day 3</option>
-                          <option value="Day 4">Day 4</option>
-                          <option value="Day 5">Day 5</option>
-                          <option value="Day 6">Day 6</option>
-                          <option value="None">None</option>
-                        </select>
+                        <p className="text-[10px] text-slate-500">
+                          Date sequencing follows this campus&apos;s {campusWorkingDays}-day schedule ({campusWorkingDays === 6 ? "Mon–Sat" : "Mon–Fri"}); Sundays are excluded.
+                        </p>
                       </div>
                     </div>
 
@@ -2153,7 +2114,7 @@ export const ExamScheduleManager: React.FC<{
                       </div>
                     </div>
                   </div>
-                ) : (
+                ) : formStep === 2 ? (
                   /* ═════════ STEP 2: SUBJECTS TIMETABLE TABLE ═════════ */
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2 px-1">
@@ -2253,33 +2214,24 @@ export const ExamScheduleManager: React.FC<{
                                 </div>
                               </div>
 
-                              {/* Form Inputs (Date, Day Order, Time, Type, Delete) */}
+                              {/* Schedule inputs */}
                               {row.included && (
                                 <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
                                   <input
                                     type="date"
                                     required
                                     value={row.exam_date}
-                                    onChange={(e) => updateSubjectRow(idx, { exam_date: e.target.value })}
+                                    onChange={(e) => {
+                                      if (!isCampusWorkingDate(e.target.value, campusWorkingDays)) {
+                                        const campusDays = campusWorkingDays === 6 ? "Monday to Saturday" : "Monday to Friday";
+                                        toast(`Choose a working day for this campus (${campusDays})`, "warning");
+                                        return;
+                                      }
+                                      updateSubjectRow(idx, { exam_date: e.target.value });
+                                    }}
                                     className="px-2.5 py-2 min-h-[44px] border border-slate-200 rounded-lg text-xs font-bold bg-white text-slate-800 cursor-pointer flex-1 sm:flex-initial"
                                     title="Exam Date"
                                   />
-
-                                  <select
-                                    aria-label="Day Order"
-                                    value={row.day_order}
-                                    onChange={(e) => updateSubjectRow(idx, { day_order: e.target.value })}
-                                    className="px-2.5 py-2 min-h-[44px] border border-purple-200 dark:border-purple-800 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 cursor-pointer"
-                                    title="Day Order"
-                                  >
-                                    <option value="Day 1">Day 1</option>
-                                    <option value="Day 2">Day 2</option>
-                                    <option value="Day 3">Day 3</option>
-                                    <option value="Day 4">Day 4</option>
-                                    <option value="Day 5">Day 5</option>
-                                    <option value="Day 6">Day 6</option>
-                                    <option value="None">None</option>
-                                  </select>
 
                                   <div className="flex items-center gap-1 bg-white px-2.5 py-1.5 min-h-[44px] rounded-lg border border-slate-200">
                                     <input
@@ -2335,6 +2287,37 @@ export const ExamScheduleManager: React.FC<{
                       </div>
                     )}
                   </div>
+                ) : (
+                  <section className="space-y-4" aria-label="Review exam timetable">
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-4 space-y-2">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-amber-800">Review before publishing</p>
+                      <h4 className="text-sm font-extrabold text-slate-900">{batchExamName.trim()}</h4>
+                      <p className="text-xs font-semibold text-slate-600">
+                        {batchDept} · {batchSem} · {subjectRows.filter((row) => row.included).length} subjects
+                      </p>
+                      <p className="text-[11px] text-slate-600">
+                        Confirm every subject, date, start time, and end time below. Publishing makes this timetable visible to students and faculty.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      {subjectRows.filter((row) => row.included).map((row, index) => (
+                        <article key={`${row.subject_name}_${index}`} className="rounded-xl border border-slate-200 bg-white p-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="font-extrabold text-slate-900 truncate">{row.subject_name}</p>
+                              {row.subject_code && <p className="text-[10px] font-mono text-slate-400">{row.subject_code}</p>}
+                            </div>
+                            <div className="flex flex-wrap gap-2 text-[11px] font-bold text-slate-700">
+                              <span className="rounded-lg bg-slate-100 px-2.5 py-1.5">{row.exam_date}</span>
+                              <span className="rounded-lg bg-slate-100 px-2.5 py-1.5">{getExamTimeRange(row)}</span>
+                              <span className="rounded-lg bg-slate-100 px-2.5 py-1.5">{row.subject_type || "ACADEMIC"}</span>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
                 )}
               </div>
 
@@ -2351,29 +2334,14 @@ export const ExamScheduleManager: React.FC<{
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        if (!batchExamName.trim()) {
-                          toast("Please enter an Exam Title", "warning");
-                          return;
-                        }
-                        if (!batchDept) {
-                          toast("Please select a Department", "warning");
-                          return;
-                        }
-                        if (!batchStartDate) {
-                          toast("Please pick a starting date", "warning");
-                          return;
-                        }
-                        applyStartDateToRows(batchStartDate, batchDefaultDayOrder);
-                        setFormStep(2);
-                      }}
+                        onClick={handleOpenTimetableStep}
                       className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm flex items-center gap-1.5 cursor-pointer"
                     >
                       <span>Next: Build Timetable</span>
                       <ArrowRight className="h-4 w-4" />
                     </button>
                   </>
-                ) : (
+                ) : formStep === 2 ? (
                   <>
                     <button
                       type="button"
@@ -2384,11 +2352,31 @@ export const ExamScheduleManager: React.FC<{
                       <span>Back to Setup</span>
                     </button>
                     <button
+                      type="button"
+                      onClick={handleReviewTimetable}
+                      disabled={subjectRows.filter((r) => r.included).length === 0}
+                      className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50"
+                    >
+                      Review timetable
+                      <ArrowRight className="ml-1.5 inline h-4 w-4" />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setFormStep(2)}
+                      className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      <span>Edit timetable</span>
+                    </button>
+                    <button
                       type="submit"
                       disabled={isSubmitting || subjectRows.filter((r) => r.included).length === 0}
                       className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 rounded-xl text-xs font-bold shadow-sm cursor-pointer disabled:opacity-50"
                     >
-                      {isSubmitting ? "Publishing Timetable..." : `Publish ${subjectRows.filter((r) => r.included).length} Subjects`}
+                      {isSubmitting ? "Publishing Timetable..." : `Confirm & Publish ${subjectRows.filter((r) => r.included).length} Subjects`}
                     </button>
                   </>
                 )}
