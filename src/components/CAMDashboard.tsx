@@ -647,7 +647,12 @@ export const CAMCampusInsightPanel: React.FC<{
   subTabs,
   initialSubTab
 }) => {
+    const { colleges } = useApp();
     const { toast } = useToast();
+    const insightDays = useMemo(() => {
+      const campus = colleges.find(college => college.id === activeCollegeId);
+      return ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].slice(0, Number(campus?.working_days) === 6 ? 6 : 5);
+    }, [colleges, activeCollegeId]);
     const [selectedSubTab, setSelectedSubTab] = useState<InsightSubTab>(initialSubTab ?? "attendance");
 
     // ─── Live Classroom Observations ───
@@ -2547,7 +2552,7 @@ export const CAMCampusInsightPanel: React.FC<{
         roomMap.get(loc)!.push(s);
       });
 
-      const days = workingDays;
+      const days = insightDays;
       const records = Array.from(roomMap.entries()).map(([roomName, slots], idx) => {
         const lower = roomName.toLowerCase();
         const isLab = lower.includes("lab") || lower.includes("computer") || lower.includes("iot") || lower.includes("workshop") || lower.includes("studio") || slots.some(s => (s.course || "").toLowerCase().includes("lab"));
@@ -2604,7 +2609,7 @@ export const CAMCampusInsightPanel: React.FC<{
       }
 
       return filtered.sort((a, b) => b.totalBookedHours - a.totalBookedHours);
-    }, [campusSlots, infraTypeFilter, infraUtilizationFilter, deferredSearchQuery, workingDays]);
+    }, [campusSlots, infraTypeFilter, infraUtilizationFilter, deferredSearchQuery, insightDays]);
 
     const infrastructureMetrics = useMemo(() => {
       const totalRooms = infrastructureData.length;

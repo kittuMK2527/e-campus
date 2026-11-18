@@ -65,7 +65,8 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
 
   // Compute live day-by-day distribution of scheduled slots across weekdays
   const dayDistribution = useMemo(() => {
-    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+    const hasSixDayCampus = colleges.some(college => Number(college.working_days) === 6);
+    const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].slice(0, hasSixDayCampus ? 6 : 5);
     const counts = days.map(day => {
       const daySlots = slots.filter(s => (s.day || "").toLowerCase() === day.toLowerCase());
       return {
@@ -98,7 +99,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
     const peak = [...counts].sort((a, b) => b.slots - a.slots)[0] || { day: "Wed", slots: 0 };
 
     return { counts, maxSlots, points, pathD, areaD, total: slots.length, peak };
-  }, [slots]);
+  }, [slots, colleges]);
 
   const recentLogs = useMemo(() => {
     return (auditLogs || []).slice(0, 6);

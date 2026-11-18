@@ -83,8 +83,12 @@ export async function seedAdminAccount(options = {}) {
 }
 
 function loadEnvFiles() {
-  for (const file of [".env.local", ".env", ".env.updated"]) {
-    const fullPath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), file);
+  const envFiles = [
+    path.join(process.cwd(), ".env.local"),
+    path.join(process.cwd(), ".env"),
+    path.join(process.cwd(), ".env.updated")
+  ];
+  for (const fullPath of envFiles) {
     if (!fs.existsSync(fullPath)) continue;
     try {
       const content = fs.readFileSync(fullPath, "utf8");
@@ -181,12 +185,17 @@ export async function runSqlSeed(options = {}) {
     throw new Error("No DATABASE_URL or POSTGRES_URL found in environment.");
   }
 
-  const sqlPath = options.sqlPath || path.resolve(process.cwd(), "data", "seeds", "seed.sql");
+  const defaultSqlPath = path.join(process.cwd(), "data", "seeds", "seed.sql");
+  const sqlPath = options.sqlPath || defaultSqlPath;
   if (!fs.existsSync(sqlPath)) {
     throw new Error(`SQL seed file not found at ${sqlPath}. Run dump_prod_data.mjs first.`);
   }
 
-  const sql = fs.readFileSync(sqlPath, "utf8");
+  // Use statically-scoped fallback path so static analysis tools (like @vercel/nft) don't trace the entire project
+  const sql = fs.readFileSync(
+    options.sqlPath ? options.sqlPath : path.join(process.cwd(), "data", "seeds", "seed.sql"),
+    "utf8"
+  );
   const isLocalHost = /localhost|127\.0\.0\.1/.test(connectionString);
   const client = new pg.Client({
     connectionString,
@@ -221,13 +230,17 @@ export async function runSnapshotSeed(options = {}) {
     throw new Error("No DATABASE_URL or POSTGRES_URL found in environment.");
   }
 
-  const snapshotPath =
-    options.snapshotPath || path.resolve(process.cwd(), "data", "seeds", "production_dump.json");
+  const defaultSnapshotPath = path.join(process.cwd(), "data", "seeds", "production_dump.json");
+  const snapshotPath = options.snapshotPath || defaultSnapshotPath;
   if (!fs.existsSync(snapshotPath)) {
     throw new Error(`Snapshot file not found at ${snapshotPath}. Run dump_prod_data.mjs first.`);
   }
 
-  const raw = fs.readFileSync(snapshotPath, "utf8");
+  // Use statically-scoped fallback path so static analysis tools (like @vercel/nft) don't trace the entire project
+  const raw = fs.readFileSync(
+    options.snapshotPath ? options.snapshotPath : path.join(process.cwd(), "data", "seeds", "production_dump.json"),
+    "utf8"
+  );
   const dump = JSON.parse(raw);
   const tables = dump.tables || {};
   const isLocalHost = /localhost|127\.0\.0\.1/.test(connectionString);

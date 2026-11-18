@@ -21,8 +21,12 @@ import { pathToFileURL } from "url";
 const { Pool } = pg;
 
 export function loadEnvFiles() {
-  for (const file of [".env.local", ".env", ".env.updated"]) {
-    const fullPath = path.resolve(/*turbopackIgnore: true*/ process.cwd(), file);
+  const envFiles = [
+    path.join(process.cwd(), ".env.local"),
+    path.join(process.cwd(), ".env"),
+    path.join(process.cwd(), ".env.updated")
+  ];
+  for (const fullPath of envFiles) {
     if (!fs.existsSync(fullPath)) continue;
     try {
       const content = fs.readFileSync(fullPath, "utf8");

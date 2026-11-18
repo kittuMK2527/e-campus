@@ -37,6 +37,28 @@ function cleanupOldJobs() {
   }
 }
 
+/**
+ * Safely load local CLI maintenance scripts only when running in a local Node environment.
+ * Uses dynamic evaluation so Next.js, Webpack, and Turbopack bundlers do not trace or bundle
+ * CLI maintenance scripts into production serverless builds.
+ */
+async function loadCliScript(scriptRelativePath: string): Promise<any> {
+  if (process.env.VERCEL) {
+    return null;
+  }
+  try {
+    const fullPath = path.join(process.cwd(), scriptRelativePath);
+    if (!fs.existsSync(fullPath)) return null;
+    const { pathToFileURL } = await import("url");
+    const scriptUrl = pathToFileURL(fullPath).href;
+    const dynamicImporter = new Function("url", "return import(url);");
+    return await dynamicImporter(scriptUrl);
+  } catch (err) {
+    console.warn(`[update-db] Could not dynamically load CLI script ${scriptRelativePath}:`, err);
+    return null;
+  }
+}
+
 /** Checks whether the request has an admin session or valid x-admin-key header */
 async function authenticateAdmin(request: NextRequest): Promise<boolean> {
   const secretKey = (process.env.ADMIN_SECRET_KEY || process.env.CRON_SECRET || "").trim();
@@ -190,9 +212,9 @@ export async function POST(request: NextRequest) {
         addLog("Applying postgres_schema.sql DDL statements...");
         job.progress = 20;
 
-        const schemaFile = path.resolve(process.cwd(), "postgres_schema.sql");
-        if (fs.existsSync(schemaFile)) {
-          const sql = fs.readFileSync(schemaFile, "utf8");
+        const schemaPath = path.join(process.cwd(), "postgres_schema.sql");
+        if (fs.existsSync(schemaPath)) {
+          const sql = fs.readFileSync(path.join(process.cwd(), "postgres_schema.sql"), "utf8");
           await db.exec(sql);
           addLog("postgres_schema.sql successfully applied.");
         } else {
@@ -212,11 +234,17 @@ export async function POST(request: NextRequest) {
 
       // ACTION 2: DUMP (download production data to data/seeds)
       if (action === "dump") {
+        if (process.env.VERCEL) {
+          throw new Error("Action 'dump' is not supported in Vercel serverless environment (read-only filesystem). Run 'node scripts/dump_prod_data.mjs' from local terminal instead.");
+        }
         addLog("Starting database snapshot export...");
         job.progress = 30;
 
-        const { dumpProductionData } = await import("../../../../scripts/dump_prod_data.mjs");
-        const dumpResult = await dumpProductionData({
+        const dumpMod = await loadCliScript("scripts/dump_prod_data.mjs");
+        if (!dumpMod?.dumpProductionData) {
+          throw new Error("CLI utility dumpProductionData could not be loaded.");
+        }
+        const dumpResult = await dumpMod.dumpProductionData({
           logger: (msg: string) => addLog(msg)
         });
 
@@ -231,15 +259,17 @@ export async function POST(request: NextRequest) {
 
         if (options.seedAllData) {
           addLog("Full dataset seeding requested via seedAllData flag...");
-          const sqlSeedPath = path.resolve(process.cwd(), "data", "seeds", "seed.sql");
-          const snapshotPath = path.resolve(process.cwd(), "data", "seeds", "production_dump.json");
+          const sqlSeedPath = path.join(process.cwd(), "data", "seeds", "seed.sql");
+          const snapshotPath = path.join(process.cwd(), "data", "seeds", "production_dump.json");
 
-          const { runSqlSeed, runSnapshotSeed } = await import("../../../../scripts/seed_db.mjs");
-          if (options.useSqlSeed && fs.existsSync(sqlSeedPath)) {
+          const seedMod = !process.env.VERCEL ? await loadCliScript("scripts/seed_db.mjs") : null;
+          const { runSqlSeed, runSnapshotSeed } = seedMod || {};
+
+          if (options.useSqlSeed && runSqlSeed && fs.existsSync(sqlSeedPath)) {
             addLog("Executing SQL seed script (seed.sql)...");
             await runSqlSeed({ logger: (msg: string) => addLog(msg) });
             addLog("SQL seed applied successfully.");
-          } else if (options.useSnapshot && fs.existsSync(snapshotPath)) {
+          } else if (options.useSnapshot && runSnapshotSeed && fs.existsSync(snapshotPath)) {
             addLog("Executing snapshot seed from production_dump.json...");
             const res = await runSnapshotSeed({ logger: (msg: string) => addLog(msg) });
             addLog("Snapshot seed applied successfully.");
