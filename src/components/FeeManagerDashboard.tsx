@@ -1552,8 +1552,13 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   </div>
 
                   <select
+                    aria-label="Filter College"
                     value={filterCollege}
-                    onChange={(e) => setFilterCollege(e.target.value)}
+                    onChange={(e) => {
+                      setFilterCollege(e.target.value);
+                      setFilterDept("all");
+                      setFilterYear("all");
+                    }}
                     className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                   >
                     <option value="all">All Colleges</option>
@@ -1563,6 +1568,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   </select>
 
                   <select
+                    aria-label="Filter Department"
                     value={filterDept}
                     onChange={(e) => setFilterDept(e.target.value)}
                     className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
@@ -1575,6 +1581,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
 
                   {/* Clean Year-Wise Dropdown fetched dynamically from DB */}
                   <select
+                    aria-label="Filter Academic Year"
                     value={filterYear}
                     onChange={(e) => setFilterYear(e.target.value)}
                     className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
@@ -1586,6 +1593,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   </select>
 
                   <select
+                    aria-label="Filter Fee Status"
                     value={filterFeeStatus}
                     onChange={(e) => setFilterFeeStatus(e.target.value)}
                     className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
@@ -2173,6 +2181,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                       <div key={key} className="flex items-center justify-between py-1 border-b border-slate-100 dark:border-slate-800">
                         <span className="text-slate-500 font-bold">{label}</span>
                         <select
+                          aria-label={`Map column for ${label}`}
                           value={selectedIdx}
                           onChange={(e) => handleMappingChange(key, Number(e.target.value))}
                           className="px-2 py-0.5 rounded bg-white dark:bg-[#131317] border border-slate-200 dark:border-slate-800 text-[10px] outline-none font-bold max-w-[130px] truncate"

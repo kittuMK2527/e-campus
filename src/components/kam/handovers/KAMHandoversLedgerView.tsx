@@ -256,6 +256,7 @@ export const KAMHandoversLedgerView: React.FC<KAMHandoversLedgerViewProps> = ({
           <div>
             <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Campus / Institution</label>
             <select
+              aria-label="Campus / Institution"
               value={selectedCollegeId}
               onChange={(e) => {
                 const val = e.target.value;
@@ -277,6 +278,7 @@ export const KAMHandoversLedgerView: React.FC<KAMHandoversLedgerViewProps> = ({
           <div>
             <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Resolution Status</label>
             <select
+              aria-label="Resolution Status"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);
@@ -294,6 +296,7 @@ export const KAMHandoversLedgerView: React.FC<KAMHandoversLedgerViewProps> = ({
           <div>
             <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Category</label>
             <select
+              aria-label="Category"
               value={categoryFilter}
               onChange={(e) => {
                 setCategoryFilter(e.target.value);

@@ -2231,9 +2231,10 @@ export const ExamScheduleManager: React.FC<{
                                   />
 
                                   <select
+                                    aria-label="Day Order"
                                     value={row.day_order}
                                     onChange={(e) => updateSubjectRow(idx, { day_order: e.target.value })}
-                                    className="px-2.5 py-2 min-h-[44px] border border-purple-200 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 cursor-pointer"
+                                    className="px-2.5 py-2 min-h-[44px] border border-purple-200 dark:border-purple-800 rounded-lg text-xs font-bold bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 cursor-pointer"
                                     title="Day Order"
                                   >
                                     <option value="Day 1">Day 1</option>

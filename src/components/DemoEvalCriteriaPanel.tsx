@@ -261,6 +261,7 @@ export function DemoEvalCriteriaPanel({
           <div>
             <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">Type</label>
             <select
+              aria-label="Criteria Type"
               value={newType}
               onChange={(e) => setNewType(e.target.value as "checkbox" | "score_rule")}
               className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold cursor-pointer focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"

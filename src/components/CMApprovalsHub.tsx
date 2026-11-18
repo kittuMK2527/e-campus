@@ -494,9 +494,10 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
                       <div>
                         <h4 className="text-sm font-black text-slate-800 mb-2">1. Assign Cover Faculty</h4>
                         <select 
+                          aria-label="Assign Cover Faculty"
                           value={selectedCoverMentorId || ""}
                           onChange={e => setSelectedCoverMentorId(e.target.value)}
-                          className="w-full max-w-md bg-white border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
+                          className="w-full max-w-md bg-white dark:bg-[#181820] border border-slate-200 dark:border-slate-800 rounded-lg px-4 py-2.5 text-sm font-bold text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                         >
                           <option value="">-- Keep originally requested cover staff --</option>
                           {availableMentors.map(m => (

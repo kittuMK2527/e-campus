@@ -718,6 +718,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                         ))}
                       </datalist>
                       <Select
+                        aria-label="Subject Type"
                         value={row.type}
                         onChange={e => handleUpdateRow(row.id, "type", e.target.value)}
                         className="w-28 bg-white border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs font-bold"
@@ -728,6 +729,7 @@ export const SubjectDialog: React.FC<SubjectDialogProps> = ({
                         <option value="ELECTIVE">ELECTIVE</option>
                       </Select>
                       <Select
+                        aria-label="Mentor Group"
                         value={row.mentor_group ?? ""}
                         onChange={e => handleUpdateRow(row.id, "mentor_group", e.target.value)}
                         className="w-36 bg-white border border-gray-200 rounded-lg px-2 py-1.5 text-xs font-bold text-gray-700"

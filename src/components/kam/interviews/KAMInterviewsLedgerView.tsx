@@ -317,6 +317,7 @@ export const KAMInterviewsLedgerView: React.FC<KAMInterviewsLedgerViewProps> = (
           <div>
             <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Campus / Institution</label>
             <select
+              aria-label="Campus / Institution"
               value={selectedCollegeId}
               onChange={(e) => {
                 const val = e.target.value;
@@ -338,6 +339,7 @@ export const KAMInterviewsLedgerView: React.FC<KAMInterviewsLedgerViewProps> = (
           <div>
             <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Readiness Standing</label>
             <select
+              aria-label="Readiness Standing"
               value={statusFilter}
               onChange={(e) => {
                 setStatusFilter(e.target.value);

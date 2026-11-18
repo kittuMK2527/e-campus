@@ -284,6 +284,7 @@ export const KAMFeesLedgerView: React.FC<KAMFeesLedgerViewProps> = ({
 
           <div className="flex items-center gap-2">
             <select
+              aria-label="Filter Campus"
               value={selectedCollegeId}
               onChange={(e) => {
                 const val = e.target.value;

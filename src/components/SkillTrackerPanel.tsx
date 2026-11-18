@@ -707,7 +707,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               aria-label="Subject"
               value={subjectFilter}
               onChange={e => setSubjectFilter(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+              className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Subjects</option>
               {subjects.map(s => <option key={s} value={s}>{s}</option>)}
@@ -719,7 +719,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               aria-label="Semester"
               value={semesterFilter}
               onChange={e => setSemesterFilter(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+              className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Semesters</option>
               {availableSemesters.map(sem => (
@@ -733,7 +733,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               aria-label="Week"
               value={weekFilter}
               onChange={e => setWeekFilter(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+              className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               {Array.from({ length: 15 }, (_, i) => i + 1).map(w => (
                 <option key={w} value={String(w)}>Week {w}</option>
@@ -743,9 +743,10 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
           <div>
             <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">Verdict</label>
             <select
+              aria-label="Verdict"
               value={verdictFilter}
               onChange={e => setVerdictFilter(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+              className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Verdicts</option>
               <option value="cleared">Cleared</option>

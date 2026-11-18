@@ -1473,7 +1473,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               aria-label="Class / Cohort"
               value={selectedClass}
               onChange={e => handleClassChange(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+              className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               {assignedClasses.length > 0 ? (
                 assignedClasses.map(c => (
@@ -1496,7 +1496,7 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
               aria-label="Subject"
               value={selectedSubject}
               onChange={e => handleSubjectChange(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+              className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               {assignedSubjects.length > 0 ? (
                 assignedSubjects.map(s => (
@@ -2470,7 +2470,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
                 aria-label="Campus / College"
                 value={selectedCollege}
                 onChange={e => setSelectedCollege(e.target.value)}
-                className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+                className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
               >
                 <option value="all">All Campuses</option>
                 {allColleges.map(c => (
@@ -2490,7 +2490,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
               aria-label="Academic Week"
               value={selectedWeek}
               onChange={e => setSelectedWeek(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+              className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Academic Weeks</option>
               {Array.from({ length: 16 }, (_, i) => i + 1).map(w => (
@@ -2509,7 +2509,7 @@ export const WeeklyPlanViewer: React.FC<WeeklyPlanViewerProps> = ({
               aria-label="SME Status"
               value={selectedStatus}
               onChange={e => setSelectedStatus(e.target.value)}
-              className="w-full p-2 bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+              className="w-full p-2 bg-sunken dark:bg-[#181820] border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl text-xs font-bold text-slate-800 dark:text-slate-100 outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
             >
               <option value="all">All Statuses</option>
               <option value="Submitted">Submitted (Pending SME Review)</option>

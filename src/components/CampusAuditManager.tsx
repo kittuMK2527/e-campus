@@ -512,9 +512,10 @@ export const ClassObservationView: React.FC<{
                 <div key={d.key} className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
                   <span className="text-[10.5px] font-bold text-slate-700">{d.label}</span>
                   <select
+                    aria-label={d.label}
                     value={fRatings[d.key] ?? ""}
                     onChange={(e) => setFRatings(prev => ({ ...prev, [d.key]: Number(e.target.value) }))}
-                    className="bg-white border border-slate-200 rounded-lg text-xs font-black min-h-[38px] px-2.5 py-1 cursor-pointer focus:outline-hidden"
+                    className="bg-white dark:bg-[#181820] border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-100 rounded-lg text-xs font-black min-h-[38px] px-2.5 py-1 cursor-pointer focus:outline-hidden"
                   >
                     <option value="">—</option>
                     {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}

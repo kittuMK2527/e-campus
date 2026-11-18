@@ -1061,7 +1061,7 @@ const MentorStudyMaterialsStudio: React.FC<MentorStudyMaterialsStudioProps> = ({
                   value={formSubject}
                   onChange={(e) => setFormSubject(e.target.value)}
                   required
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                   aria-label="Course Subject"
                 >
                   <option value="" disabled>Select Subject</option>
@@ -1079,7 +1079,7 @@ const MentorStudyMaterialsStudio: React.FC<MentorStudyMaterialsStudioProps> = ({
                 <select
                   value={formClassGroup}
                   onChange={(e) => setFormClassGroup(e.target.value)}
-                  className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+                  className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                   aria-label="Target Class / Cohort (Optional)"
                 >
                   <option value="">All Students (General / Enrolled)</option>
@@ -1099,7 +1099,7 @@ const MentorStudyMaterialsStudio: React.FC<MentorStudyMaterialsStudioProps> = ({
                     value={formUnit}
                     onChange={(e) => setFormUnit(parseInt(e.target.value, 10) || 1)}
                     required
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                     aria-label="Curriculum Unit"
                   >
                     {[1, 2, 3, 4, 5].map(u => (
@@ -1116,7 +1116,7 @@ const MentorStudyMaterialsStudio: React.FC<MentorStudyMaterialsStudioProps> = ({
                     value={formType}
                     onChange={(e) => setFormType(e.target.value)}
                     required
-                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white font-bold text-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 cursor-pointer"
                     aria-label="Material Type"
                   >
                     <option value="notes">Lecture Notes (PDF / Doc)</option>
@@ -7654,7 +7654,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                           const bestMatch = mentorClasses.find(c => c.toLowerCase().includes(newDept.toLowerCase()));
                           if (bestMatch) setTrackerClassGroup(bestMatch);
                         }}
-                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white dark:bg-[#181820] text-slate-800 dark:text-slate-100 cursor-pointer"
                         aria-label="Department"
                       >
                         {deptOptions.map(d => <option key={d} value={d}>{d}</option>)}
@@ -7678,7 +7678,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                           ) || mentorClasses.find(c => c.toLowerCase().includes(activeDept.toLowerCase()));
                           if (bestMatch) setTrackerClassGroup(bestMatch);
                         }}
-                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white dark:bg-[#181820] text-slate-800 dark:text-slate-100 cursor-pointer"
                         aria-label="Semester"
                       >
                         {finalSemOptions.map(s => <option key={s} value={s}>{s}</option>)}
@@ -7691,7 +7691,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       <select
                         value={activeSubj}
                         onChange={(e) => setTrackerSubject(e.target.value)}
-                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white dark:bg-[#181820] text-slate-800 dark:text-slate-100 cursor-pointer"
                         aria-label="Subject"
                       >
                         {subjectOptions.length === 0 ? (
@@ -7710,7 +7710,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         onChange={(e) => {
                           setTrackerWeek(parseInt(e.target.value, 10));
                         }}
-                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white text-slate-800 cursor-pointer"
+                        className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/20 bg-white dark:bg-[#181820] text-slate-800 dark:text-slate-100 cursor-pointer"
                         aria-label="Week"
                       >
                         {Array.from({ length: 15 }, (_, i) => i + 1).map(wk => (

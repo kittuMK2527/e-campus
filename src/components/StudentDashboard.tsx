@@ -4732,7 +4732,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           aria-label="Select Skill Subject"
                           value={studentTrackerSubject}
                           onChange={(e) => setStudentTrackerSubject(e.target.value)}
-                          className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 bg-white text-slate-800"
+                          className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:border-amber-500 bg-white dark:bg-[#181820] text-slate-800 dark:text-slate-100"
                         >
                           {studentSubjects.filter(s => isSkillSubject(s)).map(s => (
                             <option key={s.id} value={s.name}>{s.name}</option>
@@ -5395,7 +5395,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <select aria-label="Blood Group"
                           value={editBloodGroup}
                           onChange={e => setEditBloodGroup(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800 cursor-pointer"
+                          className="w-full px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#181820] text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800 dark:text-slate-100 cursor-pointer"
                         >
                           <option value="">Select Group</option>
                           {["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => (
@@ -5556,7 +5556,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                         <select aria-label="Medium of Study"
                           value={editMedium}
                           onChange={e => setEditMedium(e.target.value)}
-                          className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800 cursor-pointer"
+                          className="w-full px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#181820] text-xs font-bold focus:ring-1 focus:ring-amber-500 outline-none text-slate-800 dark:text-slate-100 cursor-pointer"
                         >
                           <option value="">Select Medium</option>
                           <option value="English">English</option>

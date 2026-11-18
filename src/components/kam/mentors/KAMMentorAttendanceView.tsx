@@ -157,6 +157,7 @@ export function KAMMentorAttendanceView({
               />
             </div>
             <select
+              aria-label="Filter Department"
               value={deptFilter}
               onChange={e => setDeptFilter(e.target.value)}
               className="px-3 py-1.5 text-xs font-bold border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 outline-none"

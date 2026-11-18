@@ -2717,7 +2717,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     aria-label="Subject (Assigned Only)"
                     value={selectedSubject}
                     onChange={e => setSelectedSubject(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none cursor-pointer"
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#181820] text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none cursor-pointer"
                   >
                     {mentorSubjects.length === 0
                       ? <option value="">No non-Tamil subjects assigned</option>
@@ -2733,7 +2733,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     aria-label="Class / Cohort"
                     value={selectedClassGroup}
                     onChange={e => setSelectedClassGroup(e.target.value)}
-                    className="w-full p-2.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none cursor-pointer"
+                    className="w-full p-2.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#181820] text-xs font-semibold text-slate-800 dark:text-slate-100 focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 outline-none cursor-pointer"
                   >
                     {mentorClasses.map(c => {
                       const formatted = c === "III BCA" ? "BCA - Semester 5" : (c.includes("Sem") || c.includes("Year") ? c : `${c} - Semester 5`);

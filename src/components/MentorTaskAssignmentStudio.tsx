@@ -481,6 +481,7 @@ export const MentorTaskAssignmentStudio: React.FC<MentorTaskAssignmentStudioProp
               <span>Campus:</span>
             </label>
             <select
+              aria-label="Campus / College Scope"
               value={selectedCollege}
               onChange={e => setSelectedCollege(e.target.value)}
               className="p-1.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer"
@@ -522,6 +523,7 @@ export const MentorTaskAssignmentStudio: React.FC<MentorTaskAssignmentStudioProp
                 Faculty Mentor (Emp ID / Name) *
               </label>
               <select
+                aria-label="Faculty Mentor"
                 value={selectedMentorId}
                 onChange={e => {
                   setSelectedMentorId(e.target.value);
@@ -568,6 +570,7 @@ export const MentorTaskAssignmentStudio: React.FC<MentorTaskAssignmentStudioProp
                 Skill Course Name *
               </label>
               <select
+                aria-label="Skill Course Name"
                 value={selectedSubject}
                 onChange={e => setSelectedSubject(e.target.value)}
                 required
@@ -589,6 +592,7 @@ export const MentorTaskAssignmentStudio: React.FC<MentorTaskAssignmentStudioProp
                   Semester
                 </label>
                 <select
+                  aria-label="Semester"
                   value={selectedSemester}
                   onChange={e => setSelectedSemester(e.target.value)}
                   className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer"
@@ -604,6 +608,7 @@ export const MentorTaskAssignmentStudio: React.FC<MentorTaskAssignmentStudioProp
                   Task Number (Max 40) *
                 </label>
                 <select
+                  aria-label="Task Number"
                   value={weekNumber}
                   onChange={e => setWeekNumber(parseInt(e.target.value, 10))}
                   className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500 cursor-pointer"

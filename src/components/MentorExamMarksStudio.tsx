@@ -953,9 +953,10 @@ export const MentorExamMarksStudio: React.FC = () => {
 
                 {availableCohorts.length > 1 && (
                   <select
+                    aria-label="Filter Cohort"
                     value={cohortFilter}
                     onChange={(e) => setCohortFilter(e.target.value)}
-                    className="py-1.5 px-3 text-xs font-bold rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-amber-500"
+                    className="py-1.5 px-3 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-slate-700 dark:text-slate-200 focus:outline-none focus:border-amber-500"
                   >
                     <option value="all">All Cohorts ({availableCohorts.length})</option>
                     {availableCohorts.map(c => (

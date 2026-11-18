@@ -3997,7 +3997,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <select aria-label="Cohort"
                   value={selectedCohort}
                   onChange={e => setSelectedCohort(e.target.value)}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                 >
                   <option value="all">All Cohorts / Classes</option>
                   {campusCohorts.map(cg => (
@@ -4012,7 +4012,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Shortage tier filter"
                     value={attendanceSeverityFilter}
                     onChange={e => setAttendanceSeverityFilter(e.target.value as any)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Shortage Tiers</option>
                     <option value="critical">Critical (&lt;65%) Only</option>
@@ -4021,7 +4021,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Sort attendance by"
                     value={attendanceSortBy}
                     onChange={e => setAttendanceSortBy(e.target.value as any)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="pct_asc">Sort: Lowest % First</option>
                     <option value="pct_desc">Sort: Highest % First</option>
@@ -4037,7 +4037,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Ticket category filter"
                     value={selectedTicketCategory}
                     onChange={e => setSelectedTicketCategory(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Categories</option>
                     {ticketCategories.map(cat => (
@@ -4047,7 +4047,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Ticket status filter"
                     value={ticketStatusFilter}
                     onChange={e => setTicketStatusFilter(e.target.value as any)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Statuses</option>
                     <option value="open">Open / Pending</option>
@@ -4057,7 +4057,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Ticket priority filter"
                     value={ticketPriorityFilter}
                     onChange={e => setTicketPriorityFilter(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Priorities</option>
                     <option value="urgent">Urgent / Critical</option>
@@ -4074,7 +4074,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Workload filter"
                     value={workloadStatusFilter}
                     onChange={e => setWorkloadStatusFilter(e.target.value as any)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Workloads</option>
                     <option value="overload">Overload (&gt;20h)</option>
@@ -4085,7 +4085,7 @@ export const CAMCampusInsightPanel: React.FC<{
                     <select aria-label="Department filter"
                       value={facultyDeptFilter}
                       onChange={e => setFacultyDeptFilter(e.target.value)}
-                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                     >
                       <option value="all">All Departments</option>
                       {facultyDepartments.map(dept => (
@@ -4101,7 +4101,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <select aria-label="Syllabus pace filter"
                   value={syllabusPaceFilter}
                   onChange={e => setSyllabusPaceFilter(e.target.value as any)}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                 >
                   <option value="all">All Syllabus Paces</option>
                   <option value="lagging">Lagging Behind (&lt;50%)</option>
@@ -4115,7 +4115,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <select aria-label="Demo status filter"
                   value={demoStatusFilter}
                   onChange={e => setDemoStatusFilter(e.target.value as any)}
-                  className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                 >
                   <option value="all">All Evaluation Outcomes</option>
                   <option value="completed">Completed</option>
@@ -4130,7 +4130,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Achievement category filter"
                     value={achCategoryFilter}
                     onChange={e => setAchCategoryFilter(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Categories</option>
                     <option value="Hackathon & Competitions">Hackathon & Competitions</option>
@@ -4146,7 +4146,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Achievement badge filter"
                     value={achBadgeFilter}
                     onChange={e => setAchBadgeFilter(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Standings</option>
                     <option value="Winner">Winner / 1st Place</option>
@@ -4163,7 +4163,7 @@ export const CAMCampusInsightPanel: React.FC<{
                   <select aria-label="Achievement level filter"
                     value={achLevelFilter}
                     onChange={e => setAchLevelFilter(e.target.value)}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Levels</option>
                     <option value="International">International</option>
@@ -4195,7 +4195,7 @@ export const CAMCampusInsightPanel: React.FC<{
                       setMentorNpsMonth(e.target.value);
                       fetchMentorNps(e.target.value);
                     }}
-                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                   >
                     <option value="all">All Months</option>
                     {mentorNps?.availableMonths && mentorNps.availableMonths.length > 0 ? (
@@ -5381,7 +5381,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <select aria-label="Ticket category filter"
                   value={selectedTicketCategory}
                   onChange={e => setSelectedTicketCategory(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                 >
                   <option value="all">All Categories ({ticketCategories.length})</option>
                   {ticketCategories.map(cat => (
@@ -5393,7 +5393,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <select aria-label="Ticket department filter"
                   value={ticketDeptFilter}
                   onChange={e => setTicketDeptFilter(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer max-w-[180px]"
+                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer max-w-[180px]"
                 >
                   <option value="all">All Departments ({ticketDepartments.length})</option>
                   {ticketDepartments.map(dept => (
@@ -5405,7 +5405,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <select aria-label="Ticket status filter"
                   value={ticketStatusFilter}
                   onChange={e => setTicketStatusFilter(e.target.value as any)}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                 >
                   <option value="all">All Statuses</option>
                   <option value="open">Open / Pending</option>
@@ -5417,7 +5417,7 @@ export const CAMCampusInsightPanel: React.FC<{
                 <select aria-label="Ticket priority filter"
                   value={ticketPriorityFilter}
                   onChange={e => setTicketPriorityFilter(e.target.value)}
-                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer"
+                  className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer"
                 >
                   <option value="all">All Priorities</option>
                   <option value="urgent">Urgent</option>
@@ -15802,14 +15802,14 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           className="w-full pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500"
                         />
                       </div>
-                      <select aria-label="Subject type filter" value={subjectTypeFilter} onChange={e => setSubjectTypeFilter(e.target.value)} className="p-1.5 border border-slate-200 rounded-xl bg-white text-[10px] cursor-pointer font-bold outline-none shadow-sm">
+                      <select aria-label="Subject type filter" value={subjectTypeFilter} onChange={e => setSubjectTypeFilter(e.target.value)} className="p-1.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#181820] text-slate-800 dark:text-slate-200 text-[10px] cursor-pointer font-bold outline-none shadow-sm">
                         <option value="all">All Types</option>
                         <option value="SKILL">SKILL</option>
                         <option value="ACADEMIC">ACADEMIC</option>
                         <option value="LAB">LAB</option>
                         <option value="GENERAL">GENERAL</option>
                       </select>
-                      <select aria-label="Subject shift filter" value={subjectShiftFilter} onChange={e => setSubjectShiftFilter(e.target.value)} className="p-1.5 border border-slate-200 rounded-xl bg-white text-[10px] cursor-pointer font-bold outline-none shadow-sm">
+                      <select aria-label="Subject shift filter" value={subjectShiftFilter} onChange={e => setSubjectShiftFilter(e.target.value)} className="p-1.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#181820] text-slate-800 dark:text-slate-200 text-[10px] cursor-pointer font-bold outline-none shadow-sm">
                         <option value="all">All Shifts</option>
                         <option value="Shift 1">Shift 1 (Day)</option>
                         <option value="Shift 2">Shift 2 (Evening)</option>
@@ -16158,7 +16158,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   <select aria-label="Faculty department filter"
                     value={facultyDeptFilter}
                     onChange={e => setFacultyDeptFilter(e.target.value)}
-                    className="h-9 px-3.5 border border-slate-200/90 rounded-2xl bg-white text-xs cursor-pointer font-bold text-slate-800 outline-none shadow-2xs hover:border-slate-300 transition-all flex-grow sm:flex-grow-0"
+                    className="h-9 px-3.5 border border-slate-200/90 dark:border-slate-800 rounded-2xl bg-white dark:bg-[#181820] text-xs cursor-pointer font-bold text-slate-800 dark:text-slate-200 outline-none shadow-2xs hover:border-slate-300 dark:hover:border-slate-700 transition-all flex-grow sm:flex-grow-0"
                   >
                     <option value="all">All Depts</option>
                     {facultyDepts.map(d => (
@@ -17033,7 +17033,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             <select aria-label="Course filter"
                               value={selectedCohortCourse}
                               onChange={e => handleCohortCourseChange(e.target.value)}
-                              className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer shadow-sm focus:ring-1 focus:ring-amber-500"
+                              className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer shadow-sm focus:ring-1 focus:ring-amber-500"
                             >
                               {cohortCourses.length === 0 && <option value="">No courses</option>}
                               {cohortCourses.map((c, idx) => (
@@ -17051,7 +17051,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             <select aria-label="Semester filter"
                               value={selectedCohortSem}
                               onChange={e => handleCohortSemChange(e.target.value)}
-                              className="px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs font-bold text-slate-700 outline-none cursor-pointer shadow-sm focus:ring-1 focus:ring-amber-500"
+                              className="px-3 py-1.5 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none cursor-pointer shadow-sm focus:ring-1 focus:ring-amber-500"
                             >
                               {cohortSemesters.length === 0 && <option value="">No semesters</option>}
                               {cohortSemesters.map((s, idx) => (
@@ -18532,7 +18532,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <select aria-label="Student department filter"
                       value={studentDeptFilter}
                       onChange={e => setStudentDeptFilter(e.target.value)}
-                      className="py-1.5 px-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken text-xs font-bold cursor-pointer outline-none"
+                      className="py-1.5 px-2.5 border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer outline-none"
                     >
                       <option value="all">All Departments</option>
                       {studentDepts.map(d => (
@@ -18544,7 +18544,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <select aria-label="Student batch filter"
                       value={studentBatchFilter}
                       onChange={e => setStudentBatchFilter(e.target.value)}
-                      className="py-1.5 px-2.5 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken text-xs font-bold cursor-pointer outline-none"
+                      className="py-1.5 px-2.5 border border-slate-200 dark:border-slate-800 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer outline-none"
                     >
                       <option value="all">All Batches &amp; Cohorts</option>
                       {activeBatches.map(b => {

@@ -30,7 +30,8 @@ import { useApp } from "@/context/AppContext";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/Pagination";
 import { Badge } from "@/components/ui/badge";
-import { DEFAULT_SEMESTERS } from "@/lib/semesters";
+import { ALL_SEMESTERS } from "@/lib/semesters";
+import { isSameSemester } from "@/lib/utils";
 
 interface StudentsRegistryTableProps {
   initialCollegeId?: string;
@@ -130,7 +131,7 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
   // Filter students by semester if set
   const filteredStudents = useMemo(() => {
     if (selectedSem === "all") return students;
-    return students.filter((s: any) => String(s.semester || "") === selectedSem.replace("Semester ", "").replace("Sem ", ""));
+    return students.filter((s: any) => isSameSemester(s.semester, selectedSem));
   }, [students, selectedSem]);
 
   // Sorting logic
@@ -314,8 +315,10 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2.5 pt-1">
           {/* Internal Campus Selector */}
           <div>
-            <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Campus / College</label>
+            <label htmlFor="kam-students-campus-select" className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Campus / College</label>
             <select
+              id="kam-students-campus-select"
+              aria-label="Campus / College"
               value={selectedCollegeId}
               onChange={(e) => {
                 const val = e.target.value;
@@ -335,8 +338,10 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
 
           {/* Department Filter */}
           <div>
-            <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Department</label>
+            <label htmlFor="kam-students-dept-select" className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Department</label>
             <select
+              id="kam-students-dept-select"
+              aria-label="Department"
               value={selectedDept}
               onChange={(e) => setSelectedDept(e.target.value)}
               className="w-full text-xs font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-zinc-800 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
@@ -352,14 +357,16 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
 
           {/* Semester Filter */}
           <div>
-            <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Semester</label>
+            <label htmlFor="kam-students-sem-select" className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Semester</label>
             <select
+              id="kam-students-sem-select"
+              aria-label="Semester"
               value={selectedSem}
               onChange={(e) => setSelectedSem(e.target.value)}
               className="w-full text-xs font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-zinc-800 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
             >
               <option value="all">All Semesters</option>
-              {DEFAULT_SEMESTERS.slice(0, 8).map((s) => (
+              {ALL_SEMESTERS.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -369,8 +376,10 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
 
           {/* Risk Tier Filter */}
           <div>
-            <label className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Compliance Tier</label>
+            <label htmlFor="kam-students-tier-select" className="text-[10px] font-black uppercase text-zinc-400 block mb-1">Compliance Tier</label>
             <select
+              id="kam-students-tier-select"
+              aria-label="Compliance Tier"
               value={riskFilter}
               onChange={(e) => setRiskFilter(e.target.value)}
               className="w-full text-xs font-bold bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-zinc-800 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
