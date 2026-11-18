@@ -156,22 +156,9 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Top Navigation Mode Pill Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <ShieldAlert className="h-5 w-5 text-amber-600" />
-            <h3 className="text-base font-black text-slate-900 tracking-tight">
-              {collegeName} • Operational & Performance Concerns
-            </h3>
-          </div>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">
-            Holistic governance hub monitoring student logs, fees, attendance flags, mentor quality, and campus complaints.
-          </p>
-        </div>
-
-        {/* Dual Mode Switcher */}
-        <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
+      {/* Top Dual Mode Switcher */}
+      <div className="flex items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-3">
+        <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
           <button
             type="button"
             onClick={() => setActiveConcernMode("student")}
@@ -273,11 +260,11 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 className="h-9 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white"
               >
                 <option value="all">All Concern Statuses</option>
-                <option value="low_attendance">⚠️ Low Attendance (&lt;75%)</option>
-                <option value="fee_pending">💰 Fee Arrears Pending</option>
-                <option value="complaints">🚨 Mentor Complaints Logged</option>
-                <option value="placement_risk">💼 Placement At-Risk (Low HireScore)</option>
-                <option value="achievements">🏆 Has Verified Achievements</option>
+                <option value="low_attendance">Low Attendance (&lt;75%)</option>
+                <option value="fee_pending">Fee Arrears Pending</option>
+                <option value="complaints">Mentor Complaints Logged</option>
+                <option value="placement_risk">Placement At-Risk (Low HireScore)</option>
+                <option value="achievements">Has Verified Achievements</option>
               </select>
             </div>
           </div>
@@ -315,27 +302,27 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {st.is_low_attendance && (
                         <span className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-black">
-                          ⚠️ Att: {st.attendance_pct}%
+                          Att: {st.attendance_pct}%
                         </span>
                       )}
                       {st.is_fee_defaulter && (
                         <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-black">
-                          💰 Fee Due: ₹{st.fee_pending}
+                          Fee Due: ₹{st.fee_pending}
                         </span>
                       )}
                       {st.has_complaints && (
                         <span className="px-2 py-0.5 rounded-md bg-rose-100 border border-rose-300 text-rose-800 text-[10px] font-black">
-                          🚨 {st.complaints_count} Complaints
+                          {st.complaints_count} Complaints
                         </span>
                       )}
                       {st.achievements_count > 0 && (
                         <span className="px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] font-black">
-                          🏆 {st.achievements_count} Awards
+                          {st.achievements_count} Awards
                         </span>
                       )}
                       {st.hire_score && (
                         <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black">
-                          🎯 HireScore: {st.hire_score}
+                          HireScore: {st.hire_score}
                         </span>
                       )}
                     </div>
@@ -443,10 +430,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 className="h-9 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white"
               >
                 <option value="all">All Faculty Statuses</option>
-                <option value="low_audit">⚠️ Low Audit Score (&lt;70%)</option>
-                <option value="complaints">🚨 Student Complaints Logged</option>
+                <option value="low_audit">Low Audit Score (&lt;70%)</option>
+                <option value="complaints">Student Complaints Logged</option>
                 <option value="late_punch">⏰ Irregular Punch-In</option>
-                <option value="high_performers">🏆 Exemplary Performers (≥85%)</option>
+                <option value="high_performers">Exemplary Performers (≥85%)</option>
               </select>
             </div>
           </div>
@@ -508,12 +495,12 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {m.is_low_audit && (
                         <span className="px-2 py-0.5 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-[10px] font-black">
-                          ⚠️ Under Review (&lt;70%)
+                          Under Review (&lt;70%)
                         </span>
                       )}
                       {m.tickets_count > 0 && (
                         <span className="px-2 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-800 text-[10px] font-black">
-                          🚨 {m.tickets_count} Complaints
+                          {m.tickets_count} Complaints
                         </span>
                       )}
                       {m.last_punch && (

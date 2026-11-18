@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import { prefetchRoleTab } from "@/lib/prefetch";
+import { apiFetch } from "@/lib/apiFetch";
 import { getLocalDateStr } from "@/lib/localDate";
 import { Card } from "@/components/Card";
 import { Panel } from "@/components/Panel";
@@ -44,7 +45,9 @@ import {
   CheckSquare,
   CalendarRange,
   GraduationCap,
-  Menu
+  Menu,
+  Video,
+  Link2
 } from "lucide-react";
 import { WeeklyPlanViewer } from "./WeeklyPlanStudio";
 import { SkillTrackerPanel } from "./SkillTrackerPanel";
@@ -107,6 +110,8 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     weekDates,
     colleges,
     demoSwapRequests,
+    demoReallocations,
+    coursesList,
     resolveDemoSwap,
     refreshData,
     subjectGroups,
@@ -265,6 +270,38 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     { startTime: "09:00 AM", endTime: "05:30 PM", slotType: "demo" }
   ]);
   const [isSavingAvail, setIsSavingAvail] = useState(false);
+
+  // Constant Course Google Meet Link State
+  const [showCourseMeetModal, setShowCourseMeetModal] = useState(false);
+  const [selectedCourseForMeet, setSelectedCourseForMeet] = useState<any | null>(null);
+  const [courseMeetInput, setCourseMeetInput] = useState("");
+  const [savingCourseMeet, setSavingCourseMeet] = useState(false);
+
+  const handleSaveCourseMeet = async () => {
+    if (!selectedCourseForMeet) return;
+    setSavingCourseMeet(true);
+    try {
+      const res = await apiFetch<any>("/api/courses/meet-link", {
+        method: "POST",
+        body: JSON.stringify({
+          courseId: selectedCourseForMeet.id,
+          courseName: selectedCourseForMeet.name,
+          meetLink: courseMeetInput.trim()
+        })
+      });
+      if (res.success) {
+        toast("Course Google Meet link updated successfully!", "success");
+        setShowCourseMeetModal(false);
+        await refreshData();
+      } else {
+        toast(res.message || "Failed to update Google Meet link", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Failed to update link", "error");
+    } finally {
+      setSavingCourseMeet(false);
+    }
+  };
 
   // Time format conversion helpers
   const to24Hour = (time12: string) => {
@@ -548,14 +585,30 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     ? Math.round(completedDemos.reduce((sum, d) => sum + (d.marks || 0), 0) / completedCount)
     : 0;
 
-  // Inbound Reallocation Requests targeting this SME (proposed BY someone else —
-  // the SME's own outbound proposals must not appear here or they could self-approve)
-  const pendingInboundRequests = demoSwapRequests?.filter(
-    (r: any) => r.smeId !== currentSME.id && r.proposedSmeId === currentSME.id && (r.status === "pending" || r.status === "pending_sme")
-  ) || [];
+  // Courses corresponding to this SME's subject domain
+  const smeCourses = (coursesList || []).filter((c: any) => {
+    const cName = (c.name || "").toLowerCase().trim();
+    const cCode = (c.code || "").toLowerCase().trim();
+    const smeSub = (currentSME?.subject || "").toLowerCase().trim();
+    return !smeSub || cName.includes(smeSub) || smeSub.includes(cName) || cCode === smeSub;
+  });
+
+  // Inbound Reallocation Requests targeting this SME (both modern reallocation_requests and legacy swaps)
+  const reallocRequestsForSme = (demoReallocations || []).filter(
+    (r: any) => r.sme_id === currentSME.id || r.smeId === currentSME.id
+  );
+  const pendingInboundRequests = [
+    ...reallocRequestsForSme.filter((r: any) => r.status === "pending"),
+    ...(demoSwapRequests?.filter(
+      (r: any) => r.smeId !== currentSME.id && r.proposedSmeId === currentSME.id && (r.status === "pending" || r.status === "pending_sme")
+    ) || [])
+  ];
 
   // Outbound Reallocation Requests sent by this SME
-  const outboundRequests = demoSwapRequests?.filter((r: any) => r.smeId === currentSME.id) || [];
+  const outboundRequests = [
+    ...reallocRequestsForSme.filter((r: any) => r.proposed_by === currentSME.name),
+    ...(demoSwapRequests?.filter((r: any) => r.smeId === currentSME.id) || [])
+  ];
 
   // Target Rule Derivation for SME's Subject
   const smeSubjectRule = demoRules.find(r => r.subject?.toLowerCase().trim() === (currentSME.subject || "").toLowerCase().trim());
@@ -826,6 +879,39 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     finally { setSubmitting(false); }
   };
 
+  const handleResolveReallocation = async (req: any, decision: "approved" | "rejected") => {
+    if (resolvingSwapId) return;
+    setResolvingSwapId(req.id);
+    try {
+      if (String(req.id || "").startsWith("drr")) {
+        const res = await apiFetch<any>("/api/demo-reallocations", {
+          method: "POST",
+          body: JSON.stringify({
+            action: "resolve",
+            requestId: req.id,
+            decision,
+            decidedBy: currentSME.name,
+            decisionNotes: decision === "approved" ? "Approved by assigned SME" : "Rejected by SME"
+          })
+        });
+        if (res.success) {
+          toast(`Reallocation proposal ${decision} successfully!`, "success");
+          await refreshData();
+        } else {
+          toast(res.message || `Failed to ${decision} proposal`, "error");
+        }
+      } else {
+        const res = await resolveDemoSwap(req.id, decision);
+        if (res.success) toast(`Swap request ${decision}.`, "success");
+        else toast(res.message || `Failed to ${decision} swap request.`, "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "An error occurred", "error");
+    } finally {
+      setResolvingSwapId(null);
+    }
+  };
+
   const handleConfirmEvaluation = async () => {
     if (!evaluationModalSession) return;
 
@@ -1055,6 +1141,76 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 </div>
               </div>
 
+              {/* Weekly Evaluation Target & Delivery Progress Bar */}
+              <div className="p-4 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-card space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                      <Target className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wide">
+                        Weekly Evaluation Target ({currentSME.subject || "Domain"})
+                      </h4>
+                      <p className="text-[10px] text-slate-500 font-semibold mt-0.5">
+                        Performance towards assigned weekly demo reviews and SLA quota.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <span className="text-[10px] font-bold text-slate-400 block">Completed / Target</span>
+                      <span className="text-sm font-black text-slate-900 dark:text-white">
+                        {completedCount} <span className="text-slate-400 font-bold">/</span> {weeklyTargetCount} Demos
+                      </span>
+                    </div>
+                    <div className={`px-2.5 py-1 rounded-lg text-xs font-black uppercase border ${
+                      targetProgressPct >= 80
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300"
+                        : targetProgressPct >= 50
+                          ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300"
+                          : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300"
+                    }`}>
+                      {targetProgressPct}% Delivered
+                    </div>
+                  </div>
+                </div>
+                <div className="w-full bg-slate-100 dark:bg-slate-800 h-2.5 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full transition-all duration-500 rounded-full ${
+                      targetProgressPct >= 80 ? "bg-emerald-500" : targetProgressPct >= 50 ? "bg-amber-500" : "bg-rose-500"
+                    }`}
+                    style={{ width: `${Math.min(100, Math.max(4, targetProgressPct))}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Constant Course Google Meet Link Card */}
+              <div className="p-3.5 bg-blue-50/60 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-800/60 rounded-2xl flex flex-wrap items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-2 rounded-xl bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300">
+                    <Video className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-blue-700 dark:text-blue-300 block">Course Google Meet Link</span>
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
+                      {smeCourses.find((c: any) => c.google_meet_link)?.google_meet_link || "No permanent Meet link set yet for your course"}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedCourseForMeet(smeCourses[0] || null);
+                    setCourseMeetInput(smeCourses[0]?.google_meet_link || "");
+                    setShowCourseMeetModal(true);
+                  }}
+                  className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                >
+                  <Link2 className="h-3.5 w-3.5" /> Configure Course Meet Link
+                </button>
+              </div>
+
               {/* Action Required Banner if pending requests or affected demos exist */}
               {(pendingInboundRequests.length > 0 || affectedCount > 0) && (
                 <div className="p-4 bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-900/40 rounded-xl space-y-2">
@@ -1089,7 +1245,13 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
               >
                 {todayDemos.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {todayDemos.map(demo => (
+                    {todayDemos.map(demo => {
+                      const courseObj = (coursesList || []).find((c: any) =>
+                        (c.name || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim() ||
+                        (c.code || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim()
+                      );
+                      const effectiveMeetLink = demo.meet_link || courseObj?.google_meet_link || null;
+                      return (
                       <div key={demo.id} className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shadow-card">
                         <div className="space-y-0.5">
                           <div className="font-black text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -1100,6 +1262,17 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           <div className="text-[9px] text-amber-500 dark:text-amber-400 font-bold uppercase">{demo.subject} • {getMentorDept(demo.mentorId) || demo.stream}</div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0">
+                          {effectiveMeetLink && (
+                            <a
+                              href={effectiveMeetLink}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors"
+                              title="Join Google Meet"
+                            >
+                              <Video className="h-3.5 w-3.5" /> Meet
+                            </a>
+                          )}
                           {renderStatusBadge(demo.status)}
                           {(() => {
                             if (demo.status === "completed") {
@@ -1147,7 +1320,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           })()}
                         </div>
                       </div>
-                    ))}
+                    ); })}
                   </div>
                 ) : (
                   <div className="py-8 text-center text-slate-400 text-xs font-bold italic bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl">
@@ -1781,50 +1954,30 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           <div className="grid grid-cols-2 gap-3 text-xs p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-card">
                             <div>
                               <span className="text-[8.5px] font-black uppercase text-slate-400 block mb-0.5">Faculty & Group</span>
-                              <span className="font-bold text-slate-800 dark:text-slate-200 block">{req.mentorName}</span>
-                              <span className="text-[9px] text-slate-500">{getMentorCollege(req.mentorId)}</span>
-                              <span className="text-[9.5px] font-mono text-slate-600 block mt-1">Orig: {req.dateStr} • {req.timeSlot}</span>
+                              <span className="font-bold text-slate-800 dark:text-slate-200 block">{req.mentorName || req.mentor_name}</span>
+                              <span className="text-[9px] text-slate-500">{getMentorCollege(req.mentorId || req.mentor_id)}</span>
+                              <span className="text-[9.5px] font-mono text-slate-600 block mt-1">Orig: {req.original_date_str || req.dateStr} • {req.original_time_slot || req.timeSlot}</span>
                             </div>
                             <div>
                               <span className="text-[8.5px] font-black uppercase text-violet-600 block mb-0.5">Proposed Slot & SME</span>
-                              <span className="font-bold text-violet-700 dark:text-violet-400 block">{req.proposedSmeName || req.smeName || currentSME.name}</span>
-                              <span className="text-[9.5px] font-mono text-violet-600 font-bold block mt-1">{req.proposedDateStr || req.dateStr} • {req.proposedTimeSlot || req.timeSlot}</span>
+                              <span className="font-bold text-violet-700 dark:text-violet-400 block">{req.proposedSmeName || req.sme_name || req.smeName || currentSME.name}</span>
+                              <span className="text-[9.5px] font-mono text-violet-600 font-bold block mt-1">{req.proposed_date_str || req.proposedDateStr || req.dateStr} • {req.proposed_time_slot || req.proposedTimeSlot || req.timeSlot}</span>
                             </div>
                           </div>
 
-                          <p className="text-[10px] text-slate-500 italic">Reason: &quot;{req.reason || "CM Approved Mentor Leave"}&quot;</p>
+                          <p className="text-[10px] text-slate-500 italic">Reason: &quot;{req.reason || "Formal Reschedule Request"}&quot;</p>
 
                           <div className="flex gap-3 pt-1">
                             <button
                               disabled={resolvingSwapId === req.id}
-                              onClick={async () => {
-                                if (resolvingSwapId) return;
-                                setResolvingSwapId(req.id);
-                                try {
-                                  const res = await resolveDemoSwap(req.id, "rejected");
-                                  if (res.success) toast("Reallocation request rejected. Session remains in reallocation_required.", "success");
-                                  else toast(res.message || "Failed to reject the reallocation request.", "error");
-                                } finally {
-                                  setResolvingSwapId(null);
-                                }
-                              }}
+                              onClick={() => handleResolveReallocation(req, "rejected")}
                               className="flex-1 py-2 text-xs font-extrabold border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Reject
                             </button>
                             <button
                               disabled={resolvingSwapId === req.id}
-                              onClick={async () => {
-                                if (resolvingSwapId) return;
-                                setResolvingSwapId(req.id);
-                                try {
-                                  const res = await resolveDemoSwap(req.id, "approved");
-                                  if (res.success) toast("Reallocation request accepted and demo booked!", "success");
-                                  else toast(res.message || "Failed to accept the reallocation request.", "error");
-                                } finally {
-                                  setResolvingSwapId(null);
-                                }
-                              }}
+                              onClick={() => handleResolveReallocation(req, "approved")}
                               className="flex-1 py-2 text-xs font-extrabold bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Accept &amp; Confirm
@@ -2703,6 +2856,99 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     </button>
                   </div>
                 </div>
+            </Dialog>
+          )}
+
+          {/* Constant Course Google Meet Link Configuration Modal */}
+          {showCourseMeetModal && (
+            <Dialog
+              open={showCourseMeetModal}
+              onOpenChange={(open) => { if (!open) setShowCourseMeetModal(false); }}
+              ariaLabel="Configure Constant Course Google Meet Link"
+              overlayClassName="bg-slate-950/60 backdrop-blur-xs p-4 flex items-center justify-center"
+              panelClassName="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-scaleUp"
+            >
+              <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 rounded-xl">
+                    <Video className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide">
+                      Course Google Meet Link
+                    </h3>
+                    <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                      Set a permanent meeting URL that mentors join for demo evaluations
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCourseMeetModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 block mb-1">
+                    Select Course / Subject
+                  </label>
+                  <select
+                    value={selectedCourseForMeet?.id || ""}
+                    onChange={(e) => {
+                      const c = smeCourses.find(item => item.id === e.target.value);
+                      setSelectedCourseForMeet(c || null);
+                      setCourseMeetInput(c?.google_meet_link || "");
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                  >
+                    {smeCourses.map(c => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} {c.code ? `(${c.code})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 block mb-1">
+                    Permanent Google Meet URL
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="url"
+                      placeholder="https://meet.google.com/abc-defg-hij"
+                      value={courseMeetInput}
+                      onChange={(e) => setCourseMeetInput(e.target.value)}
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <p className="text-[10.5px] text-slate-400 font-semibold mt-1">
+                    This link will be automatically attached to demo sessions and shown on the Mentor&apos;s schedule card with a 1-click Join button.
+                  </p>
+                </div>
+              </div>
+
+              <div className="px-6 py-4 bg-slate-50/60 dark:bg-slate-800/40 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setShowCourseMeetModal(false)}
+                  className="px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={savingCourseMeet || !selectedCourseForMeet}
+                  onClick={handleSaveCourseMeet}
+                  className="px-5 py-2 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs disabled:opacity-50 cursor-pointer transition-colors"
+                >
+                  {savingCourseMeet ? "Saving..." : "Save Google Meet Link"}
+                </button>
+              </div>
             </Dialog>
           )}
 

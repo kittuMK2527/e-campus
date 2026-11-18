@@ -86,7 +86,8 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
       return { x, y, count: c.slots, day: c.day };
     });
 
-    let pathD = `M ${points[0].x} ${points[0].y}`;
+    const firstPoint = points[0];
+    let pathD = firstPoint ? `M ${firstPoint.x} ${firstPoint.y}` : "";
     for (let i = 0; i < points.length - 1; i++) {
       const current = points[i];
       const next = points[i + 1];
@@ -94,7 +95,7 @@ export const AdminOverviewTab: React.FC<AdminOverviewTabProps> = ({
       pathD += ` C ${controlX} ${current.y}, ${controlX} ${next.y}, ${next.x} ${next.y}`;
     }
 
-    const areaD = `${pathD} L ${width} ${height} L 0 ${height} Z`;
+    const areaD = pathD ? `${pathD} L ${width} ${height} L 0 ${height} Z` : "";
 
     const peak = [...counts].sort((a, b) => b.slots - a.slots)[0] || { day: "Wed", slots: 0 };
 

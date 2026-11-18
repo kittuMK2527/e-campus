@@ -241,6 +241,7 @@ export interface StudentTrackerEntry {
   marks?: number;
   graded_by?: string;
   updated_at?: string;
+  created_at?: string;
 }
 
 export interface StudentInterview {
@@ -353,6 +354,7 @@ export interface Department {
   shift_based?: number;
   sections?: string;
   working_days?: number;
+  google_meet_link?: string | null;
 }
 
 export type Course = Department;
@@ -431,6 +433,7 @@ interface AppContextProps {
   setDemoSessions: React.Dispatch<React.SetStateAction<any[]>>;
   demoRules: any[];
   demoSwapRequests: any[];
+  demoReallocations: any[];
   currentRole: Role;
   currentMentor: Mentor | null;
   currentHR: HRUser | null;
@@ -779,6 +782,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [demoSessions, setDemoSessions] = useState<any[]>([]);
   const [demoRules, setDemoRules] = useState<any[]>([]);
   const [demoSwapRequests, setDemoSwapRequests] = useState<any[]>([]);
+  const [demoReallocations, setDemoReallocations] = useState<any[]>([]);
   const [currentSME, setCurrentSME] = useState<any | null>(null);
   // ROLE_UI_AUDIT S3/E1: surfaced to dashboards when the logged-in identity cannot
   // be resolved — replaces the old "silently show the first user's data" fallback.
@@ -1008,6 +1012,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (data.facultyLeaves) setFacultyLeaves(data.facultyLeaves);
 
         if (data.demoSwapRequests) setDemoSwapRequests(data.demoSwapRequests);
+        if (data.demoReallocations) setDemoReallocations(data.demoReallocations);
         if (data.kamTasks) setKamTasks(data.kamTasks);
         if (data.campusIssues) setCampusIssues(data.campusIssues);
         if (data.academicYears) setAcademicYears(data.academicYears.map((ay: any) => typeof ay === "string" ? ay : ay.year || ay.year_name || ay.name || String(ay)));
@@ -1768,6 +1773,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // DB sets status 'completed' (see /api/demo-sessions evaluate) — keep local
       // state consistent so badges/KPIs don't show a phantom "evaluated" state.
       setDemoSessions(prev => prev.map(s => s.id === sessionId ? { ...s, marks, comments, status: "completed" } : s));
+      broadcastDataChanged("demos");
       return { success: true, message: data.message || "Evaluation saved successfully!" };
     } else {
       return { success: false, message: data.message || "Failed to save evaluation." };
@@ -1923,6 +1929,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // for Learning and Development. Refresh so the "reallocation required" state and
         // any L and D decision flow back into every dashboard.
         await refreshData();
+        broadcastDataChanged("demos");
         return { success: true, message: data.message || "Reschedule request sent to Learning and Development for approval." };
       }
       return { success: false, message: data.message || "Failed to reschedule L&D session." };
@@ -3877,6 +3884,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     demoSessions,
     demoRules,
     demoSwapRequests,
+    demoReallocations,
     currentRole,
     currentMentor,
     currentHR,
@@ -4052,6 +4060,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     demoSessions,
     demoRules,
     demoSwapRequests,
+    demoReallocations,
     currentRole,
     currentMentor,
     currentHR,

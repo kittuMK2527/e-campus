@@ -7,6 +7,7 @@ import { useApp, Slot, Mentor, Student, Subject, HandoverRequest, ApprovedHandov
 import { useToast } from "../context/ToastContext";
 import { apiFetch } from "@/lib/apiFetch";
 import { qk } from "@/lib/queryKeys";
+import { matchesCamTrackerPeriod } from "@/lib/camTrackerPeriod";
 import { getLocalDateStr, shiftDateStr, parseLocalDate } from "@/lib/localDate";
 import {
   dayOrderCeiling,
@@ -8557,7 +8558,8 @@ export type CAMTabId =
   | "faculty_weekly_plan"
   | "mentor_skill_tracker"
   | "demo_schedule"
-  | "profile_edits";
+  | "profile_edits"
+  | "concerns";
 
 export interface CAMDashboardProps {
   activeTab?: CAMTabId;
@@ -10283,6 +10285,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [camTrackerDept, setCamTrackerDept] = useState("");
   const [camTrackerSemester, setCamTrackerSemester] = useState("");
   const [camTrackerSubject, setCamTrackerSubject] = useState("");
+  const [camTrackerFilterMode, setCamTrackerFilterMode] = useState<"week" | "date">("date");
   const [camTrackerWeek, setCamTrackerWeek] = useState<number | "">("");
   const [camTrackerFromDate, setCamTrackerFromDate] = useState<string>(() => {
     return shiftDateStr(getLocalDateStr(), -7);
@@ -16143,43 +16146,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
           {/* 4. FACULTY ALLOCATION */}
           {activeTab === "faculty" && (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl w-fit border border-slate-200 dark:border-slate-700">
-                <button
-                  type="button"
-                  onClick={() => setFacultySubTab("workload")}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
-                    facultySubTab === "workload"
-                      ? "bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm"
-                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                >
-                  <Users className="h-4 w-4 text-indigo-600" />
-                  <span>Workload & Deployment</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFacultySubTab("concerns")}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 ${
-                    facultySubTab === "concerns"
-                      ? "bg-white dark:bg-slate-900 text-rose-700 dark:text-rose-400 shadow-sm"
-                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                  }`}
-                >
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />
-                  <span>Concerns ⚠️</span>
-                </button>
-              </div>
-
-              {facultySubTab === "concerns" ? (
-                <FacultyConcernsTab
-                  collegeId={activeCollegeId || ""}
-                  collegeName={activeCollegeName || "Campus"}
-                  readOnly={readOnly}
-                />
-              ) : (
-                <Panel
-                  title="Faculty Deployment & Workloads"
+            <Panel
+              title="Faculty Deployment & Workloads"
               headerActions={
                 <>
                   <div className="relative w-full sm:w-auto">
@@ -16494,8 +16462,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 </div>
               </div>
             </Panel>
-              )}
-            </div>
+          )}
+
+          {/* Faculty: Concerns (Student & Mentor 360 Dossier) */}
+          {activeTab === "concerns" && (
+            <FacultyConcernsTab
+              collegeId={activeCollegeId || ""}
+              collegeName={activeCollegeName || "Campus"}
+              readOnly={readOnly}
+            />
           )}
 
           {/* Faculty: Weekly Plan */}
@@ -21903,7 +21878,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             const isAllSubjects = activeSubject === "ALL";
             const activeClassGroup = `${activeDept} - ${activeSemester}`;
 
-            const activeWeek: number = typeof camTrackerWeek === "number" ? camTrackerWeek : 1;
+            const activeWeek: number | null = typeof camTrackerWeek === "number" ? camTrackerWeek : null;
 
             // Unified student matcher for selected course and semester
             const matchesCohortStudent = (s: any) => {
@@ -21938,8 +21913,38 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               return false;
             };
 
+            const matchesTrackerPeriod = (record: any) => {
+              return matchesCamTrackerPeriod(record, {
+                mode: camTrackerFilterMode,
+                weekNumber: activeWeek,
+                fromDate: camTrackerFromDate,
+                toDate: camTrackerToDate
+              });
+            };
+
+            const trackerEntriesForActivePeriod = studentTracker
+              .filter(e =>
+                (isAllSubjects || isSubjectNameMatch(e.subject, activeSubject) || e.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim()) &&
+                matchesTrackerPeriod(e))
+              .sort((a, b) => String(b.updated_at || b.created_at || "").localeCompare(String(a.updated_at || a.created_at || "")));
+            const latestTrackerEntryByStudent = new Map<string, any>();
+            trackerEntriesForActivePeriod.forEach(entry => {
+              if (!latestTrackerEntryByStudent.has(entry.student_id)) {
+                latestTrackerEntryByStudent.set(entry.student_id, entry);
+              }
+            });
+            const findTrackerEntryForStudent = (studentId: string) => latestTrackerEntryByStudent.get(studentId);
+
+            const activePeriodLabel = camTrackerFilterMode === "week"
+              ? (activeWeek === null ? "Select an academic week" : `Week ${activeWeek}`)
+              : `${camTrackerFromDate} to ${camTrackerToDate}`;
+
             // Export Tracker Data to Excel
             const exportTrackerData = async () => {
+              if (camTrackerFilterMode === "week" && activeWeek === null) {
+                toast("Select an academic week before exporting.", "warning");
+                return;
+              }
               try {
                 const XLSX = await import("xlsx");
 
@@ -21951,11 +21956,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 }
 
                 const dataRows = classStudents.map((student, idx) => {
-                  const entry = studentTracker.find(
-                    e => e.student_id === student.id &&
-                      (isAllSubjects || isSubjectNameMatch(e.subject, activeSubject) || e.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim()) &&
-                      e.week_number === activeWeek
-                  );
+                  const entry = findTrackerEntryForStudent(student.id);
 
                   return {
                     "S.No": idx + 1,
@@ -21966,7 +21967,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     "Department": activeDept,
                     "Semester": activeSemester,
                     "Subject": isAllSubjects ? (entry?.subject || "All Subjects") : activeSubject,
-                    "Week Number": `Week ${activeWeek}`,
+                    "Week Number": entry ? `Week ${entry.week_number}` : "—",
                     "Submission Status": entry?.submission_url ? "Submitted" : "Pending",
                     "Submission Link": entry?.submission_url || "—",
                     "Marks (0-10)": entry?.marks !== undefined && entry?.marks !== null ? entry.marks : "Not Graded",
@@ -21980,7 +21981,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 const workbook = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(workbook, worksheet, "Skill Tracker Audit");
 
-                const fileName = `Skill_Development_Tracker_${activeDept.replace(/[^a-zA-Z0-9]/g, "_")}_${activeSemester.replace(/[^a-zA-Z0-9]/g, "_")}_Wk${activeWeek}.xlsx`;
+                const periodSuffix = camTrackerFilterMode === "week" ? `Wk${activeWeek ?? "none"}` : `${camTrackerFromDate}_${camTrackerToDate}`;
+                const fileName = `Skill_Development_Tracker_${activeDept.replace(/[^a-zA-Z0-9]/g, "_")}_${activeSemester.replace(/[^a-zA-Z0-9]/g, "_")}_${periodSuffix}.xlsx`;
                 XLSX.writeFile(workbook, fileName);
                 toast(`Export Complete: Saved ${fileName}`, "success");
               } catch (err) {
@@ -21991,6 +21993,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
             // Export Tracker Data to CSV
             const exportTrackerCSV = () => {
+              if (camTrackerFilterMode === "week" && activeWeek === null) {
+                toast("Select an academic week before exporting.", "warning");
+                return;
+              }
               const classStudents = students.filter(matchesCohortStudent);
               if (classStudents.length === 0) {
                 toast("No students found to export for the selected cohort.", "warning");
@@ -22016,11 +22022,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               ];
 
               const rows = classStudents.map((student, idx) => {
-                const entry = studentTracker.find(
-                  e => e.student_id === student.id &&
-                    (isAllSubjects || isSubjectNameMatch(e.subject, activeSubject) || e.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim()) &&
-                    e.week_number === activeWeek
-                );
+                const entry = findTrackerEntryForStudent(student.id);
 
                 return [
                   idx + 1,
@@ -22031,7 +22033,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   `"${(activeDept || "").replace(/"/g, '""')}"`,
                   `"${(activeSemester || "").replace(/"/g, '""')}"`,
                   `"${(isAllSubjects ? (entry?.subject || "All Subjects") : activeSubject).replace(/"/g, '""')}"`,
-                  `"Week ${activeWeek}"`,
+                  `"${entry ? `Week ${entry.week_number}` : "—"}"`,
                   `"${entry?.submission_url ? "Submitted" : "Pending"}"`,
                   `"${(entry?.submission_url || "—").replace(/"/g, '""')}"`,
                   entry?.marks !== undefined && entry?.marks !== null ? entry.marks : `"Not Graded"`,
@@ -22046,7 +22048,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               const url = URL.createObjectURL(blob);
               const link = document.createElement("a");
               link.setAttribute("href", url);
-              const fileName = `Skill_Tracker_${activeDept.replace(/[^a-zA-Z0-9]/g, "_")}_${activeSemester.replace(/[^a-zA-Z0-9]/g, "_")}_Wk${activeWeek}.csv`;
+              const periodSuffix = camTrackerFilterMode === "week" ? `Wk${activeWeek ?? "none"}` : `${camTrackerFromDate}_${camTrackerToDate}`;
+              const fileName = `Skill_Tracker_${activeDept.replace(/[^a-zA-Z0-9]/g, "_")}_${activeSemester.replace(/[^a-zA-Z0-9]/g, "_")}_${periodSuffix}.csv`;
               link.setAttribute("download", fileName);
               document.body.appendChild(link);
               link.click();
@@ -22111,9 +22114,21 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   </div>
                 </div>
 
-                {/* Cascading Filters — Dept / Semester / Subject / Week / Date Range */}
-                <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 items-end">
-                  {/* 1. Department */}
+                {/* Academic week and date range are exclusive filter modes. */}
+                <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-card grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3 items-end">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Period Filter</label>
+                    <select
+                      aria-label="Period Filter"
+                      value={camTrackerFilterMode}
+                      onChange={e => setCamTrackerFilterMode(e.target.value as "week" | "date")}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white cursor-pointer"
+                    >
+                      <option value="date">Date Range</option>
+                      <option value="week">Academic Week</option>
+                    </select>
+                  </div>
+                  {/* Department */}
                   <div className="space-y-1.5">
                     <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Department</label>
                     <select
@@ -22123,7 +22138,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         setCamTrackerDept(e.target.value);
                         setCamTrackerSemester("");
                         setCamTrackerSubject("ALL");
-                        setCamTrackerWeek(1);
+                        setCamTrackerWeek("");
                       }}
                       className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white cursor-pointer"
                     >
@@ -22140,7 +22155,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       onChange={(e) => {
                         setCamTrackerSemester(e.target.value);
                         setCamTrackerSubject("ALL");
-                        setCamTrackerWeek(1);
+                        setCamTrackerWeek("");
                       }}
                       className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white cursor-pointer"
                     >
@@ -22163,43 +22178,53 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       {trackerSubjectObjs.length === 0 && <option value="" disabled>No subjects found for this semester</option>}
                     </select>
                   </div>
-                  {/* 4. Week */}
+                  {/* Academic week filter */}
                   <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Week</label>
+                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Academic Week</label>
                     <select
-                      aria-label="Week"
-                      value={activeWeek}
-                      onChange={(e) => setCamTrackerWeek(parseInt(e.target.value, 10) || 1)}
-                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white text-slate-800 cursor-pointer"
+                      aria-label="Academic Week"
+                      value={camTrackerFilterMode === "week" ? (activeWeek ?? "") : ""}
+                      disabled={camTrackerFilterMode !== "week"}
+                      onChange={(e) => setCamTrackerWeek(e.target.value ? parseInt(e.target.value, 10) : "")}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white text-slate-800 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
+                      <option value="">Select week</option>
                       {Array.from({ length: 15 }, (_, i) => i + 1).map(wk => (
                         <option key={wk} value={wk}>Week {wk}</option>
                       ))}
                     </select>
                   </div>
-                  {/* 5. From Date */}
+                  {/* Date range filter */}
                   <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">From Date</label>
+                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Updated From</label>
                     <input
                       type="date"
-                      aria-label="From Date"
+                      aria-label="Updated From Date"
                       value={camTrackerFromDate}
                       onChange={e => e.target.value && setCamTrackerFromDate(e.target.value)}
-                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white text-slate-800"
+                      max={camTrackerToDate}
+                      disabled={camTrackerFilterMode !== "date"}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
-                  {/* 6. To Date */}
                   <div className="space-y-1.5">
-                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">To Date</label>
+                    <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Updated To</label>
                     <input
                       type="date"
-                      aria-label="To Date"
+                      aria-label="Updated To Date"
                       value={camTrackerToDate}
                       onChange={e => e.target.value && setCamTrackerToDate(e.target.value)}
-                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white text-slate-800"
+                      min={camTrackerFromDate}
+                      disabled={camTrackerFilterMode !== "date"}
+                      className="w-full text-xs font-semibold px-3 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/80 bg-white text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
+                <p className="px-1 text-[10px] text-slate-500">
+                  {camTrackerFilterMode === "week"
+                    ? "Academic Week filters all tracker data and exports. Date fields are paused."
+                    : "Updated Date Range filters all tracker data and exports. Academic Week is paused."}
+                </p>
 
                 {/* ── Infographics Ribbon: Competency & Submission Insights ── */}
                 {(() => {
@@ -22210,7 +22235,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   const cohortEntries = studentTracker.filter(e => {
                     if (!classStudents.some(s => s.id === e.student_id)) return false;
                     if (!isAllSubjects && !(isSubjectNameMatch(e.subject, activeSubject) || e.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim())) return false;
-                    return typeof activeWeek === "number" && activeWeek > 0 ? e.week_number === activeWeek : true;
+                    return matchesTrackerPeriod(e);
                   });
 
                   const submittedCount = cohortEntries.filter(e => e.submission_url).length;
@@ -22316,7 +22341,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           <div>
                             <h4 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
                               <span>Competency &amp; Skill Mastery Infographic</span>
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">Week {activeWeek}</span>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{activePeriodLabel}</span>
                             </h4>
                             <p className="text-[10px] text-slate-400 font-medium">Distribution across evaluated student submissions</p>
                           </div>
@@ -22379,12 +22404,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 {(() => {
                   if (!activeSubject) return null;
 
-                  // Find weeks whose tasks overlap the selected date range
+                  // Apply the same active period as the rest of the tracker.
                   const tasksInRange = weeklyTasks.filter(t => {
-                    const tDate = t.updated_at ? String(t.updated_at).split("T")[0] : "";
-                    const inRange = !tDate || (tDate >= camTrackerFromDate && tDate <= camTrackerToDate);
                     return (
-                      inRange &&
+                      matchesTrackerPeriod(t) &&
                       (isAllSubjects || isSubjectNameMatch(t.subject, activeSubject) || t.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim()) &&
                       (isCohortMatching(t.class_group, activeClassGroup, coursesList, subjectsList) ||
                         t.class_group.toLowerCase().includes(activeDept.toLowerCase().trim()))
@@ -22396,7 +22419,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       <div className="flex items-center gap-2 flex-wrap">
                         <BookOpen className="h-4 w-4 text-amber-500" />
                         <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest">
-                          {isAllSubjects ? "All Subjects" : activeSubject} — Tasks in Range ({camTrackerFromDate} → {camTrackerToDate})
+                          {isAllSubjects ? "All Subjects" : activeSubject} — Tasks ({activePeriodLabel})
                         </h3>
                         <span className="ml-auto flex gap-2 text-[9px] font-bold">
                           <span className="px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700">{activeDept}</span>
@@ -22427,7 +22450,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         </div>
                       ) : (
                         <div className="text-center py-4 bg-white/50 border border-dashed border-amber-200 rounded-xl">
-                          <p className="text-xs text-slate-500 italic">No tasks assigned for {activeSubject} in this date range.</p>
+                        <p className="text-xs text-slate-500 italic">No tasks found for {activeSubject} in {activePeriodLabel}.</p>
                         </div>
                       )}
                     </div>
@@ -22441,14 +22464,11 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   const studentCount = classStudentsForChart.length;
                   if (studentCount === 0) return null;
 
-                  // ── Filter tracker entries by date range ──
+                  // Apply the same active period used by the week summary and task list.
                   const rangeEntries = studentTracker.filter(e => {
                     if (!classStudentsForChart.some(s => s.id === e.student_id)) return false;
                     if (!isAllSubjects && !(isSubjectNameMatch(e.subject, activeSubject) || e.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim())) return false;
-                    // Filter by updated_at date (the only date field on StudentTrackerEntry)
-                    const entryDate = e.updated_at ? String(e.updated_at).split("T")[0] : "";
-                    if (!entryDate) return true; // include if no date stamp yet
-                    return entryDate >= camTrackerFromDate && entryDate <= camTrackerToDate;
+                    return matchesTrackerPeriod(e);
                   });
 
                   const submitted = rangeEntries.filter(e => e.submission_url).length;
@@ -22495,7 +22515,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     y: w.avg !== null ? tH - tPad - ((w.avg / 10) * (tH - tPad * 2)) : null,
                     avg: w.avg, sub: w.sub, week: w.week,
                   }));
-                  const selectedTrendPoint = tPoints.find(p => p.week === activeWeek && p.y !== null);
+                  const selectedTrendPoint = camTrackerFilterMode === "week" && activeWeek !== null
+                    ? tPoints.find(p => p.week === activeWeek && p.y !== null)
+                    : undefined;
                   const pathParts: string[] = [];
                   tPoints.forEach((p, i) => {
                     if (p.y === null) return;
@@ -22612,22 +22634,22 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                 <g
                                   key={p.week}
                                   className="cursor-pointer group"
-                                  onClick={() => setCamTrackerWeek(p.week)}
+                                   onClick={() => { setCamTrackerFilterMode("week"); setCamTrackerWeek(p.week); }}
                                 >
                                   <title>Click to view Week {p.week} submissions</title>
                                   <circle
                                     cx={p.x}
                                     cy={p.y!}
-                                    r={p.week === activeWeek ? 5 : 3.5}
-                                    fill={p.week === activeWeek ? "#4f46e5" : "#6366f1"}
+                                    r={camTrackerFilterMode === "week" && p.week === activeWeek ? 5 : 3.5}
+                                    fill={camTrackerFilterMode === "week" && p.week === activeWeek ? "#4f46e5" : "#6366f1"}
                                   />
                                   <text
                                     x={p.x}
                                     y={tH + 15}
                                     textAnchor="middle"
                                     fontSize={6}
-                                    fill={p.week === activeWeek ? "#4f46e5" : "#94a3b8"}
-                                    fontWeight={p.week === activeWeek ? "900" : "600"}
+                                    fill={camTrackerFilterMode === "week" && p.week === activeWeek ? "#4f46e5" : "#94a3b8"}
+                                    fontWeight={camTrackerFilterMode === "week" && p.week === activeWeek ? "900" : "600"}
                                   >
                                     W{p.week}
                                   </text>
@@ -22641,7 +22663,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                   fontSize={6}
                                   fill="#cbd5e1"
                                   className="cursor-pointer"
-                                  onClick={() => setCamTrackerWeek(p.week)}
+                                   onClick={() => { setCamTrackerFilterMode("week"); setCamTrackerWeek(p.week); }}
                                 >
                                   W{p.week}
                                 </text>
@@ -22655,7 +22677,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         )}
                         <div className="mt-2 pt-2 border-t border-slate-100 flex items-center justify-between text-[9px] text-slate-400 font-semibold">
                           <span>Week 1</span>
-                          <span className="text-[8px] text-amber-400 font-black">● Week {activeWeek} selected</span>
+                          <span className="text-[8px] text-amber-400 font-black">● {activePeriodLabel} selected</span>
                           <span>Week 15</span>
                         </div>
                       </div>
@@ -22666,13 +22688,17 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 {/* Submissions & Marks Audit Table */}
                 <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-card space-y-4">
                   <h3 className="text-xs font-black text-slate-800 uppercase tracking-widest border-b border-slate-100 pb-2">
-                    Submissions &amp; Evaluations Audit
+                    Submissions &amp; Evaluations Audit <span className="ml-2 text-[9px] font-bold normal-case tracking-normal text-slate-400">{activePeriodLabel}</span>
                   </h3>
                   {(() => {
-                    if (!activeDept || !activeSemester || !activeSubject || activeWeek === null) {
+                    if (!activeDept || !activeSemester || !activeSubject || (camTrackerFilterMode === "week" && activeWeek === null)) {
                       return (
                         <div className="text-center py-8">
-                          <p className="text-xs text-slate-500 italic">Select department, semester, subject and week to view student submissions.</p>
+                          <p className="text-xs text-slate-500 italic">
+                            {camTrackerFilterMode === "week"
+                              ? "Select department, semester, subject, and an academic week to view submissions."
+                              : "Select a department, semester, and subject to view submissions in this date range."}
+                          </p>
                         </div>
                       );
                     }
@@ -22704,11 +22730,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           </TableHeader>
                           <TableBody className="divide-y divide-slate-100 bg-white">
                             {classStudents.map((student, sIdx) => {
-                              const entry = studentTracker.find(
-                                e => e.student_id === student.id &&
-                                  (isAllSubjects || isSubjectNameMatch(e.subject, activeSubject) || e.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim()) &&
-                                  e.week_number === activeWeek
-                              );
+                              const entry = findTrackerEntryForStudent(student.id);
 
                               const marks = entry?.marks !== undefined && entry?.marks !== null ? entry.marks : null;
                               const feedback = entry?.viva_assessment || "";
@@ -28192,10 +28214,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             {/* Row 1: Date Range */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">From Date</label>
+                <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Schedule From Date</label>
                 <input
                   type="date"
-                  aria-label="From Date"
+                  aria-label="Schedule From Date"
                   value={dailyStartDateStr}
                   onChange={e => handleStartDateChange(e.target.value)}
                   required
@@ -28203,10 +28225,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">To Date</label>
+                <label className="text-[10px] text-slate-500 font-extrabold uppercase tracking-wider block">Schedule To Date</label>
                 <input
                   type="date"
-                  aria-label="To Date"
+                  aria-label="Schedule To Date"
                   value={dailyEndDateStr}
                   onChange={e => setDailyEndDateStr(e.target.value)}
                   required
@@ -28214,6 +28236,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 />
               </div>
             </div>
+            <p className="text-[10px] text-slate-500">
+              These dates define the schedule range to save. The Preview Week below only browses existing daily configurations.
+            </p>
 
             {/* Row 2: Department + Day Type + Day Order + Session Mode */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -28383,7 +28408,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <ChevronLeft className="h-4 w-4" />
                   </button>
                   <span className="px-3 text-xs font-black text-slate-800">
-                    Week: {formatToIndianDate(modalWeekInfo.startDate)} to {formatToIndianDate(modalWeekInfo.endDate)}
+                    Preview Week: {formatToIndianDate(modalWeekInfo.startDate)} to {formatToIndianDate(modalWeekInfo.endDate)}
                   </span>
                   <button
                     type="button"

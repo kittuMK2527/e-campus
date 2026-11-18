@@ -542,6 +542,49 @@ export async function POST(request: Request) {
         return NextResponse.json({ success: false, message: "Demo session not found." }, { status: 404 });
       }
 
+      if (session.status === "completed") {
+        return NextResponse.json({ success: false, message: "Demo session has already been evaluated and completed." }, { status: 400 });
+      }
+      if (session.status === "cancelled" || session.status === "not_conducted") {
+        return NextResponse.json({ success: false, message: `Cannot evaluate: Session is marked ${session.status}. Please use the formal reschedule procedure.` }, { status: 400 });
+      }
+
+      // Strict Time-Locked Execution Policy:
+      // A session must be taken and evaluated strictly during its scheduled date and time slot (with a 15-minute grace window).
+      const todayStr = getInstitutionDateStr();
+      if (session.dateStr > todayStr) {
+        return NextResponse.json({
+          success: false,
+          message: `Evaluation locked: Demo session is scheduled for ${session.dateStr}. Evaluation opens during its scheduled time slot.`
+        }, { status: 403 });
+      }
+      if (session.dateStr < todayStr) {
+        return NextResponse.json({
+          success: false,
+          message: `Evaluation window closed: Demo session was scheduled for ${session.dateStr} and has expired. It must be rescheduled through the formal procedure.`
+        }, { status: 403 });
+      }
+
+      // It is today: check scheduled time slot
+      const slotRange = parseTimeSlotRange(session.timeSlot || "");
+      if (slotRange.start >= 0 && slotRange.end >= 0) {
+        const now = new Date();
+        const curMin = now.getHours() * 60 + now.getMinutes();
+        if (curMin < slotRange.start) {
+          const waitMins = slotRange.start - curMin;
+          return NextResponse.json({
+            success: false,
+            message: `Evaluation locked: Demo session starts in ${waitMins} minute(s). Evaluation opens when the session begins.`
+          }, { status: 403 });
+        }
+        if (curMin > slotRange.end + 15) {
+          return NextResponse.json({
+            success: false,
+            message: `Evaluation window closed: Scheduled slot (${session.timeSlot}) has expired. Expired sessions cannot be evaluated and must be formally rescheduled.`
+          }, { status: 403 });
+        }
+      }
+
       // Phase C: store the department criteria snapshot with the evaluation.
       // checklist = [{ criterionId, label, type, met }] — a snapshot of the
       // department's criteria as they were at eval time.

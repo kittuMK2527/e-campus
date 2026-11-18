@@ -1030,6 +1030,29 @@ const migrations: Migration[] = [
         CREATE INDEX IF NOT EXISTS idx_scl_category ON student_concerns_log(category);
       `).catch((err: any) => console.warn("[migrations] student_concerns_log_table:", err?.message || err));
     }
+  },
+  {
+    name: "course_constant_meet_link_and_missed_demos",
+    run: async (db) => {
+      await db.exec(`
+        ALTER TABLE courses ADD COLUMN IF NOT EXISTS google_meet_link TEXT;
+        ALTER TABLE demo_sessions ADD COLUMN IF NOT EXISTS meet_link TEXT;
+        ALTER TABLE demo_sessions ADD COLUMN IF NOT EXISTS missed_notified_at TEXT;
+      `).catch(async () => {
+        await db.exec("ALTER TABLE courses ADD COLUMN google_meet_link TEXT").catch(() => {});
+        await db.exec("ALTER TABLE demo_sessions ADD COLUMN meet_link TEXT").catch(() => {});
+        await db.exec("ALTER TABLE demo_sessions ADD COLUMN missed_notified_at TEXT").catch(() => {});
+      });
+
+      // Seed default demo_rules if empty so SME target displays reliably
+      const existingRules = await db.get("SELECT COUNT(*) as count FROM demo_rules").catch(() => null);
+      if (existingRules && parseInt(String(existingRules.count || 0), 10) === 0) {
+        await db.run(
+          `INSERT INTO demo_rules (id, subject, week, target, created_at)
+           VALUES ('dr_default_cs', 'CS', 1, 10, CURRENT_TIMESTAMP)`
+        ).catch(() => {});
+      }
+    }
   }
 ];
 

@@ -1349,6 +1349,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     deleteWeeklyAcademicTask,
     demoSessions,
     demoSwapRequests,
+    demoReallocations,
     resolveDemoSwap,
     requestDemoSwap,
     rescheduleDemoSession,
@@ -4019,11 +4020,11 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                   { id: "demo_evaluations", label: "My L&D", icon: Sparkles },
                   { id: "attendance", label: "Student Attendance", icon: ClipboardList },
                   { id: "exams", label: "Exam Marks Entry", icon: FileText },
+                  { id: "student_log", label: "Student Log", icon: Award },
                   { id: "academic_tracker", label: "Academic Tracker", icon: BookOpen },
                   { id: "materials", label: "Study Materials Hub", icon: Book },
-                  { id: "tracker", label: "Skill Development Tracker", icon: GraduationCap },
-                  { id: "student_log", label: "Student Log", icon: FileText },
-                  { id: "my_skill_tracker", label: "My Skill Tracker", icon: Award },
+                  { id: "tracker", label: "Student Skill Matrix", icon: GraduationCap },
+                  { id: "my_skill_tracker", label: "My Clearance (SME)", icon: Award },
                   { id: "weekly_plan", label: "Weekly Teaching Plan", icon: CalendarRange },
                   { id: "handovers", label: "Handovers", icon: Clock },
                   { id: "profile", label: "Profile", icon: User }
@@ -4087,7 +4088,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           { id: "home", label: "Home", icon: Home },
           { id: "timetable", label: "My Schedule", icon: Calendar },
           { id: "attendance", label: "Attendance", icon: ClipboardList },
-          { id: "tracker", label: "Skill Tracker", icon: GraduationCap },
+          { id: "tracker", label: "Student Matrix", icon: GraduationCap },
           { id: "more_menu", label: "More", icon: Menu },
         ];
         return (
@@ -4193,6 +4194,20 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                 <div>
                   <span className="block text-xs font-bold text-slate-800">Study Materials Hub</span>
                   <span className="text-[10px] text-slate-400 font-medium">Publish notes, PPTs & question banks</span>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab("student_log")}
+                className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
+              >
+                <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 group-hover:scale-105 transition-transform">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-slate-800">Student Log</span>
+                  <span className="text-[10px] text-slate-400 font-medium">Record student achievements, test marks & conduct logs</span>
                 </div>
               </button>
 
@@ -4747,7 +4762,13 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                       </div>
 
                       <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
-                        {upcomingDemos.slice(0, 2).map((demo) => (
+                        {upcomingDemos.slice(0, 2).map((demo) => {
+                          const courseObj = (coursesList || []).find((c: any) =>
+                            (c.name || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim() ||
+                            (c.code || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim()
+                          );
+                          const effectiveMeetLink = demo.meet_link || courseObj?.google_meet_link || null;
+                          return (
                           <div key={demo.id} className="p-3 rounded-xl bg-slate-50/30 border border-slate-100 flex flex-col gap-1">
                             <div className="flex justify-between items-center">
                               <span className="text-[9px] font-black text-slate-400">{demo.dateStr}</span>
@@ -4755,8 +4776,18 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             </div>
                             <div className="text-xs font-black text-slate-800">{demo.subject}</div>
                             <div className="text-[9.5px] text-slate-500 font-semibold">SME Evaluator: {demo.smeName}</div>
+                            {effectiveMeetLink && (
+                              <a
+                                href={effectiveMeetLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-1 py-1 px-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-lg flex items-center justify-center gap-1 shadow-2xs transition-colors"
+                              >
+                                <Video className="h-3 w-3" /> Join Course Google Meet
+                              </a>
+                            )}
                           </div>
-                        ))}
+                        ); })}
                       </div>
 
                       <button
@@ -10767,19 +10798,37 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
 
                     {pendingDemos.length > 0 ? (
                       <div className="space-y-4">
-                        {pendingDemos.map(demo => (
+                        {pendingDemos.map(demo => {
+                          const courseObj = (coursesList || []).find((c: any) =>
+                            (c.name || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim() ||
+                            (c.code || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim()
+                          );
+                          const effectiveMeetLink = demo.meet_link || courseObj?.google_meet_link || null;
+                          const pendingRealloc = (demoReallocations || []).find(
+                            (r: any) => (r.demo_session_id === demo.id || r.demoSessionId === demo.id) && r.status === "pending"
+                          );
+
+                          return (
                           <div key={demo.id} className="p-4 bg-slate-50/50 border border-slate-100 rounded-xl space-y-2">
                             <div className="flex justify-between items-center gap-2">
                               <span className="px-2 py-0.5 bg-amber-50 border border-amber-200 text-amber-600 text-[8px] font-black uppercase rounded truncate">
                                 {demo.subject}
                               </span>
-                              {demo.status === "reallocation_required" ? (
+                              {pendingRealloc ? (
                                 <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[8px] font-black uppercase rounded shrink-0 animate-pulse">
-                                  Reschedule Required (Leave Impacted)
+                                  Reschedule Pending Approval
+                                </span>
+                              ) : demo.status === "reallocation_required" ? (
+                                <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[8px] font-black uppercase rounded shrink-0">
+                                  Reschedule Required
+                                </span>
+                              ) : demo.status === "not_conducted" ? (
+                                <span className="px-2 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 text-[8px] font-black uppercase rounded shrink-0">
+                                  Not Conducted / Missed
                                 </span>
                               ) : (
-                                <span className="px-2 py-0.5 bg-amber-50 text-amber-800 text-[8px] font-black uppercase rounded border border-amber-200 shrink-0">
-                                  {demo.status === "confirmed" ? "Confirmed" : "Pending"}
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-800 text-[8px] font-black uppercase rounded border border-emerald-200 shrink-0">
+                                  {demo.status === "confirmed" ? "Confirmed" : "Scheduled"}
                                 </span>
                               )}
                             </div>
@@ -10791,7 +10840,34 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                               Evaluator: <span className="font-bold text-slate-700">{demo.smeName}</span>
                             </div>
 
-                            {demo.status === "reallocation_required" ? (
+                            {/* Proposed Slot Details if Pending L&D Review */}
+                            {pendingRealloc && (
+                              <div className="p-2.5 bg-amber-50 dark:bg-amber-950/20 rounded-lg border border-amber-200 dark:border-amber-900/40 text-[10px] text-amber-800 dark:text-amber-300 space-y-0.5">
+                                <span className="font-black uppercase text-[8.5px] block text-amber-700">Proposed Slot (Awaiting L&D):</span>
+                                <span className="font-bold block">{pendingRealloc.proposed_date_str || pendingRealloc.proposedDateStr} • {pendingRealloc.proposed_time_slot || pendingRealloc.proposedTimeSlot}</span>
+                                <span className="text-[9px] text-slate-500 italic block">Session will auto-update upon L&D approval.</span>
+                              </div>
+                            )}
+
+                            {/* Constant Course Google Meet Join Button */}
+                            {effectiveMeetLink && (
+                              <a
+                                href={effectiveMeetLink}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="w-full mt-2 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                              >
+                                <Video className="h-3.5 w-3.5" />
+                                Join Course Google Meet
+                              </a>
+                            )}
+
+                            {/* Action Controls - Strict Procedure Only */}
+                            {pendingRealloc ? (
+                              <div className="w-full mt-2 py-1.5 px-2 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold text-center border border-slate-200">
+                                Reschedule Pending L&D Review
+                              </div>
+                            ) : (demo.status === "reallocation_required" || demo.status === "not_conducted") ? (
                               <button
                                 type="button"
                                 onClick={() => handleOpenRescheduleModal(demo)}
@@ -10827,7 +10903,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                               </div>
                             )}
                           </div>
-                        ))}
+                        ); })}
                       </div>
                     ) : (
                       <p className="text-xs text-slate-400 italic text-center py-6">No upcoming L&D reviews scheduled.</p>

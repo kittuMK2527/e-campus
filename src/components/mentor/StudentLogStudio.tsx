@@ -161,7 +161,7 @@ export const StudentLogStudio: React.FC<StudentLogStudioProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          college_id: collegeId,
+          college_id: selectedStudent.college_id || selectedStudent.collegeId || collegeId,
           mentor_id: mentorId,
           mentor_name: mentorName,
           student_id: selectedStudent.id,
@@ -316,10 +316,10 @@ export const StudentLogStudio: React.FC<StudentLogStudioProps> = ({
             {/* Category Tabs */}
             <div className="flex flex-wrap gap-2 border-b border-slate-100 pb-4">
               {[
-                { id: "achievement", label: "🏆 Achievements", icon: Award },
-                { id: "marks", label: "📊 Marks & Viva", icon: BookOpen },
-                { id: "placement", label: "💼 Placement Readiness", icon: Briefcase },
-                { id: "complaint", label: "⚠️ Complaints & Warnings", icon: AlertTriangle }
+                { id: "achievement", label: "Achievements", icon: Award },
+                { id: "marks", label: "Marks & Viva", icon: BookOpen },
+                { id: "placement", label: "Placement Readiness", icon: Briefcase },
+                { id: "complaint", label: "Complaints & Warnings", icon: AlertTriangle }
               ].map((tab) => {
                 const isActive = activeCategory === tab.id;
                 return (
@@ -447,9 +447,9 @@ export const StudentLogStudio: React.FC<StudentLogStudioProps> = ({
                       onChange={(e) => setPlacementReadiness(e.target.value)}
                       className="w-full h-10 px-3 border border-slate-200 rounded-xl text-xs font-bold bg-white"
                     >
-                      <option value="Ready">Placement Ready 🚀</option>
-                      <option value="Needs Polish">Needs Polish 🛠️</option>
-                      <option value="Struggling">Struggling / Needs Training ⚠️</option>
+                      <option value="Ready">Placement Ready </option>
+                      <option value="Needs Polish">Needs Polish </option>
+                      <option value="Struggling">Struggling / Needs Training </option>
                     </select>
                   </div>
                   <div>
@@ -497,9 +497,9 @@ export const StudentLogStudio: React.FC<StudentLogStudioProps> = ({
                       onChange={(e) => setComplaintSeverity(e.target.value as any)}
                       className="w-full h-10 px-3 border border-slate-200 rounded-xl text-xs font-bold bg-white"
                     >
-                      <option value="low">🟡 Low - Warning Notice</option>
-                      <option value="medium">🟠 Medium - Requires CM Attention</option>
-                      <option value="high">🔴 High - Critical Escalation</option>
+                      <option value="low">Low - Warning Notice</option>
+                      <option value="medium">Medium - Requires CM Attention</option>
+                      <option value="high">High - Critical Escalation</option>
                     </select>
                   </div>
                 </div>

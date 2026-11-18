@@ -5,6 +5,7 @@ import { getDb, type QueryFailure } from "@/lib/db";
 import { ensureMigration } from "@/lib/migrations";
 import { normalizeRole, requireAuth } from "@/lib/authGuard";
 import { getInstitutionDateStrOffset } from "@/lib/localDate";
+import { processMissedDemoSessions } from "@/lib/demoMissedCheck";
 
 // Run migrations at most once per process lifetime — not on every GET request.
 // The two checks below are idempotent (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS)
@@ -498,6 +499,29 @@ export async function GET(request: Request) {
       systemSettingsRows
     ] = await db.multiQuery(queryDefs, failedSlices);
 
+    // Opportunistically scan and intimate any demo sessions that expired without evaluation
+    processMissedDemoSessions(db).catch((e: any) => console.warn("[/api/data] missed demo scan:", e?.message));
+
+    // Query demo reallocation requests (for formal reschedule & reallocation tracking)
+    let demoReallocations: any[] = [];
+    if (needsDemo || isMentor || isSME || isCM) {
+      if (isMentor && userId) {
+        demoReallocations = await db.all(
+          "SELECT * FROM demo_reallocation_requests WHERE mentor_id = ? ORDER BY created_at DESC LIMIT 100",
+          [userId]
+        ).catch(() => []);
+      } else if (isSME && userId) {
+        demoReallocations = await db.all(
+          "SELECT * FROM demo_reallocation_requests WHERE sme_id = ? ORDER BY created_at DESC LIMIT 100",
+          [userId]
+        ).catch(() => []);
+      } else {
+        demoReallocations = await db.all(
+          "SELECT * FROM demo_reallocation_requests ORDER BY created_at DESC LIMIT 200"
+        ).catch(() => []);
+      }
+    }
+
     const systemSettings: { mailing_enabled: boolean; attendance_lock_enabled: boolean;[key: string]: any } = {
       mailing_enabled: true,
       attendance_lock_enabled: true
@@ -636,6 +660,7 @@ export async function GET(request: Request) {
       demoRules,
       signupRequests: stripSecrets(signupRequests),
       demoSwapRequests,
+      demoReallocations,
       kamTasks,
       campusIssues,
       academicYears: academicYears.map((ay: any) => typeof ay === "string" ? ay : ay.year || ay.year_name || ay.name || String(ay)),

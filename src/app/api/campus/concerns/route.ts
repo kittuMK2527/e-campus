@@ -65,9 +65,9 @@ export async function GET(request: Request) {
                 s.classgroup as "classGroup", s.department, s.college_id,
                 s.hire_score, s.efset_score, s.github_id, s.project_drive_link,
                 s.hackerrank_link, s.leetcode_link,
-                COALESCE(f.total_amount, 0) as fee_total,
+                COALESCE(f.amount, 0) as fee_total,
                 COALESCE(f.paid_amount, 0) as fee_paid,
-                COALESCE(f.pending_amount, 0) as fee_pending,
+                COALESCE(f.fpc_pending, (COALESCE(f.amount, 0) - COALESCE(f.paid_amount, 0))) as fee_pending,
                 COALESCE(f.status, 'unpaid') as fee_status
          FROM students s
          LEFT JOIN student_fees f ON f.student_id = s.id
@@ -102,11 +102,12 @@ export async function GET(request: Request) {
     let mentorsSummary: any[] = [];
     try {
       mentorsSummary = await db.all(
-        `SELECT m.id, m.name, m.email, m.department, m.college_id, m.rating,
+        `SELECT m.id, m.name, m.email, m.department, m.college_id, m.status,
                 COALESCE(c.name, '') as college_name
          FROM mentors m
          LEFT JOIN colleges c ON m.college_id = c.id
-         WHERE m.college_id IN (${placeholders})`,
+         WHERE m.college_id IN (${placeholders})
+         ORDER BY m.name ASC`,
         targetCollegeIds
       );
     } catch (e: any) {
@@ -152,28 +153,63 @@ export async function GET(request: Request) {
       console.warn("Punches read fallback:", e?.message);
     }
 
-    // 8. Fetch Campus Tickets related to faculty/students
+    // 8. Fetch Campus Issues related to faculty/students
     let tickets: any[] = [];
     try {
       tickets = await db.all(
-        `SELECT id, college_id, category, priority, status, title, description,
-                assigned_to_name, created_at
-         FROM tickets
+        `SELECT id, collegeid as college_id, type as category, priority, status, title, desc_text as description, created_at
+         FROM campus_issues
+         WHERE collegeid IN (${placeholders})
+         ORDER BY created_at DESC LIMIT 100`,
+        targetCollegeIds
+      );
+    } catch (e: any) {
+      console.warn("Campus issues read fallback:", e?.message);
+    }
+
+    // Also fetch direct student_achievements to merge into dossiers
+    let directAchievements: any[] = [];
+    try {
+      directAchievements = await db.all(
+        `SELECT id, college_id, title, description, achievement_type, date_str, student_ids, proof_url, created_at
+         FROM student_achievements
          WHERE college_id IN (${placeholders})
          ORDER BY created_at DESC LIMIT 100`,
         targetCollegeIds
       );
     } catch (e: any) {
-      console.warn("Tickets read fallback:", e?.message);
+      console.warn("Direct achievements read fallback:", e?.message);
     }
 
     // 9. Synthesize Student Concerns Dossiers
     const studentConcerns = studentsSummary.map((s: any) => {
       const sLogs = studentLogs.filter((l: any) => l.student_id === s.id);
+      // Merge any direct achievements where student is included in student_ids JSON array
+      const sDirectAchs = directAchievements.filter((a: any) => {
+        try {
+          const ids = JSON.parse(a.student_ids || "[]");
+          return Array.isArray(ids) && ids.includes(s.id);
+        } catch {
+          return false;
+        }
+      }).map((a: any) => ({
+        id: a.id,
+        college_id: a.college_id,
+        mentor_name: "Faculty Assigned",
+        student_id: s.id,
+        student_name: s.name,
+        category: "achievement",
+        title: a.title,
+        details: a.description || "",
+        created_at: a.created_at,
+        metrics_json: JSON.stringify({ achievementType: a.achievement_type, proofUrl: a.proof_url, achievementDate: a.date_str })
+      }));
+
+      const allCombinedLogs = [...sLogs, ...sDirectAchs];
       const attPct = lowAttMap.has(s.id) ? lowAttMap.get(s.id)! : 92;
       const isFeeDefaulter = Number(s.fee_pending) > 0;
       const isLowAtt = attPct < 75;
-      const hasComplaints = sLogs.some((l: any) => l.category === "complaint");
+      const hasComplaints = allCombinedLogs.some((l: any) => l.category === "complaint");
 
       return {
         ...s,
@@ -181,10 +217,10 @@ export async function GET(request: Request) {
         is_low_attendance: isLowAtt,
         is_fee_defaulter: isFeeDefaulter,
         has_complaints: hasComplaints,
-        logs: sLogs,
-        achievements_count: sLogs.filter((l: any) => l.category === "achievement").length,
-        complaints_count: sLogs.filter((l: any) => l.category === "complaint").length,
-        marks_logs_count: sLogs.filter((l: any) => l.category === "marks").length,
+        logs: allCombinedLogs,
+        achievements_count: allCombinedLogs.filter((l: any) => l.category === "achievement").length,
+        complaints_count: allCombinedLogs.filter((l: any) => l.category === "complaint").length,
+        marks_logs_count: allCombinedLogs.filter((l: any) => l.category === "marks").length,
       };
     });
 
