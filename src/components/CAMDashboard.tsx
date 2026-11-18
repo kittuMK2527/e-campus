@@ -20877,7 +20877,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 (s.department && s.department.toLowerCase().trim() === activeDept.toLowerCase().trim() && (!s.semester || s.semester.toLowerCase().includes(activeSemester.toLowerCase().trim())));
             });
 
-            // Active Weekly Task – filtered by date range (task_date) or fallback to first matching task
+            // The selected date range determines which weekly task (and marks week) is active.
             const matchingTasks = (weeklyAcademicTasks || []).filter(
               t => (isSubjectNameMatch(t.subject, activeSubject) || t.subject.toLowerCase().trim() === activeSubject.toLowerCase().trim()) &&
                 (isCohortMatching(t.class_group, activeClassGroup, coursesList, subjectsList) ||
@@ -20890,7 +20890,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               if (camAcadWeeklyTo && t.task_date > camAcadWeeklyTo) return false;
               return true;
             }) ?? ((!camAcadWeeklyFrom && !camAcadWeeklyTo) ? matchingTasks[0] : undefined);
-            const activeWeek = currentWeeklyTask?.week_number ?? 1;
+            const activeWeek = currentWeeklyTask?.week_number ?? null;
 
             // Conduction logs filtered for CAM
             const campusMentors = mentors.filter(m => matchesCollege(m.college_id));
@@ -20913,6 +20913,11 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             }).sort((a, b) => b.date.localeCompare(a.date));
 
             const exportCamAcademicLedger = async () => {
+              if (activeWeek === null) {
+                toast("No weekly task matches the selected date range. Adjust the dates before exporting.", "error");
+                return;
+              }
+
               try {
                 const XLSX = await import("xlsx");
                 const headers = [
@@ -20922,7 +20927,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   const entry = (studentAcademicTracker || []).find(
                     e => ((e.student_id && (e.student_id === s.id || e.student_id === s.register_number)) || (s.email && e.student_email && e.student_email.toLowerCase().trim() === s.email.toLowerCase().trim())) &&
                       isSubjectNameMatch(e.subject, activeSubject) &&
-                      (currentWeeklyTask ? e.week_number === currentWeeklyTask.week_number : true)
+                      activeWeek !== null && e.week_number === activeWeek
                   );
                   return [
                     idx + 1,
@@ -21142,7 +21147,11 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       </div>
                     ) : (
                       <div className="text-center py-6 bg-white border border-dashed border-slate-200 rounded-xl">
-                        <p className="text-xs text-slate-500 italic">No specific task guidelines assigned for Week {activeWeek} in {activeSubject}.</p>
+                                <p className="text-xs text-slate-500 italic">
+                                  {activeWeek === null
+                                    ? `No weekly task matches the selected date range for ${activeSubject} and ${activeClassGroup}.`
+                                    : `No specific task guidelines assigned for Week ${activeWeek} in ${activeSubject}.`}
+                                </p>
                       </div>
                     )}
 
@@ -21169,7 +21178,13 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             </TableRow>
                           </TableHeader>
                           <TableBody className="divide-y divide-slate-100 bg-white text-slate-700">
-                            {cohortStudents.length === 0 ? (
+                            {activeWeek === null ? (
+                              <TableRow>
+                                <TableCell colSpan={8} className="p-8 text-center text-xs text-slate-400 italic">
+                                  No weekly task matches the selected date range. Choose dates that include a scheduled task to view marks.
+                                </TableCell>
+                              </TableRow>
+                            ) : cohortStudents.length === 0 ? (
                               <TableRow>
                                 <TableCell colSpan={8} className="p-8 text-center text-xs text-slate-400 italic">
                                   No students registered in {activeClassGroup}.
@@ -21180,7 +21195,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                 const entry = (studentAcademicTracker || []).find(
                                   e => ((e.student_id && (e.student_id === student.id || e.student_id === student.register_number)) || (student.email && e.student_email && e.student_email.toLowerCase().trim() === student.email.toLowerCase().trim())) &&
                                     isSubjectNameMatch(e.subject, activeSubject) &&
-                                    (currentWeeklyTask ? e.week_number === currentWeeklyTask.week_number : true)
+                                    e.week_number === activeWeek
                                 );
                                 const qm = entry?.quiz_marks !== undefined && entry?.quiz_marks !== null ? entry.quiz_marks : "—";
                                 const asm = entry?.assessment_marks !== undefined && entry?.assessment_marks !== null ? entry.assessment_marks : "—";
