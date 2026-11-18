@@ -199,12 +199,19 @@ export function LndAllocationDashboard() {
     return {};
   });
 
-  const handleSetMentorTarget = (mentorId: string, count: number) => {
-    const updated = { ...mentorTargets, [mentorId]: Math.max(0, count) };
-    setMentorTargets(updated);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("fp_mentor_demo_targets", JSON.stringify(updated));
-    }
+  const handleSetMentorTarget = (mentorId: string, countOrUpdater: number | ((prev: number) => number)) => {
+    setMentorTargets(prev => {
+      const current = prev[mentorId] !== undefined ? prev[mentorId] : 2;
+      const nextVal = typeof countOrUpdater === "function" ? countOrUpdater(current) : countOrUpdater;
+      const safeVal = Math.max(0, nextVal);
+      const updated = { ...prev, [mentorId]: safeVal };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("fp_mentor_demo_targets", JSON.stringify(updated));
+        } catch { /* storage full / private mode */ }
+      }
+      return updated;
+    });
   };
 
   // Search filter for Real-Time Mentor Weekly Hours & Quota Monitor
@@ -1276,7 +1283,7 @@ export function LndAllocationDashboard() {
                               <div className="inline-flex items-center gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => handleSetMentorTarget(mentor.id, Math.max(0, customTarget - 1))}
+                                  onClick={() => handleSetMentorTarget(mentor.id, prev => Math.max(0, prev - 1))}
                                   className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center font-black hover:bg-slate-300 text-[10px]"
                                   title="Decrease quota"
                                 >
@@ -1285,7 +1292,7 @@ export function LndAllocationDashboard() {
                                 <span className="min-w-[18px]">{customTarget}</span>
                                 <button
                                   type="button"
-                                  onClick={() => handleSetMentorTarget(mentor.id, customTarget + 1)}
+                                  onClick={() => handleSetMentorTarget(mentor.id, prev => prev + 1)}
                                   className="w-4 h-4 rounded bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center font-black hover:bg-slate-300 text-[10px]"
                                   title="Increase quota"
                                 >

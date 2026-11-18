@@ -420,6 +420,10 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
 
   const handleDownloadFilteredReport = async () => {
     try {
+      if (!filteredStudents || filteredStudents.length === 0) {
+        toastFe("No student records found to export for the selected filter.", "warning");
+        return;
+      }
       const reportData = filteredStudents.map(s => {
         const studentFees = getStudentFees(s.id);
         const totalFees = studentFees.reduce((sum, f) => sum + f.amount, 0);

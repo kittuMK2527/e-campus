@@ -273,6 +273,10 @@ const CAMFeePanel: React.FC<{ camId: string }> = ({ camId }) => {
 
   const exportFeeReport = async (students: any[], fees: any[], stats: any) => {
     try {
+      if (!students || students.length === 0) {
+        feeToast("No student fee records found to export for the selected filter.", "warning");
+        return;
+      }
       const XLSX = await import("xlsx");
       const headers = ["S.No", "Student Name", "Department", "Total Fee (₹)", "Paid (₹)", "Outstanding (₹)", "Status"];
       const rows = students.map((s: any, idx: number) => {
@@ -691,7 +695,9 @@ export const CAMCampusInsightPanel: React.FC<{
         setMentorNpsMonth(month);
         return Promise.resolve();
       }
-      return mentorNpsQuery.refetch();
+      return mentorNpsQuery.refetch().catch((err: any) => {
+        toast("Failed to reload Mentor NPS: " + (err.message || "Network error"), "error");
+      });
     };
 
     // ─── Live Client NPS ───

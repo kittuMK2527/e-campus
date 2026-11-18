@@ -506,7 +506,9 @@ const MentorStudyMaterialsStudio: React.FC<MentorStudyMaterialsStudioProps> = ({
       setSelectedSubject(subj);
       return Promise.resolve();
     }
-    return materialsQuery.refetch();
+    return materialsQuery.refetch().catch((err: any) => {
+      toast("Failed to reload study materials: " + (err.message || "Network error"), "error");
+    });
   };
 
   useEffect(() => {
@@ -6923,24 +6925,38 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         The CM has not set a day order or day type for <span className="font-bold">{selectedCell.dateFormatted}</span>. Attendance cannot be saved until the CM configures this date in the Daily Schedule.
                       </p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemindCm(selectedCell.dateStr, selectedCell.dateFormatted)}
-                      disabled={isRemindingCm}
-                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white text-[11px] font-extrabold shadow-xs border border-amber-700/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                    >
-                      {isRemindingCm ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Reminding…
-                        </>
-                      ) : (
-                        <>
-                          <BellRing className="w-3.5 h-3.5" />
-                          Remind CM
-                        </>
-                      )}
-                    </button>
+                    {(() => {
+                      const isRemindCooldown = Boolean(selectedCell?.dateStr && lastRemindedCmAt[selectedCell.dateStr] && (Date.now() - (lastRemindedCmAt[selectedCell.dateStr] || 0) < 60000));
+                      return (
+                        <button
+                          type="button"
+                          onClick={() => handleRemindCm(selectedCell.dateStr, selectedCell.dateFormatted)}
+                          disabled={isRemindingCm || isRemindCooldown}
+                          className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-extrabold shadow-xs transition-all disabled:cursor-not-allowed ${
+                            isRemindCooldown
+                              ? "bg-emerald-600/90 text-white border border-emerald-700/40 cursor-default opacity-90"
+                              : "bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white border border-amber-700/40 disabled:opacity-60"
+                          }`}
+                        >
+                          {isRemindingCm ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              Reminding…
+                            </>
+                          ) : isRemindCooldown ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-100" />
+                              Reminded
+                            </>
+                          ) : (
+                            <>
+                              <BellRing className="w-3.5 h-3.5" />
+                              Remind CM
+                            </>
+                          )}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

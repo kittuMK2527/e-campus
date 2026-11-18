@@ -376,6 +376,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
   // Profile edit state
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [editName, setEditName] = useState(currentStudent?.name || "");
   const [editEmail, setEditEmail] = useState(currentStudent?.email || "");
   const [editId, setEditId] = useState(currentStudent?.id || "");
@@ -562,43 +563,51 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingProfile) return;
     if (!editName.trim()) {
       toast("Name is required.", "warning");
       return;
     }
-    const res = await updateStudent({
-      id: editId,
-      name: editName,
-      email: editEmail,
-      role: "student",
-      department: editDepartment,
-      classGroup: editClassGroup,
-      college_id: editCollegeId,
-      register_number: editRegisterNumber,
-      roll_number: editRollNumber,
-      tenth_mark: editTenthMark,
-      eleventh_mark: editEleventhMark,
-      twelfth_mark: editTwelfthMark,
-      academic_group: editAcademicGroup,
-      medium: editMedium,
-      blood_group: editBloodGroup,
-      dob: editDob,
-      phone: editPhone,
-      parent_phone: editParentPhone,
-      // ROLE_UI_AUDIT S1 (P0): never send Aadhaar from student self-edit — the
-      // field is CAM/Admin-managed. Omitting it keeps the stored value intact.
-      linkedin_link: editLinkedinLink,
-      github_id: editGithubId,
-      project_drive_link: editProjectDriveLink,
-      hackerrank_link: editHackerrankLink,
-      leetcode_link: editLeetcodeLink,
-      figma_link: editFigmaLink
-    });
-    if (res.success) {
-      toast("Profile updated successfully!", "success");
-      setIsEditingProfile(false);
-    } else {
-      toast("Error: " + res.message, "error");
+    setIsSavingProfile(true);
+    try {
+      const res = await updateStudent({
+        id: editId,
+        name: editName,
+        email: editEmail,
+        role: "student",
+        department: editDepartment,
+        classGroup: editClassGroup,
+        college_id: editCollegeId,
+        register_number: editRegisterNumber,
+        roll_number: editRollNumber,
+        tenth_mark: editTenthMark,
+        eleventh_mark: editEleventhMark,
+        twelfth_mark: editTwelfthMark,
+        academic_group: editAcademicGroup,
+        medium: editMedium,
+        blood_group: editBloodGroup,
+        dob: editDob,
+        phone: editPhone,
+        parent_phone: editParentPhone,
+        // ROLE_UI_AUDIT S1 (P0): never send Aadhaar from student self-edit — the
+        // field is CAM/Admin-managed. Omitting it keeps the stored value intact.
+        linkedin_link: editLinkedinLink,
+        github_id: editGithubId,
+        project_drive_link: editProjectDriveLink,
+        hackerrank_link: editHackerrankLink,
+        leetcode_link: editLeetcodeLink,
+        figma_link: editFigmaLink
+      });
+      if (res.success) {
+        toast("Profile updated successfully!", "success");
+        setIsEditingProfile(false);
+      } else {
+        toast("Error: " + res.message, "error");
+      }
+    } catch (err: any) {
+      toast("Error updating profile: " + (err.message || "Network error"), "error");
+    } finally {
+      setIsSavingProfile(false);
     }
   };
 
@@ -5304,15 +5313,24 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsEditingProfile(false)}
-                    className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-extrabold transition-all cursor-pointer"
+                    disabled={isSavingProfile}
+                    className="px-4 py-2 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl text-xs font-extrabold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white rounded-xl text-xs font-extrabold shadow-md transition-all cursor-pointer"
+                    disabled={isSavingProfile}
+                    className="px-5 py-2 btn-gradient border border-amber-500/30 hover:border-amber-500/60 text-white rounded-xl text-xs font-extrabold shadow-md transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1.5"
                   >
-                    Save Changes
+                    {isSavingProfile ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Saving…
+                      </>
+                    ) : (
+                      "Save Changes"
+                    )}
                   </button>
                 </div>
               )}

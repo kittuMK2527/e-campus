@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/apiFetch";
 import { announceDataChanged } from "@/lib/dataSync";
@@ -34,7 +34,8 @@ import {
   AlertTriangle,
   RotateCcw,
   ArrowRight,
-  ArrowLeft
+  ArrowLeft,
+  Loader2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -142,6 +143,30 @@ export const ExamScheduleManager: React.FC<{
   // Subject rows inside modal accordion
   const [subjectRows, setSubjectRows] = useState<SubjectFormRow[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [deletingSlotId, setDeletingSlotId] = useState<string | null>(null);
+
+  const resetCreateExamForm = useCallback(() => {
+    setFormStep(1);
+    setBatchExamName("CIA 1");
+    setBatchDept(departmentsList[0]?.name || "");
+    setBatchSem("Semester 1");
+    setBatchStartDate(getLocalDateStr());
+    setBatchDefaultHall("");
+    setBatchDefaultDayOrder("Day 1");
+    setBatchCustomStartTime("10:00 AM");
+    setBatchCustomEndTime("01:00 PM");
+    setSubjectRows([]);
+  }, [departmentsList]);
+
+  const handleCloseCreateModal = useCallback(() => {
+    setIsPopupOpen(false);
+    resetCreateExamForm();
+  }, [resetCreateExamForm]);
+
+  const handleOpenCreateModal = useCallback(() => {
+    resetCreateExamForm();
+    setIsPopupOpen(true);
+  }, [resetCreateExamForm]);
 
   const collegeId = overrideCollegeId || currentCAM?.college_id || colleges[0]?.id || "";
 
@@ -710,6 +735,7 @@ export const ExamScheduleManager: React.FC<{
       if (data.success) {
         toast(`Published ${payloadSchedules.length} exam slots for "${batchExamName}" (${batchDept})!`, "success");
         setIsPopupOpen(false);
+        resetCreateExamForm();
         await queryClient.invalidateQueries({ queryKey: qk.exams(collegeId) });
         // Notify student & mentor dashboards to update schedule and timetable
         if (typeof window !== "undefined") {
@@ -779,19 +805,21 @@ export const ExamScheduleManager: React.FC<{
 
   // Delete Single Slot
   const handleDeleteSingleExam = async (id: string, title: string) => {
+    if (deletingSlotId) return;
     const ok = await showConfirm({
       title: "Delete Exam Slot",
-      message: `Delete exam slot "${title}"?`,
+      message: `Are you sure you want to delete the exam slot "${title}"? This action cannot be undone.`,
       danger: true,
       confirmLabel: "Delete Slot"
     });
     if (!ok) return;
 
+    setDeletingSlotId(id);
     try {
       const res = await fetch(`/api/exams?id=${id}`, { method: "DELETE" });
       const data = await res.json();
       if (data.success) {
-        toast("Exam slot deleted", "success");
+        toast("Exam slot deleted successfully", "success");
         await queryClient.invalidateQueries({ queryKey: qk.exams(collegeId) });
         if (typeof window !== "undefined") {
           window.dispatchEvent(new CustomEvent("fp_exams_updated", { detail: { college_id: collegeId } }));
@@ -803,6 +831,8 @@ export const ExamScheduleManager: React.FC<{
       }
     } catch (err: any) {
       toast("Error deleting: " + err.message, "error");
+    } finally {
+      setDeletingSlotId(null);
     }
   };
 
@@ -990,7 +1020,10 @@ export const ExamScheduleManager: React.FC<{
 
   // Export CSV of Campus Exam Marksheets
   const handleExportMarksCSV = () => {
-    if (filteredCampusMarks.length === 0) return;
+    if (filteredCampusMarks.length === 0) {
+      toast("No campus mark records found to export for the selected filter.", "warning");
+      return;
+    }
     let csv = "Roll Number,Student Name,Department,Cohort,Exam Type,Subject Name,Subject Code,Exam Date,Marks Obtained,Max Marks,Percentage,Grade,Status,Evaluator Mentor,Remarks\n";
     filteredCampusMarks.forEach(m => {
       const isAbs = Boolean(m.is_absent);
@@ -1071,7 +1104,7 @@ export const ExamScheduleManager: React.FC<{
                 <>
                   <button
                     type="button"
-                    onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
+                    onClick={handleOpenCreateModal}
                     className="inline-flex items-center justify-center gap-1.5 h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-[0.98]"
                   >
                     <Plus className="h-4 w-4" />
@@ -1167,7 +1200,7 @@ export const ExamScheduleManager: React.FC<{
 
                 <button
                   type="button"
-                  onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
+                  onClick={handleOpenCreateModal}
                   className="inline-flex items-center justify-center gap-1.5 h-9 px-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-[0.98]"
                 >
                   <Plus className="h-4 w-4" />
@@ -1372,7 +1405,7 @@ export const ExamScheduleManager: React.FC<{
                   </p>
                   <button
                     type="button"
-                    onClick={() => { setIsPopupOpen(true); setFormStep(1); }}
+                    onClick={handleOpenCreateModal}
                     className="mt-2 inline-flex items-center gap-1.5 h-9 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold shadow-xs transition-all cursor-pointer active:scale-[0.98]"
                   >
                     <Plus className="h-4 w-4" />
@@ -1486,10 +1519,11 @@ export const ExamScheduleManager: React.FC<{
                                 <button
                                   type="button"
                                   onClick={() => handleDeleteSingleExam(slot.id, slot.subject_name)}
-                                  className="p-1 text-rose-600 hover:bg-rose-100 rounded cursor-pointer ml-auto"
+                                  disabled={deletingSlotId === slot.id}
+                                  className="p-1 text-rose-600 hover:bg-rose-100 rounded cursor-pointer ml-auto disabled:opacity-40 disabled:cursor-not-allowed"
                                   title="Delete Single Slot"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
+                                  {deletingSlotId === slot.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                                 </button>
                               </div>
                             </div>
@@ -1564,10 +1598,11 @@ export const ExamScheduleManager: React.FC<{
                                     <button
                                       type="button"
                                       onClick={() => handleDeleteSingleExam(slot.id, slot.subject_name)}
-                                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg cursor-pointer transition-all"
+                                      disabled={deletingSlotId === slot.id}
+                                      className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg cursor-pointer transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                                       title="Delete Single Slot"
                                     >
-                                      <Trash2 className="h-3.5 w-3.5" />
+                                      {deletingSlotId === slot.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
                                     </button>
                                   </TableCell>
                                 </TableRow>
@@ -1893,7 +1928,7 @@ export const ExamScheduleManager: React.FC<{
       {isPopupOpen && (
         <Dialog
           open={true}
-          onOpenChange={(next) => { if (!next) { setIsPopupOpen(false); setFormStep(1); } }}
+          onOpenChange={(next) => { if (!next) handleCloseCreateModal(); }}
           ariaLabel="Schedule Exam Timetable"
           overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4 overflow-y-auto"
           panelClassName="max-w-3xl overflow-hidden animate-scaleUp my-8 max-h-[90vh] flex flex-col p-0 space-y-0 rounded-2xl"
@@ -1955,7 +1990,7 @@ export const ExamScheduleManager: React.FC<{
 
               <button
                 type="button"
-                onClick={() => { setIsPopupOpen(false); setFormStep(1); }}
+                onClick={handleCloseCreateModal}
                 aria-label="Close"
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 cursor-pointer"
               >
@@ -2309,7 +2344,7 @@ export const ExamScheduleManager: React.FC<{
                   <>
                     <button
                       type="button"
-                      onClick={() => { setIsPopupOpen(false); setFormStep(1); }}
+                      onClick={handleCloseCreateModal}
                       className="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 rounded-xl text-xs font-bold text-slate-600 cursor-pointer"
                     >
                       Cancel
