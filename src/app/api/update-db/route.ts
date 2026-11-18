@@ -42,19 +42,21 @@ function cleanupOldJobs() {
  * Uses dynamic evaluation so Next.js, Webpack, and Turbopack bundlers do not trace or bundle
  * CLI maintenance scripts into production serverless builds.
  */
-async function loadCliScript(scriptRelativePath: string): Promise<any> {
+async function loadCliScript(type: "dump" | "seed"): Promise<any> {
   if (process.env.VERCEL) {
     return null;
   }
   try {
-    const fullPath = path.join(process.cwd(), scriptRelativePath);
-    if (!fs.existsSync(fullPath)) return null;
+    const fullPath =
+      type === "dump"
+        ? path.join(process.cwd(), "scripts", "dump_prod_data.mjs")
+        : path.join(process.cwd(), "scripts", "seed_db.mjs");
     const { pathToFileURL } = await import("url");
     const scriptUrl = pathToFileURL(fullPath).href;
     const dynamicImporter = new Function("url", "return import(url);");
     return await dynamicImporter(scriptUrl);
   } catch (err) {
-    console.warn(`[update-db] Could not dynamically load CLI script ${scriptRelativePath}:`, err);
+    console.warn(`[update-db] Could not dynamically load CLI script for ${type}:`, err);
     return null;
   }
 }
@@ -240,7 +242,7 @@ export async function POST(request: NextRequest) {
         addLog("Starting database snapshot export...");
         job.progress = 30;
 
-        const dumpMod = await loadCliScript("scripts/dump_prod_data.mjs");
+        const dumpMod = await loadCliScript("dump");
         if (!dumpMod?.dumpProductionData) {
           throw new Error("CLI utility dumpProductionData could not be loaded.");
         }
@@ -262,7 +264,7 @@ export async function POST(request: NextRequest) {
           const sqlSeedPath = path.join(process.cwd(), "data", "seeds", "seed.sql");
           const snapshotPath = path.join(process.cwd(), "data", "seeds", "production_dump.json");
 
-          const seedMod = !process.env.VERCEL ? await loadCliScript("scripts/seed_db.mjs") : null;
+          const seedMod = !process.env.VERCEL ? await loadCliScript("seed") : null;
           const { runSqlSeed, runSnapshotSeed } = seedMod || {};
 
           if (options.useSqlSeed && runSqlSeed && fs.existsSync(sqlSeedPath)) {

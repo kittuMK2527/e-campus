@@ -15099,14 +15099,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
               const y = Math.round(chartH - (c.slots / maxSlots) * (chartH - 35) - 15);
               return { x, y, count: c.slots, day: c.day };
             });
-            let chartPathD = `M ${chartPoints[0].x} ${chartPoints[0].y}`;
+            const firstChartPoint = chartPoints[0];
+            let chartPathD = firstChartPoint ? `M ${firstChartPoint.x} ${firstChartPoint.y}` : "";
             for (let i = 0; i < chartPoints.length - 1; i++) {
               const current = chartPoints[i];
               const next = chartPoints[i + 1];
               const controlX = (current.x + next.x) / 2;
               chartPathD += ` C ${controlX} ${current.y}, ${controlX} ${next.y}, ${next.x} ${next.y}`;
             }
-            const chartAreaD = `${chartPathD} L ${chartW} ${chartH} L 0 ${chartH} Z`;
+            const chartAreaD = chartPathD ? `${chartPathD} L ${chartW} ${chartH} L 0 ${chartH} Z` : "";
             const peakDay = [...weekSlotCounts].sort((a, b) => b.slots - a.slots)[0] || { day: "Wed", slots: 0, fullDay: "Wednesday" };
 
             return (
@@ -22494,6 +22495,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     y: w.avg !== null ? tH - tPad - ((w.avg / 10) * (tH - tPad * 2)) : null,
                     avg: w.avg, sub: w.sub, week: w.week,
                   }));
+                  const selectedTrendPoint = tPoints.find(p => p.week === activeWeek && p.y !== null);
                   const pathParts: string[] = [];
                   tPoints.forEach((p, i) => {
                     if (p.y === null) return;
@@ -22645,8 +22647,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                 </text>
                               ))}
                               {/* Current week highlight ring */}
-                              {tPoints[activeWeek - 1]?.y !== null && (
-                                <circle cx={tPoints[activeWeek - 1].x} cy={tPoints[activeWeek - 1].y!} r={7} fill="none" stroke="#4f46e5" strokeWidth={1.5} strokeDasharray="2 2" />
+                              {selectedTrendPoint && (
+                                <circle cx={selectedTrendPoint.x} cy={selectedTrendPoint.y!} r={7} fill="none" stroke="#4f46e5" strokeWidth={1.5} strokeDasharray="2 2" />
                               )}
                             </svg>
                           </div>
