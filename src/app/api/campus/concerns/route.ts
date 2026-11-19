@@ -198,6 +198,23 @@ export async function GET(request: Request) {
       console.warn("Mentor concerns logs read fallback:", e?.message);
     }
 
+    // Fetch Academic Exam & CIA Marks entered by faculty mentors
+    let studentExamMarksList: any[] = [];
+    try {
+      studentExamMarksList = await db.all(
+        `SELECT sem.student_id, sem.marks_obtained, sem.max_marks, sem.grade,
+                sem.remarks, sem.is_absent, sem.evaluated_by, sem.updated_at,
+                es.exam_type, es.subject_name, es.subject_code, es.semester, es.exam_date
+         FROM student_exam_marks sem
+         JOIN exam_schedules es ON sem.exam_id = es.id
+         WHERE es.college_id IN (${placeholders})
+         ORDER BY es.exam_date DESC, sem.updated_at DESC LIMIT 500`,
+        targetCollegeIds
+      );
+    } catch (e: any) {
+      console.warn("Student exam marks read fallback:", e?.message);
+    }
+
     // 9. Synthesize Student Concerns Dossiers
     const studentConcerns = studentsSummary.map((s: any) => {
       const sLogs = studentLogs.filter((l: any) => l.student_id === s.id);
@@ -223,6 +240,7 @@ export async function GET(request: Request) {
       }));
 
       const allCombinedLogs = [...sLogs, ...sDirectAchs];
+      const sExamMarks = studentExamMarksList.filter((m: any) => m.student_id === s.id);
       const attPct = lowAttMap.has(s.id) ? lowAttMap.get(s.id)! : 92;
       const isFeeDefaulter = Number(s.fee_pending) > 0;
       const isLowAtt = attPct < 75;
@@ -235,6 +253,8 @@ export async function GET(request: Request) {
         is_fee_defaulter: isFeeDefaulter,
         has_complaints: hasComplaints,
         logs: allCombinedLogs,
+        exam_marks: sExamMarks,
+        exam_marks_count: sExamMarks.length,
         achievements_count: allCombinedLogs.filter((l: any) => l.category === "achievement").length,
         complaints_count: allCombinedLogs.filter((l: any) => l.category === "complaint").length,
         marks_logs_count: allCombinedLogs.filter((l: any) => l.category === "marks").length,

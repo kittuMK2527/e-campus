@@ -690,6 +690,16 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                           {st.achievements_count} Awards
                         </span>
                       )}
+                      {st.marks_logs_count > 0 && (
+                        <span className="px-2 py-0.5 rounded-md bg-blue-50 border border-blue-200 text-blue-800 text-[10px] font-black">
+                          {st.marks_logs_count} Marks Log{st.marks_logs_count === 1 ? "" : "s"}
+                        </span>
+                      )}
+                      {(st.exam_marks_count || 0) > 0 && (
+                        <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-800 text-[10px] font-black">
+                          {st.exam_marks_count} Exam{st.exam_marks_count === 1 ? "" : "s"}
+                        </span>
+                      )}
                       {st.hire_score && (
                         <span className="px-2 py-0.5 rounded-md bg-indigo-50 border border-indigo-200 text-indigo-700 text-[10px] font-black">
                           HireScore: {st.hire_score}
@@ -698,17 +708,33 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     </div>
 
                     {/* Latest Mentor Log Snippet */}
-                    {st.logs.length > 0 && (
-                      <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl space-y-1 mt-2">
-                        <div className="flex items-center justify-between text-[9.5px]">
-                          <span className="font-bold text-slate-500">
-                            Latest Log ({st.logs[0].mentor_name})
-                          </span>
-                          <span className="text-slate-400">{st.logs[0].created_at?.slice(0, 10)}</span>
+                    {st.logs.length > 0 && (() => {
+                      const latestLog = st.logs[0];
+                      let metrics: any = null;
+                      try {
+                        if (latestLog.metrics_json) {
+                          metrics = typeof latestLog.metrics_json === "string" ? JSON.parse(latestLog.metrics_json) : latestLog.metrics_json;
+                        }
+                      } catch {}
+                      return (
+                        <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl space-y-1 mt-2">
+                          <div className="flex items-center justify-between text-[9.5px]">
+                            <span className="font-bold text-slate-500">
+                              Latest Log ({latestLog.mentor_name})
+                            </span>
+                            <span className="text-slate-400">{latestLog.created_at?.slice(0, 10)}</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-extrabold text-slate-800 truncate">{latestLog.title}</p>
+                            {latestLog.category === "marks" && metrics?.marksObtained !== undefined && (
+                              <span className="shrink-0 px-1.5 py-0.5 rounded bg-blue-100 text-blue-900 text-[9.5px] font-black">
+                                {metrics.marksObtained}/{metrics.maxMarks || 100}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <p className="text-[11px] font-extrabold text-slate-800 truncate">{st.logs[0].title}</p>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </div>
 
                   {/* Card Actions: View Details and Add Log */}
@@ -1149,10 +1175,200 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                           )}
                         </div>
                       </div>
-                      <p className="font-extrabold text-slate-900">{log.title}</p>
-                      {log.details && <p className="text-slate-600 text-[11px]">{log.details}</p>}
+                      {(() => {
+                        let metrics: any = null;
+                        try {
+                          if (log.metrics_json) {
+                            metrics = typeof log.metrics_json === "string" ? JSON.parse(log.metrics_json) : log.metrics_json;
+                          }
+                        } catch {}
+
+                        return (
+                          <div className="space-y-1.5 pt-0.5">
+                            <p className="font-extrabold text-slate-900">{log.title}</p>
+
+                            {/* Render Marks & Viva Score Metrics */}
+                            {log.category === "marks" && metrics && (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {metrics.marksObtained !== undefined && metrics.marksObtained !== "" && (
+                                  <span
+                                    className={`px-2.5 py-1 rounded-lg text-xs font-black border flex items-center gap-1.5 ${
+                                      Number(metrics.marksObtained) >= (Number(metrics.maxMarks) || 100) * 0.75
+                                        ? "bg-emerald-50 text-emerald-800 border-emerald-200"
+                                        : Number(metrics.marksObtained) >= (Number(metrics.maxMarks) || 100) * 0.5
+                                        ? "bg-amber-50 text-amber-800 border-amber-200"
+                                        : "bg-rose-50 text-rose-800 border-rose-200"
+                                    }`}
+                                  >
+                                    <Award className="h-3.5 w-3.5" />
+                                    <span>Score: {metrics.marksObtained} / {metrics.maxMarks || 100}</span>
+                                    {metrics.maxMarks ? (
+                                      <span className="text-[10px] font-extrabold opacity-80">
+                                        ({Math.round((Number(metrics.marksObtained) / Number(metrics.maxMarks)) * 100)}%)
+                                      </span>
+                                    ) : null}
+                                  </span>
+                                )}
+                                {metrics.vivaRating !== undefined && metrics.vivaRating !== "" && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-800 border border-blue-200 text-[11px] font-extrabold flex items-center gap-1">
+                                    <BookOpen className="h-3 w-3" />
+                                    <span>Viva Rating: {metrics.vivaRating} / 5</span>
+                                  </span>
+                                )}
+                                {metrics.weakTopics && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-bold">
+                                    Focus: {metrics.weakTopics}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Render Verified Achievement Metrics */}
+                            {log.category === "achievement" && metrics && (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {metrics.achievementType && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-black">
+                                    {metrics.achievementType}
+                                  </span>
+                                )}
+                                {metrics.proofUrl && (
+                                  <a
+                                    href={metrics.proofUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-700 border border-indigo-200 text-[10px] font-bold inline-flex items-center gap-1 hover:underline"
+                                  >
+                                    <span>View Proof</span>
+                                    <ExternalLink className="h-2.5 w-2.5" />
+                                  </a>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Render Placement Readiness Metrics */}
+                            {log.category === "placement" && metrics && (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {metrics.readinessLevel && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-900 border border-indigo-200 text-[10px] font-black">
+                                    {metrics.readinessLevel}
+                                  </span>
+                                )}
+                                {metrics.hireScoreEst && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-[10px] font-bold">
+                                    Est. HireScore: {metrics.hireScoreEst}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Render Complaint Severity */}
+                            {log.category === "complaint" && metrics?.severity && (
+                              <div className="pt-0.5">
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase ${
+                                    metrics.severity === "high"
+                                      ? "bg-rose-100 text-rose-800 border border-rose-300"
+                                      : metrics.severity === "medium"
+                                      ? "bg-amber-100 text-amber-800 border border-amber-300"
+                                      : "bg-slate-100 text-slate-700"
+                                  }`}
+                                >
+                                  {metrics.severity} severity
+                                </span>
+                              </div>
+                            )}
+
+                            {log.details && <p className="text-slate-600 text-[11px] pt-0.5">{log.details}</p>}
+                          </div>
+                        );
+                      })()}
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+
+            {/* Academic Exam & CIA Marks Ledger Section */}
+            <div className="space-y-3 border-t border-slate-100 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                    Academic Exams & CIA Marks ({(selectedStudentForDetails.exam_marks || []).length})
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Formal CIA, Model, and Semester evaluations recorded by course mentors
+                  </p>
+                </div>
+                {(selectedStudentForDetails.exam_marks || []).length > 0 && (
+                  <span className="px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-black">
+                    {selectedStudentForDetails.exam_marks.length} Exam Record{selectedStudentForDetails.exam_marks.length === 1 ? "" : "s"}
+                  </span>
+                )}
+              </div>
+
+              {(!selectedStudentForDetails.exam_marks || selectedStudentForDetails.exam_marks.length === 0) ? (
+                <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl text-center text-xs text-slate-400">
+                  No formal exam or CIA marks recorded for this student yet.
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {selectedStudentForDetails.exam_marks.map((em: any, idx: number) => {
+                    const pct = em.max_marks ? Math.round((Number(em.marks_obtained) / Number(em.max_marks)) * 100) : null;
+                    return (
+                      <div
+                        key={idx}
+                        className="p-3 bg-white border border-slate-200 rounded-2xl shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="space-y-0.5 min-w-[200px]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-800 text-[9.5px] font-black uppercase">
+                              {em.exam_type || "Exam"}
+                            </span>
+                            <span className="font-black text-slate-900 text-xs">
+                              {em.subject_name || "Subject"}
+                            </span>
+                            {em.subject_code && (
+                              <span className="text-[10px] text-slate-400">({em.subject_code})</span>
+                            )}
+                          </div>
+                          <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                            <span>Evaluated by: {em.evaluated_by || "Faculty Evaluator"}</span>
+                            {em.exam_date && <span>• Date: {em.exam_date}</span>}
+                          </div>
+                          {em.remarks && (
+                            <p className="text-[11px] text-slate-600 italic">"{em.remarks}"</p>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          {em.is_absent ? (
+                            <span className="px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-xs font-black">
+                              Absent
+                            </span>
+                          ) : (
+                            <div className="text-right">
+                              <span
+                                className={`text-sm font-black ${
+                                  (pct || 0) >= 75
+                                    ? "text-emerald-700"
+                                    : (pct || 0) >= 50
+                                    ? "text-amber-700"
+                                    : "text-rose-700"
+                                }`}
+                              >
+                                {em.marks_obtained} / {em.max_marks}
+                              </span>
+                              {pct !== null && (
+                                <span className="text-[10px] text-slate-400 font-bold block">
+                                  {pct}% {em.grade ? `• Grade ${em.grade}` : ""}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
