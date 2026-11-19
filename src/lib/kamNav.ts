@@ -68,7 +68,7 @@ export const KAM_PILLARS: KamPillar[] = [
     defaultTab: "faculty",
     subTabs: [
       { id: "faculty", label: "Mentor Subject Allocation", hint: "Workload distribution & mentor matrix", icon: Users },
-      { id: "campus_log", label: "Campus Concerns & Logs", hint: "Student 360 & Mentor performance dossier", icon: AlertTriangle },
+      { id: "campus_log", label: "Campus Concerns & Logs", hint: "Student & Mentor performance details", icon: AlertTriangle },
       { id: "faculty_weekly_plan", label: "Weekly Lesson Plans", hint: "Faculty syllabus delivery plans", icon: CalendarRange },
       { id: "handovers", label: "Swap & Leave Approvals", hint: "Approvals queue for swaps and leaves", icon: CalendarCheck2 },
       { id: "mentor_attendance", label: "Faculty Attendance Logs", hint: "Punch-in/out logs & punctuality telemetry", icon: Clock },
@@ -79,7 +79,7 @@ export const KAM_PILLARS: KamPillar[] = [
     id: "campus_log",
     label: "Campus Log & Concerns",
     icon: ShieldAlert,
-    hint: "Cross-campus student dossiers, mentor evaluations & 360 concerns",
+    hint: "Cross-campus student details, mentor evaluations & performance tracking",
     defaultTab: "campus_log",
   },
   {

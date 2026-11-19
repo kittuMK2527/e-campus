@@ -98,10 +98,13 @@ export async function POST(request: Request) {
       );
     }
 
-    const resolvedMentorId = mentor_id || auth?.user?.id || auth?.user?.reference_id || "mentor";
-    const resolvedMentorName = mentor_name || auth?.user?.name || "Course Mentor";
+    const userRole = (auth?.user?.role || "mentor").toLowerCase();
+    const defaultAuthor = userRole === "cm" ? "Campus Manager" : userRole === "kam" ? "Key Account Manager" : "Course Mentor";
+    const resolvedMentorId = mentor_id || auth?.user?.id || auth?.user?.reference_id || userRole;
+    const resolvedMentorName = mentor_name || (auth?.user?.name ? `${auth.user.name} (${userRole.toUpperCase()})` : defaultAuthor);
     const id = generateId("scl");
     const metricsJson = metrics ? JSON.stringify(metrics) : null;
+    const initialStatus = body.status || "active";
 
     // 1. Insert into student_concerns_log
     await db.run(
@@ -112,7 +115,7 @@ export async function POST(request: Request) {
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?,
-        ?, ?, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+        ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
       )`,
       [
         id,
@@ -128,7 +131,8 @@ export async function POST(request: Request) {
         category,
         title,
         details || "",
-        metricsJson
+        metricsJson,
+        initialStatus
       ]
     );
 

@@ -71,13 +71,36 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
   const [studentSearch, setStudentSearch] = useState("");
   const [studentDeptFilter, setStudentDeptFilter] = useState("all");
   const [studentCategoryFilter, setStudentCategoryFilter] = useState("all");
-  const [selectedStudentForDossier, setSelectedStudentForDossier] = useState<any | null>(null);
+  const [selectedStudentForDetails, setSelectedStudentForDetails] = useState<any | null>(null);
 
   // Mentor Filters
   const [mentorSearch, setMentorSearch] = useState("");
   const [mentorDeptFilter, setMentorDeptFilter] = useState("all");
   const [mentorRiskFilter, setMentorRiskFilter] = useState("all");
-  const [selectedMentorForDossier, setSelectedMentorForDossier] = useState<any | null>(null);
+  const [selectedMentorForDetails, setSelectedMentorForDetails] = useState<any | null>(null);
+
+  // Create Student Log Modal State (CM adding log for a student)
+  const [creatingStudentLog, setCreatingStudentLog] = useState<{
+    student_id: string;
+    student_name: string;
+    student_reg_no?: string;
+    department?: string;
+    class_group?: string;
+    category: string;
+    title: string;
+    details: string;
+    status: string;
+    metrics: {
+      achievementType?: string;
+      proofUrl?: string;
+      marksObtained?: string | number;
+      maxMarks?: string | number;
+      vivaRating?: string | number;
+      severity?: string;
+      readinessLevel?: string;
+    };
+  } | null>(null);
+  const [isSubmittingStudentLog, setIsSubmittingStudentLog] = useState(false);
 
   // Edit Student Concern Modal State
   const [editingStudentLog, setEditingStudentLog] = useState<{
@@ -103,7 +126,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
   } | null>(null);
   const [isSavingStudentLog, setIsSavingStudentLog] = useState(false);
 
-  // Log Mentor Concern Modal State
+  // Log Mentor Concern Modal State (Streamlined: no corrective action or target date)
   const [loggingMentorConcern, setLoggingMentorConcern] = useState<{
     mentor_id: string;
     mentor_name: string;
@@ -111,12 +134,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
     severity: string;
     title: string;
     details: string;
-    action_required: string;
-    target_date: string;
   } | null>(null);
   const [isSavingMentorConcern, setIsSavingMentorConcern] = useState(false);
 
-  // Edit / Resolve Mentor Concern Modal State
+  // Edit / Resolve Mentor Concern Modal State (Streamlined)
   const [editingMentorConcern, setEditingMentorConcern] = useState<{
     id: string;
     mentor_id: string;
@@ -125,10 +146,8 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
     severity: string;
     title: string;
     details: string;
-    action_required: string;
     resolution_notes: string;
     status: string;
-    target_date: string;
   } | null>(null);
   const [isUpdatingMentorConcern, setIsUpdatingMentorConcern] = useState(false);
 
@@ -139,13 +158,13 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       const res = await apiFetch<any>(`/api/campus/concerns?${q.toString()}`);
       if (res?.success && res.data) {
         setData(res.data);
-        if (selectedMentorForDossier) {
-          const updatedM = res.data.mentorConcerns.find((m: any) => m.id === selectedMentorForDossier.id);
-          if (updatedM) setSelectedMentorForDossier(updatedM);
+        if (selectedMentorForDetails) {
+          const updatedM = res.data.mentorConcerns.find((m: any) => m.id === selectedMentorForDetails.id);
+          if (updatedM) setSelectedMentorForDetails(updatedM);
         }
-        if (selectedStudentForDossier) {
-          const updatedS = res.data.studentConcerns.find((s: any) => s.id === selectedStudentForDossier.id);
-          if (updatedS) setSelectedStudentForDossier(updatedS);
+        if (selectedStudentForDetails) {
+          const updatedS = res.data.studentConcerns.find((s: any) => s.id === selectedStudentForDetails.id);
+          if (updatedS) setSelectedStudentForDetails(updatedS);
         }
       }
     } catch (e: any) {
@@ -229,6 +248,55 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
   }, [data.mentorConcerns, mentorSearch, mentorDeptFilter, mentorRiskFilter]);
 
   // =========================================================================
+  // HANDLERS FOR CM CREATING NEW STUDENT LOG
+  // =========================================================================
+  const handleCreateStudentLog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!creatingStudentLog) return;
+    if (!creatingStudentLog.student_id) {
+      toast("Please select a student.", "warning");
+      return;
+    }
+    if (!creatingStudentLog.title.trim()) {
+      toast("Please enter a headline for the student log.", "warning");
+      return;
+    }
+
+    setIsSubmittingStudentLog(true);
+    try {
+      const res = await apiFetch<any>("/api/mentor/student-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          college_id: collegeId,
+          student_id: creatingStudentLog.student_id,
+          student_name: creatingStudentLog.student_name,
+          student_reg_no: creatingStudentLog.student_reg_no || "",
+          department: creatingStudentLog.department || "",
+          class_group: creatingStudentLog.class_group || "",
+          category: creatingStudentLog.category,
+          title: creatingStudentLog.title,
+          details: creatingStudentLog.details,
+          status: creatingStudentLog.status,
+          metrics: creatingStudentLog.metrics
+        })
+      });
+
+      if (res?.success) {
+        toast("Student log recorded successfully.", "success");
+        setCreatingStudentLog(null);
+        await fetchConcerns();
+      } else {
+        toast(res?.error || res?.message || "Failed to record student log.", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Failed to communicate with server.", "error");
+    } finally {
+      setIsSubmittingStudentLog(false);
+    }
+  };
+
+  // =========================================================================
   // HANDLERS FOR STUDENT LOG EDITING
   // =========================================================================
   const handleSaveStudentLog = async (e: React.FormEvent) => {
@@ -284,9 +352,9 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
           return { ...prev, studentConcerns: updatedStudentConcerns };
         });
 
-        // Also update open student dossier modal if open
-        if (selectedStudentForDossier && selectedStudentForDossier.id === editingStudentLog.student_id) {
-          setSelectedStudentForDossier((prev: any) => {
+        // Also update open student details modal if open
+        if (selectedStudentForDetails && selectedStudentForDetails.id === editingStudentLog.student_id) {
+          setSelectedStudentForDetails((prev: any) => {
             if (!prev) return null;
             const updatedLogs = (prev.logs || []).map((l: any) => {
               if (l.id !== editingStudentLog.id) return l;
@@ -347,9 +415,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
           category: loggingMentorConcern.category,
           severity: loggingMentorConcern.severity,
           title: loggingMentorConcern.title,
-          details: loggingMentorConcern.details,
-          action_required: loggingMentorConcern.action_required,
-          target_date: loggingMentorConcern.target_date
+          details: loggingMentorConcern.details
         })
       });
 
@@ -441,26 +507,52 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
           </button>
         </div>
 
-        {activeConcernMode === "mentor" && !readOnly && (
-          <button
-            type="button"
-            onClick={() => {
-              setLoggingMentorConcern({
-                mentor_id: filteredMentors[0]?.id || data.mentorConcerns[0]?.id || "",
-                mentor_name: filteredMentors[0]?.name || data.mentorConcerns[0]?.name || "",
-                category: "punctuality",
-                severity: "medium",
-                title: "",
-                details: "",
-                action_required: "",
-                target_date: ""
-              });
-            }}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
-          >
-            <Plus className="h-3.5 w-3.5" />
-            <span>Log Mentor Concern</span>
-          </button>
+        {/* Action Button on Top Bar */}
+        {!readOnly && (
+          <div>
+            {activeConcernMode === "student" ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const defaultStudent = filteredStudents[0] || data.studentConcerns[0] || null;
+                  setCreatingStudentLog({
+                    student_id: defaultStudent?.id || "",
+                    student_name: defaultStudent?.name || "",
+                    student_reg_no: defaultStudent?.register_number || defaultStudent?.roll_number || "",
+                    department: defaultStudent?.department || "",
+                    class_group: defaultStudent?.classGroup || "",
+                    category: "complaint",
+                    title: "",
+                    details: "",
+                    status: "active",
+                    metrics: { severity: "medium" }
+                  });
+                }}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Add Student Log</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setLoggingMentorConcern({
+                    mentor_id: filteredMentors[0]?.id || data.mentorConcerns[0]?.id || "",
+                    mentor_name: filteredMentors[0]?.name || data.mentorConcerns[0]?.name || "",
+                    category: "punctuality",
+                    severity: "medium",
+                    title: "",
+                    details: ""
+                  });
+                }}
+                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                <span>Log Mentor Concern</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
 
@@ -610,7 +702,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                       <div className="p-2.5 bg-slate-50 border border-slate-100 rounded-xl space-y-1 mt-2">
                         <div className="flex items-center justify-between text-[9.5px]">
                           <span className="font-bold text-slate-500">
-                            Mentor Log ({st.logs[0].mentor_name})
+                            Latest Log ({st.logs[0].mentor_name})
                           </span>
                           <span className="text-slate-400">{st.logs[0].created_at?.slice(0, 10)}</span>
                         </div>
@@ -619,14 +711,40 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setSelectedStudentForDossier(st)}
-                    className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                  >
-                    <span>Inspect 360 Dossier</span>
-                    <ChevronRight className="h-3.5 w-3.5" />
-                  </button>
+                  {/* Card Actions: View Details and Add Log */}
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedStudentForDetails(st)}
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                    >
+                      <span>View Details</span>
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                    {!readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCreatingStudentLog({
+                            student_id: st.id,
+                            student_name: st.name,
+                            student_reg_no: st.register_number || st.roll_number || "",
+                            department: st.department || "",
+                            class_group: st.classGroup || "",
+                            category: "complaint",
+                            title: "",
+                            details: "",
+                            status: "active",
+                            metrics: { severity: "medium" }
+                          });
+                        }}
+                        className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-xs"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        <span>Add Log</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -813,10 +931,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     <button
                       type="button"
-                      onClick={() => setSelectedMentorForDossier(m)}
+                      onClick={() => setSelectedMentorForDetails(m)}
                       className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
                     >
-                      <span>Dossier</span>
+                      <span>View Details</span>
                       <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                     {!readOnly && (
@@ -829,9 +947,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                             category: "punctuality",
                             severity: "medium",
                             title: "",
-                            details: "",
-                            action_required: "",
-                            target_date: ""
+                            details: ""
                           });
                         }}
                         className="w-full py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center justify-center gap-1 shadow-xs"
@@ -849,27 +965,27 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       )}
 
       {/* ==================================================================== */}
-      {/* 3. MODAL: 360 STUDENT CONCERN DOSSIER                                */}
+      {/* 3. MODAL: STUDENT DETAILS & CONCERN HISTORY                          */}
       {/* ==================================================================== */}
-      {selectedStudentForDossier && (
+      {selectedStudentForDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6">
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
                 <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider block">
-                  360 Student Concern Dossier
+                  Student Details & Concern History
                 </span>
                 <h3 className="text-lg font-black text-slate-900 mt-0.5">
-                  {selectedStudentForDossier.name}
+                  {selectedStudentForDetails.name}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  {selectedStudentForDossier.register_number || selectedStudentForDossier.roll_number || "No Reg"} •{" "}
-                  {selectedStudentForDossier.department} • {selectedStudentForDossier.classGroup}
+                  {selectedStudentForDetails.register_number || selectedStudentForDetails.roll_number || "No Reg"} •{" "}
+                  {selectedStudentForDetails.department} • {selectedStudentForDetails.classGroup}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedStudentForDossier(null)}
+                onClick={() => setSelectedStudentForDetails(null)}
                 className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="h-5 w-5" />
@@ -880,7 +996,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
             <div className="grid grid-cols-3 gap-3 text-center">
               <div
                 className={`p-3 rounded-2xl border ${
-                  selectedStudentForDossier.is_low_attendance
+                  selectedStudentForDetails.is_low_attendance
                     ? "bg-rose-50 border-rose-200"
                     : "bg-slate-50 border-slate-100"
                 }`}
@@ -888,15 +1004,15 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 <span className="text-[10px] font-black uppercase text-slate-400 block">Attendance</span>
                 <span
                   className={`text-base font-black ${
-                    selectedStudentForDossier.is_low_attendance ? "text-rose-700" : "text-slate-900"
+                    selectedStudentForDetails.is_low_attendance ? "text-rose-700" : "text-slate-900"
                   }`}
                 >
-                  {selectedStudentForDossier.attendance_pct}%
+                  {selectedStudentForDetails.attendance_pct}%
                 </span>
               </div>
               <div
                 className={`p-3 rounded-2xl border ${
-                  selectedStudentForDossier.is_fee_defaulter
+                  selectedStudentForDetails.is_fee_defaulter
                     ? "bg-amber-50 border-amber-200"
                     : "bg-slate-50 border-slate-100"
                 }`}
@@ -904,37 +1020,86 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 <span className="text-[10px] font-black uppercase text-slate-400 block">Pending Fees</span>
                 <span
                   className={`text-base font-black ${
-                    selectedStudentForDossier.is_fee_defaulter ? "text-amber-800" : "text-emerald-700"
+                    selectedStudentForDetails.is_fee_defaulter ? "text-amber-800" : "text-emerald-700"
                   }`}
                 >
-                  ₹{selectedStudentForDossier.fee_pending}
+                  ₹{selectedStudentForDetails.fee_pending}
                 </span>
               </div>
               <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                 <span className="text-[10px] font-black uppercase text-slate-400 block">HireScore</span>
                 <span className="text-base font-black text-indigo-700">
-                  {selectedStudentForDossier.hire_score || "N/A"}
+                  {selectedStudentForDetails.hire_score || "N/A"}
                 </span>
               </div>
             </div>
 
-            {/* Mentor-Logged History */}
+            {/* Mentor-Logged History & Add Log */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                  Course Mentor Logs & Notes ({selectedStudentForDossier.logs?.length || 0})
-                </h4>
-                <span className="text-[10px] text-slate-400 font-medium">
-                  Review & edit mentor-logged entries
-                </span>
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                    Recorded Logs & History ({selectedStudentForDetails.logs?.length || 0})
+                  </h4>
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Faculty mentor and campus manager observations
+                  </p>
+                </div>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatingStudentLog({
+                        student_id: selectedStudentForDetails.id,
+                        student_name: selectedStudentForDetails.name,
+                        student_reg_no: selectedStudentForDetails.register_number || selectedStudentForDetails.roll_number || "",
+                        department: selectedStudentForDetails.department || "",
+                        class_group: selectedStudentForDetails.classGroup || "",
+                        category: "complaint",
+                        title: "",
+                        details: "",
+                        status: "active",
+                        metrics: { severity: "medium" }
+                      });
+                    }}
+                    className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[11px] font-black transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Add Log</span>
+                  </button>
+                )}
               </div>
-              {selectedStudentForDossier.logs?.length === 0 ? (
-                <div className="p-6 bg-slate-50 rounded-2xl text-center text-xs text-slate-400">
-                  No mentor logs recorded for this student yet.
+
+              {selectedStudentForDetails.logs?.length === 0 ? (
+                <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl text-center text-xs text-slate-400 space-y-2">
+                  <p>No logs recorded for this student yet.</p>
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setCreatingStudentLog({
+                          student_id: selectedStudentForDetails.id,
+                          student_name: selectedStudentForDetails.name,
+                          student_reg_no: selectedStudentForDetails.register_number || selectedStudentForDetails.roll_number || "",
+                          department: selectedStudentForDetails.department || "",
+                          class_group: selectedStudentForDetails.classGroup || "",
+                          category: "complaint",
+                          title: "",
+                          details: "",
+                          status: "active",
+                          metrics: { severity: "medium" }
+                        });
+                      }}
+                      className="px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span>Record First Log</span>
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
-                  {selectedStudentForDossier.logs.map((log: any) => (
+                  {selectedStudentForDetails.logs.map((log: any) => (
                     <div
                       key={log.id}
                       className={`p-3 rounded-2xl border text-xs space-y-1.5 ${
@@ -965,8 +1130,8 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                                   id: log.id,
                                   student_id: log.student_id,
                                   student_name: log.student_name,
-                                  student_reg_no: log.student_reg_no || selectedStudentForDossier.register_number,
-                                  department: log.department || selectedStudentForDossier.department,
+                                  student_reg_no: log.student_reg_no || selectedStudentForDetails.register_number,
+                                  department: log.department || selectedStudentForDetails.department,
                                   mentor_name: log.mentor_name,
                                   title: log.title || "",
                                   details: log.details || "",
@@ -976,7 +1141,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                                 });
                               }}
                               className="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
-                              title="Edit this student concern / achievement"
+                              title="Edit this student log"
                             >
                               <Edit3 className="h-3 w-3" />
                               <span>Edit</span>
@@ -998,9 +1163,9 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 Placement & Coding Links
               </span>
               <div className="flex flex-wrap gap-2 text-xs">
-                {selectedStudentForDossier.github_id && (
+                {selectedStudentForDetails.github_id && (
                   <a
-                    href={`https://github.com/${selectedStudentForDossier.github_id}`}
+                    href={`https://github.com/${selectedStudentForDetails.github_id}`}
                     target="_blank"
                     rel="noreferrer"
                     className="px-3 py-1 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-800 font-bold flex items-center gap-1"
@@ -1009,9 +1174,9 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
-                {selectedStudentForDossier.leetcode_link && (
+                {selectedStudentForDetails.leetcode_link && (
                   <a
-                    href={selectedStudentForDossier.leetcode_link}
+                    href={selectedStudentForDetails.leetcode_link}
                     target="_blank"
                     rel="noreferrer"
                     className="px-3 py-1 bg-amber-50 hover:bg-amber-100 rounded-lg text-amber-800 font-bold flex items-center gap-1"
@@ -1020,9 +1185,9 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     <ExternalLink className="h-3 w-3" />
                   </a>
                 )}
-                {selectedStudentForDossier.project_drive_link && (
+                {selectedStudentForDetails.project_drive_link && (
                   <a
-                    href={selectedStudentForDossier.project_drive_link}
+                    href={selectedStudentForDetails.project_drive_link}
                     target="_blank"
                     rel="noreferrer"
                     className="px-3 py-1 bg-blue-50 hover:bg-blue-100 rounded-lg text-blue-800 font-bold flex items-center gap-1"
@@ -1037,10 +1202,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
-                onClick={() => setSelectedStudentForDossier(null)}
+                onClick={() => setSelectedStudentForDetails(null)}
                 className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
-                Close Dossier
+                Close Details
               </button>
             </div>
           </div>
@@ -1048,26 +1213,26 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       )}
 
       {/* ==================================================================== */}
-      {/* 4. MODAL: MENTOR OPERATIONAL QUALITY DOSSIER                         */}
+      {/* 4. MODAL: MENTOR PERFORMANCE & QUALITY DETAILS                       */}
       {/* ==================================================================== */}
-      {selectedMentorForDossier && (
+      {selectedMentorForDetails && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
           <div className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-6">
             <div className="flex items-start justify-between border-b border-slate-100 pb-4">
               <div>
                 <span className="text-[10px] font-black uppercase text-emerald-600 tracking-wider block">
-                  Mentor Performance & Quality Dossier
+                  Mentor Performance & Quality Details
                 </span>
                 <h3 className="text-lg font-black text-slate-900 mt-0.5">
-                  {selectedMentorForDossier.name}
+                  {selectedMentorForDetails.name}
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  {selectedMentorForDossier.department} • {selectedMentorForDossier.email}
+                  {selectedMentorForDetails.department} • {selectedMentorForDetails.email}
                 </p>
               </div>
               <button
                 type="button"
-                onClick={() => setSelectedMentorForDossier(null)}
+                onClick={() => setSelectedMentorForDetails(null)}
                 className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
               >
                 <X className="h-5 w-5" />
@@ -1078,37 +1243,37 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black uppercase text-slate-800">
-                  Campus E-Audit Genuineness Score
+                  Campus E-Audit Score
                 </span>
                 <span className="text-base font-black text-slate-900">
-                  {selectedMentorForDossier.composite_score}%
+                  {selectedMentorForDetails.composite_score}%
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2 text-center text-xs">
                 <div className="p-2 bg-white rounded-xl border border-slate-100">
                   <span className="text-[10px] text-slate-400 font-bold block">Skill (35%)</span>
-                  <span className="font-black text-slate-800">{selectedMentorForDossier.skill_score}%</span>
+                  <span className="font-black text-slate-800">{selectedMentorForDetails.skill_score}%</span>
                 </div>
                 <div className="p-2 bg-white rounded-xl border border-slate-100">
                   <span className="text-[10px] text-slate-400 font-bold block">Coursework (35%)</span>
-                  <span className="font-black text-slate-800">{selectedMentorForDossier.coursework_score}%</span>
+                  <span className="font-black text-slate-800">{selectedMentorForDetails.coursework_score}%</span>
                 </div>
                 <div className="p-2 bg-white rounded-xl border border-slate-100">
                   <span className="text-[10px] text-slate-400 font-bold block">Attendance (30%)</span>
-                  <span className="font-black text-slate-800">{selectedMentorForDossier.attendance_score}%</span>
+                  <span className="font-black text-slate-800">{selectedMentorForDetails.attendance_score}%</span>
                 </div>
               </div>
             </div>
 
-            {/* CM Observations & Recorded Concerns */}
+            {/* CM Observations & Recorded Concerns (Streamlined: no corrective action or target date) */}
             <div className="space-y-3 border-t border-slate-100 pt-4">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                    CM Observations & Recorded Concerns ({(selectedMentorForDossier.cm_concerns || []).length})
+                    CM Observations & Recorded Concerns ({(selectedMentorForDetails.cm_concerns || []).length})
                   </h4>
                   <p className="text-[11px] text-slate-500 font-medium">
-                    Administrative, punctuality, and operational flags logged by Campus Management
+                    Operational and quality observations logged by Campus Management
                   </p>
                 </div>
                 {!readOnly && (
@@ -1116,14 +1281,12 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     type="button"
                     onClick={() => {
                       setLoggingMentorConcern({
-                        mentor_id: selectedMentorForDossier.id,
-                        mentor_name: selectedMentorForDossier.name,
+                        mentor_id: selectedMentorForDetails.id,
+                        mentor_name: selectedMentorForDetails.name,
                         category: "punctuality",
                         severity: "medium",
                         title: "",
-                        details: "",
-                        action_required: "",
-                        target_date: ""
+                        details: ""
                       });
                     }}
                     className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center gap-1 shadow-xs"
@@ -1134,7 +1297,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 )}
               </div>
 
-              {(!selectedMentorForDossier.cm_concerns || selectedMentorForDossier.cm_concerns.length === 0) ? (
+              {(!selectedMentorForDetails.cm_concerns || selectedMentorForDetails.cm_concerns.length === 0) ? (
                 <div className="p-6 bg-slate-50 border border-slate-100 rounded-2xl text-center text-xs text-slate-400 space-y-2">
                   <p>No operational concerns logged by CM for this mentor yet.</p>
                   {!readOnly && (
@@ -1142,14 +1305,12 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                       type="button"
                       onClick={() => {
                         setLoggingMentorConcern({
-                          mentor_id: selectedMentorForDossier.id,
-                          mentor_name: selectedMentorForDossier.name,
+                          mentor_id: selectedMentorForDetails.id,
+                          mentor_name: selectedMentorForDetails.name,
                           category: "punctuality",
                           severity: "medium",
                           title: "",
-                          details: "",
-                          action_required: "",
-                          target_date: ""
+                          details: ""
                         });
                       }}
                       className="px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-[11px] font-bold transition-colors cursor-pointer inline-flex items-center gap-1"
@@ -1161,7 +1322,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 </div>
               ) : (
                 <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                  {selectedMentorForDossier.cm_concerns.map((c: any) => (
+                  {selectedMentorForDetails.cm_concerns.map((c: any) => (
                     <div
                       key={c.id}
                       className={`p-3.5 rounded-2xl border text-xs space-y-2 transition-all ${
@@ -1215,10 +1376,8 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                                   severity: c.severity || "medium",
                                   title: c.title || "",
                                   details: c.details || "",
-                                  action_required: c.action_required || "",
                                   resolution_notes: c.resolution_notes || "",
-                                  status: c.status || "open",
-                                  target_date: c.target_date || ""
+                                  status: c.status || "open"
                                 });
                               }}
                               className="px-2 py-0.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-[10px] font-bold flex items-center gap-1 cursor-pointer"
@@ -1243,15 +1402,6 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                         {c.details && <p className="text-slate-600 text-[11px] mt-0.5">{c.details}</p>}
                       </div>
 
-                      {c.action_required && (
-                        <div className="p-2 bg-white/80 rounded-xl border border-slate-100 text-[11px] space-y-0.5">
-                          <span className="font-black text-slate-500 text-[9.5px] uppercase block">
-                            Action Required
-                          </span>
-                          <p className="text-slate-800 font-medium">{c.action_required}</p>
-                        </div>
-                      )}
-
                       {c.resolution_notes && (
                         <div className="p-2 bg-emerald-50 rounded-xl border border-emerald-100 text-[11px] space-y-0.5">
                           <span className="font-black text-emerald-800 text-[9.5px] uppercase block">
@@ -1266,8 +1416,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                           By {c.logged_by_name} ({c.logged_by_role?.toUpperCase()})
                         </span>
                         <span>
-                          {c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}{" "}
-                          {c.target_date ? `• Target: ${c.target_date}` : ""}
+                          {c.created_at ? new Date(c.created_at).toLocaleDateString() : ""}
                         </span>
                       </div>
                     </div>
@@ -1279,15 +1428,15 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
             {/* Student Complaints & Tickets */}
             <div className="space-y-3 border-t border-slate-100 pt-4">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                Grievances & Student Tickets ({selectedMentorForDossier.tickets?.length || 0})
+                Grievances & Student Tickets ({selectedMentorForDetails.tickets?.length || 0})
               </h4>
-              {selectedMentorForDossier.tickets?.length === 0 ? (
+              {selectedMentorForDetails.tickets?.length === 0 ? (
                 <div className="p-6 bg-slate-50 rounded-2xl text-center text-xs text-slate-400">
                   No grievances or complaints filed against this mentor.
                 </div>
               ) : (
                 <div className="space-y-2 max-h-56 overflow-y-auto">
-                  {selectedMentorForDossier.tickets.map((t: any) => (
+                  {selectedMentorForDetails.tickets.map((t: any) => (
                     <div key={t.id} className="p-3 bg-rose-50/50 border border-rose-200 rounded-2xl text-xs space-y-1">
                       <div className="flex items-center justify-between font-bold">
                         <span className="text-rose-800 font-black">{t.category || "Complaint"}</span>
@@ -1304,10 +1453,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
             <div className="pt-2 flex justify-end">
               <button
                 type="button"
-                onClick={() => setSelectedMentorForDossier(null)}
+                onClick={() => setSelectedMentorForDetails(null)}
                 className="px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
               >
-                Close Dossier
+                Close Details
               </button>
             </div>
           </div>
@@ -1315,7 +1464,289 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       )}
 
       {/* ==================================================================== */}
-      {/* 5. MODAL: CM EDIT STUDENT CONCERN                                    */}
+      {/* 5. MODAL: CM ADD NEW STUDENT LOG                                     */}
+      {/* ==================================================================== */}
+      {creatingStudentLog && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl p-6 space-y-4">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+              <div>
+                <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider block">
+                  Record Student Log
+                </span>
+                <h3 className="text-base font-black text-slate-900">
+                  Add Observation / Achievement
+                </h3>
+                <p className="text-xs text-slate-500 font-medium">
+                  Log an achievement, assessment score, readiness note, or concern
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCreatingStudentLog(null)}
+                className="p-1 rounded-xl hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateStudentLog} className="space-y-4">
+              {/* Student Selector */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                  Student *
+                </label>
+                <select
+                  required
+                  value={creatingStudentLog.student_id}
+                  onChange={(e) => {
+                    const sel = data.studentConcerns.find((s) => s.id === e.target.value);
+                    setCreatingStudentLog({
+                      ...creatingStudentLog,
+                      student_id: e.target.value,
+                      student_name: sel?.name || "",
+                      student_reg_no: sel?.register_number || sel?.roll_number || "",
+                      department: sel?.department || "",
+                      class_group: sel?.classGroup || ""
+                    });
+                  }}
+                  className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white"
+                >
+                  <option value="">Select a Student...</option>
+                  {data.studentConcerns.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name} ({s.register_number || s.roll_number || "No Reg"} • {s.department})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Category & Status */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                    Category *
+                  </label>
+                  <select
+                    value={creatingStudentLog.category}
+                    onChange={(e) =>
+                      setCreatingStudentLog({ ...creatingStudentLog, category: e.target.value })
+                    }
+                    className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white"
+                  >
+                    <option value="complaint">Disciplinary / Academic Concern</option>
+                    <option value="achievement">Verified Achievement</option>
+                    <option value="marks">Assessment & Viva Marks</option>
+                    <option value="placement">Placement Readiness</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={creatingStudentLog.status}
+                    onChange={(e) =>
+                      setCreatingStudentLog({ ...creatingStudentLog, status: e.target.value })
+                    }
+                    className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white"
+                  >
+                    <option value="active">Active</option>
+                    <option value="under_review">Under Review</option>
+                    <option value="resolved">Resolved / Addressed</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Title */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                  Headline / Title *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={creatingStudentLog.title}
+                  onChange={(e) =>
+                    setCreatingStudentLog({ ...creatingStudentLog, title: e.target.value })
+                  }
+                  placeholder="e.g. 1st Place at Hackathon or Lab Attendance Deficiency"
+                  className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                />
+              </div>
+
+              {/* Dynamic Category Metrics */}
+              {creatingStudentLog.category === "achievement" && (
+                <div className="p-3 bg-amber-50/50 border border-amber-200 rounded-2xl space-y-3">
+                  <span className="text-[10px] font-black uppercase text-amber-800 tracking-wider block">
+                    Achievement Details
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Type</label>
+                      <select
+                        value={creatingStudentLog.metrics?.achievementType || "Academic/Coding"}
+                        onChange={(e) =>
+                          setCreatingStudentLog({
+                            ...creatingStudentLog,
+                            metrics: { ...creatingStudentLog.metrics, achievementType: e.target.value }
+                          })
+                        }
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium bg-white"
+                      >
+                        <option value="Hackathon / Contest Win">Hackathon / Contest Win</option>
+                        <option value="Paper / Project Presentation">Paper / Project Presentation</option>
+                        <option value="Course Certification">Course Certification</option>
+                        <option value="Industry Internship Offer">Industry Internship Offer</option>
+                        <option value="Competitive Programming Milestone">Competitive Programming Milestone</option>
+                        <option value="Other Recognition">Other Recognition</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Proof / Cert URL</label>
+                      <input
+                        type="url"
+                        value={creatingStudentLog.metrics?.proofUrl || ""}
+                        onChange={(e) =>
+                          setCreatingStudentLog({
+                            ...creatingStudentLog,
+                            metrics: { ...creatingStudentLog.metrics, proofUrl: e.target.value }
+                          })
+                        }
+                        placeholder="https://..."
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {creatingStudentLog.category === "marks" && (
+                <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-3">
+                  <span className="text-[10px] font-black uppercase text-blue-800 tracking-wider block">
+                    Assessment Metrics
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Marks Got</label>
+                      <input
+                        type="number"
+                        value={creatingStudentLog.metrics?.marksObtained || ""}
+                        onChange={(e) =>
+                          setCreatingStudentLog({
+                            ...creatingStudentLog,
+                            metrics: { ...creatingStudentLog.metrics, marksObtained: e.target.value }
+                          })
+                        }
+                        placeholder="e.g. 85"
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Max Marks</label>
+                      <input
+                        type="number"
+                        value={creatingStudentLog.metrics?.maxMarks || 100}
+                        onChange={(e) =>
+                          setCreatingStudentLog({
+                            ...creatingStudentLog,
+                            metrics: { ...creatingStudentLog.metrics, maxMarks: e.target.value }
+                          })
+                        }
+                        placeholder="100"
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Viva Rating (1-5)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="5"
+                        value={creatingStudentLog.metrics?.vivaRating || 4}
+                        onChange={(e) =>
+                          setCreatingStudentLog({
+                            ...creatingStudentLog,
+                            metrics: { ...creatingStudentLog.metrics, vivaRating: e.target.value }
+                          })
+                        }
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {creatingStudentLog.category === "complaint" && (
+                <div className="p-3 bg-rose-50/50 border border-rose-200 rounded-2xl space-y-2">
+                  <span className="text-[10px] font-black uppercase text-rose-800 tracking-wider block">
+                    Severity Level
+                  </span>
+                  <div className="flex gap-2">
+                    {["low", "medium", "high"].map((sev) => (
+                      <button
+                        key={sev}
+                        type="button"
+                        onClick={() =>
+                          setCreatingStudentLog({
+                            ...creatingStudentLog,
+                            metrics: { ...creatingStudentLog.metrics, severity: sev }
+                          })
+                        }
+                        className={`flex-1 py-1 rounded-lg text-xs font-black uppercase border transition-all cursor-pointer ${
+                          (creatingStudentLog.metrics?.severity || "medium") === sev
+                            ? "bg-rose-700 text-white border-rose-700"
+                            : "bg-white text-slate-700 border-slate-200"
+                        }`}
+                      >
+                        {sev}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Details Textarea */}
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                  Observations & Remarks
+                </label>
+                <textarea
+                  rows={3}
+                  value={creatingStudentLog.details}
+                  onChange={(e) =>
+                    setCreatingStudentLog({ ...creatingStudentLog, details: e.target.value })
+                  }
+                  placeholder="Provide context, dates, faculty remarks, or details..."
+                  className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setCreatingStudentLog(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingStudentLog}
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  <span>{isSubmittingStudentLog ? "Saving..." : "Record Log"}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================================== */}
+      {/* 6. MODAL: CM EDIT STUDENT CONCERN                                    */}
       {/* ==================================================================== */}
       {editingStudentLog && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
@@ -1323,10 +1754,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase text-amber-600 tracking-wider block">
-                  CM Student Concern Governance
+                  Edit Student Log
                 </span>
                 <h3 className="text-base font-black text-slate-900">
-                  Edit Student Log / Concern
+                  Update Observation / Concern
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
                   Student: <span className="font-bold text-slate-800">{editingStudentLog.student_name}</span> ({editingStudentLog.student_reg_no || "No Reg"})
@@ -1358,7 +1789,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     <option value="achievement">Verified Achievement</option>
                     <option value="marks">Assessment & Viva Marks</option>
                     <option value="placement">Placement Readiness</option>
-                    <option value="complaint">Disciplinary / Academic Red Flag</option>
+                    <option value="complaint">Disciplinary / Academic Concern</option>
                   </select>
                 </div>
                 <div>
@@ -1382,7 +1813,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
               {/* Title */}
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
-                  Concern / Achievement Headline *
+                  Headline / Title *
                 </label>
                 <input
                   type="text"
@@ -1391,7 +1822,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                   onChange={(e) =>
                     setEditingStudentLog({ ...editingStudentLog, title: e.target.value })
                   }
-                  placeholder="e.g. 1st Place at HackElite 2026 or Unexcused Lab Absence"
+                  placeholder="e.g. 1st Place at Hackathon or Unexcused Absence"
                   className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
@@ -1501,7 +1932,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
               {editingStudentLog.category === "complaint" && (
                 <div className="p-3 bg-rose-50/50 border border-rose-200 rounded-2xl space-y-2">
                   <span className="text-[10px] font-black uppercase text-rose-800 tracking-wider block">
-                    Complaint Severity
+                    Severity Level
                   </span>
                   <div className="flex gap-2">
                     {["low", "medium", "high"].map((sev) => (
@@ -1530,7 +1961,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
               {/* Details Textarea */}
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
-                  Detailed Observations / Remarks
+                  Observations & Remarks
                 </label>
                 <textarea
                   rows={3}
@@ -1538,7 +1969,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                   onChange={(e) =>
                     setEditingStudentLog({ ...editingStudentLog, details: e.target.value })
                   }
-                  placeholder="Add detailed context, faculty remarks, or corrective notes..."
+                  placeholder="Add detailed context, remarks, or corrective notes..."
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
                 />
               </div>
@@ -1567,7 +1998,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       )}
 
       {/* ==================================================================== */}
-      {/* 6. MODAL: CM LOG MENTOR CONCERN                                      */}
+      {/* 7. MODAL: CM LOG MENTOR CONCERN (STREAMLINED)                        */}
       {/* ==================================================================== */}
       {loggingMentorConcern && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
@@ -1575,7 +2006,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
             <div className="flex items-start justify-between border-b border-slate-100 pb-3">
               <div>
                 <span className="text-[10px] font-black uppercase text-indigo-600 tracking-wider block">
-                  Faculty Governance
+                  Faculty Concerns
                 </span>
                 <h3 className="text-base font-black text-slate-900">
                   Record Mentor Concern
@@ -1654,9 +2085,9 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                     className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white"
                   >
                     <option value="low">Low - Minor Observation</option>
-                    <option value="medium">Medium - Action Required</option>
-                    <option value="high">High - Serious Discrepancy</option>
-                    <option value="critical">Critical - Immediate Intervention</option>
+                    <option value="medium">Medium - Attention Needed</option>
+                    <option value="high">High - Serious Issue</option>
+                    <option value="critical">Critical - Immediate Action</option>
                   </select>
                 </div>
               </div>
@@ -1673,7 +2104,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                   onChange={(e) =>
                     setLoggingMentorConcern({ ...loggingMentorConcern, title: e.target.value })
                   }
-                  placeholder="e.g. Recurring late punch-in (45 min) or Lab syllabus lagging"
+                  placeholder="e.g. Recurring late punch-in or Coursework syllabus lagging"
                   className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
                 />
               </div>
@@ -1684,45 +2115,14 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                   Observations & Details
                 </label>
                 <textarea
-                  rows={3}
+                  rows={4}
                   value={loggingMentorConcern.details}
                   onChange={(e) =>
                     setLoggingMentorConcern({ ...loggingMentorConcern, details: e.target.value })
                   }
-                  placeholder="Provide context, dates, batch numbers, or specifics..."
+                  placeholder="Provide context, dates, batch numbers, or specific observations..."
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 resize-none"
                 />
-              </div>
-
-              {/* Action Required & Target Date */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
-                    Corrective Action Required
-                  </label>
-                  <input
-                    type="text"
-                    value={loggingMentorConcern.action_required}
-                    onChange={(e) =>
-                      setLoggingMentorConcern({ ...loggingMentorConcern, action_required: e.target.value })
-                    }
-                    placeholder="e.g. Conduct makeup session by Friday"
-                    className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-medium outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
-                    Target Resolution Date
-                  </label>
-                  <input
-                    type="date"
-                    value={loggingMentorConcern.target_date}
-                    onChange={(e) =>
-                      setLoggingMentorConcern({ ...loggingMentorConcern, target_date: e.target.value })
-                    }
-                    className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-medium outline-none bg-white"
-                  />
-                </div>
               </div>
 
               {/* Submit */}
@@ -1749,7 +2149,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       )}
 
       {/* ==================================================================== */}
-      {/* 7. MODAL: CM EDIT / RESOLVE MENTOR CONCERN                           */}
+      {/* 8. MODAL: CM EDIT / RESOLVE MENTOR CONCERN (STREAMLINED)             */}
       {/* ==================================================================== */}
       {editingMentorConcern && (
         <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
@@ -1836,7 +2236,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                   Details & Observations
                 </label>
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={editingMentorConcern.details}
                   onChange={(e) =>
                     setEditingMentorConcern({ ...editingMentorConcern, details: e.target.value })
@@ -1845,48 +2245,18 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 />
               </div>
 
-              {/* Action Required & Target Date */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
-                    Action Required
-                  </label>
-                  <input
-                    type="text"
-                    value={editingMentorConcern.action_required}
-                    onChange={(e) =>
-                      setEditingMentorConcern({ ...editingMentorConcern, action_required: e.target.value })
-                    }
-                    className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-medium outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
-                    Target Date
-                  </label>
-                  <input
-                    type="date"
-                    value={editingMentorConcern.target_date}
-                    onChange={(e) =>
-                      setEditingMentorConcern({ ...editingMentorConcern, target_date: e.target.value })
-                    }
-                    className="w-full h-9 px-3 border border-slate-200 rounded-xl text-xs font-medium outline-none bg-white"
-                  />
-                </div>
-              </div>
-
               {/* Resolution Notes */}
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
                   Resolution Notes / Outcome Remarks
                 </label>
                 <textarea
-                  rows={2}
+                  rows={3}
                   value={editingMentorConcern.resolution_notes}
                   onChange={(e) =>
                     setEditingMentorConcern({ ...editingMentorConcern, resolution_notes: e.target.value })
                   }
-                  placeholder="Explain how this issue was resolved, date of discussion, or makeup completed..."
+                  placeholder="Explain how this issue was resolved, discussion summary, or outcome..."
                   className="w-full p-2.5 border border-slate-200 rounded-xl text-xs font-medium outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
                 />
               </div>

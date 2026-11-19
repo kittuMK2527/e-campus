@@ -64,7 +64,7 @@ export function cmNavGroups(isKAMView: boolean): CmNavGroup[] {
       icon: Users,
       items: [
         { id: "faculty", label: "Mentor Subject Allocation", icon: Users, hint: "Assign mentors to subjects" },
-        { id: "concerns", label: "Concerns", icon: AlertTriangle, hint: "Student 360 & Mentor performance dossier" },
+        { id: "concerns", label: "Concerns", icon: AlertTriangle, hint: "Student & Mentor performance details" },
         { id: "handovers", label: "Class Swap Requests", icon: CalendarCheck2, hint: "Approvals for swaps, leaves & late punches" },
         { id: "faculty_weekly_plan", label: "Weekly Plan", icon: CalendarRange, hint: "Mentor weekly teaching plan" },
         { id: "mentor_skill_tracker", label: "Mentor Skill Dev Tracker", icon: GraduationCap, hint: "Mentor skill submissions" },
