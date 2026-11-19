@@ -235,7 +235,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
     e.preventDefault();
     if (!editingStudentLog) return;
     if (!editingStudentLog.title.trim()) {
-      toast({ title: "Title Required", message: "Please enter a headline for the concern.", type: "warning" });
+      toast("Please enter a headline for the concern.", "warning");
       return;
     }
 
@@ -255,11 +255,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       });
 
       if (res?.success) {
-        toast({
-          title: "Concern Updated",
-          message: "Student concern / achievement record updated successfully.",
-          type: "success"
-        });
+        toast("Student concern / achievement record updated successfully.", "success");
 
         // Update data in place
         setData((prev) => {
@@ -315,18 +311,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
 
         setEditingStudentLog(null);
       } else {
-        toast({
-          title: "Update Failed",
-          message: res?.error || res?.message || "Failed to update student concern.",
-          type: "error"
-        });
+        toast(res?.error || res?.message || "Failed to update student concern.", "error");
       }
     } catch (err: any) {
-      toast({
-        title: "Network Error",
-        message: err.message || "Failed to communicate with server.",
-        type: "error"
-      });
+      toast(err?.message || "Failed to communicate with server.", "error");
     } finally {
       setIsSavingStudentLog(false);
     }
@@ -339,11 +327,11 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
     e.preventDefault();
     if (!loggingMentorConcern) return;
     if (!loggingMentorConcern.mentor_id) {
-      toast({ title: "Mentor Required", message: "Please select a faculty mentor.", type: "warning" });
+      toast("Please select a faculty mentor.", "warning");
       return;
     }
     if (!loggingMentorConcern.title.trim()) {
-      toast({ title: "Title Required", message: "Please enter a headline for the mentor concern.", type: "warning" });
+      toast("Please enter a headline for the mentor concern.", "warning");
       return;
     }
 
@@ -366,26 +354,14 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       });
 
       if (res?.success) {
-        toast({
-          title: "Concern Logged",
-          message: "Faculty mentor concern recorded successfully.",
-          type: "success"
-        });
+        toast("Faculty mentor concern recorded successfully.", "success");
         setLoggingMentorConcern(null);
         await fetchConcerns();
       } else {
-        toast({
-          title: "Failed to Log Concern",
-          message: res?.error || res?.message || "Failed to log concern.",
-          type: "error"
-        });
+        toast(res?.error || res?.message || "Failed to log concern.", "error");
       }
     } catch (err: any) {
-      toast({
-        title: "Network Error",
-        message: err.message || "Failed to communicate with server.",
-        type: "error"
-      });
+      toast(err?.message || "Failed to communicate with server.", "error");
     } finally {
       setIsSavingMentorConcern(false);
     }
@@ -404,26 +380,14 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       });
 
       if (res?.success) {
-        toast({
-          title: "Concern Updated",
-          message: "Mentor concern updated successfully.",
-          type: "success"
-        });
+        toast("Mentor concern updated successfully.", "success");
         setEditingMentorConcern(null);
         await fetchConcerns();
       } else {
-        toast({
-          title: "Failed to Update",
-          message: res?.error || res?.message || "Failed to update concern.",
-          type: "error"
-        });
+        toast(res?.error || res?.message || "Failed to update concern.", "error");
       }
     } catch (err: any) {
-      toast({
-        title: "Network Error",
-        message: err.message || "Failed to communicate with server.",
-        type: "error"
-      });
+      toast(err?.message || "Failed to communicate with server.", "error");
     } finally {
       setIsUpdatingMentorConcern(false);
     }
@@ -436,13 +400,13 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
         method: "DELETE"
       });
       if (res?.success) {
-        toast({ title: "Concern Removed", message: "Mentor concern deleted successfully.", type: "success" });
+        toast("Mentor concern deleted successfully.", "success");
         await fetchConcerns();
       } else {
-        toast({ title: "Delete Failed", message: res?.error || "Could not delete concern.", type: "error" });
+        toast(res?.error || "Could not delete concern.", "error");
       }
     } catch (err: any) {
-      toast({ title: "Error", message: err.message || "Failed to delete concern.", type: "error" });
+      toast(err?.message || "Failed to delete concern.", "error");
     }
   };
 
