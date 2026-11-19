@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 // POST /api/mentor/student-logs
 export async function POST(request: Request) {
   try {
-    const { auth, errorResponse } = await requireAuth(request);
+    const { auth, errorResponse } = await requireAuth(request, { checkCsrf: false, allowedRoles: ["mentor", "cm", "kam", "admin"] });
     if (errorResponse) return errorResponse;
 
     await ensureMigration("student_concerns_log_table");
@@ -172,7 +172,7 @@ export async function POST(request: Request) {
 // DELETE /api/mentor/student-logs?id=...
 export async function DELETE(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request);
+    const { errorResponse } = await requireAuth(request, { checkCsrf: false, allowedRoles: ["mentor", "cm", "kam", "admin"] });
     if (errorResponse) return errorResponse;
 
     const db = await getDb();
