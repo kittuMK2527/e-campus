@@ -18,6 +18,7 @@ const normalizeCmTab = (t: string): string => {
   if (t === "weekly-plan") return "faculty_weekly_plan";
   if (t === "academic-tracker") return "academic_tracker";
   if (t === "exams" || t === "marks") return "exams_and_marks";
+  if (t === "concern") return "concerns";
   return t;
 };
 

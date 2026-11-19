@@ -8734,14 +8734,18 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     "skill-tracker": "mentor_skill_tracker",
     "demo": "demo_schedule",
     "demos": "demo_schedule",
-    "analytics": "reports"
+    "analytics": "reports",
+    "concern": "concerns",
+    "concerns": "concerns",
+    "campus_log": "concerns",
+    "campus-log": "concerns"
   };
 
   const CAM_TAB_IDS: CAMTabId[] = [
     "overview", "config", "curriculum", "academic_tracker", "exams_and_marks", "audit", "faculty",
     "timetable", "monitoring", "handovers", "reports", "tasks", "profile", "tracker", "fees",
     "students_list", "more_menu", "mentor_attendance", "interviews", "events", "faculty_weekly_plan",
-    "mentor_skill_tracker", "demo_schedule", "profile_edits"
+    "mentor_skill_tracker", "demo_schedule", "profile_edits", "concerns"
   ];
 
   // Unrecognised slugs (e.g. stale notification links kept in the notifications table)
@@ -8782,7 +8786,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
             "attendance": "monitoring",
             "audit": "audit",
             "campus-audit": "audit",
-            "e-audit": "audit"
+            "e-audit": "audit",
+            "concern": "concerns",
+            "concerns": "concerns"
           };
           const mapped = tabAliases[rawTab] || rawTab;
           if (mapped) setActiveTab(mapped as any);
@@ -9029,7 +9035,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       setExpandedGroups({ dashboard: true });
     } else if (["config", "curriculum", "exams_and_marks", "academic_tracker"].includes(activeTab)) {
       setExpandedGroups({ academics: true });
-    } else if (["faculty", "handovers", "faculty_weekly_plan", "demo_schedule"].includes(activeTab)) {
+    } else if (["faculty", "handovers", "faculty_weekly_plan", "demo_schedule", "mentor_skill_tracker", "concerns"].includes(activeTab)) {
       setExpandedGroups({ faculty: true });
     } else if (["timetable", "monitoring", "interviews"].includes(activeTab)) {
       setExpandedGroups({ schedules: true });
