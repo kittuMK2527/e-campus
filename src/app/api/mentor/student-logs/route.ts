@@ -169,6 +169,84 @@ export async function POST(request: Request) {
   }
 }
 
+// PUT /api/mentor/student-logs
+export async function PUT(request: Request) {
+  try {
+    const { auth, errorResponse } = await requireAuth(request, { checkCsrf: false, allowedRoles: ["cm", "kam", "admin", "mentor"] });
+    if (errorResponse) return errorResponse;
+
+    await ensureMigration("student_concerns_log_table");
+    const db = await getDb();
+
+    const body = await request.json();
+    const { id, title, details, category, metrics, status } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, message: "id is required" }, { status: 400 });
+    }
+
+    const existing = await db.get("SELECT * FROM student_concerns_log WHERE id = ?", [id]);
+    if (!existing) {
+      return NextResponse.json({ success: false, message: "Student log not found" }, { status: 404 });
+    }
+
+    const updatedTitle = title !== undefined ? title.trim() : existing.title;
+    const updatedDetails = details !== undefined ? details.trim() : existing.details;
+    const updatedCategory = category || existing.category;
+    const updatedStatus = status || existing.status || "active";
+    const updatedMetricsJson = metrics !== undefined ? (metrics ? JSON.stringify(metrics) : null) : existing.metrics_json;
+
+    await db.run(
+      `UPDATE student_concerns_log
+       SET title = ?, details = ?, category = ?, metrics_json = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [updatedTitle, updatedDetails, updatedCategory, updatedMetricsJson, updatedStatus, id]
+    );
+
+    // If updated as achievement, sync with student_achievements
+    if (updatedCategory === "achievement" && existing.college_id) {
+      try {
+        await ensureMigration("student_achievements_table");
+        const existingAch = await db.get(
+          "SELECT id FROM student_achievements WHERE college_id = ? AND title = ? LIMIT 1",
+          [existing.college_id, existing.title]
+        );
+        if (existingAch) {
+          await db.run(
+            `UPDATE student_achievements
+             SET title = ?, description = ?, achievement_type = ?, proof_url = ?
+             WHERE id = ?`,
+            [
+              updatedTitle,
+              updatedDetails,
+              metrics?.achievementType || "Academic/Coding",
+              metrics?.proofUrl || metrics?.certUrl || "",
+              existingAch.id
+            ]
+          );
+        }
+      } catch (err: any) {
+        console.warn("Achievement sync update note:", err?.message);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Student concern updated successfully",
+      log: {
+        id,
+        title: updatedTitle,
+        details: updatedDetails,
+        category: updatedCategory,
+        status: updatedStatus
+      }
+    });
+  } catch (error: any) {
+    console.error("PUT /api/mentor/student-logs error:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}
+
 // DELETE /api/mentor/student-logs?id=...
 export async function DELETE(request: Request) {
   try {

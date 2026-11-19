@@ -1032,6 +1032,37 @@ const migrations: Migration[] = [
     }
   },
   {
+    name: "mentor_concerns_log_table",
+    run: async (db) => {
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS mentor_concerns_log (
+          id VARCHAR(100) PRIMARY KEY,
+          college_id VARCHAR(100) NOT NULL,
+          mentor_id VARCHAR(100) NOT NULL,
+          mentor_name VARCHAR(255) NOT NULL,
+          logged_by_id VARCHAR(100) NOT NULL,
+          logged_by_name VARCHAR(255) NOT NULL,
+          logged_by_role VARCHAR(50) NOT NULL DEFAULT 'cm',
+          category VARCHAR(50) NOT NULL,
+          severity VARCHAR(50) NOT NULL DEFAULT 'medium',
+          title VARCHAR(255) NOT NULL,
+          details TEXT,
+          action_required TEXT,
+          resolution_notes TEXT,
+          status VARCHAR(50) DEFAULT 'open',
+          target_date VARCHAR(50),
+          resolved_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_mcl_college ON mentor_concerns_log(college_id);
+        CREATE INDEX IF NOT EXISTS idx_mcl_mentor ON mentor_concerns_log(mentor_id);
+        CREATE INDEX IF NOT EXISTS idx_mcl_status ON mentor_concerns_log(status);
+        CREATE INDEX IF NOT EXISTS idx_mcl_category ON mentor_concerns_log(category);
+      `).catch((err: any) => console.warn("[migrations] mentor_concerns_log_table:", err?.message || err));
+    }
+  },
+  {
     name: "course_constant_meet_link_and_missed_demos",
     run: async (db) => {
       await db.exec(`

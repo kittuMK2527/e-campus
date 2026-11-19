@@ -14,6 +14,7 @@ export async function GET(request: Request) {
     if (errorResponse) return errorResponse;
 
     await ensureMigration("student_concerns_log_table");
+    await ensureMigration("mentor_concerns_log_table");
     const db = await getDb();
 
     const { searchParams } = new URL(request.url);
@@ -181,6 +182,22 @@ export async function GET(request: Request) {
       console.warn("Direct achievements read fallback:", e?.message);
     }
 
+    // Fetch CM-logged Mentor Concerns
+    let mentorConcernsLogs: any[] = [];
+    try {
+      mentorConcernsLogs = await db.all(
+        `SELECT id, college_id, mentor_id, mentor_name, logged_by_id, logged_by_name,
+                logged_by_role, category, severity, title, details, action_required,
+                resolution_notes, status, target_date, resolved_at, created_at, updated_at
+         FROM mentor_concerns_log
+         WHERE college_id IN (${placeholders})
+         ORDER BY created_at DESC LIMIT 200`,
+        targetCollegeIds
+      );
+    } catch (e: any) {
+      console.warn("Mentor concerns logs read fallback:", e?.message);
+    }
+
     // 9. Synthesize Student Concerns Dossiers
     const studentConcerns = studentsSummary.map((s: any) => {
       const sLogs = studentLogs.filter((l: any) => l.student_id === s.id);
@@ -233,6 +250,8 @@ export async function GET(request: Request) {
           String(t.assigned_to_name || "").toLowerCase() === m.name.toLowerCase() ||
           String(t.description || "").toLowerCase().includes(m.name.toLowerCase())
       );
+      const cmConcerns = mentorConcernsLogs.filter((l: any) => l.mentor_id === m.id);
+      const openCmConcerns = cmConcerns.filter((l: any) => l.status !== "resolved");
 
       const skillScore = audit ? Number(audit.skill_score || 0) : 85;
       const cwScore = audit ? Number(audit.coursework_score || 0) : 85;
@@ -254,6 +273,9 @@ export async function GET(request: Request) {
         is_low_audit: composite < 70,
         tickets_count: mTickets.length,
         tickets: mTickets,
+        cm_concerns: cmConcerns,
+        cm_concerns_count: cmConcerns.length,
+        cm_open_concerns_count: openCmConcerns.length,
         last_punch: punch
           ? {
               status: punch.status,
@@ -271,7 +293,9 @@ export async function GET(request: Request) {
       totalStudents: studentsSummary.length,
       totalMentors: mentorsSummary.length,
       totalConcernsLogged: studentLogs.length,
+      totalMentorConcernsLogged: mentorConcernsLogs.length,
       openComplaintsCount: studentLogs.filter((l: any) => l.category === "complaint").length,
+      openMentorConcernsCount: mentorConcernsLogs.filter((l: any) => l.status !== "resolved").length,
       lowAttendanceStudentsCount: studentConcerns.filter((s: any) => s.is_low_attendance).length,
       feeDefaultersCount: studentConcerns.filter((s: any) => s.is_fee_defaulter).length,
       lowAuditMentorsCount: mentorConcerns.filter((m: any) => m.is_low_audit).length
@@ -283,7 +307,8 @@ export async function GET(request: Request) {
         studentConcerns,
         mentorConcerns,
         clusterRollup,
-        recentLogs: studentLogs.slice(0, 30)
+        recentLogs: studentLogs.slice(0, 30),
+        recentMentorConcerns: mentorConcernsLogs.slice(0, 30)
       }
     });
   } catch (error: any) {
