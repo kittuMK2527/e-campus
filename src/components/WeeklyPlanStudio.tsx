@@ -933,8 +933,8 @@ export const MentorWeeklyPlanStudio: React.FC<MentorWeeklyPlanStudioProps> = ({
           t.dayOrder || "",
           weekLabel,
           t.periodSlot || resolvedPeriodSlots[idx % resolvedPeriodSlots.length] || `Period ${idx + 1}`,
-          "",   // Topic — mentor fills
-          ""    // Description — mentor fills
+          t.topic || "",   // Pre-fills if topic already planned; otherwise blank for mentor entry
+          t.objectives || (t as any).description || "" // Pre-fills objectives/description if present
         ];
 
         const isAlt = idx % 2 !== 0;

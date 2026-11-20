@@ -97,15 +97,18 @@ export async function buildLndDemoTemplate(
   }
 
   // Filter mentors: if specific group selected, filter by that subject group (matching mentor_group, subject_group, or department)
-  const relevantMentors = !isAll
-    ? mentors.filter(m => {
-        if (!m) return false;
-        const mg = getMentorGroup(m).toLowerCase().trim();
-        const sg = (m.subject_group || "").toLowerCase().trim();
-        const dept = (m.department || "").toLowerCase().trim();
-        return mg === targetGroupLower || sg === targetGroupLower || dept === targetGroupLower;
-      })
-    : mentors;
+  const isMentorMatch = (m: any) => {
+    if (isAll) return true;
+    if (!m) return false;
+    const mg = (getMentorGroup(m) || "").toLowerCase().trim();
+    const sg = (m.subject_group || "").toLowerCase().trim();
+    const dept = (m.department || "").toLowerCase().trim();
+    if (mg === targetGroupLower || sg === targetGroupLower || dept === targetGroupLower) return true;
+    if (targetGroupLower === "cs" && (mg.includes("cs") || mg.includes("computer") || sg.includes("cs") || dept.includes("cs"))) return true;
+    if (targetGroupLower.length >= 3 && (mg.includes(targetGroupLower) || sg.includes(targetGroupLower) || dept.includes(targetGroupLower))) return true;
+    return false;
+  };
+  const relevantMentors = mentors.filter(isMentorMatch);
 
   // Filter SMEs: if specific group selected, filter by that subject group, otherwise include all SMEs
   const relevantSmes = !isAll
@@ -510,7 +513,7 @@ export async function buildLndDemoTemplate(
 
   // One pre-filled row per eligible mentor, pinned to the first period they are genuinely free in
   applicableColleges.forEach(colObj => {
-    const colMentors = relevantMentors.filter(m => m.college_id === colObj.id);
+    const colMentors = relevantMentors.filter(m => m.college_id === colObj.id || m.collegeId === colObj.id);
 
     colMentors.forEach((m) => {
       // Resolve canonical subject group: if a specific group was chosen, pin to targetGroup;

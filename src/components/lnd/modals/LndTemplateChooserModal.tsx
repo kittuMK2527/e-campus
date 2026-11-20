@@ -137,7 +137,7 @@ export default function LndTemplateChooserModal({
             </div>
           )}
   
-          {/* Subject Group / Scope Selector (Admin-created Subject Groups) */}
+          {/* Subject Group / Scope Selector (Admin-created Subject Groups & Mentor Groups) */}
           {(() => {
             const availableGroups = (() => {
               const list: string[] = [];
@@ -147,8 +147,16 @@ export default function LndTemplateChooserModal({
                   if (name && name.trim()) list.push(name.trim());
                 });
               }
-              if (list.length === 0 && mentorGroups && mentorGroups.length > 0) {
-                list.push(...mentorGroups);
+              // Always include mentor groups from system configuration
+              if (mentorGroups && mentorGroups.length > 0) {
+                mentorGroups.forEach(g => { if (g && g.trim()) list.push(g.trim()); });
+              }
+              // Extract from active mentors list as fallback so mentors are never orphaned
+              if (mentors && Array.isArray(mentors)) {
+                mentors.forEach(m => {
+                  const g = getMentorGroup(m);
+                  if (g && g !== "General" && g.trim()) list.push(g.trim());
+                });
               }
               return Array.from(new Set(list)).sort((a, b) => a.localeCompare(b));
             })();
@@ -157,15 +165,19 @@ export default function LndTemplateChooserModal({
             const isAllGroups = activeGroup === "All";
             const targetLower = activeGroup.toLowerCase().trim();
 
-            const groupMentors = isAllGroups
-              ? mentors
-              : mentors.filter(m => {
-                  if (!m) return false;
-                  const mg = getMentorGroup(m).toLowerCase().trim();
-                  const sGroup = (m.subject_group || "").toLowerCase().trim();
-                  const dept = (m.department || "").toLowerCase().trim();
-                  return mg === targetLower || sGroup === targetLower || dept === targetLower;
-                });
+            const isMentorMatch = (m: any) => {
+              if (isAllGroups) return true;
+              if (!m) return false;
+              const mg = (getMentorGroup(m) || "").toLowerCase().trim();
+              const sGroup = (m.subject_group || "").toLowerCase().trim();
+              const dept = (m.department || "").toLowerCase().trim();
+              if (mg === targetLower || sGroup === targetLower || dept === targetLower) return true;
+              if (targetLower === "cs" && (mg.includes("cs") || mg.includes("computer") || sGroup.includes("cs") || dept.includes("cs"))) return true;
+              if (targetLower.length >= 3 && (mg.includes(targetLower) || sGroup.includes(targetLower) || dept.includes(targetLower))) return true;
+              return false;
+            };
+
+            const groupMentors = mentors.filter(isMentorMatch);
             const groupSmes = isAllGroups
               ? smes
               : getSmesForSubjectGroup(activeGroup);
