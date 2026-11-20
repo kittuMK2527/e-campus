@@ -278,19 +278,17 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const [savingCourseMeet, setSavingCourseMeet] = useState(false);
 
   const handleSaveCourseMeet = async () => {
-    if (!selectedCourseForMeet) return;
     setSavingCourseMeet(true);
     try {
       const res = await apiFetch<any>("/api/courses/meet-link", {
         method: "POST",
         body: JSON.stringify({
-          courseId: selectedCourseForMeet.id,
-          courseName: selectedCourseForMeet.name,
+          subject: currentSME?.subject || "All Assigned Courses",
           meetLink: courseMeetInput.trim()
         })
       });
       if (res.success) {
-        toast("Course Google Meet link updated successfully!", "success");
+        toast("Permanent Google Meet link updated successfully!", "success");
         setShowCourseMeetModal(false);
         await refreshData();
       } else {
@@ -1205,9 +1203,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     <Video className="h-4 w-4" />
                   </div>
                   <div>
-                    <span className="text-[10px] font-black uppercase text-blue-700 dark:text-blue-300 block">Course Google Meet Link</span>
+                    <span className="text-[10px] font-black uppercase text-blue-700 dark:text-blue-300 block">Permanent Google Meet Link</span>
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                      {smeCourses.find((c: any) => c.google_meet_link)?.google_meet_link || "No permanent Meet link set yet for your course"}
+                      {currentSME?.google_meet_link || smeCourses.find((c: any) => c.google_meet_link)?.google_meet_link || "No permanent Meet link set yet for your domain"}
                     </span>
                   </div>
                 </div>
@@ -1217,6 +1215,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     const primary = smeCourses[0] || (coursesList && coursesList[0]) || null;
                     setSelectedCourseForMeet(primary);
                     setCourseMeetInput(
+                      currentSME?.google_meet_link ||
                       smeCourses.find((c: any) => c.google_meet_link)?.google_meet_link ||
                       primary?.google_meet_link ||
                       ""

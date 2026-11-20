@@ -27,7 +27,69 @@ export async function POST(request: Request) {
     const normalizedLink = trimmedLink ? normalizeGoogleMeetLink(trimmedLink) : null;
     const db = await getDb();
 
-    // Find course record
+    // Ensure google_meet_link column exists across sme_users, courses, and demo_sessions
+    await db.exec(`
+      ALTER TABLE sme_users ADD COLUMN IF NOT EXISTS google_meet_link TEXT;
+      ALTER TABLE courses ADD COLUMN IF NOT EXISTS google_meet_link TEXT;
+      ALTER TABLE demo_sessions ADD COLUMN IF NOT EXISTS meet_link TEXT;
+    `).catch(() => {});
+
+    // SME Role: Permanent link for SME's own subject domain and scheduled demo sessions
+    if (user.role === "sme") {
+      const smeProfile = await db.get(
+        "SELECT * FROM sme_users WHERE id = ? OR LOWER(email) = LOWER(?) LIMIT 1",
+        [user.reference_id || user.id, user.email]
+      ).catch(() => null);
+
+      const resolvedSmeSubject = (smeProfile?.subject || subject || "").trim();
+
+      // 1. Save on SME user profile
+      await db.run(
+        "UPDATE sme_users SET google_meet_link = ? WHERE id = ? OR LOWER(email) = LOWER(?)",
+        [normalizedLink, user.reference_id || user.id, user.email]
+      ).catch(() => {});
+
+      // 2. Update courses matching SME's subject domain (if any)
+      if (resolvedSmeSubject) {
+        await db.run(
+          "UPDATE courses SET google_meet_link = ? WHERE LOWER(TRIM(name)) LIKE ? OR LOWER(TRIM(code)) = ? OR LOWER(TRIM(name)) = LOWER(TRIM(?))",
+          [normalizedLink, `%${resolvedSmeSubject.toLowerCase()}%`, resolvedSmeSubject.toLowerCase(), resolvedSmeSubject.toLowerCase()]
+        ).catch(() => {});
+      }
+
+      // 3. If a specific courseId was passed, update that course as well
+      if (courseId) {
+        await db.run("UPDATE courses SET google_meet_link = ? WHERE id = ?", [normalizedLink, courseId]).catch(() => {});
+      }
+
+      // 4. Propagate permanent meet link to all upcoming demo sessions for this SME or subject
+      await db.run(
+        `UPDATE demo_sessions
+         SET meet_link = ?
+         WHERE (
+           smeId = ?
+           OR smeId = ?
+           OR (? != '' AND LOWER(TRIM(subject)) = LOWER(TRIM(?)))
+         )
+         AND status IN ('scheduled', 'confirmed')`,
+        [
+          normalizedLink,
+          user.reference_id || user.id,
+          user.id,
+          resolvedSmeSubject,
+          resolvedSmeSubject
+        ]
+      ).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: "Permanent Google Meet link saved successfully.",
+        subject: resolvedSmeSubject,
+        google_meet_link: normalizedLink
+      });
+    }
+
+    // Admin, CM, or KAM role updating course-specific links
     let course = null;
     if (courseId) {
       course = await db.get("SELECT * FROM courses WHERE id = ?", [courseId]);
@@ -38,59 +100,20 @@ export async function POST(request: Request) {
     if (!course && subject) {
       course = await db.get("SELECT * FROM courses WHERE LOWER(TRIM(name)) LIKE ? OR LOWER(TRIM(code)) = ? LIMIT 1", [`%${String(subject).toLowerCase().trim()}%`, String(subject).toLowerCase().trim()]);
     }
-    if (!course) {
-      course = await db.get("SELECT * FROM courses LIMIT 1");
-    }
-
-    // If SME, verify subject match or allow head SME
-    let resolvedSmeSubject = "";
-    if (user.role === "sme") {
-      const smeProfile = await db.get(
-        "SELECT * FROM sme_users WHERE id = ? OR LOWER(email) = LOWER(?) LIMIT 1",
-        [user.reference_id || user.id, user.email]
-      ).catch(() => null);
-      resolvedSmeSubject = (smeProfile?.subject || subject || "").toLowerCase().trim();
-      const courseMatch = course ? (course.name || "").toLowerCase().trim() : "";
-      const courseCodeMatch = course ? (course.code || "").toLowerCase().trim() : "";
-      const isMatch = !resolvedSmeSubject || !courseMatch || courseMatch.includes(resolvedSmeSubject) || resolvedSmeSubject.includes(courseMatch) || (courseCodeMatch && (courseCodeMatch === resolvedSmeSubject || courseCodeMatch.includes(resolvedSmeSubject))) || Boolean(smeProfile?.is_head_sme);
-      if (!isMatch) {
-        return NextResponse.json({ success: false, message: "Unauthorized: You can only set the Google Meet link for courses within your assigned subject domain." }, { status: 403 });
-      }
-    }
 
     if (course) {
       await db.run("UPDATE courses SET google_meet_link = ? WHERE id = ?", [normalizedLink, course.id]);
     }
 
-    if (user.role === "sme" && resolvedSmeSubject) {
-      await db.run(
-        "UPDATE courses SET google_meet_link = ? WHERE LOWER(TRIM(name)) LIKE ? OR LOWER(TRIM(code)) = ?",
-        [normalizedLink, `%${resolvedSmeSubject}%`, resolvedSmeSubject]
-      ).catch(() => {});
-    }
-
-    // Propagate constant link to upcoming demo sessions for this course / subject and for this SME
-    if (normalizedLink) {
+    if (normalizedLink && (course || subject)) {
+      const matchName = course ? course.name : (subject || "");
+      const matchCode = course ? (course.code || course.name) : (subject || "");
       await db.run(
         `UPDATE demo_sessions
          SET meet_link = ?
-         WHERE (
-           LOWER(TRIM(subject)) = LOWER(TRIM(?))
-           OR LOWER(TRIM(subject)) = LOWER(TRIM(?))
-           OR (? != '' AND LOWER(TRIM(subject)) = LOWER(TRIM(?)))
-           OR smeId = ?
-           OR smeId = ?
-         )
-         AND status IN ('scheduled', 'confirmed')`,
-        [
-          normalizedLink,
-          course ? course.name : "",
-          course ? (course.code || course.name) : "",
-          subject || "",
-          subject || "",
-          user.reference_id || user.id,
-          user.id
-        ]
+         WHERE (LOWER(TRIM(subject)) = LOWER(TRIM(?)) OR LOWER(TRIM(subject)) = LOWER(TRIM(?)))
+           AND status IN ('scheduled', 'confirmed')`,
+        [normalizedLink, matchName, matchCode]
       ).catch(() => {});
     }
 

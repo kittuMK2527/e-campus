@@ -1327,6 +1327,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     setCurrentShift,
     subjectsList,
     coursesList,
+    smes,
     students,
     studentAttendance,
     markAttendance,
@@ -4767,7 +4768,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             (c.name || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim() ||
                             (c.code || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim()
                           );
-                          const effectiveMeetLink = demo.meet_link || courseObj?.google_meet_link || null;
+                          const smeObj = (smes || []).find((s: any) => s.id === demo.smeId || s.name === demo.smeName);
+                          const effectiveMeetLink = demo.meet_link || smeObj?.google_meet_link || courseObj?.google_meet_link || null;
                           return (
                           <div key={demo.id} className="p-3 rounded-xl bg-slate-50/30 border border-slate-100 flex flex-col gap-1">
                             <div className="flex justify-between items-center">
@@ -10803,7 +10805,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             (c.name || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim() ||
                             (c.code || "").toLowerCase().trim() === (demo.subject || "").toLowerCase().trim()
                           );
-                          const effectiveMeetLink = demo.meet_link || courseObj?.google_meet_link || null;
+                          const smeObj = (smes || []).find((s: any) => s.id === demo.smeId || s.name === demo.smeName);
+                          const effectiveMeetLink = demo.meet_link || smeObj?.google_meet_link || courseObj?.google_meet_link || null;
                           const pendingRealloc = (demoReallocations || []).find(
                             (r: any) => (r.demo_session_id === demo.id || r.demoSessionId === demo.id) && r.status === "pending"
                           );
