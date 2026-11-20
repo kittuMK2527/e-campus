@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
+import { mapDayOrderToDayName } from "@/lib/utils";
 
 async function ensureTable(db: any) {
   // Schema + seed handled by the centralized migration runner (once per process)
@@ -31,8 +32,11 @@ export async function GET(req: NextRequest) {
       params.push(smeId);
     }
     if (day) {
-      sql += " AND LOWER(day_of_week) = LOWER(?)";
-      params.push(day);
+      const mapped = mapDayOrderToDayName(day, "");
+      const weekdayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"].indexOf(day.toLowerCase().trim()) + 1;
+      const dayOrderStr = weekdayOrder > 0 ? `Day ${weekdayOrder}` : day;
+      sql += " AND (LOWER(TRIM(day_of_week)) = LOWER(TRIM(?)) OR LOWER(TRIM(day_of_week)) = LOWER(TRIM(?)) OR UPPER(TRIM(day_of_week)) = UPPER(TRIM(?)))";
+      params.push(day, mapped || day, dayOrderStr);
     }
     if (slotType) {
       sql += " AND (slot_type = ? OR slot_type = 'both')";
@@ -62,9 +66,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Missing smeId" }, { status: 400 });
     }
 
-    // If a specific day is passed, clear that day's windows and re-insert
+    // If a specific day is passed, clear that day's windows (handling both Day Order & Weekday Name) and re-insert
     if (day) {
-      await db.run("DELETE FROM sme_availability WHERE sme_id = ? AND LOWER(day_of_week) = LOWER(?)", smeId, day);
+      const mapped = mapDayOrderToDayName(day, "");
+      const weekdayOrder = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"].indexOf(day.toLowerCase().trim()) + 1;
+      const dayOrderStr = weekdayOrder > 0 ? `Day ${weekdayOrder}` : day;
+      await db.run(
+        "DELETE FROM sme_availability WHERE sme_id = ? AND (LOWER(TRIM(day_of_week)) = LOWER(TRIM(?)) OR LOWER(TRIM(day_of_week)) = LOWER(TRIM(?)) OR UPPER(TRIM(day_of_week)) = UPPER(TRIM(?)))",
+        [smeId, day, mapped || day, dayOrderStr]
+      );
       if (Array.isArray(windows)) {
         for (const w of windows) {
           if (w.startTime && w.endTime) {

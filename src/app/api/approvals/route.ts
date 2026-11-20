@@ -218,10 +218,66 @@ export async function PUT(request: Request) {
           }
         }
       } else if (module_type === "faculty_leave") {
+        const normalizedLeaveStatus = status === "approved" ? "approved" : "rejected";
         await tx.run(
           "UPDATE faculty_leave_requests SET status = ?, updated_at = ? WHERE id = ?",
-          [status === "approved" ? "Approved" : "Rejected", now, request_id]
+          [normalizedLeaveStatus, now, request_id]
         );
+        if (normalizedLeaveStatus === "approved") {
+          const leave = await tx.get(
+            "SELECT id, mentor_id, start_date, end_date FROM faculty_leave_requests WHERE id = ?",
+            [request_id]
+          );
+          if (leave?.mentor_id && leave?.start_date) {
+            const sDate = String(leave.start_date).slice(0, 10);
+            const eDate = String(leave.end_date || leave.start_date).slice(0, 10);
+            const affectedDemos = await tx.all(
+              `SELECT * FROM demo_sessions 
+               WHERE mentorId = ? AND dateStr >= ? AND dateStr <= ? 
+                 AND status IN ('scheduled', 'confirmed')`,
+              [leave.mentor_id, sDate, eDate]
+            );
+            for (const ds of affectedDemos || []) {
+              const existingReq = await tx.get(
+                "SELECT id FROM demo_reallocation_requests WHERE demo_session_id = ? AND status = 'pending'",
+                [ds.id]
+              );
+              if (!existingReq) {
+                const reqId = generateId("drr");
+                await tx.run(
+                  `INSERT INTO demo_reallocation_requests (
+                    id, demo_session_id, leave_request_id, mentor_id, mentor_name,
+                    sme_id, sme_name, subject, stream, week,
+                    original_date_str, original_time_slot, proposed_date_str, proposed_time_slot,
+                    reason, status, proposed_by, created_at
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+                  [
+                    reqId, ds.id, leave.id, ds.mentorId, ds.mentorName,
+                    ds.smeId, ds.smeName, ds.subject, ds.stream, ds.week,
+                    ds.dateStr, ds.timeSlot, ds.dateStr, ds.timeSlot,
+                    `Mentor on approved leave (${sDate} to ${eDate})`,
+                    approver_name || "Approver", now
+                  ]
+                );
+              }
+              await tx.run(
+                "UPDATE demo_sessions SET status = 'reallocation_required' WHERE id = ?",
+                [ds.id]
+              );
+              if (ds.smeId) {
+                await dispatchSystemNotification(tx, {
+                  userIds: [ds.smeId],
+                  title: "L&D Session Reallocation Required",
+                  message: `Mentor ${ds.mentorName} is on approved faculty leave on ${ds.dateStr}. Session for ${ds.subject} requires reallocation.`,
+                  type: "alert",
+                  link: "/sme?tab=reallocation",
+                  domain: "demos",
+                  action: "reallocated"
+                }).catch(() => {});
+              }
+            }
+          }
+        }
       } else if (module_type === "interview") {
         await tx.run(
           "UPDATE student_interviews SET status = ?, updated_at = ? WHERE id = ?",

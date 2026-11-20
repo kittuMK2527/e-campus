@@ -8,11 +8,11 @@ import { generateId } from "@/lib/id";
 import { dispatchSystemNotification } from "@/lib/notifications";
 import { ensureMigration } from "@/lib/migrations";
 import { checkMentorAvailability, checkSmeAvailability } from "@/lib/availability";
-import { getInstitutionDateStr, parseLocalDate } from "@/lib/localDate";
+import { getInstitutionDateStr, parseLocalDate, getInstitutionCurrentMinutes } from "@/lib/localDate";
 
 function parseTimeToMinutes(t: string): number {
   if (!t) return -1;
-  const m = String(t).trim().match(/^(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/i);
+  const m = String(t).trim().match(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/i);
   if (!m) return -1;
   let hr = parseInt(m[1], 10);
   const min = m[2] ? parseInt(m[2], 10) : 0;
@@ -23,12 +23,26 @@ function parseTimeToMinutes(t: string): number {
 }
 
 function parseTimeSlotRange(value: string): { start: number; end: number } {
-  const match = String(value || "").match(/(\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)\s*[-–]\s*(\d{1,2}(?:[:.]\d{2})?\s*(?:AM|PM)?)/i);
-  if (!match) {
-    const start = parseTimeToMinutes(value);
-    return { start, end: start };
+  const matches = Array.from(String(value || "").matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
+  if (matches.length >= 2) {
+    let s = parseTimeToMinutes(matches[0][0]);
+    let e = parseTimeToMinutes(matches[1][0]);
+    const m1Ampm = matches[0][3];
+    const m2Ampm = matches[1][3];
+    if (!m1Ampm && m2Ampm) {
+      const sHr = parseInt(matches[0][1], 10);
+      const eHr = parseInt(matches[1][1], 10);
+      if (m2Ampm.toUpperCase() === "PM" && sHr < 12 && sHr <= eHr) {
+        s += 12 * 60;
+      }
+    }
+    return { start: s, end: Math.max(s, e) };
   }
-  return { start: parseTimeToMinutes(match[1]), end: parseTimeToMinutes(match[2]) };
+  if (matches.length === 1) {
+    const s = parseTimeToMinutes(matches[0][0]);
+    return { start: s, end: s + 50 };
+  }
+  return { start: -1, end: -1 };
 }
 
 /**
@@ -565,11 +579,10 @@ export async function POST(request: Request) {
         }, { status: 403 });
       }
 
-      // It is today: check scheduled time slot
+      // It is today: check scheduled time slot in institution timezone (Asia/Kolkata)
       const slotRange = parseTimeSlotRange(session.timeSlot || "");
       if (slotRange.start >= 0 && slotRange.end >= 0) {
-        const now = new Date();
-        const curMin = now.getHours() * 60 + now.getMinutes();
+        const curMin = getInstitutionCurrentMinutes();
         if (curMin < slotRange.start) {
           const waitMins = slotRange.start - curMin;
           return NextResponse.json({
@@ -577,7 +590,8 @@ export async function POST(request: Request) {
             message: `Evaluation locked: Demo session starts in ${waitMins} minute(s). Evaluation opens when the session begins.`
           }, { status: 403 });
         }
-        if (curMin > slotRange.end + 15) {
+        // Grace period: allow evaluation during session and up to 45 minutes after end
+        if (curMin > slotRange.end + 45) {
           return NextResponse.json({
             success: false,
             message: `Evaluation window closed: Scheduled slot (${session.timeSlot}) has expired. Expired sessions cannot be evaluated and must be formally rescheduled.`

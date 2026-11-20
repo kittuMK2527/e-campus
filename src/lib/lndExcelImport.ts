@@ -36,6 +36,18 @@ export function isGridDayLabel(v: string): boolean {
   );
 }
 
+/** Case-insensitive, punctuation-tolerant column getter for flexible user Excel imports. */
+function findRowValue(row: Record<string, any>, candidateKeys: string[], fallback: string = ""): string {
+  if (!row || typeof row !== "object") return fallback;
+  const normCandidates = candidateKeys.map(k => k.toLowerCase().replace(/[^a-z0-9]/g, ""));
+  for (const [k, v] of Object.entries(row)) {
+    if (v === undefined || v === null || String(v).trim() === "") continue;
+    const cleanKey = k.toLowerCase().replace(/[^a-z0-9]/g, "");
+    if (normCandidates.includes(cleanKey)) return String(v).trim();
+  }
+  return fallback;
+}
+
 /** Read a downloaded L&D template back into allocation rows. Never throws; reports through the outcome. */
 export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContext): Promise<LndImportOutcome> {
   const snap = ctx.snap;
@@ -191,14 +203,15 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
             });
           });
         } else {
-          const rawCollege = String(row["College / Campus"] || row["College"] || row["college"] || row["Campus"] || sheetCollegeName || "").trim();
-          const rawDay = String(row["Day / Date"] || row["Day of Week"] || row["Day"] || row["day"] || row["Day Order"] || row["Date"] || row["date"] || "").trim();
-          const rawTime = String(row["Time Slot / Period"] || row["Time Slot"] || row["Time"] || row["time"] || row["Period"] || "").trim();
-          const rawMentor = String(row["Faculty / Mentor"] || row["Faculty"] || row["Mentor"] || row["mentor"] || "").trim();
-          const rawSme = String(row["Assigned SME (Optional)"] || row["Assigned SME"] || row["SME"] || row["sme"] || row["Evaluator"] || "").trim();
-          const rawSubject = String(row["Department / Subject Group"] || row["Department / Group"] || row["Subject Group"] || row["Subject"] || row["subject"] || row["Department"] || currentTargetGroup).trim();
-          const rawStream = String(row["Class Cohort / Stream"] || row["Class Cohort"] || row["Class Group"] || row["Stream"] || row["stream"] || "").trim();
-          const rawWeek = parseInt(String(row["Week Number"] || row["Week"] || selectedWeek || "1"), 10) || selectedWeek || 1;
+          const rawCollege = findRowValue(row, ["College / Campus", "College", "Campus", "College Name", "Campus Name", "Institution"], sheetCollegeName || "");
+          const rawDay = findRowValue(row, ["Day / Date", "Day of Week", "Day", "Day Order", "Date", "Day Date", "Weekday"]);
+          const rawTime = findRowValue(row, ["Time Slot / Period", "Time Slot", "Time", "Period", "Slot", "Timing", "TimeSlot", "Hours", "Period / Time"]);
+          const rawMentor = findRowValue(row, ["Faculty / Mentor", "Faculty", "Mentor", "Faculty Name", "Mentor Name", "Staff Name", "Trainer", "Teacher", "Staff"]);
+          const rawSme = findRowValue(row, ["Assigned SME (Optional)", "Assigned SME", "SME", "SME Name", "Evaluator", "Evaluator Name", "Assigned Evaluator"]);
+          const rawSubject = findRowValue(row, ["Department / Subject Group", "Department / Group", "Subject Group", "Subject", "Department", "Course", "Track"], currentTargetGroup);
+          const rawStream = findRowValue(row, ["Class Cohort / Stream", "Class Cohort", "Class Group", "Stream", "Cohort", "Batch", "Section", "Class"]);
+          const rawWeekVal = findRowValue(row, ["Week Number", "Week", "Week No", "Week #"]);
+          const rawWeek = parseInt(rawWeekVal || String(selectedWeek || "1"), 10) || selectedWeek || 1;
 
           const isUnavailabilityNote = /no free period|no free faculty|no timetable/i.test(rawDay) || /no free period|no free faculty|no timetable/i.test(rawTime);
 
@@ -215,6 +228,8 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
               sheetName,
               rowNum: rIdx + 2
             });
+          } else if ((rawMentor || rawDay) && !rawTime && !isUnavailabilityNote) {
+            warnings.push(`[${sheetName}] Row ${rIdx + 2}: Skipped row for '${rawMentor || "entry"}' because time slot/period column could not be detected.`);
           }
         }
       });

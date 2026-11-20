@@ -62,3 +62,27 @@ export function shiftDateStr(dateStr: string, days: number): string {
   shifted.setUTCDate(shifted.getUTCDate() + days);
   return shifted.toISOString().slice(0, 10);
 }
+
+/**
+ * Current time in minutes from midnight (0..1439) in the institution's timezone (Asia/Kolkata).
+ * Eliminates serverless UTC drift where new Date().getHours() is 5.5 hours behind IST.
+ */
+export function getInstitutionCurrentMinutes(
+  at: Date = new Date(),
+  timeZone: string = INSTITUTION_TIME_ZONE
+): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "numeric",
+    hour12: false,
+  }).formatToParts(at);
+  let hour = 0;
+  let minute = 0;
+  for (const p of parts) {
+    if (p.type === "hour") hour = parseInt(p.value, 10);
+    if (p.type === "minute") minute = parseInt(p.value, 10);
+  }
+  if (hour === 24) hour = 0;
+  return hour * 60 + minute;
+}

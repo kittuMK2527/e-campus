@@ -415,11 +415,21 @@ export async function PATCH(request: Request) {
       await dispatchSystemNotification(db, {
         userIds: [updated.mentor_id],
         title: "Weekly Plan Approved",
-        message: `Your Weekly Plan for ${updated.subject || "your subject"} (Week ${updated.week_number || ""}) has been approved by ${effectiveVerifier}.`,
+        message: `Your Weekly Plan for ${updated.subject || "your subject"} (Week ${updated.week_number || ""}) has been approved by ${effectiveVerifier}.${effectiveRemarks ? ` Remarks: "${effectiveRemarks}"` : ""}`,
         link: "/mentor/weekly-plan",
         type: "success",
         domain: "weekly_plan",
         action: "verified",
+      }).catch((e) => console.error("Failed to insert notification:", e));
+    } else if (status === "Needs Revision" && updated && updated.mentor_id) {
+      await dispatchSystemNotification(db, {
+        userIds: [updated.mentor_id],
+        title: "Weekly Plan Revision Requested",
+        message: `Your Weekly Plan for ${updated.subject || "your subject"} (Week ${updated.week_number || ""}) requires revision per ${effectiveVerifier}.${effectiveRemarks ? ` Feedback: "${effectiveRemarks}"` : ""}`,
+        link: "/mentor/weekly-plan",
+        type: "alert",
+        domain: "weekly_plan",
+        action: "needs_revision",
       }).catch((e) => console.error("Failed to insert notification:", e));
     }
 

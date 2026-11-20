@@ -541,6 +541,9 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
         setVerdictRemarks("");
         await queryClient.invalidateQueries({ queryKey: qk.skillTracker(collegeId || "all", mentorId) });
         queryClient.invalidateQueries({ queryKey: ["skill-development"] });
+        queryClient.invalidateQueries({ queryKey: ["mentor-skill-clearances"] });
+        queryClient.invalidateQueries({ queryKey: ["weekly-plan"] });
+        queryClient.invalidateQueries({ queryKey: ["faculty-concerns"] });
       } else {
         toast(data.message || "Failed to save verdict", "error");
       }

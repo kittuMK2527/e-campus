@@ -472,6 +472,59 @@ export async function POST(request: Request) {
                   params
                 );
               }
+
+              // Auto-flag affected demo sessions for L&D / SME reallocation
+              try {
+                const sDate = String(leaveReq.start_date).slice(0, 10);
+                const eDate = String(leaveReq.end_date || leaveReq.start_date).slice(0, 10);
+                const affectedDemos = await tx.all(
+                  `SELECT * FROM demo_sessions 
+                   WHERE mentorId = ? AND dateStr >= ? AND dateStr <= ? 
+                     AND status IN ('scheduled', 'confirmed')`,
+                  [leaveReq.mentor_id, sDate, eDate]
+                );
+                for (const ds of affectedDemos || []) {
+                  const existingReq = await tx.get(
+                    "SELECT id FROM demo_reallocation_requests WHERE demo_session_id = ? AND status = 'pending'",
+                    [ds.id]
+                  );
+                  if (!existingReq) {
+                    const reqId = generateId("drr");
+                    await tx.run(
+                      `INSERT INTO demo_reallocation_requests (
+                        id, demo_session_id, leave_request_id, mentor_id, mentor_name,
+                        sme_id, sme_name, subject, stream, week,
+                        original_date_str, original_time_slot, proposed_date_str, proposed_time_slot,
+                        reason, status, proposed_by, created_at
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, CURRENT_TIMESTAMP)`,
+                      [
+                        reqId, ds.id, parentLeaveId, ds.mentorId, ds.mentorName,
+                        ds.smeId, ds.smeName, ds.subject, ds.stream, ds.week,
+                        ds.dateStr, ds.timeSlot, ds.dateStr, ds.timeSlot,
+                        `Mentor on approved leave (${sDate} to ${eDate})`,
+                        cleanApproverName || "Approver"
+                      ]
+                    );
+                  }
+                  await tx.run(
+                    "UPDATE demo_sessions SET status = 'reallocation_required' WHERE id = ?",
+                    [ds.id]
+                  );
+                  if (ds.smeId) {
+                    await dispatchSystemNotification(tx, {
+                      userIds: [ds.smeId],
+                      title: "L&D Session Reallocation Required",
+                      message: `Mentor ${ds.mentorName} is on approved faculty leave on ${ds.dateStr}. Session for ${ds.subject} requires reallocation.`,
+                      type: "alert",
+                      link: "/sme?tab=reallocation",
+                      domain: "demos",
+                      action: "reallocated"
+                    }).catch(() => {});
+                  }
+                }
+              } catch (demoSyncErr) {
+                console.warn("[requests/review] Demo reallocation sync failed:", demoSyncErr);
+              }
             }
           }
         } else if (status === "rejected") {

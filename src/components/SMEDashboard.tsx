@@ -328,11 +328,20 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     return `${String(hr).padStart(2, "0")}:${min} ${isPm ? "PM" : "AM"}`;
   };
 
-  // Helper to parse time string to minutes
+  // Helper to ensure external links have absolute https:// protocol
+  const ensureAbsoluteUrl = (url?: string | null): string => {
+    if (!url) return "";
+    const trimmed = String(url).trim();
+    if (!trimmed) return "";
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
+  // Helper to parse time string to minutes (supports period-prefixed, 12h & 24h formats)
   const parseTimeToMin = (t: string) => {
     if (!t) return 9999;
-    const str = t.trim();
-    const match = str.match(/^(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/i);
+    const str = String(t).trim();
+    const match = str.match(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/i);
     if (!match) return 9999;
     let hr = parseInt(match[1], 10);
     const min = match[2] ? parseInt(match[2], 10) : 0;
@@ -342,41 +351,33 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     return hr * 60 + min;
   };
 
-  // Helper to parse timetable time slot window into start & end minutes
+  // Helper to parse timetable time slot window into start & end minutes (handles period names)
   const parseSlotWindow = (t: string) => {
     if (!t) return { startMin: 0, endMin: 0 };
-    const parts = String(t).split(/[-–—]|to/i).map(s => s.trim());
-    let startStr = parts[0] || "";
-    let endStr = parts[1] || "";
-
-    const endAmpmMatch = endStr.match(/(AM|PM)/i);
-    const startAmpmMatch = startStr.match(/(AM|PM)/i);
-    if (!startAmpmMatch && endAmpmMatch) {
-      const endAmpm = endAmpmMatch[1].toUpperCase();
-      const startHourMatch = startStr.match(/^(\d{1,2})/);
-      const endHourMatch = endStr.match(/^(\d{1,2})/);
-      if (startHourMatch && endHourMatch) {
-        const sH = parseInt(startHourMatch[1], 10);
-        const eH = parseInt(endHourMatch[1], 10);
-        if (endAmpm === "PM" && sH < 12 && sH > eH) {
-          startStr = `${startStr} AM`;
-        } else {
-          startStr = `${startStr} ${endAmpm}`;
+    const matches = Array.from(String(t).matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
+    if (matches.length >= 2) {
+      let s = parseTimeToMin(matches[0][0]);
+      let e = parseTimeToMin(matches[1][0]);
+      const m1Ampm = matches[0][3];
+      const m2Ampm = matches[1][3];
+      if (!m1Ampm && m2Ampm) {
+        const sHr = parseInt(matches[0][1], 10);
+        const eHr = parseInt(matches[1][1], 10);
+        if (m2Ampm.toUpperCase() === "PM" && sHr < 12 && sHr <= eHr) {
+          s += 12 * 60;
         }
-      } else {
-        startStr = `${startStr} ${endAmpm}`;
       }
+      if (e <= s) e = s + 50;
+      return { startMin: Math.max(0, s), endMin: Math.max(s, e) };
     }
-
-    const startMin = parseTimeToMin(startStr);
-    let endMin = endStr ? parseTimeToMin(endStr) : (startMin >= 0 ? startMin + 60 : -1);
-    if (endMin <= startMin && startMin >= 0) {
-      endMin = startMin + 60;
+    if (matches.length === 1) {
+      const s = parseTimeToMin(matches[0][0]);
+      return { startMin: Math.max(0, s), endMin: Math.max(0, s + 50) };
     }
-    return { startMin: Math.max(0, startMin), endMin: Math.max(0, endMin) };
+    return { startMin: 0, endMin: 0 };
   };
 
-  // Precise time-slot evaluation gating rule: SME can only evaluate during the scheduled time slot
+  // Precise time-slot evaluation gating rule: SME can evaluate during scheduled slot plus a 45-minute grace window
   const getDemoEvaluationTiming = (demo: any): {
     canEvaluate: boolean;
     status: "completed" | "upcoming" | "active" | "expired";
@@ -410,6 +411,16 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     const now = new Date();
     const currentMin = now.getHours() * 60 + now.getMinutes();
 
+    // If slot format could not be parsed to numeric bounds, allow evaluation
+    if (startMin <= 0 && endMin <= 0) {
+      return {
+        canEvaluate: true,
+        status: "active",
+        badgeText: "Ready",
+        reason: "Ready for evaluation."
+      };
+    }
+
     if (currentMin < startMin) {
       const waitMins = startMin - currentMin;
       const waitHours = Math.floor(waitMins / 60);
@@ -423,20 +434,21 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
       };
     }
 
-    if (currentMin > endMin) {
+    // 45 minutes grace window after session ends
+    if (currentMin > endMin + 45) {
       return {
         canEvaluate: false,
         status: "expired",
         badgeText: "Slot Expired",
-        reason: `Evaluation window closed: scheduled slot (${demo.timeSlot}) has already passed. Evaluation is stuck/locked.`
+        reason: `Evaluation window closed: scheduled slot (${demo.timeSlot}) has expired. Expired sessions cannot be evaluated and must be formally rescheduled.`
       };
     }
 
     return {
       canEvaluate: true,
       status: "active",
-      badgeText: "Active Slot",
-      reason: "Session is active. You can evaluate now."
+      badgeText: currentMin > endMin ? "Grace Window" : "Active Slot",
+      reason: currentMin > endMin ? "Session completed (grace window active). You can evaluate now." : "Session is active. You can evaluate now."
     };
   };
 
@@ -545,8 +557,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   }, [evalScores, criteriaList]);
 
   const marksNormalized = useMemo(() => {
-    if (totalMaxMarks <= 0) return 0;
-    return Math.round((marks / totalMaxMarks) * 100);
+    if (totalMaxMarks <= 0 || Number.isNaN(marks)) return 0;
+    const calc = Math.round((marks / totalMaxMarks) * 100);
+    return Number.isFinite(calc) ? Math.max(0, Math.min(100, calc)) : 0;
   }, [marks, totalMaxMarks]);
 
   if (!currentSME) {
@@ -1264,7 +1277,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         <div className="flex items-center gap-2 shrink-0">
                           {effectiveMeetLink && (
                             <a
-                              href={effectiveMeetLink}
+                              href={ensureAbsoluteUrl(effectiveMeetLink)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="px-2.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-[10px] font-black flex items-center gap-1 transition-colors"
