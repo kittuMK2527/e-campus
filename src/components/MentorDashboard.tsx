@@ -79,7 +79,7 @@ const MentorWeeklyPlanStudio = dynamic(() => import("./WeeklyPlanStudio").then(m
 const SkillTrackerPanel = dynamic(() => import("./SkillTrackerPanel").then(m => m.SkillTrackerPanel), { ssr: false });
 
 import { CourseInfoButton } from "./CourseInfoModal";
-import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatching, isCohortMatch, getDeptFromClassGroup, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, isAcademicSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes, mapDayOrderToDayName, isTimeSlotMatch } from "@/lib/utils";
+import { formatDate, formatTimeLabel, isSubjectNameMatch, resolveClassGroupDetailsFromState, parseDbDate, isCohortMatching, isCohortMatch, getDeptFromClassGroup, evaluateDailyStudentAttendance, isExamDate, isSkillSubject, isAcademicSubject, calculateWeekOffsetForDate, isSlotOverlappingExamWindow, parseTimeToMinutes, mapDayOrderToDayName, isTimeSlotMatch, parseSlotTimeRange } from "@/lib/utils";
 import { Pagination } from "@/components/ui/Pagination";
 import { ActionMenu } from "@/components/ui/ActionMenu";
 import { Dialog } from "@/components/ui/dialog";
@@ -10811,6 +10811,23 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                             (r: any) => (r.demo_session_id === demo.id || r.demoSessionId === demo.id) && r.status === "pending"
                           );
 
+                          const isDemoPast = (() => {
+                            if (demo.status === "not_conducted" || demo.status === "reallocation_required" || demo.status === "completed") {
+                              return true;
+                            }
+                            const todayStr = getInstitutionDateStr();
+                            if (demo.dateStr && demo.dateStr < todayStr) return true;
+                            if (demo.dateStr === todayStr && demo.timeSlot) {
+                              const range = parseSlotTimeRange(demo.timeSlot);
+                              if (range) {
+                                const now = new Date();
+                                const nowMinutes = now.getHours() * 60 + now.getMinutes();
+                                if (nowMinutes > range.end) return true;
+                              }
+                            }
+                            return false;
+                          })();
+
                           return (
                           <div key={demo.id} className="p-4 bg-slate-50/50 border border-slate-100 rounded-xl space-y-2">
                             <div className="flex justify-between items-center gap-2">
@@ -10825,7 +10842,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                 <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 text-[8px] font-black uppercase rounded shrink-0">
                                   Reschedule Required
                                 </span>
-                              ) : demo.status === "not_conducted" ? (
+                              ) : demo.status === "not_conducted" || isDemoPast ? (
                                 <span className="px-2 py-0.5 bg-rose-100 text-rose-900 border border-rose-300 text-[8px] font-black uppercase rounded shrink-0">
                                   Not Conducted / Missed
                                 </span>
@@ -10852,8 +10869,8 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                               </div>
                             )}
 
-                            {/* Constant Course Google Meet Join Button */}
-                            {effectiveMeetLink && (
+                            {/* Course Google Meet Join Button - only shown when session is active/upcoming */}
+                            {effectiveMeetLink && !isDemoPast && (
                               <a
                                 href={effectiveMeetLink}
                                 target="_blank"
@@ -10865,12 +10882,12 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                               </a>
                             )}
 
-                            {/* Action Controls - Strict Procedure Only */}
+                            {/* Action Controls */}
                             {pendingRealloc ? (
                               <div className="w-full mt-2 py-1.5 px-2 bg-slate-100 text-slate-500 rounded-lg text-[10px] font-bold text-center border border-slate-200">
                                 Reschedule Pending L&D Review
                               </div>
-                            ) : (demo.status === "reallocation_required" || demo.status === "not_conducted") ? (
+                            ) : (demo.status === "reallocation_required" || demo.status === "not_conducted" || isDemoPast) ? (
                               <button
                                 type="button"
                                 onClick={() => handleOpenRescheduleModal(demo)}
@@ -10880,28 +10897,14 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                 Request Reschedule →
                               </button>
                             ) : (
-                              <div className="flex gap-1.5 mt-2">
+                              <div className="mt-2">
                                 <button
                                   type="button"
                                   onClick={() => handleOpenRescheduleModal(demo)}
-                                  className="flex-1 py-1.5 bg-sunken hover:bg-white text-slate-700 text-[10px] font-black rounded-lg border border-slate-200 inset-shadow-well flex items-center justify-center gap-1 transition-all cursor-pointer"
+                                  className="w-full py-1.5 bg-sunken hover:bg-white text-slate-700 text-[10px] font-black rounded-lg border border-slate-200 inset-shadow-well flex items-center justify-center gap-1 transition-all cursor-pointer"
                                 >
                                   <Calendar className="h-3 w-3 text-slate-500" />
                                   Reschedule
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDemoSwapModalSession(demo);
-                                    setDemoSwapReason("I am unavailable");
-                                    setDemoSwapRemarks("");
-                                    setDemoSwapStep(1);
-                                    setSelectedProposedPeer(null);
-                                  }}
-                                  className="flex-1 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-black rounded-lg border border-slate-200 flex items-center justify-center gap-1 transition-all cursor-pointer"
-                                >
-                                  <RefreshCw className="h-2.5 w-2.5 text-amber-500" />
-                                  Peer Swap
                                 </button>
                               </div>
                             )}
