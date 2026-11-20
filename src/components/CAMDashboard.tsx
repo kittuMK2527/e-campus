@@ -2129,7 +2129,7 @@ export const CAMCampusInsightPanel: React.FC<{
 
             <!-- Regulatory Declaration Callout -->
             <div class="regulatory-box">
-              <div class="regulatory-icon">🏛️</div>
+              <div class="regulatory-icon"></div>
               <div>
                 <strong>REGULATORY GOVERNANCE NOTE:</strong> ${scopeNoticeText}
               </div>
@@ -4954,7 +4954,7 @@ export const CAMCampusInsightPanel: React.FC<{
                       }`}
                     title={`View tickets scoped to ${activeCollegeName}`}
                   >
-                    📍 This Campus ({allRawTickets.filter((t: any) => (t.college || "").toLowerCase().includes((activeCollegeName || "").toLowerCase().trim()) || (activeCollegeName || "").toLowerCase().trim().includes((t.college || "").toLowerCase().trim())).length})
+                    This Campus ({allRawTickets.filter((t: any) => (t.college || "").toLowerCase().includes((activeCollegeName || "").toLowerCase().trim()) || (activeCollegeName || "").toLowerCase().trim().includes((t.college || "").toLowerCase().trim())).length})
                   </button>
                   <button
                     type="button"
@@ -4965,7 +4965,7 @@ export const CAMCampusInsightPanel: React.FC<{
                       }`}
                     title="View all support tickets across all colleges"
                   >
-                    🌐 All Campuses ({allRawTickets.length})
+                    All Campuses ({allRawTickets.length})
                   </button>
                 </div>
 
@@ -6740,7 +6740,7 @@ export const CAMCampusInsightPanel: React.FC<{
               </span>
               {selectedAchDetail.date_str && (
                 <span className="text-xs text-slate-500 font-mono">
-                  📅 {selectedAchDetail.date_str}
+                  {selectedAchDetail.date_str}
                 </span>
               )}
             </div>
@@ -6770,7 +6770,7 @@ export const CAMCampusInsightPanel: React.FC<{
               )}
               {selectedAchDetail.reward_prize && (
                 <div className="text-[11px] text-emerald-700 font-bold pt-1">
-                  🏆 Cash Reward / Prize: {selectedAchDetail.reward_prize}
+                  Cash Reward / Prize: {selectedAchDetail.reward_prize}
                 </div>
               )}
             </div>
@@ -14945,10 +14945,10 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                   }}
                   className="bg-sunken dark:bg-slate-800 border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-amber-500 cursor-pointer min-w-[220px]"
                 >
-                  <option value="all">🌐 All Supervised Campuses ({scopedColleges.length})</option>
+                  <option value="all">All Supervised Campuses ({scopedColleges.length})</option>
                   {scopedColleges.map((c) => (
                     <option key={c.id} value={c.id}>
-                      🏛️ {c.name} ({c.code || c.id})
+                      {c.name} ({c.code || c.id})
                     </option>
                   ))}
                 </select>
@@ -18679,7 +18679,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                 <TableCell key={dStr} className="p-1.5 text-center border-r border-slate-100 bg-rose-50/20">
                                   <span
                                     className="inline-flex items-center justify-center h-5 w-6 rounded font-black text-[10px] bg-rose-100 text-rose-800 border border-rose-200 shadow-2xs cursor-default"
-                                    title={`${st.name} | ${formatDateToDMY(dStr)}\n🎉 Holiday: ${notes || "College Holiday"}\n(No classes scheduled)`}
+                                    title={`${st.name} | ${formatDateToDMY(dStr)}\nHoliday: ${notes || "College Holiday"}\n(No classes scheduled)`}
                                   >
                                     H
                                   </span>
@@ -23873,7 +23873,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                   {/* Quick Upload Event Moment / Photo */}
                                   <div className="flex items-center justify-between gap-1 text-[10.5px]">
                                     <label className="text-amber-500 hover:text-amber-800 font-extrabold flex items-center gap-1 cursor-pointer">
-                                      <span>📸</span>
+                                      
                                       <span>Upload Moments</span>
                                       <input
                                         type="file"
@@ -24612,7 +24612,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       <div className="flex items-center justify-between">
                         <div>
                           <label className="text-[10px] font-black text-slate-700 uppercase flex items-center gap-1.5">
-                            <span>📸</span>
+                            
                             <span>Event Moments &amp; Photo Gallery</span>
                           </label>
                           <p className="text-[10px] text-slate-400">Upload photos taken during or at the end of the event/fest.</p>

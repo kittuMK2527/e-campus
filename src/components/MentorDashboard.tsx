@@ -5248,11 +5248,11 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                   <div>
                                     <div className="flex items-center justify-between gap-1 mb-1">
                                       <span className="px-1.5 py-0.5 rounded bg-purple-600 text-[8px] font-black text-white uppercase tracking-wide">
-                                        📝 {examInfo?.exam_type || "EXAMINATION"}
+                                        {examInfo?.exam_type || "EXAMINATION"}
                                       </span>
                                       {examInfo?.hall_room && (
                                         <span className="text-[7.5px] font-bold text-purple-700 truncate max-w-[80px]">
-                                          📍 {examInfo.hall_room}
+                                          {examInfo.hall_room}
                                         </span>
                                       )}
                                     </div>
@@ -5352,7 +5352,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                     </div>
                                     {cellData?.demoSession && (
                                       <div className="mt-1 flex items-center gap-1 px-1.5 py-0.5 rounded bg-pink-100 dark:bg-pink-950/70 border border-pink-200 dark:border-pink-800 text-[8px] font-black text-pink-700 dark:text-pink-300">
-                                        <span>🎯 L&D Demo: {cellData.demoSession.subject} ({cellData.demoSession.smeName || "SME"})</span>
+                                        <span>L&D Demo: {cellData.demoSession.subject} ({cellData.demoSession.smeName || "SME"})</span>
                                       </div>
                                     )}
                                   </div>
@@ -5379,7 +5379,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       if (approvedLateCamReq) {
                                         return (
                                           <span className="text-[8.5px] font-black text-emerald-700 flex items-center gap-0.5 uppercase tracking-wider">
-                                            🔓 Unlocked
+                                            Unlocked
                                           </span>
                                         );
                                       }
