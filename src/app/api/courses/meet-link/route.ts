@@ -46,9 +46,9 @@ export async function POST(request: Request) {
     let resolvedSmeSubject = "";
     if (user.role === "sme") {
       const smeProfile = await db.get(
-        "SELECT * FROM smes WHERE id = ? OR user_id = ? OR LOWER(email) = LOWER(?) LIMIT 1",
-        [user.reference_id || user.id, user.id, user.email]
-      );
+        "SELECT * FROM sme_users WHERE id = ? OR LOWER(email) = LOWER(?) LIMIT 1",
+        [user.reference_id || user.id, user.email]
+      ).catch(() => null);
       resolvedSmeSubject = (smeProfile?.subject || subject || "").toLowerCase().trim();
       const courseMatch = course ? (course.name || "").toLowerCase().trim() : "";
       const courseCodeMatch = course ? (course.code || "").toLowerCase().trim() : "";
