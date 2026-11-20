@@ -1214,8 +1214,13 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 <button
                   type="button"
                   onClick={() => {
-                    setSelectedCourseForMeet(smeCourses[0] || null);
-                    setCourseMeetInput(smeCourses[0]?.google_meet_link || "");
+                    const primary = smeCourses[0] || (coursesList && coursesList[0]) || null;
+                    setSelectedCourseForMeet(primary);
+                    setCourseMeetInput(
+                      smeCourses.find((c: any) => c.google_meet_link)?.google_meet_link ||
+                      primary?.google_meet_link ||
+                      ""
+                    );
                     setShowCourseMeetModal(true);
                   }}
                   className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
@@ -2905,25 +2910,16 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
               </div>
 
               <div className="p-6 space-y-4">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-600 dark:text-slate-300 block mb-1">
-                    Select Course / Subject
-                  </label>
-                  <select
-                    value={selectedCourseForMeet?.id || ""}
-                    onChange={(e) => {
-                      const c = smeCourses.find(item => item.id === e.target.value);
-                      setSelectedCourseForMeet(c || null);
-                      setCourseMeetInput(c?.google_meet_link || "");
-                    }}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                  >
-                    {smeCourses.map(c => (
-                      <option key={c.id} value={c.id}>
-                        {c.name} {c.code ? `(${c.code})` : ""}
-                      </option>
-                    ))}
-                  </select>
+                <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-xl border border-slate-200/70 dark:border-slate-700/60 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block">Assigned Domain / Subject</span>
+                    <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                      {currentSME?.subject || selectedCourseForMeet?.name || "All Assigned Courses"}
+                    </span>
+                  </div>
+                  <div className="px-2.5 py-1 rounded-md bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[11px] font-extrabold uppercase">
+                    Permanent Link
+                  </div>
                 </div>
 
                 <div>
@@ -2955,7 +2951,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 </button>
                 <button
                   type="button"
-                  disabled={savingCourseMeet || !selectedCourseForMeet}
+                  disabled={savingCourseMeet}
                   onClick={handleSaveCourseMeet}
                   className="px-5 py-2 text-xs font-black bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-xs disabled:opacity-50 cursor-pointer transition-colors"
                 >

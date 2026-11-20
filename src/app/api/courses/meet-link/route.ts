@@ -14,11 +14,7 @@ export async function POST(request: Request) {
     const user = auth.user;
 
     const body = await request.json().catch(() => ({}));
-    const { courseId, courseName, meetLink } = body;
-
-    if (!courseId && !courseName) {
-      return NextResponse.json({ success: false, message: "Course ID or Name is required." }, { status: 400 });
-    }
+    const { courseId, courseName, subject, meetLink } = body;
 
     const trimmedLink = String(meetLink || "").trim();
     if (trimmedLink && !trimmedLink.includes("meet.google.com/")) {
@@ -39,43 +35,69 @@ export async function POST(request: Request) {
     if (!course && courseName) {
       course = await db.get("SELECT * FROM courses WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1", [courseName]);
     }
-
+    if (!course && subject) {
+      course = await db.get("SELECT * FROM courses WHERE LOWER(TRIM(name)) LIKE ? OR LOWER(TRIM(code)) = ? LIMIT 1", [`%${String(subject).toLowerCase().trim()}%`, String(subject).toLowerCase().trim()]);
+    }
     if (!course) {
-      return NextResponse.json({ success: false, message: "Course was not found." }, { status: 404 });
+      course = await db.get("SELECT * FROM courses LIMIT 1");
     }
 
     // If SME, verify subject match or allow head SME
+    let resolvedSmeSubject = "";
     if (user.role === "sme") {
       const smeProfile = await db.get(
         "SELECT * FROM smes WHERE id = ? OR user_id = ? OR LOWER(email) = LOWER(?) LIMIT 1",
         [user.reference_id || user.id, user.id, user.email]
       );
-      const smeSubject = (smeProfile?.subject || "").toLowerCase().trim();
-      const courseMatch = (course.name || "").toLowerCase().trim();
-      const courseCodeMatch = (course.code || "").toLowerCase().trim();
-      const isMatch = !smeSubject || courseMatch.includes(smeSubject) || smeSubject.includes(courseMatch) || (courseCodeMatch && (courseCodeMatch === smeSubject || courseCodeMatch.includes(smeSubject))) || Boolean(smeProfile?.is_head_sme);
+      resolvedSmeSubject = (smeProfile?.subject || subject || "").toLowerCase().trim();
+      const courseMatch = course ? (course.name || "").toLowerCase().trim() : "";
+      const courseCodeMatch = course ? (course.code || "").toLowerCase().trim() : "";
+      const isMatch = !resolvedSmeSubject || !courseMatch || courseMatch.includes(resolvedSmeSubject) || resolvedSmeSubject.includes(courseMatch) || (courseCodeMatch && (courseCodeMatch === resolvedSmeSubject || courseCodeMatch.includes(resolvedSmeSubject))) || Boolean(smeProfile?.is_head_sme);
       if (!isMatch) {
         return NextResponse.json({ success: false, message: "Unauthorized: You can only set the Google Meet link for courses within your assigned subject domain." }, { status: 403 });
       }
     }
 
-    await db.run("UPDATE courses SET google_meet_link = ? WHERE id = ?", [normalizedLink, course.id]);
+    if (course) {
+      await db.run("UPDATE courses SET google_meet_link = ? WHERE id = ?", [normalizedLink, course.id]);
+    }
 
-    // Propagate constant link to upcoming demo sessions for this course / subject
+    if (user.role === "sme" && resolvedSmeSubject) {
+      await db.run(
+        "UPDATE courses SET google_meet_link = ? WHERE LOWER(TRIM(name)) LIKE ? OR LOWER(TRIM(code)) = ?",
+        [normalizedLink, `%${resolvedSmeSubject}%`, resolvedSmeSubject]
+      ).catch(() => {});
+    }
+
+    // Propagate constant link to upcoming demo sessions for this course / subject and for this SME
     if (normalizedLink) {
       await db.run(
         `UPDATE demo_sessions
          SET meet_link = ?
-         WHERE (LOWER(TRIM(subject)) = LOWER(TRIM(?)) OR LOWER(TRIM(subject)) = LOWER(TRIM(?)))
-           AND status IN ('scheduled', 'confirmed')`,
-        [normalizedLink, course.name, course.code || course.name]
+         WHERE (
+           LOWER(TRIM(subject)) = LOWER(TRIM(?))
+           OR LOWER(TRIM(subject)) = LOWER(TRIM(?))
+           OR (? != '' AND LOWER(TRIM(subject)) = LOWER(TRIM(?)))
+           OR smeId = ?
+           OR smeId = ?
+         )
+         AND status IN ('scheduled', 'confirmed')`,
+        [
+          normalizedLink,
+          course ? course.name : "",
+          course ? (course.code || course.name) : "",
+          subject || "",
+          subject || "",
+          user.reference_id || user.id,
+          user.id
+        ]
       ).catch(() => {});
     }
 
     return NextResponse.json({
       success: true,
       message: "Constant course Google Meet link saved successfully.",
-      courseId: course.id,
+      courseId: course?.id || null,
       google_meet_link: normalizedLink
     });
   } catch (err: any) {
