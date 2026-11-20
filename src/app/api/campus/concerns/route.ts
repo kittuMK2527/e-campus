@@ -206,10 +206,10 @@ export async function GET(request: Request) {
                 sem.remarks, sem.is_absent, sem.evaluated_by, sem.updated_at,
                 es.exam_type, es.subject_name, es.subject_code, es.semester, es.exam_date
          FROM student_exam_marks sem
-         JOIN exam_schedules es ON sem.exam_id = es.id
-         WHERE es.college_id IN (${placeholders})
+         LEFT JOIN exam_schedules es ON sem.exam_id = es.id
+         WHERE (es.college_id IN (${placeholders}) OR sem.college_id IN (${placeholders}))
          ORDER BY es.exam_date DESC, sem.updated_at DESC LIMIT 500`,
-        targetCollegeIds
+        [...targetCollegeIds, ...targetCollegeIds]
       );
     } catch (e: any) {
       console.warn("Student exam marks read fallback:", e?.message);
@@ -217,7 +217,12 @@ export async function GET(request: Request) {
 
     // 9. Synthesize Student Concerns Dossiers
     const studentConcerns = studentsSummary.map((s: any) => {
-      const sLogs = studentLogs.filter((l: any) => l.student_id === s.id);
+      const sLogs = studentLogs.filter(
+        (l: any) =>
+          l.student_id === s.id ||
+          (s.register_number && l.student_id === s.register_number) ||
+          (s.roll_number && l.student_id === s.roll_number)
+      );
       // Merge any direct achievements where student is included in student_ids JSON array
       const sDirectAchs = directAchievements.filter((a: any) => {
         try {
@@ -240,7 +245,12 @@ export async function GET(request: Request) {
       }));
 
       const allCombinedLogs = [...sLogs, ...sDirectAchs];
-      const sExamMarks = studentExamMarksList.filter((m: any) => m.student_id === s.id);
+      const sExamMarks = studentExamMarksList.filter(
+        (m: any) =>
+          m.student_id === s.id ||
+          (s.register_number && m.student_id === s.register_number) ||
+          (s.roll_number && m.student_id === s.roll_number)
+      );
       const attPct = lowAttMap.has(s.id) ? lowAttMap.get(s.id)! : 92;
       const isFeeDefaulter = Number(s.fee_pending) > 0;
       const isLowAtt = attPct < 75;

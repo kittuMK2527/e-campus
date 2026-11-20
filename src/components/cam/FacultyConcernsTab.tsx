@@ -96,8 +96,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       marksObtained?: string | number;
       maxMarks?: string | number;
       vivaRating?: string | number;
+      weakTopics?: string;
       severity?: string;
       readinessLevel?: string;
+      hireScoreEst?: string | number;
     };
   } | null>(null);
   const [isSubmittingStudentLog, setIsSubmittingStudentLog] = useState(false);
@@ -120,8 +122,10 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       marksObtained?: string | number;
       maxMarks?: string | number;
       vivaRating?: string | number;
+      weakTopics?: string;
       severity?: string;
       readinessLevel?: string;
+      hireScoreEst?: string | number;
     };
   } | null>(null);
   const [isSavingStudentLog, setIsSavingStudentLog] = useState(false);
@@ -217,6 +221,8 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       else if (studentCategoryFilter === "fee_pending") matchesCat = s.is_fee_defaulter;
       else if (studentCategoryFilter === "complaints") matchesCat = s.has_complaints;
       else if (studentCategoryFilter === "achievements") matchesCat = s.achievements_count > 0;
+      else if (studentCategoryFilter === "marks_logs") matchesCat = (s.marks_logs_count || 0) > 0;
+      else if (studentCategoryFilter === "exam_marks") matchesCat = (s.exam_marks_count || 0) > 0;
       else if (studentCategoryFilter === "placement_risk") matchesCat = !s.hire_score || Number(s.hire_score) < 50;
 
       return matchesSearch && matchesDept && matchesCat;
@@ -284,6 +290,54 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
 
       if (res?.success) {
         toast("Student log recorded successfully.", "success");
+        const newLogId = res.id || `scl_${Date.now()}`;
+        const newLogObj = {
+          id: newLogId,
+          student_id: creatingStudentLog.student_id,
+          student_name: creatingStudentLog.student_name,
+          student_reg_no: creatingStudentLog.student_reg_no || "",
+          department: creatingStudentLog.department || "",
+          class_group: creatingStudentLog.class_group || "",
+          category: creatingStudentLog.category,
+          title: creatingStudentLog.title,
+          details: creatingStudentLog.details,
+          status: creatingStudentLog.status,
+          metrics_json: creatingStudentLog.metrics ? JSON.stringify(creatingStudentLog.metrics) : null,
+          mentor_name: "Campus Manager (CM)",
+          created_at: new Date().toISOString()
+        };
+
+        setData((prev) => {
+          const updatedStudentConcerns = prev.studentConcerns.map((s) => {
+            if (s.id !== creatingStudentLog.student_id) return s;
+            const updatedLogs = [newLogObj, ...(s.logs || [])];
+            return {
+              ...s,
+              logs: updatedLogs,
+              has_complaints: updatedLogs.some((l: any) => l.category === "complaint"),
+              achievements_count: updatedLogs.filter((l: any) => l.category === "achievement").length,
+              complaints_count: updatedLogs.filter((l: any) => l.category === "complaint").length,
+              marks_logs_count: updatedLogs.filter((l: any) => l.category === "marks").length
+            };
+          });
+          return { ...prev, studentConcerns: updatedStudentConcerns };
+        });
+
+        if (selectedStudentForDetails && selectedStudentForDetails.id === creatingStudentLog.student_id) {
+          setSelectedStudentForDetails((prev: any) => {
+            if (!prev) return null;
+            const updatedLogs = [newLogObj, ...(prev.logs || [])];
+            return {
+              ...prev,
+              logs: updatedLogs,
+              has_complaints: updatedLogs.some((l: any) => l.category === "complaint"),
+              achievements_count: updatedLogs.filter((l: any) => l.category === "achievement").length,
+              complaints_count: updatedLogs.filter((l: any) => l.category === "complaint").length,
+              marks_logs_count: updatedLogs.filter((l: any) => l.category === "marks").length
+            };
+          });
+        }
+
         setCreatingStudentLog(null);
         await fetchConcerns();
       } else {
@@ -385,6 +439,53 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
       toast(err?.message || "Failed to communicate with server.", "error");
     } finally {
       setIsSavingStudentLog(false);
+    }
+  };
+
+  const handleDeleteStudentLog = async (id: string, studentId?: string) => {
+    if (!confirm("Are you sure you want to remove this student log?")) return;
+    try {
+      const res = await apiFetch<any>(`/api/mentor/student-logs?id=${encodeURIComponent(id)}`, {
+        method: "DELETE"
+      });
+      if (res?.success) {
+        toast("Student log removed successfully.", "success");
+        setData((prev) => {
+          const updatedStudentConcerns = prev.studentConcerns.map((s) => {
+            if (studentId && s.id !== studentId) return s;
+            const updatedLogs = (s.logs || []).filter((l: any) => l.id !== id);
+            return {
+              ...s,
+              logs: updatedLogs,
+              has_complaints: updatedLogs.some((l: any) => l.category === "complaint"),
+              achievements_count: updatedLogs.filter((l: any) => l.category === "achievement").length,
+              complaints_count: updatedLogs.filter((l: any) => l.category === "complaint").length,
+              marks_logs_count: updatedLogs.filter((l: any) => l.category === "marks").length
+            };
+          });
+          return { ...prev, studentConcerns: updatedStudentConcerns };
+        });
+
+        if (selectedStudentForDetails) {
+          setSelectedStudentForDetails((prev: any) => {
+            if (!prev) return null;
+            const updatedLogs = (prev.logs || []).filter((l: any) => l.id !== id);
+            return {
+              ...prev,
+              logs: updatedLogs,
+              has_complaints: updatedLogs.some((l: any) => l.category === "complaint"),
+              achievements_count: updatedLogs.filter((l: any) => l.category === "achievement").length,
+              complaints_count: updatedLogs.filter((l: any) => l.category === "complaint").length,
+              marks_logs_count: updatedLogs.filter((l: any) => l.category === "marks").length
+            };
+          });
+        }
+        await fetchConcerns();
+      } else {
+        toast(res?.error || res?.message || "Could not delete student log.", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Failed to delete student log.", "error");
     }
   };
 
@@ -630,6 +731,8 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 className="h-9 px-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 bg-white"
               >
                 <option value="all">All Concern Statuses</option>
+                <option value="marks_logs">Has Marks / Viva Logs</option>
+                <option value="exam_marks">Has Academic Exam Marks</option>
                 <option value="low_attendance">Low Attendance (&lt;75%)</option>
                 <option value="fee_pending">Fee Arrears Pending</option>
                 <option value="complaints">Mentor Complaints Logged</option>
@@ -1145,33 +1248,43 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                             {log.mentor_name} • {log.created_at?.slice(0, 10)}
                           </span>
                           {!readOnly && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                let parsedMetrics = {};
-                                try {
-                                  if (log.metrics_json) parsedMetrics = JSON.parse(log.metrics_json);
-                                } catch {}
-                                setEditingStudentLog({
-                                  id: log.id,
-                                  student_id: log.student_id,
-                                  student_name: log.student_name,
-                                  student_reg_no: log.student_reg_no || selectedStudentForDetails.register_number,
-                                  department: log.department || selectedStudentForDetails.department,
-                                  mentor_name: log.mentor_name,
-                                  title: log.title || "",
-                                  details: log.details || "",
-                                  category: log.category || "complaint",
-                                  status: log.status || "active",
-                                  metrics: parsedMetrics
-                                });
-                              }}
-                              className="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
-                              title="Edit this student log"
-                            >
-                              <Edit3 className="h-3 w-3" />
-                              <span>Edit</span>
-                            </button>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  let parsedMetrics = {};
+                                  try {
+                                    if (log.metrics_json) parsedMetrics = typeof log.metrics_json === "string" ? JSON.parse(log.metrics_json) : log.metrics_json;
+                                  } catch {}
+                                  setEditingStudentLog({
+                                    id: log.id,
+                                    student_id: log.student_id,
+                                    student_name: log.student_name,
+                                    student_reg_no: log.student_reg_no || selectedStudentForDetails.register_number,
+                                    department: log.department || selectedStudentForDetails.department,
+                                    mentor_name: log.mentor_name,
+                                    title: log.title || "",
+                                    details: log.details || "",
+                                    category: log.category || "complaint",
+                                    status: log.status || "active",
+                                    metrics: parsedMetrics
+                                  });
+                                }}
+                                className="px-2 py-0.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-[10px] font-black flex items-center gap-1 transition-colors cursor-pointer"
+                                title="Edit this student log"
+                              >
+                                <Edit3 className="h-3 w-3" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteStudentLog(log.id, selectedStudentForDetails.id)}
+                                className="p-1 hover:bg-rose-100 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                                title="Delete this log"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1922,6 +2035,51 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                 </div>
               )}
 
+              {creatingStudentLog.category === "placement" && (
+                <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-2xl space-y-3">
+                  <span className="text-[10px] font-black uppercase text-indigo-800 tracking-wider block">
+                    Placement Readiness
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Readiness Level</label>
+                      <select
+                        value={creatingStudentLog.metrics?.readinessLevel || "Interview Ready"}
+                        onChange={(e) =>
+                          setCreatingStudentLog({
+                            ...creatingStudentLog,
+                            metrics: { ...creatingStudentLog.metrics, readinessLevel: e.target.value }
+                          })
+                        }
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium bg-white"
+                      >
+                        <option value="Interview Ready">Interview Ready</option>
+                        <option value="Training Required">Training Required</option>
+                        <option value="Critical Remediation">Critical Remediation</option>
+                        <option value="Placement Placed">Placement Placed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Estimated HireScore (0-100)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={creatingStudentLog.metrics?.hireScoreEst || ""}
+                        onChange={(e) =>
+                          setCreatingStudentLog({
+                            ...creatingStudentLog,
+                            metrics: { ...creatingStudentLog.metrics, hireScoreEst: e.target.value }
+                          })
+                        }
+                        placeholder="e.g. 78"
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Details Textarea */}
               <div>
                 <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
@@ -2170,6 +2328,51 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
                         {sev}
                       </button>
                     ))}
+                  </div>
+                </div>
+              )}
+
+              {editingStudentLog.category === "placement" && (
+                <div className="p-3 bg-indigo-50/50 border border-indigo-200 rounded-2xl space-y-3">
+                  <span className="text-[10px] font-black uppercase text-indigo-800 tracking-wider block">
+                    Placement Readiness
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Readiness Level</label>
+                      <select
+                        value={editingStudentLog.metrics?.readinessLevel || "Interview Ready"}
+                        onChange={(e) =>
+                          setEditingStudentLog({
+                            ...editingStudentLog,
+                            metrics: { ...editingStudentLog.metrics, readinessLevel: e.target.value }
+                          })
+                        }
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium bg-white"
+                      >
+                        <option value="Interview Ready">Interview Ready</option>
+                        <option value="Training Required">Training Required</option>
+                        <option value="Critical Remediation">Critical Remediation</option>
+                        <option value="Placement Placed">Placement Placed</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[9.5px] font-bold text-slate-500 block mb-1">Estimated HireScore (0-100)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        value={editingStudentLog.metrics?.hireScoreEst || ""}
+                        onChange={(e) =>
+                          setEditingStudentLog({
+                            ...editingStudentLog,
+                            metrics: { ...editingStudentLog.metrics, hireScoreEst: e.target.value }
+                          })
+                        }
+                        placeholder="e.g. 78"
+                        className="w-full h-8 px-2 border border-slate-200 rounded-lg text-xs font-medium outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
