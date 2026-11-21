@@ -266,7 +266,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   // Dynamic Availability Editor state
   const [showAvailModal, setShowAvailModal] = useState(false);
   const [selectedAvailDay, setSelectedAvailDay] = useState<string>("ALL");
-  const [dayWindows, setDayWindows] = useState<Array<{ id?: string; startTime: string; endTime: string; slotType: "demo" | "training" }>>([
+  const [dayWindows, setDayWindows] = useState<Array<{ id?: string; startTime: string; endTime: string; slotType: "demo" | "training" | "other"; notes?: string }>>([
     { startTime: "09:00 AM", endTime: "05:30 PM", slotType: "demo" }
   ]);
   const [isSavingAvail, setIsSavingAvail] = useState(false);
@@ -450,20 +450,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     };
   };
 
-  // Auto-prompt availability setup modal on SME login session
-  useEffect(() => {
-    if (!currentSME) return;
-    try {
-      const sessionPromptKey = `fp_sme_prompt_${currentSME.id}`;
-      const alreadyPrompted = sessionStorage.getItem(sessionPromptKey);
-      if (!alreadyPrompted) {
-        setShowAvailModal(true);
-        sessionStorage.setItem(sessionPromptKey, "true");
-      }
-    } catch (_) {}
-  }, [currentSME]);
-
-  // Sync dayWindows whenever selectedAvailDay or smeAvailability changes
+  // Sync dayWindows whenever selectedAvailDay or smeAvailability changes (explicit user configuration only, no auto-popup)
   useEffect(() => {
     if (!currentSME) return;
     const targetDay = selectedAvailDay === "ALL" ? "Monday" : selectedAvailDay;
@@ -473,7 +460,8 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
         id: a.id,
         startTime: a.start_time || "09:00 AM",
         endTime: a.end_time || "05:30 PM",
-        slotType: (a.slot_type === "training" ? "training" : "demo") as "demo" | "training"
+        slotType: ((a.slot_type === "training" || a.slot_type === "other") ? a.slot_type : "demo") as "demo" | "training" | "other",
+        notes: a.notes || ""
       }));
 
     if (currentSmeWindows.length > 0) {
@@ -1789,7 +1777,8 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         (a: any) => a.sme_id === currentSME?.id && a.day_of_week?.toLowerCase().trim() === d.toLowerCase().trim() && a.is_active !== 0
                       );
                       const hasTraining = wins.some((w: any) => (w.slot_type || w.slotType) === "training");
-                      const hasDemo = wins.some((w: any) => (w.slot_type || w.slotType) !== "training");
+                      const hasOther = wins.some((w: any) => (w.slot_type || w.slotType) === "other");
+                      const hasDemo = wins.some((w: any) => (w.slot_type || w.slotType) === "demo" || (!w.slot_type && !w.slotType));
 
                       return (
                         <div
@@ -1804,7 +1793,17 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           ) : (
                             <span>
                               {wins.length} {wins.length === 1 ? "window" : "windows"}
-                              {hasDemo && hasTraining ? " (Demo + Train)" : hasDemo ? " (Demo)" : " (Train)"}
+                              {[
+                                hasDemo ? "Demo" : null,
+                                hasTraining ? "Train" : null,
+                                hasOther ? "Other" : null
+                              ].filter(Boolean).length > 0
+                                ? ` (${[
+                                    hasDemo ? "Demo" : null,
+                                    hasTraining ? "Train" : null,
+                                    hasOther ? "Other" : null
+                                  ].filter(Boolean).join(" + ")})`
+                                : ""}
                             </span>
                           )}
                         </div>
@@ -1899,6 +1898,14 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                                   <td key={w.dateStr} className="p-2">
                                     <span className="px-2.5 py-1.5 bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300 border border-violet-200 dark:border-violet-800 rounded-lg text-[10px] font-bold block">
                                       Training Time
+                                    </span>
+                                  </td>
+                                );
+                              } else if (matchingWin && (matchingWin.slot_type === "other" || matchingWin.slotType === "other")) {
+                                return (
+                                  <td key={w.dateStr} className="p-2">
+                                    <span className="px-2.5 py-1.5 bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-[10px] font-bold block truncate" title={matchingWin.notes || "Other Duty"}>
+                                      {matchingWin.notes || "Other Duty"}
                                     </span>
                                   </td>
                                 );
@@ -2706,10 +2713,12 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           className={`p-4 rounded-2xl border ${
                             win.slotType === "training"
                               ? "bg-violet-50/60 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800/80"
-                              : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/80"
+                              : win.slotType === "other"
+                                ? "bg-amber-50/60 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/80"
+                                : "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800/80"
                           } flex flex-col sm:flex-row sm:items-center justify-between gap-3`}
                         >
-                          <div className="flex items-center gap-3 flex-wrap">
+                          <div className="flex items-center gap-3 flex-wrap flex-1">
                             <div>
                               <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Window Purpose</span>
                               <select aria-label="Window purpose"
@@ -2721,10 +2730,28 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                                 }}
                                 className="text-xs font-extrabold px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 cursor-pointer shadow-xs"
                               >
-                                <option value="demo">L&D Evaluation Slot (For Timetable)</option>
-                                <option value="training">Faculty Training / Workshop (Excluded from L&D)</option>
+                                <option value="demo">Demo (Available for L&D Demos)</option>
+                                <option value="training">Training (Blocked for Demos)</option>
+                                <option value="other">Other Activity (Blocked for Demos)</option>
                               </select>
                             </div>
+
+                            {win.slotType === "other" && (
+                              <div className="w-full sm:w-auto flex-1 min-w-[200px]">
+                                <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Activity Name / Description</span>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. Department Meeting, Lab Supervision..."
+                                  value={win.notes || ""}
+                                  onChange={(e) => {
+                                    const copy = [...dayWindows];
+                                    copy[idx].notes = e.target.value;
+                                    setDayWindows(copy);
+                                  }}
+                                  className="w-full px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 shadow-xs focus:ring-2 focus:ring-amber-500"
+                                />
+                              </div>
+                            )}
 
                             <div className="flex items-center gap-2">
                               <div>
@@ -2800,7 +2827,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                         const bulkWindows: any[] = [];
                         allDays.forEach(d => {
                           dayWindows.forEach(w => {
-                            bulkWindows.push({ day: d, startTime: w.startTime, endTime: w.endTime, slotType: w.slotType });
+                            bulkWindows.push({ day: d, startTime: w.startTime, endTime: w.endTime, slotType: w.slotType, notes: w.notes || null });
                           });
                         });
                         const res = await saveSmeAvailability(currentSME.id, bulkWindows);
@@ -2839,7 +2866,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                           const bulkWindows: any[] = [];
                           allDays.forEach(d => {
                             dayWindows.forEach(w => {
-                              bulkWindows.push({ day: d, startTime: w.startTime, endTime: w.endTime, slotType: w.slotType });
+                              bulkWindows.push({ day: d, startTime: w.startTime, endTime: w.endTime, slotType: w.slotType, notes: w.notes || null });
                             });
                           });
                           const res = await saveSmeAvailability(currentSME.id, bulkWindows);

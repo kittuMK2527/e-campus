@@ -121,6 +121,7 @@ const migrations: Migration[] = [
         );
       `);
       await db.exec("ALTER TABLE sme_availability ADD COLUMN IF NOT EXISTS slot_type TEXT DEFAULT 'demo';").catch(() => {});
+      await db.exec("ALTER TABLE sme_availability ADD COLUMN IF NOT EXISTS notes TEXT;").catch(() => {});
     }
   },
   {

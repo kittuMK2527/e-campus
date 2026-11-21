@@ -80,9 +80,10 @@ export async function POST(req: NextRequest) {
           if (w.startTime && w.endTime) {
             const id = w.id || generateId(`sme_avail_${smeId}_${day.toLowerCase()}`);
             const sType = w.slotType || w.slot_type || "demo";
+            const notes = w.notes || w.customLabel || null;
             await db.run(
-              "INSERT INTO sme_availability (id, sme_id, day_of_week, start_time, end_time, slot_type, is_active, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-              [id, smeId, day, w.startTime, w.endTime, sType, w.isActive !== undefined ? (w.isActive ? 1 : 0) : 1]
+              "INSERT INTO sme_availability (id, sme_id, day_of_week, start_time, end_time, slot_type, notes, is_active, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+              [id, smeId, day, w.startTime, w.endTime, sType, notes, w.isActive !== undefined ? (w.isActive ? 1 : 0) : 1]
             );
           }
         }
@@ -94,9 +95,10 @@ export async function POST(req: NextRequest) {
         if (w.day && w.startTime && w.endTime) {
           const id = w.id || generateId(`sme_avail_${smeId}_${w.day.toLowerCase()}`);
           const sType = w.slotType || w.slot_type || "demo";
+          const notes = w.notes || w.customLabel || null;
           await db.run(
-            "INSERT INTO sme_availability (id, sme_id, day_of_week, start_time, end_time, slot_type, is_active, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
-            [id, smeId, w.day, w.startTime, w.endTime, sType, w.isActive !== undefined ? (w.isActive ? 1 : 0) : 1]
+            "INSERT INTO sme_availability (id, sme_id, day_of_week, start_time, end_time, slot_type, notes, is_active, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            [id, smeId, w.day, w.startTime, w.endTime, sType, notes, w.isActive !== undefined ? (w.isActive ? 1 : 0) : 1]
           );
         }
       }

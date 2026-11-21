@@ -5,7 +5,7 @@ import { verifyCsrfToken, CSRF_HEADER_NAME, generateCsrfToken } from "@/lib/csrf
 import { roleGrantsSuperAdmin } from "@/lib/superadmin";
 import { logger } from "@/lib/logger";
 
-export type Role = "admin" | "cm" | "mentor" | "student" | "kam" | "sme" | "fee_manager" | "L and D" | "hr";
+export type Role = "admin" | "cm" | "mentor" | "student" | "kam" | "sme" | "fee_manager" | "L and D" | "hr" | "program_ops";
 
 /** Legacy role spellings that map onto the current machine tokens. */
 const LEGACY_ROLE_MAP: Record<string, string> = {

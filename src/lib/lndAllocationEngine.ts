@@ -165,9 +165,9 @@ export function smeFreeAt(
   const { startMin: slotStartMin, endMin: slotEndMin } = extractSlotStartAndEnd(time);
 
   if (smeWindows.length > 0) {
-    // Only windows designated for L&D evaluation can host a demo; training windows cannot.
+    // Only windows designated for L&D evaluation can host a demo; training and other windows cannot.
     const withinDemoWindow = smeWindows.some((w: GridRow) => {
-      const isDemoType = (w.slot_type || w.slotType || "demo") !== "training";
+      const isDemoType = String(w.slot_type || w.slotType || "demo").toLowerCase() === "demo";
       if (!isDemoType) return false;
       return slotStartMin >= parseSlotTimeToMinutes(w.start_time) &&
         slotEndMin <= parseSlotTimeToMinutes(w.end_time);
@@ -239,8 +239,10 @@ export function smeSlotStatusAt(
 
   if (!matchingWin) return { status: "off_duty", label: "Off-Duty", isDemoSlot: false };
 
-  const slotType = matchingWin.slot_type || matchingWin.slotType || "demo";
+  const slotType = String(matchingWin.slot_type || matchingWin.slotType || "demo").toLowerCase();
   if (slotType === "training") return { status: "training", label: "Training Time", isDemoSlot: false };
+  if (slotType === "other") return { status: "off_duty", label: matchingWin.notes ? `Other: ${matchingWin.notes}` : "Other Activity", isDemoSlot: false };
+  if (slotType !== "demo") return { status: "off_duty", label: "Not Demo Slot", isDemoSlot: false };
 
   return { status: "free_demo", label: "Free Demo Slot", isDemoSlot: true };
 }

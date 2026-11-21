@@ -65,9 +65,26 @@ function smeDemoWindowReason(windows: any[], weekday: string, period: string): s
     const end = parseClockMinutes(window.end_time);
     return start >= 0 && end >= 0 && slot.start >= start && (slot.end <= slot.start || slot.end <= end);
   });
-  if (fits) return null;
-  const ranges = demoWindows.map((window: any) => `${window.start_time}-${window.end_time}`).join(", ");
-  return `SME demo periods are ${ranges}; this slot is outside those hours.`;
+  if (!fits) {
+    const ranges = demoWindows.map((window: any) => `${window.start_time}-${window.end_time}`).join(", ");
+    return `SME demo periods are ${ranges}; this slot is outside those hours.`;
+  }
+
+  // Non-demo windows (Training, Other) strictly block demo allocations even if a demo window overlaps
+  const nonDemoWindows = dayWindows.filter((window: any) => {
+    const st = String(window.slot_type || window.slotType || "demo").toLowerCase();
+    return st !== "demo";
+  });
+  for (const ndw of nonDemoWindows) {
+    const start = parseClockMinutes(ndw.start_time);
+    const end = parseClockMinutes(ndw.end_time);
+    if (start >= 0 && end >= 0 && Math.max(slot.start, start) < Math.min(slot.end, end)) {
+      const typeLabel = ndw.slot_type === "training" ? "Training" : (ndw.notes || "Other activity");
+      return `SME is occupied with ${typeLabel} (${ndw.start_time} - ${ndw.end_time}).`;
+    }
+  }
+
+  return null;
 }
 
 async function ensureTable(db: any) {
@@ -89,6 +106,7 @@ async function ensureTable(db: any) {
       proposed_time_slot TEXT NOT NULL,
       reason TEXT,
       status TEXT NOT NULL DEFAULT 'pending',
+      request_kind TEXT DEFAULT 'reschedule',
       proposed_by TEXT,
       decided_by TEXT,
       decided_at TEXT,
@@ -96,6 +114,7 @@ async function ensureTable(db: any) {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `).catch(() => {});
+  await db.exec("ALTER TABLE demo_reallocation_requests ADD COLUMN IF NOT EXISTS request_kind TEXT DEFAULT 'reschedule';").catch(() => {});
   await db.exec("CREATE INDEX IF NOT EXISTS idx_demo_realloc_status ON demo_reallocation_requests(status)").catch(() => {});
   await db.exec("CREATE INDEX IF NOT EXISTS idx_demo_realloc_session ON demo_reallocation_requests(demo_session_id)").catch(() => {});
   await db.exec("CREATE INDEX IF NOT EXISTS idx_demo_realloc_leave ON demo_reallocation_requests(leave_request_id)").catch(() => {});
@@ -353,6 +372,48 @@ export async function GET(request: Request) {
     }
 
     // ── List mode (L&D queue / mentor history) ─────────────────────────
+    // Candidates discovery for L&D Mentor Swap
+    const candidateMentorsForDemoId = searchParams.get("candidateMentorsForDemoId");
+    if (candidateMentorsForDemoId) {
+      const demo = await db.get("SELECT * FROM demo_sessions WHERE id = ?", [candidateMentorsForDemoId]);
+      if (!demo) return NextResponse.json({ success: false, message: "L&D session not found" }, { status: 404 });
+      const mentorRecord = await db.get("SELECT college_id FROM mentors WHERE id = ?", [demo.mentorId]).catch(() => null);
+      const collegeId = (demo as any).college_id || mentorRecord?.college_id;
+
+      const mentors = await db.all(
+        "SELECT id, name, email, department, subjects, classes, college_id FROM mentors WHERE college_id = ? AND id != ? AND is_active != 0",
+        [collegeId, demo.mentorId]
+      );
+
+      const targetDate = String(demo.dateStr || "");
+      const weekday = new Date(targetDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+
+      const candidates = await Promise.all(
+        mentors.map(async (m: any) => {
+          const avail = await checkMentorAvailability(db, {
+            mentorId: m.id,
+            dateStr: targetDate,
+            dayOfWeek: weekday,
+            timeSlot: demo.timeSlot,
+            collegeId: collegeId || undefined
+          });
+          return {
+            id: m.id,
+            name: m.name,
+            email: m.email,
+            department: m.department,
+            subjects: m.subjects,
+            classes: m.classes,
+            college_id: m.college_id,
+            available: avail.available,
+            reason: avail.available ? null : (avail.reason || "Has scheduled class/duty")
+          };
+        })
+      );
+
+      return NextResponse.json({ success: true, demo, candidates });
+    }
+
     let query = "SELECT * FROM demo_reallocation_requests WHERE 1=1";
     const params: any[] = [];
     if (leaveRequestId) {
@@ -385,10 +446,178 @@ export async function POST(request: Request) {
     const { action } = body;
 
     // Role-based authorization
-    if (action === "resolve") {
+    if (action === "resolve" || action === "swap_mentor") {
       await requireRole(request, "admin", "L and D", "head_sme");
-    } else if (action === "propose") {
+    } else if (action === "propose" || action === "escalate_lnd") {
       await requireSession(request);
+    }
+
+    // ── ESCALATE_LND: Mentor or SME requests help from L&D ───────────────
+    if (action === "escalate_lnd") {
+      const { demoSessionId, reason, requestedBy } = body;
+      if (!demoSessionId) {
+        return NextResponse.json({ success: false, message: "Missing demoSessionId" }, { status: 400 });
+      }
+
+      const demo = await db.get("SELECT * FROM demo_sessions WHERE id = ?", [demoSessionId]);
+      if (!demo) {
+        return NextResponse.json({ success: false, message: "L&D session not found" }, { status: 404 });
+      }
+
+      // Mark session as requiring reallocation
+      await db.run("UPDATE demo_sessions SET status = 'reallocation_required' WHERE id = ?", [demoSessionId]);
+
+      // Remove existing pending reallocations for this session
+      await db.run("DELETE FROM demo_reallocation_requests WHERE demo_session_id = ? AND status = 'pending'", [demoSessionId]).catch(() => {});
+
+      const reqId = generateId("drr");
+      await db.run(
+        `INSERT INTO demo_reallocation_requests (
+          id, demo_session_id, mentor_id, mentor_name, sme_id, sme_name,
+          subject, stream, week, original_date_str, original_time_slot,
+          proposed_date_str, proposed_time_slot, reason, status, request_kind, proposed_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 'escalated_to_lnd', ?)`,
+        [
+          reqId,
+          demoSessionId,
+          demo.mentorId,
+          demo.mentorName,
+          demo.smeId,
+          demo.smeName,
+          demo.subject,
+          demo.stream,
+          (demo as any).week ?? null,
+          demo.dateStr,
+          demo.timeSlot,
+          demo.dateStr,
+          demo.timeSlot,
+          reason || "Need Help from L&D (Assistance requested)",
+          requestedBy || demo.mentorName || "Faculty"
+        ]
+      );
+
+      // Dispatch real-time system notification to L&D / Admin
+      await dispatchSystemNotification(db, {
+        title: "L&D Assistance Requested: Demo Reallocation",
+        message: `${requestedBy || demo.mentorName} requested help from L&D to swap/reallocate the ${demo.subject} demo on ${demo.dateStr} (${demo.timeSlot}).`,
+        link: "/l-and-d",
+        type: "warning",
+        domain: "demos",
+        action: "reallocated",
+      }).catch(() => {});
+
+      // Audit log
+      const auditId = generateId("audit");
+      await db.run(
+        `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp)
+         VALUES (?, 'demo_reallocation_escalated', ?, ?, 'Faculty', ?)`,
+        [
+          auditId,
+          `Help requested from L&D for demo session ${demoSessionId} (${demo.subject}) by ${requestedBy || demo.mentorName}.`,
+          requestedBy || demo.mentorName,
+          new Date().toISOString()
+        ]
+      ).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: "Request sent to L&D team! They will assist with swapping/reallocating this session.",
+        requestId: reqId
+      });
+    }
+
+    // ── SWAP_MENTOR: L&D reassigns the demo session to an eligible peer mentor ──
+    if (action === "swap_mentor") {
+      const { demoSessionId, targetMentorId, decidedBy, notes } = body;
+      if (!demoSessionId || !targetMentorId) {
+        return NextResponse.json({ success: false, message: "Missing demoSessionId or targetMentorId" }, { status: 400 });
+      }
+
+      const demo = await db.get("SELECT * FROM demo_sessions WHERE id = ?", [demoSessionId]);
+      if (!demo) {
+        return NextResponse.json({ success: false, message: "L&D session not found" }, { status: 404 });
+      }
+
+      const targetMentor = await db.get("SELECT id, name, college_id FROM mentors WHERE id = ?", [targetMentorId]);
+      if (!targetMentor) {
+        return NextResponse.json({ success: false, message: "Target mentor not found" }, { status: 404 });
+      }
+
+      const targetDate = String(demo.dateStr || "");
+      const weekday = new Date(targetDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+
+      // Verify that the replacement mentor is genuinely free at that time
+      const avail = await checkMentorAvailability(db, {
+        mentorId: targetMentorId,
+        dateStr: targetDate,
+        dayOfWeek: weekday,
+        timeSlot: demo.timeSlot,
+        collegeId: targetMentor.college_id || undefined
+      });
+      if (!avail.available) {
+        return NextResponse.json({
+          success: false,
+          message: `Cannot assign ${targetMentor.name}: ${avail.reason || "Has scheduled class conflict"}`
+        }, { status: 409 });
+      }
+
+      // Verify replacement mentor doesn't already have a demo at that time
+      const clash = await db.get(
+        `SELECT id FROM demo_sessions WHERE dateStr = ? AND mentorId = ? AND id != ?
+         AND status NOT IN ('completed', 'not_conducted')
+         AND (timeSlot = ? OR ? LIKE ('%' || timeSlot || '%') OR timeSlot LIKE ('%' || ? || '%'))`,
+        [targetDate, targetMentorId, demoSessionId, demo.timeSlot, demo.timeSlot, demo.timeSlot]
+      );
+      if (clash) {
+        return NextResponse.json({
+          success: false,
+          message: `Cannot assign ${targetMentor.name}: already has another demo session at this time.`
+        }, { status: 409 });
+      }
+
+      const prevMentorName = demo.mentorName;
+      await db.run(
+        `UPDATE demo_sessions
+         SET mentorId = ?, mentorName = ?, status = 'scheduled'
+         WHERE id = ?`,
+        [targetMentor.id, targetMentor.name, demoSessionId]
+      );
+
+      // Resolve any pending reallocation requests for this session
+      await db.run(
+        `UPDATE demo_reallocation_requests
+         SET status = 'approved', decided_by = ?, decided_at = CURRENT_TIMESTAMP, decision_notes = ?
+         WHERE demo_session_id = ? AND status = 'pending'`,
+        [decidedBy || "L&D", notes || `Swapped mentor from ${prevMentorName} to ${targetMentor.name}`, demoSessionId]
+      );
+
+      // Notify original mentor, new mentor, and SME
+      await dispatchSystemNotification(db, {
+        userIds: [demo.mentorId, targetMentor.id, demo.smeId].filter(Boolean),
+        title: "L&D Demo Mentor Reassigned",
+        message: `The ${demo.subject} L&D session on ${demo.dateStr} (${demo.timeSlot}) was reassigned from ${prevMentorName} to ${targetMentor.name} by L&D.`,
+        link: "/mentor/demo_evaluations",
+        type: "success",
+        domain: "demos",
+        action: "reallocated"
+      }).catch(() => {});
+
+      const auditId = generateId("audit");
+      await db.run(
+        `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp)
+         VALUES (?, 'demo_mentor_swapped', ?, ?, 'L&D', ?)`,
+        [
+          auditId,
+          `L&D session ${demoSessionId} (${demo.subject}) mentor swapped: ${prevMentorName} → ${targetMentor.name} by ${decidedBy || "L&D"}.`,
+          decidedBy || "L&D",
+          new Date().toISOString()
+        ]
+      ).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: `Successfully swapped session from ${prevMentorName} to ${targetMentor.name}!`
+      });
     }
 
     // ── PROPOSE: mentor picks an alternative period → pending reservation ──

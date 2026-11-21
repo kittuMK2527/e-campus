@@ -1028,12 +1028,13 @@ export async function buildLndDemoTemplate(
       };
     }
 
-    const demoWins = dayWindows.filter((w: any) => (w.slot_type || w.slotType || "demo") !== "training");
-    const trainWins = dayWindows.filter((w: any) => (w.slot_type || w.slotType || "demo") === "training");
+    const demoWins = dayWindows.filter((w: any) => String(w.slot_type || w.slotType || "demo").toLowerCase() === "demo");
+    const trainWins = dayWindows.filter((w: any) => String(w.slot_type || w.slotType || "").toLowerCase() === "training");
+    const otherWins = dayWindows.filter((w: any) => String(w.slot_type || w.slotType || "").toLowerCase() === "other");
 
     const demoText = demoWins.length > 0
       ? demoWins.map((w: any) => `${normalizeTimeTo12Hour(w.start_time)} - ${normalizeTimeTo12Hour(w.end_time)}`).join(", ")
-      : "No L&D Windows (Training Only)";
+      : "No L&D Windows (Training / Other Only)";
 
     const trainingText = trainWins.length > 0
       ? trainWins.map((w: any) => `${normalizeTimeTo12Hour(w.start_time)} - ${normalizeTimeTo12Hour(w.end_time)}`).join(", ")

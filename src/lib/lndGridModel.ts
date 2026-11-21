@@ -242,7 +242,7 @@ export function filterQuotaRows<T extends { mentor: any; group: string; collegeN
 /** Earliest and latest SME L&D window across active availability. */
 export function computeSmeDemoBounds(smeAvailability: any[]) {
   const activeDemoWindows = (smeAvailability || []).filter(
-    (a: any) => a.is_active !== 0 && (a.slot_type || a.slotType || "demo") !== "training"
+    (a: any) => a.is_active !== 0 && String(a.slot_type || a.slotType || "demo").toLowerCase() === "demo"
   );
 
   if (activeDemoWindows.length === 0) {
