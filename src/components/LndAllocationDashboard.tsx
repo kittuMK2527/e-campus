@@ -16,6 +16,9 @@ import {
   Grid,
   Compass,
   Users,
+  Upload,
+  Download,
+  FileSpreadsheet,
   ChevronRight,
   Search
 } from "lucide-react";
@@ -41,6 +44,7 @@ import LndCellDetailsModal from "./lnd/modals/LndCellDetailsModal";
 import LndSwapRequestsModal from "./lnd/modals/LndSwapRequestsModal";
 import LndImportPreviewModal from "./lnd/modals/LndImportPreviewModal";
 import LndTemplateChooserModal from "./lnd/modals/LndTemplateChooserModal";
+import { PageHeader } from "./ui/PageHeader";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -688,7 +692,7 @@ export function LndAllocationDashboard() {
      EXCEL TEMPLATE DOWNLOAD, IMPORT & EXPORT HANDLERS (SUBJECT-GROUP BASED)
      ========================================================================== */
 
-  const _handleOpenTemplateModal = () => {
+  const handleOpenTemplateModal = () => {
     fetchDailyConfigs();
     setShowTemplateModal(true);
   };
@@ -732,13 +736,13 @@ export function LndAllocationDashboard() {
   };
 
   const importInputRef = useRef<HTMLInputElement>(null);
-  const [_isConsoleRefreshing, _setIsConsoleRefreshing] = useState(false);
+  const [isConsoleRefreshing, setIsConsoleRefreshing] = useState(false);
 
   // The shell header only reloads the context bundle; the L&D queues and per-campus
   // day orders live in the query cache, so this console refresh has to invalidate both.
-  const _handleConsoleRefresh = useCallback(async () => {
-    if (_isConsoleRefreshing) return;
-    _setIsConsoleRefreshing(true);
+  const handleConsoleRefresh = useCallback(async () => {
+    if (isConsoleRefreshing) return;
+    setIsConsoleRefreshing(true);
     try {
       await Promise.all([
         refreshData(true),
@@ -747,10 +751,10 @@ export function LndAllocationDashboard() {
       ]);
       toast("Refreshed timetable data.", "success");
     } finally {
-      _setIsConsoleRefreshing(false);
+      setIsConsoleRefreshing(false);
     }
   }, [
-    _isConsoleRefreshing,
+    isConsoleRefreshing,
     lndCollegeIdsKey,
     queryClient,
     refreshData,
@@ -828,7 +832,7 @@ export function LndAllocationDashboard() {
     }
   };
 
-  const _handleExportDemoSchedule = async () => {
+  const handleExportDemoSchedule = async () => {
     const activeCollegeName = currentCollege?.name || "All_Colleges";
     const exportRows = demoSessions
       .filter(ds => {
@@ -988,28 +992,81 @@ export function LndAllocationDashboard() {
       {/* MAIN WORKSPACE AREA */}
       <div className="flex-1 overflow-y-auto p-3 pb-24 md:p-6 space-y-6 max-w-[1400px] mx-auto w-full">
 
-        <input
-          ref={importInputRef}
-          type="file"
-          accept={EXCEL_IMPORT_ACCEPT}
-          onChange={handleDemoExcelFileSelect}
-          tabIndex={-1}
-          aria-label="Choose L&D Excel schedule file"
-          className="sr-only"
-        />
+        {/* Page Top Header and Unified dashboard header — only shown on matrix and rules tabs */}
+        {activeTab !== "queue" && (
+          <>
+            <PageHeader
+              title="L&D Console"
+              icon={Sparkles}
+              meta={
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                  <Users className="h-3 w-3" aria-hidden="true" />
+                  {smes.length} evaluators · {demoSessions.length} scheduled sessions
+                </span>
+              }
+              actions={
+                <>
+                  <Button
+                    variant="brand"
+                    size="default"
+                    icon={<Download className="h-4 w-4" aria-hidden="true" />}
+                    onClick={handleOpenTemplateModal}
+                  >
+                    Download Template
+                  </Button>
+                  <Button
+                    variant="success"
+                    size="default"
+                    icon={<Upload className="h-4 w-4" aria-hidden="true" />}
+                    onClick={() => importInputRef.current?.click()}
+                  >
+                    Import Excel Schedule
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="default"
+                    icon={<FileSpreadsheet className="h-4 w-4 text-[#7C3AED]" aria-hidden="true" />}
+                    onClick={handleExportDemoSchedule}
+                  >
+                    Export Active
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="default"
+                    icon={<RefreshCw className="h-4 w-4" aria-hidden="true" />}
+                    isLoading={isConsoleRefreshing}
+                    loadingText="Refreshing"
+                    onClick={handleConsoleRefresh}
+                  >
+                    Refresh
+                  </Button>
+                  <input
+                    ref={importInputRef}
+                    type="file"
+                    accept={EXCEL_IMPORT_ACCEPT}
+                    onChange={handleDemoExcelFileSelect}
+                    tabIndex={-1}
+                    aria-label="Choose L&D Excel schedule file"
+                    className="sr-only"
+                  />
+                </>
+              }
+            />
 
-        {/* Unified dashboard header - the only KPI strip on this screen */}
-        <LndStatsHeader
-          scheduledHours={allocProgress.scheduled}
-          targetHours={allocProgress.target}
-          evaluatorCount={gridScopeSmes.length}
-          openWindows={gridWindowCapacity.open}
-          totalWindows={gridWindowCapacity.total}
-          leaveAffected={leaveAffectedCount}
-          pendingReallocations={pendingReallocCount}
-          quotaSatisfied={allocProgress.satisfied}
-          quotaTotal={allocProgress.total}
-        />
+            {/* Unified dashboard header - the only KPI strip on this screen */}
+            <LndStatsHeader
+              scheduledHours={allocProgress.scheduled}
+              targetHours={allocProgress.target}
+              evaluatorCount={gridScopeSmes.length}
+              openWindows={gridWindowCapacity.open}
+              totalWindows={gridWindowCapacity.total}
+              leaveAffected={leaveAffectedCount}
+              pendingReallocations={pendingReallocCount}
+              quotaSatisfied={allocProgress.satisfied}
+              quotaTotal={allocProgress.total}
+            />
+          </>
+        )}
 
         {/* TAB 1: ALLOCATION MATRIX */}
         {activeTab === "matrix" && (
