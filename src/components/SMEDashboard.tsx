@@ -12,6 +12,7 @@ import { Panel } from "@/components/Panel";
 import { Pagination } from "@/components/ui/Pagination";
 import { Dialog } from "@/components/ui/dialog";
 import {
+  LayoutDashboard,
   Sparkles,
   Pencil,
   ClipboardList,
@@ -125,6 +126,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
 
   // Sidebar collapse state
   const sidebarRef = useRef<HTMLElement>(null);
+  const sessionsRef = useRef<HTMLDivElement>(null);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   useEffect(() => {
@@ -138,18 +140,20 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const [internalTab, setInternalTab] = useState<TabKey>("overview");
   const rawActiveTab: TabKey = propTab || internalTab;
 
-  // Map legacy route keys to the 5 primary SME tabs
+  // Map legacy route keys to the primary SME tabs
   const activeTab: TabKey = useMemo(() => {
     if (rawActiveTab === "calendar") return "availability";
     if (rawActiveTab === "reallocation_hub") return "reallocation";
+    if (rawActiveTab === "demo_list") return "overview";
     return rawActiveTab;
   }, [rawActiveTab]);
 
   const handleTabChange = (key: TabKey) => {
+    const targetKey = key === "demo_list" ? "overview" : key;
     if (onTabChange) {
-      onTabChange(key);
+      onTabChange(targetKey);
     } else {
-      setInternalTab(key);
+      setInternalTab(targetKey);
     }
     setPage(1);
   };
@@ -629,10 +633,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     }).filter(Boolean)
   ));
 
-  // Notification Counts for 5 Primary SME Sidebar Items
+  // Notification Counts for Primary SME Sidebar Items
   const sidebarNavItems = [
-    { id: "overview", label: "Dashboard", icon: Sparkles, count: 0 },
-    { id: "demo_list", label: "My L&D Sessions", icon: ClipboardList, count: totalAssigned },
+    { id: "overview", label: "Dashboard", icon: LayoutDashboard, count: totalAssigned },
     { id: "weekly_plans", label: "Weekly Plans", icon: CalendarRange, count: 0 },
     { id: "skill_approvals", label: "Skill Approvals", icon: GraduationCap, count: 0 },
     { id: "eval_criteria", label: "Evaluation Criteria", icon: SlidersHorizontal, count: 0 },
@@ -1103,14 +1106,14 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
             <div className="space-y-6">
               {/* Daily Overview KPI Cards with Interactive Tab Drill-Down */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                <div onClick={() => { setFilterStatus("All"); handleTabChange("demo_list"); }} className="cursor-pointer hover:scale-[1.02] transition-transform">
+                <div onClick={() => { setFilterStatus("All"); sessionsRef.current?.scrollIntoView({ behavior: "smooth" }); }} className="cursor-pointer hover:scale-[1.02] transition-transform">
                   <Card
                     label="Today's L&D Sessions"
                     value={todayDemos.length}
                     icon={<Calendar className="h-4 w-4 text-blue-600" />}
                   />
                 </div>
-                <div onClick={() => { setFilterStatus("Confirmed"); handleTabChange("demo_list"); }} className="cursor-pointer hover:scale-[1.02] transition-transform">
+                <div onClick={() => { setFilterStatus("Confirmed"); sessionsRef.current?.scrollIntoView({ behavior: "smooth" }); }} className="cursor-pointer hover:scale-[1.02] transition-transform">
                   <Card
                     label="Upcoming Confirmed"
                     value={confirmedCount}
@@ -1333,16 +1336,14 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                   </div>
                 )}
               </Panel>
-            </div>
-          )}
 
-          {/* ═══════════════ TAB 1: MY DEMOS ═══════════════ */}
-          {activeTab === "demo_list" && (
-            <Panel
-              title="MY L&D SESSIONS"
-            >
-              <div className="space-y-5">
-                {/* Sub-tab Status Filters */}
+              {/* Combined My L&D Sessions Ledger inside Dashboard */}
+              <div ref={sessionsRef}>
+                <Panel
+                  title="MY L&D SESSIONS"
+                >
+                  <div className="space-y-5">
+                    {/* Sub-tab Status Filters */}
                 <div className="flex items-center gap-2 border-b border-slate-200/80 dark:border-slate-800 pb-3 overflow-x-auto">
                   {[
                     { label: "All L&D Sessions", value: "All" },
@@ -1522,10 +1523,12 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 )}
               </div>
             </Panel>
-          )}
+          </div>
+        </div>
+      )}
 
-          {/* ═══════════════ TAB: WEEKLY TEACHING PLANS (SME CURRICULUM OVERSIGHT) ═══════════════ */}
-          {activeTab === "weekly_plans" && (
+      {/* --- TAB: WEEKLY TEACHING PLANS (SME CURRICULUM OVERSIGHT) --- */}
+      {activeTab === "weekly_plans" && (
             <WeeklyPlanViewer
               role="sme"
               reviewerName={currentSME?.name || "Subject Matter Expert"}
@@ -2994,8 +2997,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
       <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom" aria-label="SME sections">
         <div className="flex w-full items-stretch justify-around px-1 py-1">
           {[
-            { id: "overview" as const, label: "Home", icon: Sparkles },
-            { id: "demo_list" as const, label: "Demos", icon: ClipboardList, count: totalAssigned },
+            { id: "overview" as const, label: "Dashboard", icon: LayoutDashboard, count: totalAssigned },
             { id: "weekly_plans" as const, label: "Plans", icon: CalendarRange },
             { id: "availability" as const, label: "Schedule", icon: Calendar },
             {

@@ -53,7 +53,7 @@ const SME_TABS = ["overview", "demo_list", "weekly_plans", "skill_approvals", "a
 const FEE_MANAGER_TABS = ["overview", "colleges", "students", "transactions"] as const;
 
 export function resolveSmeTab(value: unknown): typeof SME_TABS[number] {
-  const tab = value === "calendar" ? "availability" : value === "reallocation_hub" ? "reallocation" : value;
+  const tab = value === "calendar" ? "availability" : value === "reallocation_hub" ? "reallocation" : value === "demo_list" ? "overview" : value;
   return SME_TABS.find((candidate) => candidate === tab) ?? "overview";
 }
 
