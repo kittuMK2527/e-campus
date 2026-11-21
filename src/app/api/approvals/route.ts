@@ -51,8 +51,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { user, errorResponse } = await requireAuth(request);
-    if (errorResponse) return errorResponse;
+    const { auth, errorResponse } = await requireAuth(request);
+    if (errorResponse || !auth) return errorResponse!;
+    const user = auth.user;
     const db = await getDb();
     const body = await request.json();
     const { module_type, action_type, title, description, details, target_user_id, target_user_name, college_id } = body;
@@ -62,7 +63,7 @@ export async function POST(request: Request) {
     }
 
     if (college_id) {
-      const allowed = await canActOnCollege(user, college_id);
+      const allowed = await canActOnCollege(db, user, college_id);
       if (!allowed) {
         return NextResponse.json({ success: false, error: "Unauthorized college scope" }, { status: 403 });
       }
@@ -110,8 +111,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { user, errorResponse } = await requireAuth(request, { allowedRoles: ["admin", "cm", "kam"] });
-    if (errorResponse) return errorResponse;
+    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["admin", "cm", "kam"] });
+    if (errorResponse || !auth) return errorResponse!;
+    const user = auth.user;
     const db = await getDb();
     const body = await request.json();
     const { id, status, decision_notes } = body;
@@ -126,7 +128,7 @@ export async function PATCH(request: Request) {
     }
 
     if (existing.college_id) {
-      const allowed = await canActOnCollege(user, existing.college_id);
+      const allowed = await canActOnCollege(db, user, existing.college_id);
       if (!allowed) {
         return NextResponse.json({ success: false, error: "Unauthorized college scope" }, { status: 403 });
       }
