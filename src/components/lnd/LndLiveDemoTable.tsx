@@ -12,21 +12,18 @@ import {
   TableBody,
   TableCell
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Dialog } from "@/components/ui/dialog";
 import { Pagination } from "@/components/ui/Pagination";
 import { usePagination } from "@/hooks/usePagination";
 import { getInstitutionDateStr } from "@/lib/localDate";
 import {
   Search,
-  Filter,
   Calendar,
   Trash2,
   AlertTriangle,
   RotateCcw,
   BookOpen,
   User,
-  Users,
   Clock,
   Building
 } from "lucide-react";
@@ -297,13 +294,24 @@ export default function LndLiveDemoTable({
 
   // Pagination hook
   const {
-    paginatedData: paginatedSessions,
+    pageItems: paginatedSessions,
     page,
-    totalPages,
     pageSize,
     setPage,
-    setPageSize
-  } = usePagination(filteredSessions, 15);
+    setPageSize,
+    pageSizeOptions
+  } = usePagination(filteredSessions, {
+    pageSize: 15,
+    pageSizeOptions: [15, 25, 50, 100],
+    resetKeys: [
+      selectedCampus,
+      selectedCourse,
+      selectedStatus,
+      startDate,
+      endDate,
+      searchQuery
+    ]
+  });
 
   // Handle Deletion Execution
   const handleConfirmDelete = async () => {
@@ -515,19 +523,16 @@ export default function LndLiveDemoTable({
       {/* ── MAIN TABLE SURFACE ── */}
       <TableSurface
         footer={
-          <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-            <div className="text-[11px] font-semibold text-slate-500">
-              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filteredSessions.length)} of {filteredSessions.length} sessions
-            </div>
+          filteredSessions.length > 0 ? (
             <Pagination
               currentPage={page}
-              totalPages={totalPages}
+              totalItems={filteredSessions.length}
               pageSize={pageSize}
               onPageChange={setPage}
               onPageSizeChange={setPageSize}
-              pageSizeOptions={[15, 25, 50, 100]}
+              pageSizeOptions={pageSizeOptions ? [...pageSizeOptions] : undefined}
             />
-          </div>
+          ) : undefined
         }
       >
         <Table>
