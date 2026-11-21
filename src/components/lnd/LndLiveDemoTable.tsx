@@ -1,0 +1,790 @@
+"use client";
+
+import React, { useState, useMemo, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { apiFetch } from "@/lib/apiFetch";
+import { TableSurface } from "@/components/dashboard/TableSurface";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Dialog } from "@/components/ui/dialog";
+import { Pagination } from "@/components/ui/Pagination";
+import { usePagination } from "@/hooks/usePagination";
+import { getInstitutionDateStr } from "@/lib/localDate";
+import {
+  Search,
+  Filter,
+  Calendar,
+  Trash2,
+  AlertTriangle,
+  RotateCcw,
+  BookOpen,
+  User,
+  Users,
+  Clock,
+  Building
+} from "lucide-react";
+
+export interface LndLiveDemoTableProps {
+  demoSessions: any[];
+  mentors: any[];
+  smes: any[];
+  colleges: any[];
+  subjectsList?: any[];
+  deleteDemoSession?: (id: string) => Promise<{ success: boolean; message?: string }>;
+  refreshData?: () => Promise<any>;
+}
+
+export type DemoComputedStatus =
+  | "completed"
+  | "incomplete"
+  | "rescheduling"
+  | "next_week"
+  | "scheduled";
+
+export default function LndLiveDemoTable({
+  demoSessions = [],
+  mentors = [],
+  smes = [],
+  colleges = [],
+  subjectsList = [],
+  deleteDemoSession,
+  refreshData
+}: LndLiveDemoTableProps) {
+  // Filter States
+  const [selectedCampus, setSelectedCampus] = useState<string>("all");
+  const [selectedCourse, setSelectedCourse] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Deletion Modal State
+  const [deletingSession, setDeletingSession] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [deleteError, setDeleteError] = useState<string>("");
+
+  // Today and next week bounds
+  const todayStr = useMemo(() => getInstitutionDateStr(), []);
+
+  const nextWeekStartStr = useMemo(() => {
+    const today = new Date(todayStr + "T12:00:00");
+    const dayOfWeek = today.getDay(); // 0 is Sunday, 1 is Monday
+    const daysUntilNextMonday = ((8 - dayOfWeek) % 7) || 7;
+    const nextMonday = new Date(today);
+    nextMonday.setDate(nextMonday.getDate() + daysUntilNextMonday);
+    return [
+      nextMonday.getFullYear(),
+      String(nextMonday.getMonth() + 1).padStart(2, "0"),
+      String(nextMonday.getDate()).padStart(2, "0"),
+    ].join("-");
+  }, [todayStr]);
+
+  // Lookup maps for fast cross-referencing
+  const mentorsById = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const m of mentors) {
+      if (m?.id) map.set(m.id, m);
+    }
+    return map;
+  }, [mentors]);
+
+  const smesById = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const s of smes) {
+      if (s?.id) map.set(s.id, s);
+    }
+    return map;
+  }, [smes]);
+
+  const collegesById = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const c of colleges) {
+      if (c?.id) map.set(c.id, c);
+    }
+    return map;
+  }, [colleges]);
+
+  // Fetch verified weekly plans across all campuses to match planned topics
+  const weeklyPlansQuery = useQuery({
+    queryKey: ["mentor-weekly-plans-ledger"],
+    queryFn: async () => {
+      const res = await apiFetch("/api/weekly-plan?collegeId=all");
+      return res?.success ? (res.plans || []) : [];
+    },
+    staleTime: 60 * 1000
+  });
+
+  const weeklyPlans = weeklyPlansQuery.data || [];
+
+  // Match planned topic for a given session
+  const getSessionTopic = useCallback((session: any) => {
+    if (session.topic && session.topic.trim()) {
+      return session.topic.trim();
+    }
+    // Match by mentor ID and subject or week number
+    const matchedPlan = weeklyPlans.find((p: any) => {
+      const mentorMatch = p.mentor_id === session.mentorid;
+      if (!mentorMatch) return false;
+      const subMatch = (p.subject || "").toLowerCase().trim() === (session.subject || "").toLowerCase().trim();
+      const weekMatch = Number(p.week_number) === Number(session.week);
+      return subMatch || weekMatch;
+    });
+
+    if (matchedPlan?.topics_planned && matchedPlan.topics_planned.trim()) {
+      return matchedPlan.topics_planned.trim();
+    }
+    if (matchedPlan?.session_plan && Array.isArray(matchedPlan.session_plan) && matchedPlan.session_plan[0]?.topic) {
+      return matchedPlan.session_plan[0].topic.trim();
+    }
+    return session.subject || "General Demo Session";
+  }, [weeklyPlans]);
+
+  // Compute status for a given session
+  const getSessionStatus = useCallback((session: any): DemoComputedStatus => {
+    const isFutureOrNextWeek = session.datestr >= nextWeekStartStr;
+    if (isFutureOrNextWeek) {
+      return "next_week";
+    }
+
+    const rawStatus = (session.status || "").toLowerCase().trim();
+    if (
+      rawStatus === "conducted" ||
+      rawStatus === "completed" ||
+      session.marks !== null && session.marks !== undefined
+    ) {
+      return "completed";
+    }
+
+    if (
+      rawStatus === "not_conducted" ||
+      rawStatus === "missed"
+    ) {
+      return "incomplete";
+    }
+
+    if (
+      rawStatus === "reallocation_required" ||
+      rawStatus === "reallocated" ||
+      session.makeup_of_session_id
+    ) {
+      return "rescheduling";
+    }
+
+    return "scheduled";
+  }, [nextWeekStartStr]);
+
+  // Distinct courses for dropdown filter
+  const availableCourses = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of demoSessions) {
+      if (s.subject && s.subject.trim()) set.add(s.subject.trim());
+      if (s.stream && s.stream.trim()) set.add(s.stream.trim());
+    }
+    for (const sub of subjectsList) {
+      if (sub.name && sub.name.trim()) set.add(sub.name.trim());
+    }
+    return Array.from(set).sort();
+  }, [demoSessions, subjectsList]);
+
+  // Filtered Sessions List
+  const filteredSessions = useMemo(() => {
+    return demoSessions.filter((session: any) => {
+      const mentor = mentorsById.get(session.mentorid);
+      const mentorCollegeId = mentor?.college_id || mentor?.collegeId || "";
+
+      // Campus filter
+      if (selectedCampus !== "all") {
+        if (mentorCollegeId !== selectedCampus) {
+          return false;
+        }
+      }
+
+      // Course filter
+      if (selectedCourse !== "all") {
+        const sub = (session.subject || "").toLowerCase();
+        const stream = (session.stream || "").toLowerCase();
+        const target = selectedCourse.toLowerCase();
+        if (sub !== target && stream !== target && !sub.includes(target) && !stream.includes(target)) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (selectedStatus !== "all") {
+        const status = getSessionStatus(session);
+        if (status !== selectedStatus) {
+          return false;
+        }
+      }
+
+      // Date Range filter
+      if (startDate) {
+        if (!session.datestr || session.datestr < startDate) {
+          return false;
+        }
+      }
+      if (endDate) {
+        if (!session.datestr || session.datestr > endDate) {
+          return false;
+        }
+      }
+
+      // Search query filter (mentor name, SME name, topic, or subject)
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase().trim();
+        const mentorName = (session.mentorname || mentor?.name || "").toLowerCase();
+        const sme = smesById.get(session.smeid);
+        const smeName = (session.smename || sme?.name || "").toLowerCase();
+        const subject = (session.subject || "").toLowerCase();
+        const topic = getSessionTopic(session).toLowerCase();
+
+        if (
+          !mentorName.includes(q) &&
+          !smeName.includes(q) &&
+          !subject.includes(q) &&
+          !topic.includes(q)
+        ) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  }, [
+    demoSessions,
+    selectedCampus,
+    selectedCourse,
+    selectedStatus,
+    startDate,
+    endDate,
+    searchQuery,
+    mentorsById,
+    smesById,
+    getSessionStatus,
+    getSessionTopic
+  ]);
+
+  // Summary counts based on current filters
+  const metrics = useMemo(() => {
+    let completed = 0;
+    let incomplete = 0;
+    let rescheduling = 0;
+    let nextWeek = 0;
+
+    for (const s of filteredSessions) {
+      const st = getSessionStatus(s);
+      if (st === "completed") completed++;
+      else if (st === "incomplete") incomplete++;
+      else if (st === "rescheduling") rescheduling++;
+      else if (st === "next_week") nextWeek++;
+    }
+
+    return {
+      total: filteredSessions.length,
+      completed,
+      incomplete,
+      rescheduling,
+      nextWeek
+    };
+  }, [filteredSessions, getSessionStatus]);
+
+  // Pagination hook
+  const {
+    paginatedData: paginatedSessions,
+    page,
+    totalPages,
+    pageSize,
+    setPage,
+    setPageSize
+  } = usePagination(filteredSessions, 15);
+
+  // Handle Deletion Execution
+  const handleConfirmDelete = async () => {
+    if (!deletingSession?.id) return;
+    setIsDeleting(true);
+    setDeleteError("");
+    try {
+      if (deleteDemoSession) {
+        const result = await deleteDemoSession(deletingSession.id);
+        if (!result.success) {
+          throw new Error(result.message || "Failed to delete demo session.");
+        }
+      } else {
+        const res = await fetch(`/api/demo-sessions?id=${encodeURIComponent(deletingSession.id)}`, {
+          method: "DELETE"
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.message || data.error || "Failed to delete demo session.");
+        }
+      }
+      setDeletingSession(null);
+      if (refreshData) {
+        await refreshData();
+      }
+    } catch (err: any) {
+      setDeleteError(err.message || "Error deleting session.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const hasActiveFilters =
+    selectedCampus !== "all" ||
+    selectedCourse !== "all" ||
+    selectedStatus !== "all" ||
+    Boolean(startDate) ||
+    Boolean(endDate) ||
+    Boolean(searchQuery.trim());
+
+  const resetAllFilters = () => {
+    setSelectedCampus("all");
+    setSelectedCourse("all");
+    setSelectedStatus("all");
+    setStartDate("");
+    setEndDate("");
+    setSearchQuery("");
+  };
+
+  return (
+    <div className="space-y-5">
+      {/* ── TOP FILTER SURFACE ── */}
+      <div className="bg-white dark:bg-[#131317] border border-slate-200 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400">
+              <BookOpen className="h-4.5 w-4.5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                Live Demo Management Table
+              </h2>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                Automatically synchronized faculty demo sessions, assigned evaluators, verified topics, and status progression.
+              </p>
+            </div>
+          </div>
+
+          {hasActiveFilters && (
+            <button
+              type="button"
+              onClick={resetAllFilters}
+              className="self-start lg:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Reset Filters</span>
+            </button>
+          )}
+        </div>
+
+        {/* Filter Inputs Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-xs">
+          {/* 1. Campus Filter */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block">
+              Campus
+            </label>
+            <select
+              aria-label="Filter by Campus"
+              value={selectedCampus}
+              onChange={(e) => setSelectedCampus(e.target.value)}
+              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+            >
+              <option value="all">All Campuses ({colleges.length})</option>
+              {colleges.map((c: any) => (
+                <option key={c.id} value={c.id}>
+                  {c.name || c.code || c.id}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 2. Course / Department Filter */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block">
+              Course / Department
+            </label>
+            <select
+              aria-label="Filter by Course"
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+            >
+              <option value="all">All Courses ({availableCourses.length})</option>
+              {availableCourses.map((crs: string) => (
+                <option key={crs} value={crs}>
+                  {crs}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 3. Status Filter */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block">
+              Demo Status
+            </label>
+            <select
+              aria-label="Filter by Status"
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+            >
+              <option value="all">All Statuses</option>
+              <option value="completed">Completed</option>
+              <option value="incomplete">Incomplete</option>
+              <option value="rescheduling">Rescheduling Demo</option>
+              <option value="next_week">Next Week Demo</option>
+              <option value="scheduled">Scheduled</option>
+            </select>
+          </div>
+
+          {/* 4. Start Date */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block">
+              Start Date
+            </label>
+            <input
+              type="date"
+              aria-label="Start Date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+            />
+          </div>
+
+          {/* 5. End Date */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block">
+              End Date
+            </label>
+            <input
+              type="date"
+              aria-label="End Date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+            />
+          </div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search by mentor name, SME evaluator, or planned syllabus topic..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full h-10 pl-9 pr-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-slate-800 dark:text-slate-200 text-xs font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+          />
+        </div>
+
+        {/* Live Filter Metric Strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-center">
+          <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700/60">
+            <span className="text-[9.5px] font-bold uppercase text-slate-400 block">Total Demos</span>
+            <span className="text-base font-black text-slate-900 dark:text-white mt-0.5 block">{metrics.total}</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-800/40">
+            <span className="text-[9.5px] font-bold uppercase text-emerald-800 dark:text-emerald-300 block">Completed</span>
+            <span className="text-base font-black text-emerald-900 dark:text-emerald-200 mt-0.5 block">{metrics.completed}</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/20 border border-rose-100 dark:border-rose-800/40">
+            <span className="text-[9.5px] font-bold uppercase text-rose-800 dark:text-rose-300 block">Incomplete</span>
+            <span className="text-base font-black text-rose-900 dark:text-rose-200 mt-0.5 block">{metrics.incomplete}</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-800/40">
+            <span className="text-[9.5px] font-bold uppercase text-amber-800 dark:text-amber-300 block">Rescheduling</span>
+            <span className="text-base font-black text-amber-900 dark:text-amber-200 mt-0.5 block">{metrics.rescheduling}</span>
+          </div>
+          <div className="p-2.5 rounded-xl bg-purple-50/70 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-800/40 col-span-2 sm:col-span-1">
+            <span className="text-[9.5px] font-bold uppercase text-purple-800 dark:text-purple-300 block">Next Week Demo</span>
+            <span className="text-base font-black text-purple-900 dark:text-purple-200 mt-0.5 block">{metrics.nextWeek}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── MAIN TABLE SURFACE ── */}
+      <TableSurface
+        footer={
+          <div className="p-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="text-[11px] font-semibold text-slate-500">
+              Showing {(page - 1) * pageSize + 1} to {Math.min(page * pageSize, filteredSessions.length)} of {filteredSessions.length} sessions
+            </div>
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+              pageSizeOptions={[15, 25, 50, 100]}
+            />
+          </div>
+        }
+      >
+        <Table>
+          <TableHeader>
+            <TableRow className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400">
+              <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4">
+                Mentor Name
+              </TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4">
+                SME Evaluator
+              </TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4">
+                Topic of the Mentor
+              </TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4">
+                Demo Date &amp; Time
+              </TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4 text-center">
+                Status
+              </TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4 text-right">
+                Actions
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {paginatedSessions.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="py-12 text-center">
+                  <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto text-slate-400">
+                    <BookOpen className="h-8 w-8 text-slate-300 dark:text-slate-600" />
+                    <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                      No Demo Sessions Found
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      No records match your selected campus, course, status, or date range filters.
+                    </p>
+                    {hasActiveFilters && (
+                      <button
+                        type="button"
+                        onClick={resetAllFilters}
+                        className="mt-2 text-xs font-bold text-amber-600 hover:underline cursor-pointer"
+                      >
+                        Reset all filters
+                      </button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedSessions.map((session: any) => {
+                const mentor = mentorsById.get(session.mentorid);
+                const sme = smesById.get(session.smeid);
+                const college = mentor?.college_id ? collegesById.get(mentor.college_id) : null;
+                const topic = getSessionTopic(session);
+                const status = getSessionStatus(session);
+
+                return (
+                  <TableRow
+                    key={session.id}
+                    className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800/80 transition-colors"
+                  >
+                    {/* 1. Mentor Name */}
+                    <TableCell className="py-3 px-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 rounded-xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center font-black text-xs shrink-0">
+                          <User className="h-4 w-4" />
+                        </div>
+                        <div>
+                          <div className="font-extrabold text-xs text-slate-900 dark:text-white leading-tight">
+                            {session.mentorname || mentor?.name || "Assigned Faculty"}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-semibold mt-0.5 flex items-center gap-1.5 flex-wrap">
+                            {college?.name && (
+                              <span className="flex items-center gap-0.5">
+                                <Building className="h-3 w-3 inline text-slate-400" />
+                                <span>{college.name}</span>
+                              </span>
+                            )}
+                            {mentor?.department && (
+                              <span>· {mentor.department}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* 2. SME Evaluator */}
+                    <TableCell className="py-3 px-4">
+                      <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-[10px] font-black shrink-0">
+                          SME
+                        </div>
+                        <div>
+                          <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block">
+                            {session.smename || sme?.name || "Assigned SME"}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {sme?.email || session.stream || "Subject Domain Evaluator"}
+                          </span>
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* 3. Topic of the Mentor */}
+                    <TableCell className="py-3 px-4 max-w-[240px]">
+                      <div>
+                        <div className="font-bold text-xs text-slate-900 dark:text-slate-100 line-clamp-2 leading-snug" title={topic}>
+                          {topic}
+                        </div>
+                        <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 mt-0.5 truncate">
+                          {session.subject} {session.week ? `· Week ${session.week}` : ""}
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* 4. Demo Date & Time */}
+                    <TableCell className="py-3 px-4 whitespace-nowrap">
+                      <div className="space-y-0.5">
+                        <div className="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
+                          <span>{session.datestr}</span>
+                        </div>
+                        <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                          <Clock className="h-3 w-3 text-slate-400 shrink-0" />
+                          <span>{session.timeslot}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* 5. Status Badge */}
+                    <TableCell className="py-3 px-4 text-center whitespace-nowrap">
+                      {status === "completed" && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                          Completed
+                        </span>
+                      )}
+                      {status === "incomplete" && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                          Incomplete
+                        </span>
+                      )}
+                      {status === "rescheduling" && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          Rescheduling Demo
+                        </span>
+                      )}
+                      {status === "next_week" && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-purple-100 text-purple-900 dark:bg-purple-950/40 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                          Next Week Demo
+                        </span>
+                      )}
+                      {status === "scheduled" && (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-900 dark:bg-blue-950/40 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                          Scheduled
+                        </span>
+                      )}
+                    </TableCell>
+
+                    {/* 6. Action: Delete Button */}
+                    <TableCell className="py-3 px-4 text-right whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setDeletingSession(session)}
+                        title="Delete Demo Session"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-rose-200 hover:border-rose-300 text-rose-600 hover:text-rose-700 bg-white hover:bg-rose-50 text-[11px] font-bold transition-colors cursor-pointer shadow-xs"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      </TableSurface>
+
+      {/* ── DELETE CONFIRMATION DIALOG ── */}
+      {deletingSession && (
+        <Dialog
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDeletingSession(null);
+              setDeleteError("");
+            }
+          }}
+          ariaLabel="Confirm Demo Deletion"
+          panelClassName="max-w-md p-6 space-y-4 rounded-2xl animate-scaleUp"
+        >
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-900 dark:text-white">
+                Delete Demo Session
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                Are you sure you want to delete this scheduled demo session? This will permanently cancel the demo booking.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-slate-50 dark:bg-slate-800/50 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-semibold">Mentor:</span>
+              <span className="font-extrabold text-slate-900 dark:text-white">{deletingSession.mentorname}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-semibold">Evaluator (SME):</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{deletingSession.smename}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-semibold">Subject:</span>
+              <span className="font-bold text-slate-800 dark:text-slate-200">{deletingSession.subject}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500 font-semibold">Date &amp; Time:</span>
+              <span className="font-mono font-bold text-slate-700 dark:text-slate-300">
+                {deletingSession.datestr} · {deletingSession.timeslot}
+              </span>
+            </div>
+          </div>
+
+          {deleteError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-xl">
+              {deleteError}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={() => {
+                setDeletingSession(null);
+                setDeleteError("");
+              }}
+              className="px-4 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-700 dark:text-slate-300 text-xs font-bold transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isDeleting}
+              onClick={handleConfirmDelete}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-black transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5 shadow-sm"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>{isDeleting ? "Deleting..." : "Confirm Delete"}</span>
+            </button>
+          </div>
+        </Dialog>
+      )}
+    </div>
+  );
+}

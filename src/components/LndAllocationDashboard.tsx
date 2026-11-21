@@ -37,6 +37,7 @@ import LndFilterBar from "./lnd/LndFilterBar";
 import LndPeriodTable from "./lnd/LndPeriodTable";
 import LndRulesTab from "./lnd/LndRulesTab";
 import LndQueueTab from "./lnd/LndQueueTab";
+import LndLiveDemoTable from "./lnd/LndLiveDemoTable";
 import LndPreviewModal from "./lnd/modals/LndPreviewModal";
 import LndOverrideModal from "./lnd/modals/LndOverrideModal";
 import LndCellDetailsModal from "./lnd/modals/LndCellDetailsModal";
@@ -938,7 +939,7 @@ export function LndAllocationDashboard() {
                 }`}
             >
               <RefreshCw className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span>Reallocation Queue</span>}
+              {!isCollapsed && <span>Demo Sessions Ledger</span>}
               {((demoSwapRequests?.filter((r: any) => r.status === "pending").length || 0) + (demoReallocations?.filter((r: any) => r.status === "pending").length || 0)) > 0 && (
                 <span className="ml-auto px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-black">
                   {(demoSwapRequests?.filter((r: any) => r.status === "pending").length || 0) + (demoReallocations?.filter((r: any) => r.status === "pending").length || 0)}
@@ -958,7 +959,7 @@ export function LndAllocationDashboard() {
           {[
             { id: "matrix" as const, label: "Matrix", icon: Grid },
             { id: "rules" as const, label: "Rules", icon: Settings },
-            { id: "queue" as const, label: "Queue", icon: RefreshCw },
+            { id: "queue" as const, label: "Demos", icon: RefreshCw },
           ].map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -1384,23 +1385,16 @@ export function LndAllocationDashboard() {
         )}
 
 
-        {/* TAB 3: REALLOCATION QUEUE & DIAGNOSTICS */}
+        {/* TAB 3: LIVE DEMO MANAGEMENT TABLE & SESSIONS LEDGER */}
         {activeTab === "queue" && (
-          <LndQueueTab
+          <LndLiveDemoTable
             demoSessions={demoSessions}
-            demoSwapRequests={demoSwapRequests}
-            demoReallocations={demoReallocations}
-            fetchDemoReallocations={fetchDemoReallocations}
-            loadingReallocations={loadingReallocations}
-            reallocNotesMap={reallocNotesMap}
-            setReallocNotesMap={setReallocNotesMap}
-            decidingReallocId={decidingReallocId}
-            decideDemoReallocation={decideDemoReallocation}
-            swapRequestsTab={swapRequestsTab}
-            setSwapRequestsTab={setSwapRequestsTab}
-            resolveDemoSwap={resolveDemoSwap}
-            toast={toast}
-            refreshSessions={() => refreshData()}
+            mentors={mentors}
+            smes={smes}
+            colleges={colleges}
+            subjectsList={subjectsList}
+            deleteDemoSession={deleteDemoSession}
+            refreshData={() => refreshData()}
           />
         )}
 
