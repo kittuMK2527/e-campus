@@ -93,9 +93,10 @@ function playNotificationChime() {
 interface DashboardLayoutProps {
   children: React.ReactNode;
   requiredRole: Role;
+  hideFloatingFeedback?: boolean;
 }
 
-export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps) {
+export function DashboardLayout({ children, requiredRole, hideFloatingFeedback = false }: DashboardLayoutProps) {
   const router = useRouter();
   const {
     currentUser,
@@ -1277,20 +1278,22 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
         {children}
 
         {/* Global Floating Feedback Button — clears the mobile bottom navigation */}
-        <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 z-40">
-          <button
-            type="button"
-            onClick={() => {
-              setShowFeedbackModal(true);
-              setFeedbackModalTab("submit");
-            }}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-bold text-xs shadow-md hover:bg-slate-800 dark:hover:bg-slate-700 transition-all cursor-pointer border border-slate-700/50"
-            title="Report an Issue or Feedback"
-          >
-            <AlertCircle className="h-4 w-4 text-slate-300 dark:text-slate-300" />
-            <span className="hidden sm:inline">Report Issue / Feedback</span>
-          </button>
-        </div>
+        {!hideFloatingFeedback && requiredRole !== "L and D" && (
+          <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] md:bottom-4 right-4 z-40">
+            <button
+              type="button"
+              onClick={() => {
+                setShowFeedbackModal(true);
+                setFeedbackModalTab("submit");
+              }}
+              className="flex items-center gap-2 px-3.5 py-2.5 rounded-lg bg-slate-900 dark:bg-slate-800 text-white font-bold text-xs shadow-md hover:bg-slate-800 dark:hover:bg-slate-700 transition-all cursor-pointer border border-slate-700/50"
+              title="Report an Issue or Feedback"
+            >
+              <AlertCircle className="h-4 w-4 text-slate-300 dark:text-slate-300" />
+              <span className="hidden sm:inline">Report Issue / Feedback</span>
+            </button>
+          </div>
+        )}
       </main>
       </>}
 

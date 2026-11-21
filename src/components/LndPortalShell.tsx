@@ -26,7 +26,7 @@ const LndAllocationDashboard = dynamic(
  */
 export function LndPortalShell() {
   return (
-    <DashboardLayout requiredRole="L and D">
+    <DashboardLayout requiredRole="L and D" hideFloatingFeedback={true}>
       <LndAllocationDashboard />
     </DashboardLayout>
   );

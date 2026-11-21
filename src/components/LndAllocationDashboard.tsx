@@ -21,7 +21,8 @@ import {
   Download,
   FileSpreadsheet,
   ChevronRight,
-  Search
+  Search,
+  AlertCircle
 } from "lucide-react";
 import { formatTimeLabel, isTimeSlotMatch } from "../lib/utils";
 import { getLocalDateStr, shiftDateStr } from "../lib/localDate";
@@ -948,6 +949,25 @@ export function LndAllocationDashboard() {
               )}
             </button>
           </nav>
+        </div>
+
+        {/* Bottom Section: Report Issue / Feedback */}
+        <div className="shrink-0 border-t border-slate-200/70 dark:border-slate-800 pt-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("open-feedback-modal"));
+              }
+            }}
+            className={`w-full flex items-center rounded-xl text-xs font-bold transition-all cursor-pointer text-slate-600 hover:text-slate-900 hover:bg-zinc-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5 border border-slate-200/60 dark:border-slate-800/80 ${
+              isCollapsed ? "justify-center p-3" : "gap-3 px-3.5 py-3"
+            }`}
+            title="Report Issue / Feedback"
+          >
+            <AlertCircle className="h-4 w-4 shrink-0 text-amber-500" />
+            {!isCollapsed && <span>Report Issue / Feedback</span>}
+          </button>
         </div>
       </aside>
 
