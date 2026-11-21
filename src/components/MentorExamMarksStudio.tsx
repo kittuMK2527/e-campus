@@ -23,7 +23,9 @@ import {
   Edit3,
   Sparkles,
   FileSpreadsheet,
-  Check
+  Check,
+  Lock,
+  X
 } from "lucide-react";
 import { useApp } from "@/context/AppContext";
 import { useToast } from "@/context/ToastContext";
@@ -835,8 +837,9 @@ export const MentorExamMarksStudio: React.FC = () => {
               <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-3 shadow-2xs">
                 <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <div className="font-extrabold text-xs uppercase tracking-wide text-amber-800">
-                    🔒 Examination in Progress / Scheduled
+                  <div className="font-extrabold text-xs uppercase tracking-wide text-amber-800 flex items-center gap-1.5">
+                    <Lock className="w-4 h-4 text-amber-600" />
+                    <span>Examination in Progress / Scheduled</span>
                   </div>
                   <p className="text-xs text-amber-700 mt-0.5">
                     This examination concludes on <strong>{selectedExam?.exam_date}</strong> at <strong>{selectedExam ? getExamTimeRange(selectedExam) : "Time not set"}</strong>. You can preview the student roster, but marks and attendance entry will automatically unlock once the examination session is completed.
@@ -1034,8 +1037,9 @@ export const MentorExamMarksStudio: React.FC = () => {
                         <div>
                           <label className="text-[10px] font-bold text-slate-400 block mb-1 uppercase tracking-wider">Marks (/{globalMaxMarks})</label>
                           {!isExamOver ? (
-                            <div className="py-2 px-3 bg-slate-100 text-slate-400 font-bold text-xs rounded-lg border border-slate-200 text-center">
-                              🔒 Locked
+                            <div className="py-2 px-3 bg-slate-100 text-slate-400 font-bold text-xs rounded-lg border border-slate-200 text-center flex items-center justify-center gap-1">
+                              <Lock className="w-3 h-3" />
+                              <span>Locked</span>
                             </div>
                           ) : isAlreadySubmitted ? (
                             <div className="flex items-center gap-1.5 font-bold text-xs text-slate-800">
@@ -1159,8 +1163,9 @@ export const MentorExamMarksStudio: React.FC = () => {
                           </TableCell>
                           <TableCell className="p-3 text-center">
                             {!isExamOver ? (
-                              <div className="py-1.5 px-3 bg-slate-100 text-slate-400 font-black text-xs rounded-xl border border-slate-200 text-center">
-                                🔒 Locked
+                              <div className="py-1.5 px-3 bg-slate-100 text-slate-400 font-black text-xs rounded-xl border border-slate-200 text-center flex items-center justify-center gap-1">
+                                <Lock className="w-3 h-3" />
+                                <span>Locked</span>
                               </div>
                             ) : isAlreadySubmitted ? (
                               <div className="flex items-center justify-center gap-2">
@@ -1328,7 +1333,7 @@ export const MentorExamMarksStudio: React.FC = () => {
                     aria-label="Close"
                     className="p-1 rounded-lg text-slate-400 hover:bg-slate-100 transition-colors"
                   >
-                    ✕
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
 

@@ -235,7 +235,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
         // Trigger welcome OS notification
         const systemNotifSent = await sendDeviceSystemNotification({
-          title: "🎉 Notifications Active!",
+          title: "Notifications Active!",
           message: "You will now receive instant alerts from FACE Prep E-Campus on this device.",
           link: "/schedule",
           tag: "fp_welcome_device_push",
@@ -300,7 +300,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
     }
 
     const success = await sendDeviceSystemNotification({
-      title: "🔔 FACE Prep Website Alert Test",
+      title: "FACE Prep Website Alert Test",
       message: `Website notifications are active on this device at ${new Date().toLocaleTimeString()}!`,
       link: "/notifications",
       tag: `test_push_${Date.now()}`,
@@ -1656,10 +1656,10 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
                         className="w-full px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-700 bg-sunken dark:bg-slate-800 text-xs font-bold focus:outline-none focus:border-slate-700"
                         aria-label="Issue Category"
                       >
-                        <option value="bug">🐞 Bug / Error Report</option>
-                        <option value="feature">✨ Feature Request</option>
-                        <option value="suggestion">💡 General Suggestion</option>
-                        <option value="other">📝 Other / Help</option>
+                        <option value="bug">Bug / Error Report</option>
+                        <option value="feature">Feature Request</option>
+                        <option value="suggestion">General Suggestion</option>
+                        <option value="other">Other / Help</option>
                       </select>
                     </div>
 
@@ -1855,7 +1855,7 @@ export function DashboardLayout({ children, requiredRole }: DashboardLayoutProps
 
                             {isPending && (
                               <p className="text-[10px] text-slate-400 italic">
-                                ⏳ Queued for administrator review. You will receive an in-app notification once addressed.
+                                Queued for administrator review. You will receive an in-app notification once addressed.
                               </p>
                             )}
                           </div>

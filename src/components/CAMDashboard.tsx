@@ -17501,7 +17501,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                           </button>
                           <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex flex-col items-center z-50 pointer-events-none min-w-[210px] animate-fadeIn">
                             <div className="bg-slate-900 text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg shadow-card border border-slate-700 text-center leading-tight">
-                              ✨ Calculate and place conflict-free faculty and room schedules automatically.
+                              Calculate and place conflict-free faculty and room schedules automatically.
                             </div>
                             <div className="w-2 h-2 bg-slate-900 rotate-45 -mt-1 border-r border-b border-slate-700"></div>
                           </div>
@@ -17607,7 +17607,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                     onClick={() => setShowCustomTarget(true)}
                                     className="px-3 py-1.5 rounded-xl border border-amber-200 hover:border-amber-400 dark:border-amber-900/30 dark:hover:border-amber-800/40 text-[10.5px] font-bold text-amber-500 dark:text-amber-500 bg-white hover:bg-slate-50 transition-all cursor-pointer self-start md:self-auto"
                                   >
-                                    ✏️ Customize Shift / Room
+                                    Customize Shift / Room
                                   </button>
                                 </div>
                               );
@@ -20411,7 +20411,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
                       <div className="flex items-center gap-2.5">
                         <div className="h-8 w-8 rounded-lg bg-amber-50 flex items-center justify-center text-amber-500 font-black">
-                          ⚡
+                          <Zap className="w-4 h-4 text-amber-500" />
                         </div>
                         <div>
                           <h3 className="text-xs font-black text-slate-900">Map Free Faculty for Cover</h3>
@@ -20453,11 +20453,11 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                         </label>
                         {camAssignLoadingMentors ? (
                           <div className="p-4 text-center text-xs text-slate-400 font-semibold">
-                            ⏳ Checking live faculty availability...
+                            Checking live faculty availability...
                           </div>
                         ) : camAssignAvailableMentors.length === 0 ? (
                           <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
-                            ⚠️ No faculty members are currently free for this slot without schedule clashes or leaves.
+                            No faculty members are currently free for this slot without schedule clashes or leaves.
                           </div>
                         ) : (
                           <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
@@ -20773,7 +20773,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                         </span>
                                       ) : isPending ? (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 border border-amber-200 text-amber-800 text-[8.5px] font-black uppercase">
-                                          ⏳ Awaiting
+                                          Awaiting
                                         </span>
                                       ) : (
                                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 border border-red-200 text-red-800 text-[8.5px] font-black uppercase">
@@ -26197,7 +26197,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                     </span>
                   </div>
                   <span className="text-[9px] font-bold px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200">
-                    ⚡ Auto-Configured
+                    Auto-Configured
                   </span>
                 </div>
               )}
@@ -26573,15 +26573,15 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                 <div>
                   <span className="text-[9.5px] text-slate-400 font-bold uppercase block">10th Mark (%)</span>
-                  <span className="text-sm font-black text-amber-500">{selectedStudentForDetail.tenth_mark ? `${selectedStudentForDetail.tenth_mark}%` : "—"}</span>
+                  <span className="text-sm font-black text-amber-500">{(selectedStudentForDetail.tenth_mark !== null && selectedStudentForDetail.tenth_mark !== undefined && String(selectedStudentForDetail.tenth_mark).trim() !== "") ? `${selectedStudentForDetail.tenth_mark}%` : "—"}</span>
                 </div>
                 <div>
                   <span className="text-[9.5px] text-slate-400 font-bold uppercase block">11th Mark (%)</span>
-                  <span className="text-sm font-black text-amber-500">{selectedStudentForDetail.eleventh_mark ? `${selectedStudentForDetail.eleventh_mark}%` : "—"}</span>
+                  <span className="text-sm font-black text-amber-500">{(selectedStudentForDetail.eleventh_mark !== null && selectedStudentForDetail.eleventh_mark !== undefined && String(selectedStudentForDetail.eleventh_mark).trim() !== "") ? `${selectedStudentForDetail.eleventh_mark}%` : "—"}</span>
                 </div>
                 <div>
                   <span className="text-[9.5px] text-slate-400 font-bold uppercase block">12th Mark (%)</span>
-                  <span className="text-sm font-black text-amber-500">{selectedStudentForDetail.twelfth_mark ? `${selectedStudentForDetail.twelfth_mark}%` : "—"}</span>
+                  <span className="text-sm font-black text-amber-500">{(selectedStudentForDetail.twelfth_mark !== null && selectedStudentForDetail.twelfth_mark !== undefined && String(selectedStudentForDetail.twelfth_mark).trim() !== "") ? `${selectedStudentForDetail.twelfth_mark}%` : "—"}</span>
                 </div>
                 <div>
                   <span className="text-[9.5px] text-slate-400 font-bold uppercase block">Date of Birth</span>

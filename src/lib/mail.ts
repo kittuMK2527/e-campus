@@ -533,7 +533,7 @@ export async function sendMail({
       const db = await getDb();
       const mailingEnabled = await readMailingToggle(db);
       if (mailingEnabled === "false" || mailingEnabled === "0") {
-        console.log("🛑 [Mail] Skipped — mailing disabled by Admin.");
+        console.log("[Mail] Skipped — mailing disabled by Admin.");
         return { success: true, disabled: true, message: "Email delivery disabled by Admin toggle" };
       }
     } catch (checkErr) {
@@ -603,7 +603,7 @@ export async function sendMail({
         }, MAIL_FETCH_TIMEOUT_MS);
         const data = await res.json();
         if (res.ok && data.messageId) {
-          console.log("✅ [Brevo REST] sent:", data.messageId);
+          console.log("[Brevo REST] sent:", data.messageId);
           return { success: true, messageId: data.messageId };
         }
         await logFailure("Brevo REST", data?.message || JSON.stringify(data));
@@ -642,7 +642,7 @@ export async function sendMail({
         if (hiddenBcc.length > 0) mailOpts.bcc = hiddenBcc.join(", ");
         if (ccList.length > 0) mailOpts.cc = ccList.join(", ");
         const info = await transporter.sendMail(mailOpts);
-        console.log("✅ [Brevo SMTP] sent:", info.messageId);
+        console.log("[Brevo SMTP] sent:", info.messageId);
         return { success: true, messageId: info.messageId };
       } catch (e: any) {
         await logFailure("Brevo SMTP", e.message);
@@ -668,7 +668,7 @@ export async function sendMail({
           }, MAIL_FETCH_TIMEOUT_MS);
           if (res.ok) {
             const data = await res.json();
-            console.log("✅ [GAS Webhook] sent:", data);
+            console.log("[GAS Webhook] sent:", data);
             return { success: true, ...data };
           }
         } catch (e: any) {
@@ -679,7 +679,7 @@ export async function sendMail({
 
     // 4. All providers failed — mock log
     await logFailure("All providers", "No working mail provider configured");
-    console.log("⚠️  [Mail] MOCK — To:", recipients.join(","), "| Subject:", subject);
+    console.log("[Mail] MOCK — To:", recipients.join(","), "| Subject:", subject);
     return { success: true, mocked: true };
   } catch (err: any) {
     console.error("Mail utility error:", err);

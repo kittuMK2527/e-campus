@@ -411,7 +411,7 @@ export async function POST(request: Request) {
           const single = mentorTasks[0];
           await dispatchSystemNotification(db, {
             userIds: [mId],
-            title: `📚 New Skill Task Assigned — Task ${single.taskNumber}`,
+            title: `New Skill Task Assigned — Task ${single.taskNumber}`,
             message: `${assignedBy} assigned you Task ${single.taskNumber} in "${single.subject}": "${single.topic}". Deadline: ${single.deadline}. Open My Skill Tracker to view and submit your work.`,
             link: `/mentor?tab=my_skill_tracker`,
             type: "skill_task",
@@ -433,7 +433,7 @@ export async function POST(request: Request) {
           const maxWk = Math.max(...mentorTasks.map(t => t.taskNumber));
           await dispatchSystemNotification(db, {
             userIds: [mId],
-            title: `📚 ${mentorTasks.length} New Skill Tasks Assigned`,
+            title: `${mentorTasks.length} New Skill Tasks Assigned`,
             message: `${assignedBy} assigned you ${mentorTasks.length} skill tasks in "${distinctSubjects}" (Tasks ${minWk} to ${maxWk}). Open My Skill Tracker to view details and submit your work.`,
             link: `/mentor?tab=my_skill_tracker`,
             type: "skill_task",

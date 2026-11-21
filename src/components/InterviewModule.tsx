@@ -919,7 +919,7 @@ const StudentConductedRosterDrawer = ({
                                 </span>
                                 <span className="text-[9px] text-slate-400">{Math.round((Number(ev.total_score) || 0) * 10)}%</span>
                               </button>
-                            ) : <span className="text-amber-500 text-[10px] font-semibold">⏳ Pending</span>}
+                            ) : <span className="text-amber-500 text-[10px] font-semibold">Pending</span>}
                           </TableCell>
                           <TableCell>
                             {isEval ? (
@@ -2958,7 +2958,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     <div className="space-y-1 mt-1.5">
                       {dayExamInfo && (
                         <div className="text-[8.5px] font-bold text-purple-800 bg-purple-100/70 border border-purple-200 px-1 py-0.5 rounded truncate" title={dayExamInfo}>
-                          📝 {dayExamInfo}
+                          {dayExamInfo}
                         </div>
                       )}
                       {dayInterviews.slice(0, 2).map((inv: any) => (

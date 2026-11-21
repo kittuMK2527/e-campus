@@ -731,7 +731,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
                 <div className="space-y-2 p-3.5 rounded-xl border border-slate-100 bg-slate-50/50">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                      <span>💻 Algorithmic &amp; Contest Standing</span>
+                      <span>Algorithmic &amp; Contest Standing</span>
                       <span className="px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 text-[8.5px] font-black">Verified</span>
                     </span>
                     <span className="text-[10px] text-slate-400 font-medium">LeetCode &amp; HackerRank</span>
@@ -769,7 +769,7 @@ export const CAMPlacementPanel: React.FC<CAMPlacementPanelProps> = ({
                         <span className="text-[9.5px] font-black uppercase text-emerald-700">HackerRank</span>
                         {hr?.rank && (
                           <span className="text-[8.5px] font-black text-emerald-800 bg-emerald-50 px-1 rounded">
-                            🏆 #{hr.rank}
+                            #{hr.rank}
                           </span>
                         )}
                       </div>

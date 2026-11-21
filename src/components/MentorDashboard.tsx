@@ -5374,7 +5374,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       if (pendingLateCamReq) {
                                         return (
                                           <span className="text-[8.5px] font-black text-amber-700 flex items-center gap-0.5 uppercase tracking-wider">
-                                            ⏰ CM Pending
+                                            CM Pending
                                           </span>
                                         );
                                       }
@@ -5388,7 +5388,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                       if (isDeadlineExpired) {
                                         return (
                                           <span className="text-[8.5px] font-black text-rose-700 flex items-center gap-0.5 uppercase tracking-wider">
-                                            ⏰ Request CM
+                                            Request CM
                                           </span>
                                         );
                                       }
@@ -11637,7 +11637,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
 
                 {rescheduleModalSession.status === "reallocation_required" && (
                   <div className="p-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg text-[10px] text-amber-800 dark:text-amber-300 font-medium">
-                    ⚠️ <strong>Reschedule Required:</strong> Please select another suitable date & time below.
+                    <strong>Reschedule Required:</strong> Please select another suitable date & time below.
                   </div>
                 )}
               </div>

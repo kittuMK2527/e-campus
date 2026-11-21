@@ -2805,11 +2805,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                     <div>
                                       <div className="flex items-center justify-between gap-1 mb-1">
                                         <span className="px-1.5 py-0.5 rounded bg-purple-600 text-[10px] font-black text-white uppercase tracking-wider">
-                                          📝 {examInfo?.exam_type || "EXAMINATION"}
+                                          {examInfo?.exam_type || "EXAMINATION"}
                                         </span>
                                         {examInfo?.hall_room && (
                                           <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 truncate max-w-[80px]">
-                                            📍 {examInfo.hall_room}
+                                            {examInfo.hall_room}
                                           </span>
                                         )}
                                       </div>
@@ -3019,7 +3019,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   myEval.status === "Needs Improvement" ? "bg-amber-50 text-amber-700 border border-amber-200" :
                                     "bg-rose-50 text-rose-700 border border-rose-200"
                                   }`}>
-                                  {isVerified ? `✓ Conducted & Verified — ${myEval.status}` : `Conducted — Pending CM Verification`}
+                                  {isVerified ? `Conducted & Verified — ${myEval.status}` : `Conducted — Pending CM Verification`}
                                 </span>
                                 <span className="text-xs font-black text-amber-700">Total Score: {myEval.total_score || 0}/10 ({Math.round((Number(myEval.total_score) || 0) * 10)}%)</span>
                               </div>
@@ -3072,7 +3072,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                             </div>
                           ) : isAllocated ? (
                             <div className="p-3 bg-zinc-50 border border-zinc-200 rounded-xl text-center text-[11px] font-bold text-amber-800">
-                              ⏳ Scheduled & Ready — Awaiting Evaluation by {assignedMentor}
+                              Scheduled & Ready — Awaiting Evaluation by {assignedMentor}
                             </div>
                           ) : null}
                         </div>
@@ -3437,7 +3437,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                                   )}
                                 </div>
                                 <div className="text-[11px] text-slate-400 font-medium mt-0.5 flex items-center gap-2 flex-wrap">
-                                  {group.dateRangeStr && <span>📅 {group.dateRangeStr}</span>}
+                                  {group.dateRangeStr && <span>{group.dateRangeStr}</span>}
                                   {group.arrearCount > 0 && (
                                     <span className="text-rose-500 font-bold">• {group.arrearCount} Needs Attention</span>
                                   )}
@@ -5749,7 +5749,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     </div>
                     <div>
                       <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <span>💻 Live Coding &amp; Contest Performance</span>
+                        <span>Live Coding &amp; Contest Performance</span>
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-200">
                           Verified Standing
                         </span>
@@ -5762,7 +5762,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                   {codingStatsData?.collegeMatched && (
                     <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-                      🏛️ {codingStatsData.collegeMatched}
+                      {codingStatsData.collegeMatched}
                     </span>
                   )}
                 </div>
@@ -5862,7 +5862,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                         {codingStatsData?.hackerrank?.rank ? (
                           <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs">
-                            🏆 Rank #{codingStatsData.hackerrank.rank}
+                            Rank #{codingStatsData.hackerrank.rank}
                           </span>
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-[9.5px] font-black bg-slate-100 text-slate-600 border border-slate-200">
@@ -5927,7 +5927,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                     </div>
                     <div>
                       <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-2">
-                        <span>🏆 Honors, Accolades &amp; Achievements</span>
+                        <span>Honors, Accolades &amp; Achievements</span>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200">
                           {studentAchievements.length} Verified
                         </span>
@@ -6042,7 +6042,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
 
                             {achPhotosList.length > 0 && (
                               <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                                📸 {achPhotosList.length} photo(s)
+                                {achPhotosList.length} photo(s)
                               </span>
                             )}
                           </div>

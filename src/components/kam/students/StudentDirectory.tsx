@@ -176,7 +176,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
               onChange={e => setSelectedCollegeId(e.target.value)}
               className="text-xs font-bold text-slate-800 bg-transparent outline-none cursor-pointer"
             >
-              <option value="all">🏢 All Campuses ({colleges.length})</option>
+              <option value="all">All Campuses ({colleges.length})</option>
               {colleges.map(c => (
                 <option key={c.id} value={c.id}>
                   {c.name}

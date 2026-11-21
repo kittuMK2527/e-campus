@@ -87,7 +87,7 @@ export default function LndTemplateChooserModal({
             </div>
           </div>
   
-          {/* ⚠️ TIMETABLE COVERAGE ALERT */}
+          {/* TIMETABLE COVERAGE ALERT */}
           {allCollegesTimetableStatus.collegesSkipped.length > 0 || allCollegesTimetableStatus.collegesMissingTimetable.length > 0 ? (
             <div className="p-4 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900/60 rounded-xl space-y-2">
               <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-extrabold text-xs">

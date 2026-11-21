@@ -117,12 +117,52 @@ export async function GET(req: NextRequest) {
 
     const pool = getExternalPool();
     if (!pool) {
-      return NextResponse.json(
-        { success: false, message: "Contest links are not configured. Set HACKERRANK_LEETCODE_DB_URL." },
-        { status: 503 }
-      );
+      return NextResponse.json({
+        success: true,
+        collegeMatched: resolvedCollege,
+        collegeName: collegeName || resolvedCollege,
+        hackerrank: {
+          hasContest: false,
+          contestUrl: "https://www.hackerrank.com/contests",
+          contestName: `${resolvedCollege} HackerRank Contests`,
+          allContests: []
+        },
+        leetcode: {
+          hasContest: true,
+          contestUrl: "https://leetcode.com/contest/",
+          viewToken: null,
+          practiceCount: 0,
+          latestProblemUrl: null,
+          collegeName: resolvedCollege
+        }
+      });
     }
-    const client = await pool.connect();
+
+    let client: pg.PoolClient | null = null;
+    try {
+      client = await pool.connect();
+    } catch (connErr: any) {
+      console.warn("[Contest Links] External database unreachable:", connErr?.message);
+      return NextResponse.json({
+        success: true,
+        collegeMatched: resolvedCollege,
+        collegeName: collegeName || resolvedCollege,
+        hackerrank: {
+          hasContest: false,
+          contestUrl: "https://www.hackerrank.com/contests",
+          contestName: `${resolvedCollege} HackerRank Contests`,
+          allContests: []
+        },
+        leetcode: {
+          hasContest: true,
+          contestUrl: "https://leetcode.com/contest/",
+          viewToken: null,
+          practiceCount: 0,
+          latestProblemUrl: null,
+          collegeName: resolvedCollege
+        }
+      });
+    }
 
     try {
       // 1. Fetch HackerRank Contests from hc_contests
@@ -135,7 +175,10 @@ export async function GET(req: NextRequest) {
            OR LOWER($1) ILIKE '%' || LOWER(college) || '%'
         ORDER BY id DESC;
       `;
-      const hrRes = await client.query(hrQuery, [resolvedCollege]);
+      const hrRes = await client.query(hrQuery, [resolvedCollege]).catch((err) => {
+        console.warn("[Contest Links] HackerRank contests query error:", err?.message);
+        return { rows: [] };
+      });
       const hrContests = hrRes.rows || [];
 
       // Clean contest URLs to ensure full valid http/https URLs
@@ -254,7 +297,10 @@ export async function GET(req: NextRequest) {
            OR LOWER($1) ILIKE '%' || LOWER(name) || '%'
         LIMIT 1;
       `;
-      const lcRes = await client.query(lcQuery, [resolvedCollege]);
+      const lcRes = await client.query(lcQuery, [resolvedCollege]).catch((err) => {
+        console.warn("[Contest Links] LeetCode college query error:", err?.message);
+        return { rows: [] };
+      });
       const lcCollege = lcRes.rows[0] || null;
 
       let lcPracticeCount = 0;
@@ -264,7 +310,10 @@ export async function GET(req: NextRequest) {
           SELECT COUNT(*)::int AS count, MAX(url) AS sample_url
           FROM lc_practice_problems
           WHERE college_id = $1;
-        `, [lcCollege.id]);
+        `, [lcCollege.id]).catch((err) => {
+          console.warn("[Contest Links] Practice problems query error:", err?.message);
+          return { rows: [] };
+        });
         lcPracticeCount = probRes.rows[0]?.count || 0;
         lcLatestProblemUrl = probRes.rows[0]?.sample_url || "";
       }
@@ -295,7 +344,7 @@ export async function GET(req: NextRequest) {
         ...responseData
       });
     } finally {
-      client.release();
+      client?.release();
     }
   } catch (err: any) {
     console.error("Error fetching student contest links:", err);

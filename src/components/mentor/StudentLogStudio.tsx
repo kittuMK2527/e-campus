@@ -428,11 +428,11 @@ export const StudentLogStudio: React.FC<StudentLogStudioProps> = ({
                       onChange={(e) => setVivaRating(Number(e.target.value))}
                       className="w-full h-10 px-3 border border-slate-200 rounded-xl text-xs font-bold bg-white"
                     >
-                      <option value={5}>⭐⭐⭐⭐⭐ 5 - Outstanding</option>
-                      <option value={4}>⭐⭐⭐⭐ 4 - Good</option>
-                      <option value={3}>⭐⭐⭐ 3 - Average</option>
-                      <option value={2}>⭐⭐ 2 - Needs Improvement</option>
-                      <option value={1}>⭐ 1 - Unsatisfactory</option>
+                      <option value={5}>5 - Outstanding</option>
+                      <option value={4}>4 - Good</option>
+                      <option value={3}>3 - Average</option>
+                      <option value={2}>2 - Needs Improvement</option>
+                      <option value={1}>1 - Unsatisfactory</option>
                     </select>
                   </div>
                 </div>

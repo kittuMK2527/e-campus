@@ -400,7 +400,7 @@ export function OversightHub() {
               onChange={(e) => setCampusFilter(e.target.value)}
               className="w-auto min-w-[170px] cursor-pointer"
             >
-              <option value="all">🏢 All Campuses</option>
+              <option value="all">All Campuses</option>
               {colleges.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}

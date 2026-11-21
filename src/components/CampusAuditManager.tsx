@@ -549,13 +549,13 @@ export const ClassObservationView: React.FC<{
                   className={`flex-1 min-h-[44px] py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
                     fSatisfaction === "satisfied" ? "bg-emerald-600 text-white border-emerald-600" : "bg-white text-slate-600 border-slate-200 hover:border-emerald-400"
                   }`}>
-                  ✓ Satisfied
+                  Satisfied
                 </button>
                 <button type="button" onClick={() => setFSatisfaction("not_satisfied")}
                   className={`flex-1 min-h-[44px] py-2 rounded-xl text-xs font-extrabold border transition-all cursor-pointer ${
                     fSatisfaction === "not_satisfied" ? "bg-rose-600 text-white border-rose-600" : "bg-white text-slate-600 border-slate-200 hover:border-rose-400"
                   }`}>
-                  ✗ Not Satisfied
+                  Not Satisfied
                 </button>
               </div>
             </div>
@@ -953,7 +953,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
           attFound: Boolean(d.attendance?.totalEnrolled > 0)
         });
         setHasAutoFetched(true);
-        toast(`⚡ Live system data loaded for ${mName}! All fields remain editable.`, "success");
+        toast(`Live system data loaded for ${mName}! All fields remain editable.`, "success");
       }
     } catch (e: any) {
       console.warn("Auto-fetch prepopulation notice:", e.message);
@@ -1854,7 +1854,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                     <Sparkles className="h-5 w-5 text-emerald-600 shrink-0" />
                     <div>
                       <p className="font-extrabold text-emerald-950">
-                        ⚡ Live System Data Auto-Populated for {wizMentor} ({wizDate})
+                        Live System Data Auto-Populated for {wizMentor} ({wizDate})
                       </p>
                       <p className="text-[11px] text-emerald-800 font-medium mt-0.5">
                         Verified class schedule, weekly plans, task ratios, and attendance counts have been pre-filled. Every field below remains 100% manually editable.
@@ -2058,7 +2058,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                         item.val ? "bg-emerald-600 text-white" : "bg-rose-100 text-rose-700"
                       }`}
                     >
-                      {item.val ? "✓ Yes" : "✕ No"}
+                      {item.val ? "Yes" : "No"}
                     </button>
                   </div>
                 ))}
@@ -2146,7 +2146,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                         item.val ? "bg-emerald-600 text-white" : "bg-rose-100 text-rose-700"
                       }`}
                     >
-                      {item.val ? "✓ Yes" : "✕ No"}
+                      {item.val ? "Yes" : "No"}
                     </button>
                   </div>
                 ))}
@@ -2210,7 +2210,7 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                         item.val ? "bg-emerald-600 text-white" : "bg-rose-100 text-rose-700"
                       }`}
                     >
-                      {item.val ? "✓ Yes" : "✕ No"}
+                      {item.val ? "Yes" : "No"}
                     </button>
                   </div>
                 ))}
@@ -2339,11 +2339,11 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                     <tr key={m.mentor_name} className="hover:bg-slate-50/80 transition-colors">
                       <td className="p-3 text-center font-bold">
                         {idx === 0 ? (
-                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100 text-amber-800 font-black text-xs">🥇</span>
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-100 text-amber-800 font-black text-xs">1</span>
                         ) : idx === 1 ? (
-                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-slate-200 text-slate-700 font-black text-xs">🥈</span>
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-slate-200 text-slate-700 font-black text-xs">2</span>
                         ) : idx === 2 ? (
-                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-50 text-amber-700 font-black text-xs">🥉</span>
+                          <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-amber-50 text-amber-700 font-black text-xs">3</span>
                         ) : (
                           <span className="font-mono text-slate-400 text-xs">#{idx + 1}</span>
                         )}
@@ -2430,17 +2430,17 @@ export const CampusAuditManager: React.FC<CampusAuditManagerProps> = ({
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {comp < 70 && (
                         <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold text-[10.5px]">
-                          ⚠️ Low Genuineness Score (&lt;70%)
+                          Low Genuineness Score (&lt;70%)
                         </span>
                       )}
                       {missingProof && (
                         <span className="px-2 py-0.5 rounded-md bg-amber-100 text-amber-800 font-bold text-[10.5px]">
-                          🔗 Missing GitHub/Drive Evidence Link
+                          Missing GitHub/Drive Evidence Link
                         </span>
                       )}
                       {Number(a.below_75_count) > 10 && (
                         <span className="px-2 py-0.5 rounded-md bg-rose-100 text-rose-800 font-bold text-[10.5px]">
-                          👥 High Absenteeism ({a.below_75_count} students &lt; 75%)
+                          High Absenteeism ({a.below_75_count} students &lt; 75%)
                         </span>
                       )}
                     </div>

@@ -182,7 +182,7 @@ export async function GET(request: Request) {
         weightage: null,
         targetAvg: 75,
         actualAvg,
-        compliance: data.marksCount > 0 ? "🟢 Completed" : data.status === "Ongoing" ? "🟡 In-Progress" : "🔵 Scheduled"
+        compliance: data.marksCount > 0 ? "Completed" : data.status === "Ongoing" ? "In-Progress" : "Scheduled"
       };
     });
 

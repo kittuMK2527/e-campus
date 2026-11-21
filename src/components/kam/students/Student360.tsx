@@ -386,11 +386,11 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
         <div className="p-1.5 bg-slate-50/90 border-b border-slate-100 flex items-center gap-1.5 shrink-0 overflow-x-auto custom-scrollbar">
           {[
             { key: "overview", label: "Progress & Analytics", icon: Award },
-            { key: "coding", label: `💻 Coding (${codingStats?.leetcode?.solvedTotal ? `${codingStats.leetcode.solvedTotal} LC` : "Stats"})`, icon: Sparkles },
+            { key: "coding", label: `Coding (${codingStats?.leetcode?.solvedTotal ? `${codingStats.leetcode.solvedTotal} LC` : "Stats"})`, icon: Sparkles },
             { key: "subjects", label: "Subject Breakdown", icon: BookOpen },
             { key: "timeline", label: "Timeline", icon: Clock },
             { key: "attendance", label: "Attendance Logs", icon: Calendar },
-            { key: "achievements", label: `🏆 Honors (${achievements.length})`, icon: Sparkles }
+            { key: "achievements", label: `Honors (${achievements.length})`, icon: Sparkles }
           ].map(t => {
             const Icon = t.icon;
             const isActive = activeTab === t.key;
@@ -603,7 +603,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
             </div>
           )}
 
-          {/* 5. 🏆 Student Honors & Verified Achievements Tab */}
+          {/* 5. Student Honors & Verified Achievements Tab */}
           {activeTab === "achievements" && (
             <div className="space-y-3">
               {loadingAchievements ? (
@@ -708,7 +708,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
 
                           {achPhotosList.length > 0 && (
                             <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                              📸 {achPhotosList.length} photo(s) attached
+                              {achPhotosList.length} photo(s) attached
                             </span>
                           )}
                         </div>
@@ -726,7 +726,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
               <div className="flex items-center justify-between pb-2 border-b border-slate-200 flex-wrap gap-2">
                 <div>
                   <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                    <span>💻 Algorithmic &amp; Contest Performance</span>
+                    <span>Algorithmic &amp; Contest Performance</span>
                     <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
                       Real-time Sync Active
                     </span>
@@ -737,7 +737,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                 </div>
                 {codingStats?.collegeMatched && (
                   <span className="px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-                    🏛️ {codingStats.collegeMatched}
+                    {codingStats.collegeMatched}
                   </span>
                 )}
               </div>
@@ -834,7 +834,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
                       </div>
                       {codingStats?.hackerrank?.rank ? (
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
-                          🏆 Rank #{codingStats.hackerrank.rank}
+                          Rank #{codingStats.hackerrank.rank}
                         </span>
                       ) : (
                         <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-100 text-slate-600 border border-slate-200">

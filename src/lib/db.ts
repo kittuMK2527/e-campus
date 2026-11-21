@@ -507,7 +507,7 @@ export function resolveConnectionString(rawUrl: string): string {
     || "aws-0-ap-southeast-1.pooler.supabase.com";
   parsed.port = parsed.port === "5432" || !parsed.port ? "6543" : parsed.port;
 
-  console.log(`🐘 [Database] Auto-routed Supabase host to IPv4 Pooler (${parsed.hostname}:${parsed.port})`);
+  console.log(`[Database] Auto-routed Supabase host to IPv4 Pooler (${parsed.hostname}:${parsed.port})`);
   return parsed.toString();
 }
 
@@ -592,14 +592,14 @@ export function getDb(): Promise<PostgresDbAdapter> {
 
       if (!postgresUrl) {
         throw new Error(
-          "❌ [PostgreSQL Error] DATABASE_URL or POSTGRES_URL environment variable is missing. PostgreSQL is the sole production database engine."
+          "[PostgreSQL Error] DATABASE_URL or POSTGRES_URL environment variable is missing. PostgreSQL is the sole production database engine."
         );
       }
 
       const finalConnectionString = resolveConnectionString(postgresUrl);
 
       const isLocalHost = finalConnectionString.includes("localhost") || finalConnectionString.includes("127.0.0.1");
-      console.log(`🐘 [Database] Connecting to PostgreSQL (${isLocalHost ? "Localhost" : "Cloud/Pooler"})...`);
+      console.log(`[Database] Connecting to PostgreSQL (${isLocalHost ? "Localhost" : "Cloud/Pooler"})...`);
 
       const pool = new Pool({
         connectionString: finalConnectionString,
@@ -640,7 +640,7 @@ export function getDb(): Promise<PostgresDbAdapter> {
           break;
         } catch (connErr: any) {
           lastConnectErr = connErr;
-          console.warn(`⚠️ [PostgreSQL Connect] Probe attempt ${connectAttempt}/${maxConnectAttempts} failed: ${connErr.message}`);
+          console.warn(`[PostgreSQL Connect] Probe attempt ${connectAttempt}/${maxConnectAttempts} failed: ${connErr.message}`);
           if (connectAttempt >= maxConnectAttempts || !isTransientError(connErr)) {
             break;
           }
@@ -650,7 +650,7 @@ export function getDb(): Promise<PostgresDbAdapter> {
       }
 
       if (lastConnectErr) {
-        console.error("❌ [PostgreSQL Error] Connection failed:", lastConnectErr.message);
+        console.error("[PostgreSQL Error] Connection failed:", lastConnectErr.message);
         // A failed boot must not be cached. Without this the rejected promise stays
         // in dbPromise for the life of the instance and every subsequent request
         // 500s with the same stale error even after the pooler comes back.

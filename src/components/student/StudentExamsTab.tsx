@@ -32,7 +32,7 @@ export default function StudentExamsTab({
 }: StudentExamsTabProps) {
   const [examSubTab, setExamSubTab] = useState<"results" | "schedule">("results");
   const [marksTypeFilter, setMarksTypeFilter] = useState<string>("all");
-  const [marksSearchTerm, setMarksSearchTerm] = useState<string>(" ");
+  const [marksSearchTerm, setMarksSearchTerm] = useState<string>("");
 
   const now = useServerClock();
   const allExams = studentExamsList || [];
@@ -440,7 +440,7 @@ export default function StudentExamsTab({
                           )}
                         </div>
                         <div className="text-[11px] text-slate-400 font-medium mt-0.5 flex items-center gap-2 flex-wrap">
-                          {group.dateRangeStr && <span>📅 {group.dateRangeStr}</span>}
+                          {group.dateRangeStr && <span>{group.dateRangeStr}</span>}
                           {group.arrearCount > 0 && (
                             <span className="text-rose-600 font-bold">• {group.arrearCount} Needs Attention</span>
                           )}

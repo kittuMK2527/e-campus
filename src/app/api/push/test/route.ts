@@ -28,7 +28,7 @@ export async function POST(request: Request) {
         await sendWebPushNotification(db, {
           userIds: [userId],
           roles: role ? [role] : undefined,
-          title: "🚀 Closed Tab Background Push Test",
+          title: "Closed Tab Background Push Test",
           message: `This alert was delivered through Google FCM / Apple APNs while your tab was closed at ${new Date().toLocaleTimeString()}!`,
           link: "/schedule",
           tag: `test_closed_push_${Date.now()}`

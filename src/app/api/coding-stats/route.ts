@@ -177,19 +177,45 @@ export async function GET(req: NextRequest) {
 
     const pool = getExternalPool();
     if (!pool) {
-      return NextResponse.json(
-        { success: false, message: "Coding stats are not configured. Set HACKERRANK_LEETCODE_DB_URL." },
-        { status: 503 }
-      );
+      if (isBatchMode) {
+        return NextResponse.json({
+          success: true,
+          collegeMatched: resolvedCollege,
+          leetcodeByReg: {},
+          leetcodeByEmail: {},
+          hackerrankByReg: {},
+          hackerrankByEmail: {},
+          hackerrankByUsername: {},
+          summary: { totalLeetcodeStudents: 0, totalHackerrankStudents: 0, totalScrapes: 0 }
+        });
+      }
+      return NextResponse.json({
+        success: true,
+        collegeMatched: resolvedCollege,
+        leetcode: { found: false, solvedTotal: 0, solvedEasy: 0, solvedMedium: 0, solvedHard: 0, ranking: null },
+        hackerrank: { found: false, solved: 0, attempted: 0, computedScore: 0, rank: null }
+      });
     }
     let client: pg.PoolClient | null = null;
     try {
       client = await pool.connect();
     } catch (connErr: any) {
       console.warn("[Coding Stats] External database unreachable:", connErr?.message);
+      if (isBatchMode) {
+        return NextResponse.json({
+          success: true,
+          collegeMatched: resolvedCollege,
+          leetcodeByReg: {},
+          leetcodeByEmail: {},
+          hackerrankByReg: {},
+          hackerrankByEmail: {},
+          hackerrankByUsername: {},
+          summary: { totalLeetcodeStudents: 0, totalHackerrankStudents: 0, totalScrapes: 0 }
+        });
+      }
       return NextResponse.json({
-        success: false,
-        message: "Coding stats service temporarily unreachable",
+        success: true,
+        collegeMatched: resolvedCollege,
         leetcode: { found: false, solvedTotal: 0, solvedEasy: 0, solvedMedium: 0, solvedHard: 0, ranking: null },
         hackerrank: { found: false, solved: 0, attempted: 0, computedScore: 0, rank: null }
       });
@@ -200,52 +226,61 @@ export async function GET(req: NextRequest) {
          BATCH MODE: Return all student coding stats for the college
          ───────────────────────────────────────────────────────────────── */
       if (isBatchMode) {
-        // 1. Fetch LeetCode students for college
-        const lcRes = await client.query(
-          `
-          SELECT s.id, s.name, s.register_number, s.email, s.username, s.profile_url,
-                 s.ranking, s.solved_easy, s.solved_medium, s.solved_hard, s.solved_total,
-                 s.last_synced_at, c.name as college_name
-          FROM lc_students s
-          LEFT JOIN lc_colleges c ON s.college_id = c.id
-          WHERE LOWER(c.name) = LOWER($1)
-             OR LOWER(c.name) ILIKE '%' || LOWER($1) || '%'
-             OR LOWER($1) ILIKE '%' || LOWER(c.name) || '%'
-          ORDER BY s.solved_total DESC NULLS LAST;
-        `,
-          [resolvedCollege]
-        );
+        // Parallel queries with graceful fallback on table missing / connection errors
+        const [lcRes, hcRes, scrapeRes] = await Promise.all([
+          client.query(
+            `
+            SELECT s.id, s.name, s.register_number, s.email, s.username, s.profile_url,
+                   s.ranking, s.solved_easy, s.solved_medium, s.solved_hard, s.solved_total,
+                   s.last_synced_at, c.name as college_name
+            FROM lc_students s
+            LEFT JOIN lc_colleges c ON s.college_id = c.id
+            WHERE LOWER(c.name) = LOWER($1)
+               OR LOWER(c.name) ILIKE '%' || LOWER($1) || '%'
+               OR LOWER($1) ILIKE '%' || LOWER(c.name) || '%'
+            ORDER BY s.solved_total DESC NULLS LAST;
+          `,
+            [resolvedCollege]
+          ).catch((err) => {
+            console.warn("[Coding Stats Batch] LeetCode query error:", err?.message);
+            return { rows: [] };
+          }),
 
-        // 2. Fetch HackerRank students for college
-        const hcRes = await client.query(
-          `
-          SELECT id, name, college, department, email, register_no, hr_username
-          FROM hc_students
-          WHERE LOWER(college) = LOWER($1)
-             OR LOWER(college) ILIKE '%' || LOWER($1) || '%'
-             OR LOWER($1) ILIKE '%' || LOWER(college) || '%';
-        `,
-          [resolvedCollege]
-        );
+          client.query(
+            `
+            SELECT id, name, college, department, email, register_no, hr_username
+            FROM hc_students
+            WHERE LOWER(college) = LOWER($1)
+               OR LOWER(college) ILIKE '%' || LOWER($1) || '%'
+               OR LOWER($1) ILIKE '%' || LOWER(college) || '%';
+          `,
+            [resolvedCollege]
+          ).catch((err) => {
+            console.warn("[Coding Stats Batch] HackerRank query error:", err?.message);
+            return { rows: [] };
+          }),
 
-        // 3. Fetch latest HackerRank scrapes for college
-        const scrapeRes = await client.query(
-          `
-          SELECT s.id, s.slug, s.contest_name, s.total_questions, s.payload, s.created_at
-          FROM hc_scrapes s
-          LEFT JOIN hc_contests c ON LOWER(c.slug) = LOWER(s.slug)
-          WHERE 
-            LOWER(c.college) = LOWER($1)
-            OR LOWER(c.college) ILIKE '%' || LOWER($1) || '%'
-            OR LOWER($1) ILIKE '%' || LOWER(c.college) || '%'
-            OR LOWER(s.slug) ILIKE '%' || LOWER($1) || '%'
-            OR LOWER(s.contest_name) ILIKE '%' || LOWER($1) || '%'
-            OR $1 = ''
-          ORDER BY s.id DESC
-          LIMIT 10;
-        `,
-          [resolvedCollege]
-        );
+          client.query(
+            `
+            SELECT s.id, s.slug, s.contest_name, s.total_questions, s.payload, s.created_at
+            FROM hc_scrapes s
+            LEFT JOIN hc_contests c ON LOWER(c.slug) = LOWER(s.slug)
+            WHERE 
+              LOWER(c.college) = LOWER($1)
+              OR LOWER(c.college) ILIKE '%' || LOWER($1) || '%'
+              OR LOWER($1) ILIKE '%' || LOWER(c.college) || '%'
+              OR LOWER(s.slug) ILIKE '%' || LOWER($1) || '%'
+              OR LOWER(s.contest_name) ILIKE '%' || LOWER($1) || '%'
+              OR $1 = ''
+            ORDER BY s.id DESC
+            LIMIT 10;
+          `,
+            [resolvedCollege]
+          ).catch((err) => {
+            console.warn("[Coding Stats Batch] Scrapes query error:", err?.message);
+            return { rows: [] };
+          })
+        ]);
 
         // Build quick lookup maps
         const leetcodeByReg: Record<string, any> = {};
@@ -411,19 +446,19 @@ export async function GET(req: NextRequest) {
 
       const [lcRes, hcRes, scrapeRes] = await Promise.all([
         shouldQueryLc
-          ? pool.query(lcQuery, [regClean, emailClean, lcUserExtracted.toLowerCase(), name]).catch((err) => {
+          ? client.query(lcQuery, [regClean, emailClean, lcUserExtracted.toLowerCase(), name]).catch((err) => {
               console.warn("LeetCode lookup warning:", err?.message);
               return { rows: [] };
             })
           : Promise.resolve({ rows: [] }),
         shouldQueryHc
-          ? pool.query(hcQuery, [regClean, emailClean, hrUserExtracted.toLowerCase(), name]).catch((err) => {
+          ? client.query(hcQuery, [regClean, emailClean, hrUserExtracted.toLowerCase(), name]).catch((err) => {
               console.warn("HackerRank lookup warning:", err?.message);
               return { rows: [] };
             })
           : Promise.resolve({ rows: [] }),
         shouldQueryScrapes
-          ? pool.query(scrapeQuery, [resolvedCollege]).catch((err) => {
+          ? client.query(scrapeQuery, [resolvedCollege]).catch((err) => {
               console.warn("Scrapes lookup warning:", err?.message);
               return { rows: [] };
             })

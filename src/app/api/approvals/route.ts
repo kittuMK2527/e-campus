@@ -9,7 +9,7 @@ import { dispatchSystemNotification } from "@/lib/notifications";
 
 export async function GET(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin", "L and D"] });
+    const { errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin", "L and D", "mentor", "student", "sme", "program_ops"] });
     if (errorResponse) return errorResponse;
     const db = await getDb();
     const { searchParams } = new URL(request.url);
