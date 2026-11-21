@@ -300,7 +300,7 @@ const CAMFeePanel: React.FC<{ camId: string }> = ({ camId }) => {
       ws["!cols"] = [{ wch: 6 }, { wch: 28 }, { wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 10 }];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Fee Collection");
-      XLSX.writeFile(wb, `Fee_Collection_Report_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      XLSX.writeFile(wb, `Fee_Collection_Report_${getLocalDateStr()}.xlsx`);
     } catch (err: any) {
       // ROLE_UI_AUDIT C3: toast instead of blocking alert()
       feeToast("Export failed: " + err.message, "error");
@@ -1045,7 +1045,7 @@ export const CAMCampusInsightPanel: React.FC<{
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `${fileName}_${new Date().toISOString().slice(0, 10)}.csv`);
+      link.setAttribute("download", `${fileName}_${getLocalDateStr()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -1073,7 +1073,7 @@ export const CAMCampusInsightPanel: React.FC<{
         const ws = XLSX.utils.aoa_to_sheet(wsData);
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
 
-        XLSX.writeFile(wb, `${fileName}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        XLSX.writeFile(wb, `${fileName}_${getLocalDateStr()}.xlsx`);
         toast(`Exported "${fileName}.xlsx" successfully with Analytics Summary!`, "success");
       } catch (err: any) {
         toast("Failed to export Excel: " + err.message, "error");
@@ -3391,7 +3391,7 @@ export const CAMCampusInsightPanel: React.FC<{
         const wsEws = XLSX.utils.aoa_to_sheet([ewsHeaders, ...ewsRows]);
         XLSX.utils.book_append_sheet(wb, wsEws, "Early_Warning_EWS");
 
-        XLSX.writeFile(wb, `${(activeCollegeName || "Campus").replace(/[^a-zA-Z0-9]/g, '_')}_Complete_Academic_Dossier_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        XLSX.writeFile(wb, `${(activeCollegeName || "Campus").replace(/[^a-zA-Z0-9]/g, '_')}_Complete_Academic_Dossier_${getLocalDateStr()}.xlsx`);
         toast("Master Academic Dossier (.xlsx) downloaded successfully with all 11 institutional sheets!", "success");
       } catch (err: any) {
         toast("Failed to export Master Dossier: " + err.message, "error");
@@ -13174,7 +13174,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       }
     }
     const version = "v" + nextNum.toFixed(1);
-    const newVer = { sem, ver: version, date: new Date().toISOString().slice(0, 10) };
+    const newVer = { sem, ver: version, date: getLocalDateStr() };
     setTimetableVersions([newVer, ...timetableVersions.filter(v => v.sem !== sem)]);
     toast(`Successfully published version ${version} of schedule for ${sem}.`, "success");
   };
@@ -18242,7 +18242,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 ];
                 const wb = XLSX.utils.book_new();
                 XLSX.utils.book_append_sheet(wb, ws, "Interview Allocations");
-                XLSX.writeFile(wb, `Interview_Allocations_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                XLSX.writeFile(wb, `Interview_Allocations_${getLocalDateStr()}.xlsx`);
                 toast("Interview data exported!", "success");
               } catch (err: any) {
                 toast("Export failed: " + err.message, "error");
@@ -19473,7 +19473,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       const wsIssues = XLSX.utils.aoa_to_sheet([issueHeaders, ...issueRows]);
                       XLSX.utils.book_append_sheet(wb, wsTasks, "KAM Tasks");
                       XLSX.utils.book_append_sheet(wb, wsIssues, "Campus Issues");
-                      XLSX.writeFile(wb, `Tasks_Issues_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                      XLSX.writeFile(wb, `Tasks_Issues_${getLocalDateStr()}.xlsx`);
                       toast("Tasks & Issues exported!", "success");
                     } catch (err: any) {
                       toast("Export failed: " + err.message, "error");
@@ -19940,7 +19940,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                             ws["!cols"] = [{ wch: 5 }, { wch: 14 }, { wch: 12 }, { wch: 20 }, { wch: 18 }, { wch: 22 }, { wch: 22 }, { wch: 35 }, { wch: 14 }, { wch: 14 }];
                             const wb = XLSX.utils.book_new();
                             XLSX.utils.book_append_sheet(wb, ws, "Requests");
-                            XLSX.writeFile(wb, `Requests_Approvals_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                            XLSX.writeFile(wb, `Requests_Approvals_${getLocalDateStr()}.xlsx`);
                             toast("Requests exported successfully!", "success");
                           } catch (err: any) {
                             toast("Export failed: " + err.message, "error");
@@ -21473,7 +21473,7 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                       ];
                       const wb = XLSX.utils.book_new();
                       XLSX.utils.book_append_sheet(wb, ws, "Campus_Academic_Audit");
-                      XLSX.writeFile(wb, `Campus_Academic_Syllabus_Tracker_${activeCollegeId}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+                      XLSX.writeFile(wb, `Campus_Academic_Syllabus_Tracker_${activeCollegeId}_${getLocalDateStr()}.xlsx`);
                       toast("Campus syllabus audit exported to Excel!", "success");
                     } catch (err: any) {
                       toast("Export failed: " + err.message, "error");

@@ -221,7 +221,7 @@ export async function GET(request: Request) {
     const CAPS = {
       mentors: 1000, slots: 2500, students: 2000, subjectGroups: 500,
       colleges: 200, academicEvents: 300, facultyLeaves: 300,
-      demoSessions: 200, demoSwaps: 100
+      demoSessions: 2000, demoSwaps: 500
     };
     // Latency #3: campus/KAM-scoped slices had no ceiling at all. These are safety
     // caps well above a real campus, reported as truncated if ever reached.

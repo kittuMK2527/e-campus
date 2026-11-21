@@ -59,7 +59,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, message: "Mentor, Slot, or Target Staff not found." }, { status: 404 });
     }
 
-    if (offerSlot.mentorId !== targetStaffId) {
+    const slotMentorId = offerSlot.mentorId ?? (offerSlot as any).mentor_id ?? (offerSlot as any).mentorid;
+    if (slotMentorId !== targetStaffId) {
       return NextResponse.json({ success: false, message: "You can only select a slot that belongs to the target faculty." }, { status: 400 });
     }
 

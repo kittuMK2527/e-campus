@@ -37,6 +37,14 @@ export interface LndLiveDemoTableProps {
 
 export type DemoComputedStatus = "completed" | "incomplete" | "upcoming";
 
+// Property resolution helpers to handle both camelCase (SQLite / PG adapted) and lowercase/snake_case
+const getSessionDate = (s: any): string => s?.dateStr || s?.date_str || s?.datestr || "";
+const getSessionTime = (s: any): string => s?.timeSlot || s?.time_slot || s?.timeslot || "";
+const getSessionMentorId = (s: any): string => s?.mentorId || s?.mentor_id || s?.mentorid || "";
+const getSessionSmeId = (s: any): string => s?.smeId || s?.sme_id || s?.smeid || "";
+const getSessionMentorName = (s: any): string => s?.mentorName || s?.mentor_name || s?.mentorname || "";
+const getSessionSmeName = (s: any): string => s?.smeName || s?.sme_name || s?.smename || "";
+
 export default function LndLiveDemoTable({
   demoSessions = [],
   mentors = [],
@@ -99,8 +107,9 @@ export default function LndLiveDemoTable({
       return session.topic.trim();
     }
     // Match by mentor ID and subject or week number
+    const mentorId = getSessionMentorId(session);
     const matchedPlan = weeklyPlans.find((p: any) => {
-      const mentorMatch = p.mentor_id === session.mentorid;
+      const mentorMatch = p.mentor_id === mentorId;
       if (!mentorMatch) return false;
       const subMatch = (p.subject || "").toLowerCase().trim() === (session.subject || "").toLowerCase().trim();
       const weekMatch = Number(p.week_number) === Number(session.week);
@@ -129,13 +138,15 @@ export default function LndLiveDemoTable({
 
     if (
       rawStatus === "not_conducted" ||
-      rawStatus === "missed"
+      rawStatus === "missed" ||
+      rawStatus === "cancelled"
     ) {
       return "incomplete";
     }
 
     // Past date sessions without conducted/marks evaluation are marked incomplete
-    if (session.datestr && session.datestr < todayStr) {
+    const sessionDate = getSessionDate(session);
+    if (sessionDate && sessionDate < todayStr) {
       return "incomplete";
     }
 
@@ -159,7 +170,8 @@ export default function LndLiveDemoTable({
   // Filtered Sessions List
   const filteredSessions = useMemo(() => {
     return demoSessions.filter((session: any) => {
-      const mentor = mentorsById.get(session.mentorid);
+      const mentorId = getSessionMentorId(session);
+      const mentor = mentorsById.get(mentorId);
       const mentorCollegeId = mentor?.college_id || mentor?.collegeId || "";
 
       // Campus filter
@@ -187,14 +199,16 @@ export default function LndLiveDemoTable({
         }
       }
 
+      const sessionDate = getSessionDate(session);
+
       // Date Range filter
       if (startDate) {
-        if (!session.datestr || session.datestr < startDate) {
+        if (!sessionDate || sessionDate < startDate) {
           return false;
         }
       }
       if (endDate) {
-        if (!session.datestr || session.datestr > endDate) {
+        if (!sessionDate || sessionDate > endDate) {
           return false;
         }
       }
@@ -202,9 +216,10 @@ export default function LndLiveDemoTable({
       // Search query filter (mentor name, SME name, topic, or subject)
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const mentorName = (session.mentorname || mentor?.name || "").toLowerCase();
-        const sme = smesById.get(session.smeid);
-        const smeName = (session.smename || sme?.name || "").toLowerCase();
+        const mentorName = (getSessionMentorName(session) || mentor?.name || "").toLowerCase();
+        const smeId = getSessionSmeId(session);
+        const sme = smesById.get(smeId);
+        const smeName = (getSessionSmeName(session) || sme?.name || "").toLowerCase();
         const subject = (session.subject || "").toLowerCase();
         const topic = getSessionTopic(session).toLowerCase();
 
@@ -507,11 +522,19 @@ export default function LndLiveDemoTable({
               </TableRow>
             ) : (
               paginatedSessions.map((session: any) => {
-                const mentor = mentorsById.get(session.mentorid);
-                const sme = smesById.get(session.smeid);
+                const mentorId = getSessionMentorId(session);
+                const smeId = getSessionSmeId(session);
+                const mentor = mentorsById.get(mentorId);
+                const sme = smesById.get(smeId);
                 const college = mentor?.college_id ? collegesById.get(mentor.college_id) : null;
                 const topic = getSessionTopic(session);
                 const status = getSessionStatus(session);
+                const sessionDate = getSessionDate(session);
+                const timeSlot = getSessionTime(session);
+                const mentorName = getSessionMentorName(session) || mentor?.name || "Assigned Faculty";
+                const smeName = getSessionSmeName(session) || sme?.name || "Assigned SME";
+                const rawStatus = (session.status || "").toLowerCase().trim();
+                const isReallocationRequired = rawStatus === "reallocation_required";
 
                 return (
                   <TableRow
@@ -526,7 +549,7 @@ export default function LndLiveDemoTable({
                         </div>
                         <div>
                           <div className="font-extrabold text-xs text-slate-900 dark:text-white leading-tight">
-                            {session.mentorname || mentor?.name || "Assigned Faculty"}
+                            {mentorName}
                           </div>
                           <div className="text-[10px] text-slate-400 font-semibold mt-0.5 flex items-center gap-1.5 flex-wrap">
                             {college?.name && (
@@ -551,7 +574,7 @@ export default function LndLiveDemoTable({
                         </div>
                         <div>
                           <span className="font-bold text-xs text-slate-800 dark:text-slate-200 block">
-                            {session.smename || sme?.name || "Assigned SME"}
+                            {smeName}
                           </span>
                           <span className="text-[10px] text-slate-400 font-medium">
                             {sme?.email || session.stream || "Subject Domain Evaluator"}
@@ -577,32 +600,39 @@ export default function LndLiveDemoTable({
                       <div className="space-y-0.5">
                         <div className="font-bold text-xs text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
                           <Calendar className="h-3.5 w-3.5 text-slate-400 shrink-0" />
-                          <span>{session.datestr}</span>
+                          <span>{sessionDate || "Date TBD"}</span>
                         </div>
                         <div className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                           <Clock className="h-3 w-3 text-slate-400 shrink-0" />
-                          <span>{session.timeslot}</span>
+                          <span>{timeSlot || "Time TBD"}</span>
                         </div>
                       </div>
                     </TableCell>
 
                     {/* 5. Status Badge */}
                     <TableCell className="py-3 px-4 text-center whitespace-nowrap">
-                      {status === "completed" && (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
-                          Completed
-                        </span>
-                      )}
-                      {status === "incomplete" && (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
-                          Incomplete
-                        </span>
-                      )}
-                      {status === "upcoming" && (
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-indigo-100 text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
-                          Upcoming
-                        </span>
-                      )}
+                      <div className="flex flex-col items-center gap-1">
+                        {status === "completed" && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                            Completed
+                          </span>
+                        )}
+                        {status === "incomplete" && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-800">
+                            Incomplete
+                          </span>
+                        )}
+                        {status === "upcoming" && (
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-indigo-100 text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                            Upcoming
+                          </span>
+                        )}
+                        {isReallocationRequired && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300 dark:border-amber-700">
+                            Reallocation Needed
+                          </span>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

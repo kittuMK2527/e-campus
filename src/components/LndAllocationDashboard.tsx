@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useCallback, useRef } from "react";
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/apiFetch";
 import { qk } from "@/lib/queryKeys";
@@ -225,6 +225,25 @@ export function LndAllocationDashboard() {
   const [mentorQuotaSearch, setMentorQuotaSearch] = useState("");
   // The monitor's totals live in the dashboard header, so the table starts collapsed.
   const [quotaOpen, setQuotaOpen] = useState(false);
+
+  // Initial institution-wide session sync on mount
+  useEffect(() => {
+    let active = true;
+    const fetchAllSessions = async () => {
+      try {
+        const res = await apiFetch<any>("/api/demo-sessions?college_id=all");
+        if (active && res?.success && Array.isArray(res.records)) {
+          setDemoSessions(res.records);
+        }
+      } catch (_) {
+        // Fall back gracefully to sessions already in AppContext
+      }
+    };
+    fetchAllSessions();
+    return () => {
+      active = false;
+    };
+  }, [setDemoSessions]);
 
   // Grid display mode: Unified Master L&D Grid (SME Settings) vs College Timetable Period View
   const [gridDisplayMode, setGridDisplayMode] = useState<"master" | "periods">("master");

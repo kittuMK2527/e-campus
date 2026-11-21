@@ -247,9 +247,24 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
       // Convert Day of Week / Day Order to dateStr
       let targetDateStr = "";
       const dateMatch = rawDay.match(/\b(\d{4}-\d{2}-\d{2})\b/);
+      const ddmmyyyyMatch = rawDay.match(/\b(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})\b/);
 
       if (dateMatch) {
         targetDateStr = dateMatch[1];
+      } else if (ddmmyyyyMatch) {
+        const day = ddmmyyyyMatch[1].padStart(2, "0");
+        const month = ddmmyyyyMatch[2].padStart(2, "0");
+        const year = ddmmyyyyMatch[3];
+        targetDateStr = `${year}-${month}-${day}`;
+      } else if (!isNaN(Number(rawDay)) && Number(rawDay) > 30000 && Number(rawDay) < 65000) {
+        // Excel serial date number
+        const serial = Number(rawDay);
+        const utcDays = Math.floor(serial - 25569);
+        const dateInfo = new Date(utcDays * 86400 * 1000);
+        const year = dateInfo.getUTCFullYear();
+        const month = String(dateInfo.getUTCMonth() + 1).padStart(2, "0");
+        const day = String(dateInfo.getUTCDate()).padStart(2, "0");
+        targetDateStr = `${year}-${month}-${day}`;
       } else {
         const lowerDay = rawDay.toLowerCase().trim();
         const resolvedDay = (mapDayOrderToDayName(rawDay, "") || "").toLowerCase().trim();

@@ -749,7 +749,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `SME_Evaluation_History_${currentSME.name.replace(/\s+/g, "_")}_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute("download", `SME_Evaluation_History_${currentSME.name.replace(/\s+/g, "_")}_${getLocalDateStr()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

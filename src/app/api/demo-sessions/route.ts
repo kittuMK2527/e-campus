@@ -566,21 +566,24 @@ export async function POST(request: Request) {
       // Strict Time-Locked Execution Policy:
       // A session must be taken and evaluated strictly during its scheduled date and time slot (with a 15-minute grace window).
       const todayStr = getInstitutionDateStr();
-      if (session.dateStr > todayStr) {
+      const sessionDateStr = (session.dateStr ?? (session as any).date_str ?? (session as any).datestr ?? "") as string;
+      const sessionTimeSlot = (session.timeSlot ?? (session as any).time_slot ?? (session as any).timeslot ?? "") as string;
+
+      if (sessionDateStr && sessionDateStr > todayStr) {
         return NextResponse.json({
           success: false,
-          message: `Evaluation locked: Demo session is scheduled for ${session.dateStr}. Evaluation opens during its scheduled time slot.`
+          message: `Evaluation locked: Demo session is scheduled for ${sessionDateStr}. Evaluation opens during its scheduled time slot.`
         }, { status: 403 });
       }
-      if (session.dateStr < todayStr) {
+      if (sessionDateStr && sessionDateStr < todayStr) {
         return NextResponse.json({
           success: false,
-          message: `Evaluation window closed: Demo session was scheduled for ${session.dateStr} and has expired. It must be rescheduled through the formal procedure.`
+          message: `Evaluation window closed: Demo session was scheduled for ${sessionDateStr} and has expired. It must be rescheduled through the formal procedure.`
         }, { status: 403 });
       }
 
       // It is today: check scheduled time slot in institution timezone (Asia/Kolkata)
-      const slotRange = parseTimeSlotRange(session.timeSlot || "");
+      const slotRange = parseTimeSlotRange(sessionTimeSlot);
       if (slotRange.start >= 0 && slotRange.end >= 0) {
         const curMin = getInstitutionCurrentMinutes();
         if (curMin < slotRange.start) {
@@ -594,7 +597,7 @@ export async function POST(request: Request) {
         if (curMin > slotRange.end + 45) {
           return NextResponse.json({
             success: false,
-            message: `Evaluation window closed: Scheduled slot (${session.timeSlot}) has expired. Expired sessions cannot be evaluated and must be formally rescheduled.`
+            message: `Evaluation window closed: Scheduled slot (${sessionTimeSlot}) has expired. Expired sessions cannot be evaluated and must be formally rescheduled.`
           }, { status: 403 });
         }
       }

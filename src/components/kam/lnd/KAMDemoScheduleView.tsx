@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { Pagination } from "@/components/ui/Pagination";
 import { useToast } from "@/context/ToastContext";
+import { getLocalDateStr } from "@/lib/localDate";
 
 interface KAMDemoScheduleViewProps {
   collegeId?: string;
@@ -173,7 +174,7 @@ export const KAMDemoScheduleView: React.FC<KAMDemoScheduleViewProps> = ({
       const ws = XLSX.utils.json_to_sheet(rows);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "KAM_L&D_Demo_Ledger");
-      XLSX.writeFile(wb, `KAM_LND_Demo_Audit_${new Date().toISOString().slice(0, 10)}.xlsx`);
+      XLSX.writeFile(wb, `KAM_LND_Demo_Audit_${getLocalDateStr()}.xlsx`);
       toast("Institutional demo ledger exported successfully.", "success");
     } catch {
       toast("Failed to export ledger. Please try again.", "error");
