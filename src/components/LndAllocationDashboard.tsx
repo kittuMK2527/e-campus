@@ -993,8 +993,8 @@ export function LndAllocationDashboard() {
       {/* MAIN WORKSPACE AREA */}
       <div className="flex-1 overflow-y-auto p-3 pb-24 md:p-6 space-y-6 max-w-[1400px] mx-auto w-full">
 
-        {/* Page Top Header and Unified dashboard header — only shown on matrix and rules tabs */}
-        {activeTab !== "queue" && (
+        {/* Page Top Header and Unified dashboard header — only shown on the Dashboard tab */}
+        {activeTab === "matrix" && (
           <>
             <PageHeader
               title="L&D Console"
