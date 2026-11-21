@@ -14,6 +14,7 @@ import {
   ChevronDown,
   Settings,
   Grid,
+  LayoutDashboard,
   Compass,
   Users,
   Upload,
@@ -916,8 +917,8 @@ export function LndAllocationDashboard() {
                 : "text-slate-600 hover:text-slate-900 hover:bg-zinc-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
                 }`}
             >
-              <Grid className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span>Allocation Matrix</span>}
+              <LayoutDashboard className="h-4 w-4 shrink-0" />
+              {!isCollapsed && <span>Dashboard</span>}
             </button>
 
             <button
@@ -928,7 +929,7 @@ export function LndAllocationDashboard() {
                 }`}
             >
               <Settings className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span>Excel Rules &amp; Targets</span>}
+              {!isCollapsed && <span>Settings</span>}
             </button>
 
             <button
@@ -939,7 +940,7 @@ export function LndAllocationDashboard() {
                 }`}
             >
               <RefreshCw className="h-4 w-4 shrink-0" />
-              {!isCollapsed && <span>Demo Sessions Ledger</span>}
+              {!isCollapsed && <span>Demos</span>}
               {((demoSwapRequests?.filter((r: any) => r.status === "pending").length || 0) + (demoReallocations?.filter((r: any) => r.status === "pending").length || 0)) > 0 && (
                 <span className="ml-auto px-2 py-0.5 bg-rose-500 text-white rounded-full text-[9px] font-black">
                   {(demoSwapRequests?.filter((r: any) => r.status === "pending").length || 0) + (demoReallocations?.filter((r: any) => r.status === "pending").length || 0)}
@@ -957,8 +958,8 @@ export function LndAllocationDashboard() {
       >
         <div className="flex w-full items-center justify-around px-1 py-2">
           {[
-            { id: "matrix" as const, label: "Matrix", icon: Grid },
-            { id: "rules" as const, label: "Rules", icon: Settings },
+            { id: "matrix" as const, label: "Dashboard", icon: LayoutDashboard },
+            { id: "rules" as const, label: "Settings", icon: Settings },
             { id: "queue" as const, label: "Demos", icon: RefreshCw },
           ].map((tab) => {
             const Icon = tab.icon;
