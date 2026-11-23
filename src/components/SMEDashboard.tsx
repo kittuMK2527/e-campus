@@ -820,27 +820,34 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     targetSession?: any,
     swapWithSession?: any
   ) => {
-    let session = targetSession;
-    if (!session) {
-      session = affectedLeaveDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
-        confirmedDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
-        demoSessions.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id) && d.status !== "completed");
+    // 1. Resolve actual demo session from demoSessions array
+    const realSessionId = targetSession?.demo_session_id || targetSession?.sessionId || targetSession?.id;
+    let foundDemo = demoSessions.find((d: any) => d.id === realSessionId);
+    if (!foundDemo && mentor?.id) {
+      foundDemo = demoSessions.find((d: any) =>
+        (d.mentorId === mentor.id || d.mentor_id === mentor.id) && d.status !== "completed"
+      );
     }
-    if (!session) {
-      session = {
-        id: `realloc_${mentor.id}_${Date.now()}`,
-        mentorId: mentor.id,
-        mentorName: mentor.name,
-        college_id: mentor.college_id,
-        smeId: currentSME?.id,
-        smeName: currentSME?.name,
-        subject: mentor.department || currentSME?.subject || "Subject Evaluation",
-        stream: mentor.department || "General",
-        dateStr: dateStr,
-        timeSlot: timeSlot,
-        status: "reallocation_required"
-      };
+    if (!foundDemo && mentor?.id) {
+      foundDemo = affectedLeaveDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
+        confirmedDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id));
     }
+
+    // 2. Synthesize completely normalized session object with zero missing fields
+    const session = {
+      id: foundDemo?.id || realSessionId || `demo_${mentor?.id || "m"}_${Date.now()}`,
+      demo_session_id: foundDemo?.id || realSessionId,
+      mentorId: foundDemo?.mentorId || foundDemo?.mentor_id || targetSession?.mentorId || targetSession?.mentor_id || mentor?.id,
+      mentorName: foundDemo?.mentorName || foundDemo?.mentor_name || targetSession?.mentorName || targetSession?.mentor_name || mentor?.name || "Faculty Mentor",
+      college_id: foundDemo?.college_id || mentor?.college_id || targetSession?.college_id,
+      smeId: foundDemo?.smeId || foundDemo?.sme_id || targetSession?.smeId || targetSession?.sme_id || currentSME?.id,
+      smeName: foundDemo?.smeName || foundDemo?.sme_name || targetSession?.smeName || targetSession?.sme_name || currentSME?.name || "Subject Matter Expert",
+      subject: foundDemo?.subject || targetSession?.subject || mentor?.department || currentSME?.subject || "L&D Demo Evaluation",
+      stream: foundDemo?.stream || targetSession?.stream || mentor?.department || "Engineering",
+      dateStr: foundDemo?.dateStr || foundDemo?.date_str || targetSession?.dateStr || targetSession?.original_date_str || targetSession?.proposed_date_str || dateStr,
+      timeSlot: foundDemo?.timeSlot || foundDemo?.time_slot || targetSession?.timeSlot || targetSession?.original_time_slot || targetSession?.proposed_time_slot || timeSlot,
+      status: foundDemo?.status || "reallocation_required"
+    };
 
     if (swapWithSession) {
       setSwapModalSession(session);
@@ -938,21 +945,44 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     if (!swapModalSession) return;
     if (!selectedProposedTime) { setErrorMsg("Please select a suggested replacement timeslot."); return; }
     setSubmitting(true); setErrorMsg(""); setSuccessMsg("");
+
+    const targetDate = selectedProposedTime.dateStr || swapModalSession.dateStr || getLocalDateStr();
+    const targetSlot = selectedProposedTime.timeSlot || swapModalSession.timeSlot || "Period 1 (08:30 - 09:25)";
+
     const payload = {
-      sessionId: swapModalSession.id, mentorId: swapModalSession.mentorId, mentorName: swapModalSession.mentorName,
-      smeId: swapModalSession.smeId, smeName: swapModalSession.smeName, dateStr: swapModalSession.dateStr,
-      timeSlot: swapModalSession.timeSlot, subject: swapModalSession.subject, stream: swapModalSession.stream,
-      reason: swapReason, remarks: swapRemarks, swapType: "reallocation",
-      proposedSmeId: swapModalSession.smeId, proposedSmeName: swapModalSession.smeName,
-      proposedDateStr: selectedProposedTime.dateStr,
-      proposedTimeSlot: selectedProposedTime.timeSlot
+      sessionId: swapModalSession.id || swapModalSession.demo_session_id || swapModalSession.sessionId || `sess_${Date.now()}`,
+      mentorId: swapModalSession.mentorId || swapModalSession.mentor_id || "mentor",
+      mentorName: swapModalSession.mentorName || swapModalSession.mentor_name || "Faculty Mentor",
+      smeId: swapModalSession.smeId || swapModalSession.sme_id || currentSME?.id || "sme",
+      smeName: swapModalSession.smeName || swapModalSession.sme_name || currentSME?.name || "Subject Matter Expert",
+      dateStr: swapModalSession.dateStr || swapModalSession.original_date_str || swapModalSession.proposed_date_str || targetDate,
+      timeSlot: swapModalSession.timeSlot || swapModalSession.original_time_slot || swapModalSession.proposed_time_slot || targetSlot,
+      subject: swapModalSession.subject || "L&D Demo Evaluation",
+      stream: swapModalSession.stream || swapModalSession.department || "Engineering",
+      reason: swapReason || "SME Schedule Reallocation",
+      remarks: swapRemarks || "",
+      swapType: selectedProposedMentor ? "mentor" : "reallocation",
+      proposedMentorId: selectedProposedMentor?.mentorId || selectedProposedMentor?.mentor_id || selectedProposedMentor?.id || null,
+      proposedMentorName: selectedProposedMentor?.mentorName || selectedProposedMentor?.mentor_name || selectedProposedMentor?.name || null,
+      proposedSmeId: currentSME?.id,
+      proposedSmeName: currentSME?.name,
+      proposedDateStr: targetDate,
+      proposedTimeSlot: targetSlot
     };
     try {
       const res = await requestDemoSwap(payload);
-      if (res.success) { setSuccessMsg("L&D session reallocation proposal submitted successfully!"); setSwapModalSession(null); }
-      else { setErrorMsg(res.message); }
-    } catch (e: any) { setErrorMsg(e.message || "Failed to submit reallocation request."); }
-    finally { setSubmitting(false); }
+      if (res.success) {
+        setSuccessMsg("L&D session reallocation proposal submitted successfully!");
+        setSwapModalSession(null);
+        await refreshData();
+      } else {
+        setErrorMsg(res.message);
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || "Failed to submit reallocation request.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleResolveReallocation = async (req: any, decision: "approved" | "rejected") => {

@@ -505,12 +505,42 @@ export default function SMEReallocationPlanner({
 
   const handleSelectAlternativeSlot = (period: string) => {
     if (!currentRequest || !onReallocateSlot) return;
-    onReallocateSlot(currentRequest.mentor, selectedDate, period, currentRequest.rawItem);
+    const sessionObj = {
+      id: currentRequest.rawItem?.demo_session_id || currentRequest.rawItem?.sessionId || currentRequest.rawItem?.id || currentRequest.id,
+      demo_session_id: currentRequest.rawItem?.demo_session_id,
+      mentorId: currentRequest.mentorId,
+      mentorName: currentRequest.mentorName,
+      subject: currentRequest.subject,
+      stream: currentRequest.mentor?.department || "Engineering",
+      dateStr: currentRequest.originalDate || selectedDate,
+      timeSlot: currentRequest.originalSlot || period,
+      college_id: currentRequest.college?.id || currentRequest.mentor?.college_id,
+      smeId: currentSME?.id,
+      smeName: currentSME?.name,
+      status: "reallocation_required",
+      ...currentRequest.rawItem
+    };
+    onReallocateSlot(currentRequest.mentor, selectedDate, period, sessionObj);
   };
 
   const handleSwapWithMentor = (period: string, bookedSession: any) => {
     if (!currentRequest || !onReallocateSlot) return;
-    onReallocateSlot(currentRequest.mentor, selectedDate, period, currentRequest.rawItem, bookedSession);
+    const sessionObj = {
+      id: currentRequest.rawItem?.demo_session_id || currentRequest.rawItem?.sessionId || currentRequest.rawItem?.id || currentRequest.id,
+      demo_session_id: currentRequest.rawItem?.demo_session_id,
+      mentorId: currentRequest.mentorId,
+      mentorName: currentRequest.mentorName,
+      subject: currentRequest.subject,
+      stream: currentRequest.mentor?.department || "Engineering",
+      dateStr: currentRequest.originalDate || selectedDate,
+      timeSlot: currentRequest.originalSlot || period,
+      college_id: currentRequest.college?.id || currentRequest.mentor?.college_id,
+      smeId: currentSME?.id,
+      smeName: currentSME?.name,
+      status: "reallocation_required",
+      ...currentRequest.rawItem
+    };
+    onReallocateSlot(currentRequest.mentor, selectedDate, period, sessionObj, bookedSession);
   };
 
   // ── Empty State: Zero Reallocation Requests ────────────────────────
@@ -754,6 +784,56 @@ export default function SMEReallocationPlanner({
               <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300 shadow-2xs">
                 {campusDayConfig?.isHoliday ? "Campus Closed" : `${campusDayConfig?.dayOrder || "Day 1"} Active`}
               </span>
+            </div>
+          </div>
+
+          {/* ── Dedicated SME Daily Timetable Strip ─────────────────────── */}
+          <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-violet-600" />
+                My SME Daily Timetable ({formattedDateLabel})
+              </span>
+              <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400">
+                {smeSchedule.filter((s: any) => s.isFree).length} of {smeSchedule.length} Periods Free for Evaluation
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              {smeSchedule.map((smeSlot: any, sIdx: number) => {
+                const label = smeSlot.period.split(" ")[0] + " " + (smeSlot.period.split(" ")[1] || "");
+                const timing = smeSlot.period.match(/\((.*?)\)/)?.[1] || "";
+                return (
+                  <div
+                    key={sIdx}
+                    className={`p-2 rounded-lg border text-center transition-all ${
+                      smeSlot.isFree
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300"
+                        : smeSlot.bookedDemo
+                        ? "bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-700 text-violet-800 dark:text-violet-300"
+                        : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-wider pb-1 border-b border-black/5 dark:border-white/5">
+                      <span>{label}</span>
+                      <span className="font-mono text-[7.5px] opacity-70">{timing}</span>
+                    </div>
+                    <div className="mt-1">
+                      <span className="text-[8.5px] font-black block truncate">
+                        {smeSlot.isFree
+                          ? "FREE FOR EVALUATION"
+                          : smeSlot.bookedDemo
+                          ? `BOOKED: ${formatMentorShortName(smeSlot.bookedMentorName)}`
+                          : "OUTSIDE WINDOW"}
+                      </span>
+                      {smeSlot.bookedDemo && (
+                        <span className="text-[7.5px] font-semibold text-slate-500 dark:text-slate-400 block truncate">
+                          {smeSlot.bookedSubject || "Demo Evaluation"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
