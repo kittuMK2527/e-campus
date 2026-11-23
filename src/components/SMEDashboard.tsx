@@ -604,7 +604,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const pendingInboundRequests = [
     ...reallocRequestsForSme.filter((r: any) => r.status === "pending"),
     ...(demoSwapRequests?.filter(
-      (r: any) => r.smeId !== currentSME.id && r.proposedSmeId === currentSME.id && (r.status === "pending" || r.status === "pending_sme")
+      (r: any) =>
+        (r.proposedSmeId === currentSME.id || r.smeId === currentSME.id) &&
+        (r.status === "pending" || r.status === "pending_sme")
     ) || [])
   ];
 

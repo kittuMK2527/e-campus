@@ -54,6 +54,29 @@ interface NormalizedReallocRequest {
   proposedDate: string;
   proposedSlot: string;
   reason: string;
+  targetMentorId?: string;
+  targetMentorName?: string;
+  targetMentor?: any;
+  targetCollege?: any;
+  isPeerSwap: boolean;
+}
+
+// Safely format full mentor names without truncating honorifics (e.g., Dr., Prof., Er.)
+function formatMentorFullName(name?: string, fallback = "Faculty"): string {
+  if (!name) return fallback;
+  const trimmed = name.trim();
+  return trimmed || fallback;
+}
+
+function formatMentorShortName(name?: string, fallback = "Faculty"): string {
+  if (!name) return fallback;
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= 1) return parts[0];
+  const first = parts[0];
+  if (/^(dr\.?|prof\.?|mr\.?|mrs\.?|ms\.?|er\.?)$/i.test(first) && parts.length > 1) {
+    return `${parts[0]} ${parts[1]}`;
+  }
+  return parts[0];
 }
 
 interface CollegeDayConfig {
@@ -102,6 +125,20 @@ export default function SMEReallocationPlanner({
       };
       const college = colleges.find(c => c.id === mentor.college_id);
 
+      // Extract target / peer mentor with whom the reallocation or swap is happening
+      const targetMId = req.proposedMentorId || req.proposed_mentor_id || req.targetMentorId || req.target_mentor_id || req.swapMentorId;
+      const targetMName = req.proposedMentorName || req.proposed_mentor_name || req.targetMentorName || req.target_mentor_name || req.swapMentorName;
+      const targetMentor = (targetMId || targetMName)
+        ? mentors.find(m => (targetMId && m.id === targetMId) || (targetMName && m.name.toLowerCase() === targetMName.toLowerCase())) || {
+            id: targetMId || "peer_mentor",
+            name: targetMName || "Faculty Candidate",
+            department: req.targetDepartment || req.stream || "Faculty",
+            college_id: req.target_college_id || mentor.college_id
+          }
+        : null;
+      const targetCollege = targetMentor ? colleges.find(c => c.id === targetMentor.college_id) : null;
+      const isPeerSwap = Boolean(targetMentor || req.swapType === "mentor" || req.swapType === "internal");
+
       list.push({
         id: req.id,
         sourceType: "inbound_proposal",
@@ -115,7 +152,12 @@ export default function SMEReallocationPlanner({
         originalSlot: req.original_time_slot || req.timeSlot || "Period 1 (08:30 - 09:25)",
         proposedDate: req.proposed_date_str || req.proposedDateStr || req.dateStr || getLocalDateStr(),
         proposedSlot: req.proposed_time_slot || req.proposedTimeSlot || req.timeSlot || "Period 2 (09:25 - 10:20)",
-        reason: req.reason || "Faculty Reschedule Proposal"
+        reason: req.reason || "Faculty Reschedule Proposal",
+        targetMentorId: targetMentor?.id,
+        targetMentorName: targetMentor?.name,
+        targetMentor,
+        targetCollege,
+        isPeerSwap
       });
     }
 
@@ -147,7 +189,8 @@ export default function SMEReallocationPlanner({
         originalSlot: sess.timeSlot || "Period 1 (08:30 - 09:25)",
         proposedDate: sess.dateStr || getLocalDateStr(),
         proposedSlot: sess.timeSlot || "Period 1 (08:30 - 09:25)",
-        reason: sess.comments || "Session affected by approved faculty leave / conflict"
+        reason: sess.comments || "Session affected by approved faculty leave / conflict",
+        isPeerSwap: false
       });
     }
 
@@ -542,18 +585,20 @@ export default function SMEReallocationPlanner({
                     <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[10px] text-slate-700 dark:text-slate-300 shrink-0">
                       {req.mentorName.charAt(0) || "M"}
                     </div>
-                    <span className="text-xs font-black text-slate-900 dark:text-white truncate">
-                      {req.mentorName}
+                    <span className="text-xs font-black text-slate-900 dark:text-white truncate" title={formatMentorFullName(req.mentorName)}>
+                      {formatMentorFullName(req.mentorName)}
                     </span>
                   </div>
                   <span
                     className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase shrink-0 ${
                       req.sourceType === "inbound_proposal"
-                        ? "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300"
+                        ? req.isPeerSwap
+                          ? "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300"
+                          : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
                         : "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300"
                     }`}
                   >
-                    {req.sourceType === "inbound_proposal" ? "Proposal" : "Leave Clash"}
+                    {req.sourceType === "inbound_proposal" ? (req.isPeerSwap ? "Peer Swap" : "Proposal") : "Leave Clash"}
                   </span>
                 </div>
 
@@ -561,6 +606,12 @@ export default function SMEReallocationPlanner({
                   <div className="text-[10px] font-bold text-slate-600 dark:text-slate-300 truncate">
                     {req.subject} • <span className="text-slate-400 font-semibold">{req.college?.name || "Campus"}</span>
                   </div>
+                  {req.isPeerSwap && req.targetMentorName && (
+                    <div className="text-[9.5px] font-bold text-violet-700 dark:text-violet-300 flex items-center gap-1 truncate" title={`Swap with ${formatMentorFullName(req.targetMentorName)}`}>
+                      <RefreshCw className="h-2.5 w-2.5 shrink-0 text-violet-500" />
+                      <span>Swap with: <strong className="font-black">{formatMentorFullName(req.targetMentorName)}</strong></span>
+                    </div>
+                  )}
                   <div className="text-[9.5px] font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                     <span>{req.originalDate}</span>
                     <ArrowRight className="h-2.5 w-2.5 text-amber-500" />
@@ -577,29 +628,63 @@ export default function SMEReallocationPlanner({
       {currentRequest && (
         <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-card space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
-            {/* Requesting Mentor Identity */}
-            <div className="flex items-center gap-3">
-              <div className="h-11 w-11 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20 font-black text-sm">
-                {currentRequest.mentorName.charAt(0) || "M"}
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
-                    {currentRequest.mentorName}
-                  </h3>
-                  <span className="text-[10px] font-bold text-slate-400">
-                    ({currentRequest.mentor?.department || "Faculty"})
-                  </span>
-                  <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                    {currentRequest.college?.name || "Campus"}
-                  </span>
+            {/* Requesting Mentor & Swap Partner Identity */}
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Requesting Mentor Card */}
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20 font-black text-sm">
+                  {currentRequest.mentorName.charAt(0) || "M"}
                 </div>
-                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                  Subject: <strong className="text-slate-800 dark:text-slate-200">{currentRequest.subject}</strong>
-                  {" • "}
-                  Reason: <span className="italic">&quot;{currentRequest.reason}&quot;</span>
-                </p>
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 block">
+                    Requesting Mentor
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                      {formatMentorFullName(currentRequest.mentorName)}
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      ({currentRequest.mentor?.department || "Faculty"})
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      {currentRequest.college?.name || "Campus"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                    Subject: <strong className="text-slate-800 dark:text-slate-200">{currentRequest.subject}</strong>
+                    {" • "}
+                    Reason: <span className="italic">&quot;{currentRequest.reason}&quot;</span>
+                  </p>
+                </div>
               </div>
+
+              {/* Target / Peer Mentor (With Whom Reallocation Is Happening) */}
+              {currentRequest.isPeerSwap && currentRequest.targetMentorName && (
+                <div className="flex items-center gap-3 pl-4 border-l-2 border-violet-200 dark:border-violet-800">
+                  <div className="h-11 w-11 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 border border-violet-500/20 font-black text-sm">
+                    <RefreshCw className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-400 block">
+                      Reallocating / Swapping With
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-black text-violet-950 dark:text-violet-200">
+                        {formatMentorFullName(currentRequest.targetMentorName)}
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-400">
+                        ({currentRequest.targetMentor?.department || currentRequest.mentor?.department || "Faculty"})
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300">
+                        {currentRequest.targetCollege?.name || currentRequest.college?.name || "Campus"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-semibold text-violet-600 dark:text-violet-400 mt-0.5">
+                      2-Way Mutual Session Exchange Partner
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Date Switcher for Target Day Inspection */}
@@ -698,6 +783,7 @@ export default function SMEReallocationPlanner({
               {combinedPeriods.map((slot: any, idx: number) => {
                 const periodLabel = slot.period.split(" ")[0] + " " + (slot.period.split(" ")[1] || "");
                 const timingLabel = slot.period.match(/\((.*?)\)/)?.[1] || "";
+                const requestingFullName = formatMentorFullName(currentRequest.mentorName);
 
                 return (
                   <div
@@ -721,8 +807,8 @@ export default function SMEReallocationPlanner({
 
                       {/* Requesting Mentor Status */}
                       <div className="pt-1.5 space-y-1">
-                        <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-500 truncate" title={currentRequest.mentorName}>
-                          {currentRequest.mentorName}:
+                        <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-500 truncate" title={requestingFullName}>
+                          {requestingFullName}:
                         </div>
                         <div className={`text-[9.5px] font-bold line-clamp-2 ${
                           slot.mentorFree ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
@@ -731,41 +817,60 @@ export default function SMEReallocationPlanner({
                         </div>
                       </div>
 
-                      {/* SME Status & Current Occupant */}
+                      {/* Reallocating / Swapping With OR SME Schedule */}
                       <div className="pt-2 space-y-1 border-t border-slate-100/80 dark:border-slate-800/60 mt-1.5">
-                        <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-500">
-                          {slot.isBookedWithOtherMentor ? "Current Occupant:" : "My Schedule:"}
-                        </div>
                         {slot.isBookedWithOtherMentor ? (
                           <div className="space-y-0.5">
-                            <div className="text-[9.5px] font-black text-violet-800 dark:text-violet-300 line-clamp-1" title={slot.bookedMentorName}>
-                              Booked: {slot.bookedMentorName}
+                            <div className="text-[8.5px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-400 flex items-center gap-1">
+                              <RefreshCw className="h-2.5 w-2.5 text-violet-600" />
+                              <span>Reallocating With:</span>
+                            </div>
+                            <div className="text-[9.5px] font-black text-violet-950 dark:text-violet-200 line-clamp-1" title={formatMentorFullName(slot.bookedMentorName)}>
+                              {formatMentorFullName(slot.bookedMentorName)}
                             </div>
                             <div className="text-[8.5px] text-slate-500 dark:text-slate-400 font-semibold line-clamp-1">
                               {slot.bookedSubject || "Demo Evaluation"}
                             </div>
                           </div>
+                        ) : currentRequest.isPeerSwap && currentRequest.targetMentorName ? (
+                          <div className="space-y-0.5">
+                            <div className="text-[8.5px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-400 flex items-center gap-1">
+                              <RefreshCw className="h-2.5 w-2.5 text-violet-600" />
+                              <span>Swap Partner:</span>
+                            </div>
+                            <div className="text-[9.5px] font-black text-violet-950 dark:text-violet-200 line-clamp-1" title={formatMentorFullName(currentRequest.targetMentorName)}>
+                              {formatMentorFullName(currentRequest.targetMentorName)}
+                            </div>
+                            <div className="text-[8.5px] text-slate-500 dark:text-slate-400 font-semibold line-clamp-1">
+                              {slot.smeStatus}
+                            </div>
+                          </div>
                         ) : (
-                          <div className={`text-[9.5px] font-bold line-clamp-2 ${
-                            slot.smeFree ? "text-emerald-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"
-                          }`}>
-                            {slot.smeStatus}
+                          <div className="space-y-0.5">
+                            <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-500">
+                              My Schedule:
+                            </div>
+                            <div className={`text-[9.5px] font-bold line-clamp-2 ${
+                              slot.smeFree ? "text-emerald-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"
+                            }`}>
+                              {slot.smeStatus}
+                            </div>
                           </div>
                         )}
                       </div>
                     </div>
 
-                    {/* Action Trigger for this slot (Interactive Swap Buttons) */}
+                    {/* Action Trigger for this slot (Actionable Swap Buttons) */}
                     <div className="pt-2">
                       {slot.isBookedWithOtherMentor ? (
                         <button
                           type="button"
                           onClick={() => handleSwapWithMentor(slot.period, slot.bookedSession)}
                           className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-violet-600 hover:bg-violet-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
-                          title={`Swap ${currentRequest.mentorName} with ${slot.bookedMentorName}`}
+                          title={`Swap ${requestingFullName} with ${formatMentorFullName(slot.bookedMentorName)}`}
                         >
                           <RefreshCw className="h-2.5 w-2.5" />
-                          Swap with {slot.bookedMentorName ? slot.bookedMentorName.split(" ")[0] : "Faculty"}
+                          Swap with {formatMentorShortName(slot.bookedMentorName)}
                         </button>
                       ) : slot.isProposedSlot && slot.isMutuallyFree ? (
                         <div className="space-y-1">
@@ -778,7 +883,7 @@ export default function SMEReallocationPlanner({
                             onClick={handleApproveProposed}
                             className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50"
                           >
-                            <Check className="h-3 w-3" /> Approve Slot
+                            <Check className="h-3 w-3" /> Approve &amp; Swap to Slot
                           </button>
                         </div>
                       ) : slot.isMutuallyFree ? (
@@ -786,9 +891,9 @@ export default function SMEReallocationPlanner({
                           type="button"
                           onClick={() => handleSelectAlternativeSlot(slot.period)}
                           className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-white dark:bg-slate-800 hover:bg-emerald-50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
-                          title={`Swap ${currentRequest.mentorName} into this period`}
+                          title={currentRequest.isPeerSwap && currentRequest.targetMentorName ? `Swap with ${formatMentorFullName(currentRequest.targetMentorName)}` : `Swap ${requestingFullName} into this period`}
                         >
-                          <RefreshCw className="h-2.5 w-2.5" /> Swap to this Slot
+                          <RefreshCw className="h-2.5 w-2.5" /> {currentRequest.isPeerSwap && currentRequest.targetMentorName ? `Swap with ${formatMentorShortName(currentRequest.targetMentorName)}` : "Swap to this Slot"}
                         </button>
                       ) : slot.isProposedSlot ? (
                         <div className="space-y-1">
@@ -801,7 +906,7 @@ export default function SMEReallocationPlanner({
                             className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
                             title="Click to proceed with swap and override the clash"
                           >
-                            <RefreshCw className="h-2.5 w-2.5" /> Swap with Override
+                            <RefreshCw className="h-2.5 w-2.5" /> Swap Slot (Override)
                           </button>
                         </div>
                       ) : (
@@ -825,7 +930,12 @@ export default function SMEReallocationPlanner({
           <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="text-xs">
               <span className="font-bold text-slate-800 dark:text-slate-200">
-                Mentor Requested: {currentRequest.proposedDate} • {currentRequest.proposedSlot}
+                {formatMentorFullName(currentRequest.mentorName)} Requested: {currentRequest.proposedDate} • {currentRequest.proposedSlot}
+                {currentRequest.isPeerSwap && currentRequest.targetMentorName && (
+                  <span className="text-violet-700 dark:text-violet-300 font-semibold ml-1.5">
+                    (2-Way Swap with {formatMentorFullName(currentRequest.targetMentorName)})
+                  </span>
+                )}
               </span>
               <p className="text-[10.5px] text-slate-500 mt-0.5">
                 {isProposedSlotAvailable ? (
@@ -834,7 +944,7 @@ export default function SMEReallocationPlanner({
                   </span>
                 ) : (
                   <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> Requested period has a clash on {selectedDate}. Choose another mutually free period above.
+                    <AlertCircle className="h-3 w-3" /> Requested period has a clash on {selectedDate}. Choose another mutually free period above or use Swap Slot (Override).
                   </span>
                 )}
               </p>
@@ -861,7 +971,7 @@ export default function SMEReallocationPlanner({
                   className="px-4 py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <Check className="h-3.5 w-3.5" />
-                  {resolvingDecision === "approved" ? "Approving..." : "Approve Proposed Slot"}
+                  {resolvingDecision === "approved" ? "Approving..." : currentRequest.isPeerSwap ? "Approve Swap" : "Approve Proposed Slot"}
                 </button>
               )}
             </div>
