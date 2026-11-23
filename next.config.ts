@@ -43,6 +43,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["@resvg/resvg-js", "pg"],
   // Raise API route body size limit to 50MB for bulk attendance imports
   experimental: {
+    cpus: 4,
     optimizePackageImports: [
       "lucide-react",
       "recharts",
