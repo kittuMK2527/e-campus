@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Settings, Trash2, X } from "lucide-react";
+import { Settings, Trash2, X, RefreshCw } from "lucide-react";
 import { Dialog } from "../../ui/dialog";
 import { Select } from "../../Select";
 
@@ -17,6 +17,7 @@ export interface LndOverrideModalProps {
   showConfirm: (options: { title?: string; message: string; confirmLabel?: string; danger?: boolean }) => Promise<boolean>;
   smes: any[];
   toast: (m: string, k?: any) => void;
+  onReallocateSme?: (session: any) => void;
 }
 
 export default function LndOverrideModal({
@@ -29,7 +30,8 @@ export default function LndOverrideModal({
   setEditSession,
   showConfirm,
   smes,
-  toast
+  toast,
+  onReallocateSme
 }: LndOverrideModalProps) {
   return (
       <Dialog
@@ -151,7 +153,16 @@ export default function LndOverrideModal({
             </div>
   
             {editSession.id && (
-              <div className="flex justify-end pt-1">
+              <div className="flex items-center justify-between pt-1">
+                {onReallocateSme && (
+                  <button
+                    type="button"
+                    onClick={() => onReallocateSme(editSession)}
+                    className="text-xs font-black text-amber-600 dark:text-amber-400 hover:text-amber-700 flex items-center gap-1 cursor-pointer"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> Reallocate / Swap SME
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={async () => {

@@ -370,7 +370,18 @@ export async function GET(request: Request) {
     // KAM portfolio subqueries. Each embedding needs its own copy of the id params.
     const kamMentors = `SELECT id FROM mentors WHERE college_id IN ${kamInClause}`;
     const kamStudents = `SELECT id FROM students WHERE college_id IN ${kamInClause}`;
-    const kamInterviews = `SELECT id FROM student_interviews WHERE origin_college_id IN ${kamInClause} OR target_college_id IN ${kamInClause} OR college_id IN ${kamInClause}`;
+    const kamInterviewScope = `(
+      type = 'external' AND
+      COALESCE(NULLIF(origin_college_id, ''), college_id) IN ${kamInClause} AND
+      (target_college_id IS NULL OR target_college_id = '' OR target_college_id IN ${kamInClause})
+    ) OR (
+      type != 'external' AND (
+        origin_college_id IN ${kamInClause} OR
+        target_college_id IN ${kamInClause} OR
+        college_id IN ${kamInClause}
+      )
+    )`;
+    const kamInterviews = `SELECT id FROM student_interviews WHERE ${kamInterviewScope}`;
 
     const queryDefs = [
       { sql: mentorSql, params: mentorParams },
@@ -438,8 +449,8 @@ export async function GET(request: Request) {
       { sql: isKAM ? `SELECT * FROM campus_issues WHERE collegeId IN ${kamInClause} ORDER BY created_at DESC LIMIT 50` : isAdmin ? "SELECT * FROM campus_issues ORDER BY created_at DESC LIMIT 50" : "SELECT 1 WHERE 1=0", params: isKAM ? [...kamCollegeIds] : [] },
       { sql: !isStudent ? "SELECT * FROM academic_years" : "SELECT 1 WHERE 1=0", params: [] },
       { sql: isKAM ? `SELECT * FROM academic_events WHERE college_id IN ${kamInClause} OR college_id IS NULL ORDER BY date ASC LIMIT ${CAPS.academicEvents}` : (isAdminOrKAM || isCM || isMentor) ? `SELECT * FROM academic_events ORDER BY date ASC LIMIT ${CAPS.academicEvents}` : "SELECT 1 WHERE 1=0", params: isKAM ? [...kamCollegeIds] : [] },
-      { sql: (!isStudent && isKAM) ? `SELECT * FROM student_interviews WHERE origin_college_id IN ${kamInClause} OR target_college_id IN ${kamInClause} OR college_id IN ${kamInClause} ORDER BY created_at DESC LIMIT 100` : ((!isStudent && collegeId && (isCM || isMentor || isAdminOrKAM)) ? "SELECT * FROM student_interviews WHERE origin_college_id = ? OR target_college_id = ? OR college_id = ? ORDER BY created_at DESC LIMIT 40" : (!isStudent && isAdminOrKAM ? "SELECT * FROM student_interviews ORDER BY created_at DESC LIMIT 40" : "SELECT 1 WHERE 1=0")), params: (!isStudent && isKAM) ? [...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds] : ((!isStudent && collegeId && (isCM || isMentor || isAdminOrKAM)) ? [collegeId, collegeId, collegeId] : []) },
-      { sql: isKAM ? `SELECT * FROM interview_evaluations WHERE interview_id IN (${kamInterviews}) ORDER BY created_at DESC LIMIT 40` : (!isStudent && (isAdminOrKAM || isCM)) ? "SELECT * FROM interview_evaluations ORDER BY created_at DESC LIMIT 40" : "SELECT 1 WHERE 1=0", params: isKAM ? [...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds] : [] },
+      { sql: (!isStudent && isKAM) ? `SELECT * FROM student_interviews WHERE ${kamInterviewScope} ORDER BY created_at DESC LIMIT 100` : ((!isStudent && collegeId && (isCM || isMentor || isAdminOrKAM)) ? "SELECT * FROM student_interviews WHERE origin_college_id = ? OR target_college_id = ? OR college_id = ? ORDER BY created_at DESC LIMIT 40" : (!isStudent && isAdminOrKAM ? "SELECT * FROM student_interviews ORDER BY created_at DESC LIMIT 40" : "SELECT 1 WHERE 1=0")), params: (!isStudent && isKAM) ? [...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds] : ((!isStudent && collegeId && (isCM || isMentor || isAdminOrKAM)) ? [collegeId, collegeId, collegeId] : []) },
+      { sql: isKAM ? `SELECT * FROM interview_evaluations WHERE interview_id IN (${kamInterviews}) ORDER BY created_at DESC LIMIT 40` : (!isStudent && (isAdminOrKAM || isCM)) ? "SELECT * FROM interview_evaluations ORDER BY created_at DESC LIMIT 40" : "SELECT 1 WHERE 1=0", params: isKAM ? [...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds] : [] },
       { sql: isKAM ? `SELECT * FROM approvals WHERE college_id IN ${kamInClause} ORDER BY created_at DESC LIMIT 40` : isAdmin ? "SELECT * FROM approvals ORDER BY created_at DESC LIMIT 40" : "SELECT 1 WHERE 1=0", params: isKAM ? [...kamCollegeIds] : [] },
       { sql: isKAM ? `SELECT * FROM leave_balances WHERE user_id IN (${kamMentors}) OR user_id IN (${kamStudents}) OR user_id IN (SELECT id FROM users WHERE reference_id IN (${kamMentors}) OR reference_id IN (${kamStudents})) LIMIT 40` : (!isStudent && (isAdminOrKAM || isCM)) ? "SELECT * FROM leave_balances LIMIT 40" : "SELECT 1 WHERE 1=0", params: isKAM ? [...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds, ...kamCollegeIds] : [] },
       { sql: departmentSql, params: departmentParams },

@@ -188,11 +188,11 @@ export async function GET(request: Request) {
 
       // Query campus daily configs to capture campus-specific holidays and day orders
       const dailyConfigsRows = await db.all(
-        "SELECT dateStr, day_type, day_order, is_holiday FROM campus_daily_configs WHERE college_id = ? OR college_id IS NULL",
+        "SELECT dateStr, day_type, day_order FROM campus_daily_configs WHERE college_id = ? OR college_id IS NULL",
         [collegeId]
       ).catch(() => []);
       for (const dcr of dailyConfigsRows) {
-        if (dcr.day_type === "holiday" || dcr.is_holiday === 1) {
+        if (dcr.day_type === "holiday" || (dcr as any).is_holiday === 1) {
           const ds = dcr.dateStr || dcr.datestr;
           if (ds) holidaySet.add(ds);
         }
@@ -414,6 +414,168 @@ export async function GET(request: Request) {
       return NextResponse.json({ success: true, demo, candidates });
     }
 
+    // ── Candidates discovery for L&D SME Reallocation ──────────────────
+    const candidateSmesForDemoId = searchParams.get("candidateSmesForDemoId");
+    if (candidateSmesForDemoId) {
+      const demo = await db.get("SELECT * FROM demo_sessions WHERE id = ?", [candidateSmesForDemoId]);
+      if (!demo) return NextResponse.json({ success: false, message: "L&D session not found" }, { status: 404 });
+
+      const targetDate = searchParams.get("targetDate") || String(demo.dateStr || "");
+      const targetTime = searchParams.get("targetTime") || String(demo.timeSlot || "");
+      const weekday = new Date(targetDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+
+      const smes = await db.all(
+        "SELECT id, name, email, subject, head_subject_group, mentor_group FROM sme_users ORDER BY name ASC"
+      );
+
+      const allWindows = await db.all(
+        "SELECT sme_id, day_of_week, start_time, end_time, slot_type, notes FROM sme_availability WHERE is_active != 0"
+      ).catch(() => []);
+
+      const windowsBySme = new Map<string, any[]>();
+      for (const w of allWindows) {
+        const list = windowsBySme.get(w.sme_id) || [];
+        list.push(w);
+        windowsBySme.set(w.sme_id, list);
+      }
+
+      const demoCounts = await db.all(
+        `SELECT smeId, COUNT(*) as count FROM demo_sessions 
+         WHERE status NOT IN ('completed', 'not_conducted')
+         GROUP BY smeId`
+      ).catch(() => []);
+      const countMap = new Map<string, number>();
+      for (const c of demoCounts) {
+        if (c.smeId) countMap.set(c.smeId, Number(c.count || 0));
+      }
+
+      const candidates = await Promise.all(
+        smes.map(async (s: any) => {
+          const isCurrentSme = s.id === demo.smeId;
+          const sWindows = windowsBySme.get(s.id) || [];
+          const windowReason = smeDemoWindowReason(sWindows, weekday, targetTime);
+
+          const avail = await checkSmeAvailability(db, {
+            smeId: s.id,
+            dateStr: targetDate,
+            timeSlot: targetTime,
+            excludeDemoSessionId: demo.id
+          });
+
+          const isAvailable = avail.available && !windowReason;
+          const reason = !avail.available ? avail.reason : (windowReason || null);
+
+          const cleanSubject = String(demo.subject || "").toLowerCase().trim();
+          const smeSub = String(s.subject || "").toLowerCase();
+          const smeHead = String(s.head_subject_group || "").toLowerCase();
+          const smeGroup = String(s.mentor_group || "").toLowerCase();
+          const subjectMatch = Boolean(
+            cleanSubject && (
+              smeSub.includes(cleanSubject) || cleanSubject.includes(smeSub) ||
+              smeHead.includes(cleanSubject) || cleanSubject.includes(smeHead) ||
+              smeGroup.includes(cleanSubject) || cleanSubject.includes(smeGroup)
+            )
+          );
+
+          return {
+            id: s.id,
+            name: s.name,
+            email: s.email,
+            subject: s.subject || s.head_subject_group || "General SME",
+            available: isAvailable,
+            reason: isAvailable ? "Free & Available" : (reason || "Busy / Conflict"),
+            subjectMatch,
+            isCurrentSme,
+            demoCount: countMap.get(s.id) || 0
+          };
+        })
+      );
+
+      return NextResponse.json({ success: true, demo, targetDate, targetTime, candidates });
+    }
+
+    // ── Candidate sessions discovery for SME Demo Swap ────────────────
+    const candidateSwapSessionsForDemoId = searchParams.get("candidateSwapSessionsForDemoId");
+    if (candidateSwapSessionsForDemoId) {
+      const demo = await db.get("SELECT * FROM demo_sessions WHERE id = ?", [candidateSwapSessionsForDemoId]);
+      if (!demo) return NextResponse.json({ success: false, message: "L&D session not found" }, { status: 404 });
+
+      const otherSessions = await db.all(
+        `SELECT * FROM demo_sessions 
+         WHERE id != ? AND status NOT IN ('completed', 'not_conducted')
+         ORDER BY dateStr ASC, timeSlot ASC LIMIT 60`,
+        [demo.id]
+      ).catch(() => []);
+
+      const swapCandidates = await Promise.all(
+        otherSessions.map(async (other: any) => {
+          const availA = demo.smeId ? await checkSmeAvailability(db, {
+            smeId: demo.smeId,
+            dateStr: other.dateStr,
+            timeSlot: other.timeSlot,
+            excludeDemoSessionId: demo.id
+          }) : { available: true };
+
+          const availB = other.smeId ? await checkSmeAvailability(db, {
+            smeId: other.smeId,
+            dateStr: demo.dateStr,
+            timeSlot: demo.timeSlot,
+            excludeDemoSessionId: other.id
+          }) : { available: true };
+
+          const compatible = availA.available && availB.available;
+          let clashNote = "";
+          if (!availA.available) clashNote += `${demo.smeName || "Current SME"} busy on ${other.dateStr}: ${availA.reason}. `;
+          if (!availB.available) clashNote += `${other.smeName || "Target SME"} busy on ${demo.dateStr}: ${availB.reason}.`;
+
+          return {
+            id: other.id,
+            mentorName: other.mentorName,
+            smeId: other.smeId,
+            smeName: other.smeName,
+            subject: other.subject,
+            stream: other.stream,
+            dateStr: other.dateStr,
+            timeSlot: other.timeSlot,
+            compatible,
+            smeAAvailable: availA.available,
+            smeBAvailable: availB.available,
+            clashNote: clashNote.trim() || null
+          };
+        })
+      );
+
+      return NextResponse.json({ success: true, demo, swapCandidates });
+    }
+
+    // ── Quick real-time single SME period check ───────────────────────
+    const checkSmePeriod = searchParams.get("checkSmePeriod");
+    if (checkSmePeriod === "true") {
+      const smeId = searchParams.get("smeId");
+      const dateStr = searchParams.get("dateStr");
+      const timeSlot = searchParams.get("timeSlot");
+      const excludeSessionId = searchParams.get("excludeSessionId") || undefined;
+
+      if (!smeId || !dateStr || !timeSlot) {
+        return NextResponse.json({ success: false, message: "Missing smeId, dateStr, or timeSlot" }, { status: 400 });
+      }
+
+      const weekday = new Date(dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+      const avail = await checkSmeAvailability(db, { smeId, dateStr, timeSlot, excludeDemoSessionId: excludeSessionId });
+      const smeWindows = await db.all(
+        "SELECT day_of_week, start_time, end_time, slot_type FROM sme_availability WHERE sme_id = ? AND is_active != 0",
+        [smeId]
+      ).catch(() => []);
+      const windowReason = smeDemoWindowReason(smeWindows, weekday, timeSlot);
+
+      const isAvailable = avail.available && !windowReason;
+      return NextResponse.json({
+        success: true,
+        available: isAvailable,
+        reason: isAvailable ? "Free & Available" : (avail.available ? windowReason : avail.reason)
+      });
+    }
+
     let query = "SELECT * FROM demo_reallocation_requests WHERE 1=1";
     const params: any[] = [];
     if (leaveRequestId) {
@@ -446,7 +608,7 @@ export async function POST(request: Request) {
     const { action } = body;
 
     // Role-based authorization
-    if (action === "resolve" || action === "swap_mentor") {
+    if (action === "resolve" || action === "swap_mentor" || action === "reallocate_sme" || action === "swap_sme_sessions") {
       await requireRole(request, "admin", "L and D", "head_sme");
     } else if (action === "propose" || action === "escalate_lnd") {
       await requireSession(request);
@@ -617,6 +779,307 @@ export async function POST(request: Request) {
       return NextResponse.json({
         success: true,
         message: `Successfully swapped session from ${prevMentorName} to ${targetMentor.name}!`
+      });
+    }
+
+    // ── REALLOCATE_SME: L&D allocates/reallocates SME to demo session ─────
+    if (action === "reallocate_sme") {
+      const {
+        demoSessionId,
+        targetSmeId,
+        targetSmeName,
+        reason,
+        notes,
+        targetDateStr,
+        targetTimeSlot,
+        decidedBy,
+        overrideClash = false
+      } = body;
+
+      if (!demoSessionId || !targetSmeId) {
+        return NextResponse.json({ success: false, message: "Missing demoSessionId or targetSmeId" }, { status: 400 });
+      }
+
+      const demo = await db.get("SELECT * FROM demo_sessions WHERE id = ?", [demoSessionId]);
+      if (!demo) {
+        return NextResponse.json({ success: false, message: "L&D session not found" }, { status: 404 });
+      }
+
+      const targetSme = await db.get("SELECT id, name, email FROM sme_users WHERE id = ?", [targetSmeId]);
+      if (!targetSme) {
+        return NextResponse.json({ success: false, message: "Target SME not found" }, { status: 404 });
+      }
+
+      const effDate = targetDateStr || demo.dateStr;
+      const effSlot = targetTimeSlot || demo.timeSlot;
+      const weekday = new Date(effDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+
+      if (!overrideClash) {
+        const avail = await checkSmeAvailability(db, {
+          smeId: targetSmeId,
+          dateStr: effDate,
+          timeSlot: effSlot,
+          excludeDemoSessionId: demoSessionId
+        });
+        if (!avail.available) {
+          return NextResponse.json({
+            success: false,
+            message: `Cannot assign ${targetSme.name}: ${avail.reason || "Has conflicting session/commitment"}`
+          }, { status: 409 });
+        }
+
+        const smeWindows = await db.all(
+          "SELECT day_of_week, start_time, end_time, slot_type FROM sme_availability WHERE sme_id = ? AND is_active != 0",
+          [targetSmeId]
+        ).catch(() => []);
+        const windowReason = smeDemoWindowReason(smeWindows, weekday, effSlot);
+        if (windowReason) {
+          return NextResponse.json({
+            success: false,
+            message: `Cannot assign ${targetSme.name}: ${windowReason}`
+          }, { status: 409 });
+        }
+      }
+
+      const prevSmeName = demo.smeName || "Unassigned";
+      const prevSmeId = demo.smeId;
+      const reallocReason = reason || "Direct SME Reallocation by L&D";
+      const reallocNotes = notes || `SME reallocated from ${prevSmeName} to ${targetSme.name}`;
+      const actor = decidedBy || "L&D Manager";
+      const reqId = generateId("drr");
+
+      await db.transaction(async (tx) => {
+        await tx.run(
+          `UPDATE demo_sessions
+           SET smeId = ?, smeName = ?, dateStr = ?, timeSlot = ?, status = 'confirmed'
+           WHERE id = ?`,
+          [targetSme.id, targetSme.name, effDate, effSlot, demoSessionId]
+        );
+
+        await tx.run(
+          `INSERT INTO demo_reallocation_requests (
+            id, demo_session_id, mentor_id, mentor_name, sme_id, sme_name,
+            subject, stream, week, original_date_str, original_time_slot,
+            proposed_date_str, proposed_time_slot, reason, status, request_kind,
+            proposed_by, decided_by, decided_at, decision_notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 'sme_reallocation', ?, ?, CURRENT_TIMESTAMP, ?)`,
+          [
+            reqId,
+            demoSessionId,
+            demo.mentorId,
+            demo.mentorName,
+            targetSme.id,
+            targetSme.name,
+            demo.subject,
+            demo.stream,
+            (demo as any).week ?? null,
+            demo.dateStr,
+            demo.timeSlot,
+            effDate,
+            effSlot,
+            reallocReason,
+            actor,
+            actor,
+            reallocNotes
+          ]
+        );
+
+        await tx.run(
+          `UPDATE demo_reallocation_requests
+           SET status = 'approved', decided_by = ?, decided_at = CURRENT_TIMESTAMP, decision_notes = ?
+           WHERE demo_session_id = ? AND status = 'pending' AND id != ?`,
+          [actor, `Resolved via direct reallocation to ${targetSme.name}`, demoSessionId, reqId]
+        );
+      });
+
+      await dispatchSystemNotification(db, {
+        userIds: [demo.mentorId, targetSme.id, prevSmeId].filter(Boolean),
+        title: "L&D Demo SME Reallocated",
+        message: `The ${demo.subject} demo session on ${effDate} (${effSlot}) was allocated to SME ${targetSme.name} (Previous: ${prevSmeName}). Reason: ${reallocReason}`,
+        link: "/l-and-d",
+        type: "success",
+        domain: "demos",
+        action: "reallocated"
+      }).catch(() => {});
+
+      const auditId = generateId("audit");
+      await db.run(
+        `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp)
+         VALUES (?, 'demo_sme_reallocated', ?, ?, 'L&D', ?)`,
+        [
+          auditId,
+          `L&D session ${demoSessionId} (${demo.subject}) SME reallocated: ${prevSmeName} → ${targetSme.name} by ${actor}. Reason: ${reallocReason}. Notes: ${reallocNotes}`,
+          actor,
+          new Date().toISOString()
+        ]
+      ).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: `Successfully allocated SME ${targetSme.name} to the session!`,
+        requestId: reqId
+      });
+    }
+
+    // ── SWAP_SME_SESSIONS: L&D executes SME swap between two demo sessions ──
+    if (action === "swap_sme_sessions") {
+      const {
+        sessionAId,
+        sessionBId,
+        reason,
+        notes,
+        decidedBy,
+        overrideClash = false
+      } = body;
+
+      if (!sessionAId || !sessionBId) {
+        return NextResponse.json({ success: false, message: "Missing sessionAId or sessionBId" }, { status: 400 });
+      }
+
+      const [demoA, demoB] = await Promise.all([
+        db.get("SELECT * FROM demo_sessions WHERE id = ?", [sessionAId]),
+        db.get("SELECT * FROM demo_sessions WHERE id = ?", [sessionBId])
+      ]);
+
+      if (!demoA || !demoB) {
+        return NextResponse.json({ success: false, message: "One or both demo sessions not found" }, { status: 404 });
+      }
+
+      const smeA = await db.get("SELECT id, name, email FROM sme_users WHERE id = ?", [demoA.smeId]);
+      const smeB = await db.get("SELECT id, name, email FROM sme_users WHERE id = ?", [demoB.smeId]);
+
+      if (!smeA || !smeB) {
+        return NextResponse.json({ success: false, message: "Both sessions must have assigned SMEs to execute a swap" }, { status: 400 });
+      }
+
+      const weekdayA = new Date(demoA.dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+      const weekdayB = new Date(demoB.dateStr + "T12:00:00").toLocaleDateString("en-US", { weekday: "long" });
+
+      if (!overrideClash) {
+        const availA = await checkSmeAvailability(db, {
+          smeId: smeA.id,
+          dateStr: demoB.dateStr,
+          timeSlot: demoB.timeSlot,
+          excludeDemoSessionId: demoA.id
+        });
+        if (!availA.available) {
+          return NextResponse.json({
+            success: false,
+            message: `Cannot swap: ${smeA.name} is not available for Session B's slot (${demoB.dateStr} ${demoB.timeSlot}): ${availA.reason}`
+          }, { status: 409 });
+        }
+
+        const availB = await checkSmeAvailability(db, {
+          smeId: smeB.id,
+          dateStr: demoA.dateStr,
+          timeSlot: demoA.timeSlot,
+          excludeDemoSessionId: demoB.id
+        });
+        if (!availB.available) {
+          return NextResponse.json({
+            success: false,
+            message: `Cannot swap: ${smeB.name} is not available for Session A's slot (${demoA.dateStr} ${demoA.timeSlot}): ${availB.reason}`
+          }, { status: 409 });
+        }
+      }
+
+      const swapReason = reason || "SME Demo Session Swap by L&D";
+      const actor = decidedBy || "L&D Manager";
+      const reqIdA = generateId("drr");
+      const reqIdB = generateId("drr");
+
+      await db.transaction(async (tx) => {
+        await tx.run(
+          `UPDATE demo_sessions SET smeId = ?, smeName = ?, status = 'confirmed' WHERE id = ?`,
+          [smeB.id, smeB.name, demoA.id]
+        );
+        await tx.run(
+          `UPDATE demo_sessions SET smeId = ?, smeName = ?, status = 'confirmed' WHERE id = ?`,
+          [smeA.id, smeA.name, demoB.id]
+        );
+
+        await tx.run(
+          `INSERT INTO demo_reallocation_requests (
+            id, demo_session_id, mentor_id, mentor_name, sme_id, sme_name,
+            subject, stream, week, original_date_str, original_time_slot,
+            proposed_date_str, proposed_time_slot, reason, status, request_kind,
+            proposed_by, decided_by, decided_at, decision_notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 'sme_swap', ?, ?, CURRENT_TIMESTAMP, ?)`,
+          [
+            reqIdA,
+            demoA.id,
+            demoA.mentorId,
+            demoA.mentorName,
+            smeB.id,
+            smeB.name,
+            demoA.subject,
+            demoA.stream,
+            (demoA as any).week ?? null,
+            demoA.dateStr,
+            demoA.timeSlot,
+            demoA.dateStr,
+            demoA.timeSlot,
+            swapReason,
+            actor,
+            actor,
+            notes || `Swapped SME ${smeA.name} with ${smeB.name} from session ${demoB.id}`
+          ]
+        );
+
+        await tx.run(
+          `INSERT INTO demo_reallocation_requests (
+            id, demo_session_id, mentor_id, mentor_name, sme_id, sme_name,
+            subject, stream, week, original_date_str, original_time_slot,
+            proposed_date_str, proposed_time_slot, reason, status, request_kind,
+            proposed_by, decided_by, decided_at, decision_notes
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved', 'sme_swap', ?, ?, CURRENT_TIMESTAMP, ?)`,
+          [
+            reqIdB,
+            demoB.id,
+            demoB.mentorId,
+            demoB.mentorName,
+            smeA.id,
+            smeA.name,
+            demoB.subject,
+            demoB.stream,
+            (demoB as any).week ?? null,
+            demoB.dateStr,
+            demoB.timeSlot,
+            demoB.dateStr,
+            demoB.timeSlot,
+            swapReason,
+            actor,
+            actor,
+            notes || `Swapped SME ${smeB.name} with ${smeA.name} from session ${demoA.id}`
+          ]
+        );
+      });
+
+      await dispatchSystemNotification(db, {
+        userIds: [demoA.mentorId, demoB.mentorId, smeA.id, smeB.id].filter(Boolean),
+        title: "L&D Demo Sessions Swapped",
+        message: `SMEs swapped between ${demoA.mentorName}'s session (${demoA.subject}) and ${demoB.mentorName}'s session (${demoB.subject}) by L&D. Reason: ${swapReason}`,
+        link: "/l-and-d",
+        type: "success",
+        domain: "demos",
+        action: "reallocated"
+      }).catch(() => {});
+
+      const auditId = generateId("audit");
+      await db.run(
+        `INSERT INTO audit_logs (id, type, description, actorName, actorRole, timestamp)
+         VALUES (?, 'demo_sme_swapped', ?, ?, 'L&D', ?)`,
+        [
+          auditId,
+          `L&D swapped SMEs: ${smeA.name} (${demoA.subject}) ↔ ${smeB.name} (${demoB.subject}) by ${actor}. Reason: ${swapReason}`,
+          actor,
+          new Date().toISOString()
+        ]
+      ).catch(() => {});
+
+      return NextResponse.json({
+        success: true,
+        message: `Successfully swapped SMEs: ${smeA.name} ↔ ${smeB.name}!`
       });
     }
 
@@ -795,8 +1258,8 @@ export async function POST(request: Request) {
       if (targetWeekday === "Saturday" && appCollege && (appCollege.is_saturday_working === 0 || appCollege.working_days === 5)) {
         return NextResponse.json({ success: false, message: "Cannot approve: campus is closed on Saturday." }, { status: 409 });
       }
-      const targetCfg = await db.get("SELECT day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [targetDate, appCollegeId]).catch(() => null);
-      if (targetCfg && (targetCfg.day_type === "holiday" || targetCfg.is_holiday === 1)) {
+      const targetCfg = await db.get("SELECT day_type, day_order FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [targetDate, appCollegeId]).catch(() => null);
+      if (targetCfg && (targetCfg.day_type === "holiday" || (targetCfg as any).is_holiday === 1)) {
         return NextResponse.json({ success: false, message: "Cannot approve: target date is a campus holiday." }, { status: 409 });
       }
       let effectiveTargetWeekday = targetWeekday;

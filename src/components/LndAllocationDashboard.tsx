@@ -46,6 +46,7 @@ import LndCellDetailsModal from "./lnd/modals/LndCellDetailsModal";
 import LndSwapRequestsModal from "./lnd/modals/LndSwapRequestsModal";
 import LndImportPreviewModal from "./lnd/modals/LndImportPreviewModal";
 import LndTemplateChooserModal from "./lnd/modals/LndTemplateChooserModal";
+import LndReallocateSmeModal from "./lnd/modals/LndReallocateSmeModal";
 import { PageHeader } from "./ui/PageHeader";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -181,6 +182,7 @@ export function LndAllocationDashboard() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showSwapRequestsModal, setShowSwapRequestsModal] = useState(false);
   const [swapRequestsTab, setSwapRequestsTab] = useState<"pending" | "resolved">("pending");
+  const [reallocateModalSession, setReallocateModalSession] = useState<any | null>(null);
 
   // Excel Timetable & Allocation Import/Export States
   const [showDemoExcelImportModal, setShowDemoExcelImportModal] = useState(false);
@@ -1104,6 +1106,7 @@ export function LndAllocationDashboard() {
               pendingReallocations={pendingReallocCount}
               quotaSatisfied={allocProgress.satisfied}
               quotaTotal={allocProgress.total}
+              onActionRequiredClick={() => setActiveTab("queue")}
             />
           </>
         )}
@@ -1431,14 +1434,24 @@ export function LndAllocationDashboard() {
 
         {/* TAB 3: LIVE DEMO MANAGEMENT TABLE & SESSIONS LEDGER */}
         {activeTab === "queue" && (
-          <LndLiveDemoTable
+          <LndQueueTab
             demoSessions={demoSessions}
-            mentors={mentors}
-            smes={smes}
-            colleges={colleges}
-            subjectsList={subjectsList}
-            deleteDemoSession={deleteDemoSession}
-            refreshData={() => refreshData()}
+            demoSwapRequests={demoSwapRequests}
+            demoReallocations={demoReallocations}
+            fetchDemoReallocations={fetchDemoReallocations}
+            loadingReallocations={loadingReallocations}
+            reallocNotesMap={reallocNotesMap}
+            setReallocNotesMap={setReallocNotesMap}
+            decidingReallocId={decidingReallocId}
+            decideDemoReallocation={decideDemoReallocation}
+            swapRequestsTab={swapRequestsTab}
+            setSwapRequestsTab={setSwapRequestsTab}
+            resolveDemoSwap={resolveDemoSwap}
+            toast={toast}
+            refreshSessions={async () => {
+              await refreshData();
+              await fetchDemoReallocations();
+            }}
           />
         )}
 
@@ -1480,6 +1493,24 @@ export function LndAllocationDashboard() {
             showConfirm={showConfirm}
             smes={smes}
             toast={toast}
+            onReallocateSme={(session) => {
+              setEditSession(null);
+              setReallocateModalSession(session);
+            }}
+          />
+        )}
+
+        {/* REALLOCATE / SWAP SME MODAL (DRIVEN FROM GRID & OVERRIDE) */}
+        {reallocateModalSession && (
+          <LndReallocateSmeModal
+            isOpen={Boolean(reallocateModalSession)}
+            onClose={() => setReallocateModalSession(null)}
+            session={reallocateModalSession}
+            onSuccess={async () => {
+              await refreshData();
+              await fetchDemoReallocations();
+            }}
+            colleges={colleges}
           />
         )}
 

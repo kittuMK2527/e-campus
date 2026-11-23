@@ -20,6 +20,8 @@ export interface LndStatsHeaderProps {
   /** Faculty whose weekly quota is already met. */
   quotaSatisfied: number;
   quotaTotal: number;
+  /** Callback when user clicks the Action Required card to review pending reallocations. */
+  onActionRequiredClick?: () => void;
 }
 
 const pctOf = (value: number, of: number) => (of > 0 ? Math.min(100, Math.round((value / of) * 100)) : 0);
@@ -38,7 +40,8 @@ export default function LndStatsHeader({
   leaveAffected,
   pendingReallocations,
   quotaSatisfied,
-  quotaTotal
+  quotaTotal,
+  onActionRequiredClick
 }: LndStatsHeaderProps) {
   const progressPct = pctOf(scheduledHours, targetHours);
   const actionRequired = leaveAffected + pendingReallocations;
@@ -92,11 +95,23 @@ export default function LndStatsHeader({
       </div>
 
       <div
-        className={`rounded-xl border p-4 flex flex-col gap-2 shadow-xs ${
+        onClick={onActionRequiredClick}
+        role={onActionRequiredClick ? "button" : undefined}
+        tabIndex={onActionRequiredClick ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (onActionRequiredClick && (e.key === "Enter" || e.key === " ")) {
+            e.preventDefault();
+            onActionRequiredClick();
+          }
+        }}
+        className={`rounded-xl border p-4 flex flex-col gap-2 shadow-xs transition-all ${
+          onActionRequiredClick ? "cursor-pointer hover:scale-[1.02] active:scale-[0.98]" : ""
+        } ${
           actionRequired > 0
             ? "border-amber-200/80 dark:border-amber-800/50 bg-amber-50/60 dark:bg-amber-950/20"
             : "border-slate-200/80 dark:border-slate-800/80 bg-white/80 dark:bg-[#131317]/80"
         }`}
+        title={onActionRequiredClick ? "Click to view Reallocation Queue in Demos tab" : undefined}
       >
         <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400">
           Action Required

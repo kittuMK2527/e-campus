@@ -331,6 +331,7 @@ CREATE TABLE IF NOT EXISTS campus_daily_configs (
     day_order VARCHAR(100) NOT NULL,
     session_mode VARCHAR(50) DEFAULT 'Offline',
     notes TEXT,
+    is_holiday INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(college_id, dateStr)

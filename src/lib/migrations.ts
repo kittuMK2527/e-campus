@@ -1085,6 +1085,19 @@ const migrations: Migration[] = [
         ).catch(() => {});
       }
     }
+  },
+  {
+    name: "campus_daily_configs_is_holiday_column",
+    run: async (db) => {
+      const isPg = (db as any).isPostgres;
+      if (isPg) {
+        await db.exec(`
+          ALTER TABLE campus_daily_configs ADD COLUMN IF NOT EXISTS is_holiday INTEGER DEFAULT 0;
+        `).catch((err: any) => console.warn("[migrations] campus_daily_configs_is_holiday:", err?.message || err));
+      } else {
+        await db.exec("ALTER TABLE campus_daily_configs ADD COLUMN is_holiday INTEGER DEFAULT 0;").catch(() => {});
+      }
+    }
   }
 ];
 

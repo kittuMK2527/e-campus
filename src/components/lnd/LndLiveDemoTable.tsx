@@ -22,8 +22,12 @@ import {
   BookOpen,
   User,
   Clock,
-  Building
+  Building,
+  ArrowLeftRight,
+  AlertTriangle,
+  RefreshCw
 } from "lucide-react";
+import LndReallocateSmeModal from "./modals/LndReallocateSmeModal";
 
 export interface LndLiveDemoTableProps {
   demoSessions: any[];
@@ -31,6 +35,7 @@ export interface LndLiveDemoTableProps {
   smes: any[];
   colleges: any[];
   subjectsList?: any[];
+  demoReallocations?: any[];
   deleteDemoSession?: (id: string) => Promise<{ success: boolean; message?: string }>;
   refreshData?: () => Promise<any>;
 }
@@ -51,6 +56,7 @@ export default function LndLiveDemoTable({
   smes = [],
   colleges = [],
   subjectsList = [],
+  demoReallocations = [],
   refreshData
 }: LndLiveDemoTableProps) {
   // Filter States
@@ -60,6 +66,29 @@ export default function LndLiveDemoTable({
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Reallocation modal state
+  const [reallocatingSession, setReallocatingSession] = useState<any | null>(null);
+
+  // Set of session IDs with pending reallocation proposals
+  const pendingReallocSessionIds = useMemo(() => {
+    const set = new Set<string>();
+    for (const r of demoReallocations || []) {
+      if (r.status === "pending") {
+        const sid = r.demo_session_id || r.demoSessionId;
+        if (sid) set.add(sid);
+      }
+    }
+    return set;
+  }, [demoReallocations]);
+
+  // Reallocation required count
+  const reallocationNeededCount = useMemo(() => {
+    return demoSessions.filter((s: any) => {
+      const raw = (s?.status || "").toLowerCase().trim();
+      return raw === "reallocation_required" || pendingReallocSessionIds.has(s?.id);
+    }).length;
+  }, [demoSessions, pendingReallocSessionIds]);
 
   // Today reference date
   const todayStr = useMemo(() => getInstitutionDateStr(), []);
@@ -193,9 +222,16 @@ export default function LndLiveDemoTable({
 
       // Status filter
       if (selectedStatus !== "all") {
-        const status = getSessionStatus(session);
-        if (status !== selectedStatus) {
-          return false;
+        if (selectedStatus === "reallocation_required") {
+          const raw = (session?.status || "").toLowerCase().trim();
+          if (raw !== "reallocation_required" && !pendingReallocSessionIds.has(session?.id)) {
+            return false;
+          }
+        } else {
+          const status = getSessionStatus(session);
+          if (status !== selectedStatus) {
+            return false;
+          }
         }
       }
 
@@ -393,6 +429,9 @@ export default function LndLiveDemoTable({
               className="w-full h-9 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/60 text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
             >
               <option value="all">All Statuses</option>
+              <option value="reallocation_required">
+                Reallocation Needed {reallocationNeededCount > 0 ? `(${reallocationNeededCount})` : ""}
+              </option>
               <option value="completed">Completed</option>
               <option value="incomplete">Incomplete</option>
               <option value="upcoming">Upcoming</option>
@@ -427,6 +466,27 @@ export default function LndLiveDemoTable({
             />
           </div>
         </div>
+
+        {/* Reallocation Needed Alert Banner */}
+        {reallocationNeededCount > 0 && (
+          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-center gap-2 text-amber-900 dark:text-amber-200 font-bold">
+              <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+              <span>
+                {reallocationNeededCount} demo session{reallocationNeededCount === 1 ? "" : "s"} require SME reallocation or resolution.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setSelectedStatus(selectedStatus === "reallocation_required" ? "all" : "reallocation_required")
+              }
+              className="px-3 py-1.5 rounded-lg text-xs font-black bg-amber-500 hover:bg-amber-600 text-white shrink-0 shadow-xs cursor-pointer transition-all self-start sm:self-auto"
+            >
+              {selectedStatus === "reallocation_required" ? "Show All Demos" : "Filter Needs Reallocation"}
+            </button>
+          </div>
+        )}
 
         {/* Search Bar */}
         <div className="relative">
@@ -494,12 +554,15 @@ export default function LndLiveDemoTable({
               <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4 text-center">
                 Status
               </TableHead>
+              <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4 text-center">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="py-12 text-center">
+                <TableCell colSpan={6} className="py-12 text-center">
                   <div className="flex flex-col items-center justify-center gap-2 max-w-sm mx-auto text-slate-400">
                     <BookOpen className="h-8 w-8 text-slate-300 dark:text-slate-600" />
                     <p className="text-sm font-bold text-slate-700 dark:text-slate-300">
@@ -534,7 +597,8 @@ export default function LndLiveDemoTable({
                 const mentorName = getSessionMentorName(session) || mentor?.name || "Assigned Faculty";
                 const smeName = getSessionSmeName(session) || sme?.name || "Assigned SME";
                 const rawStatus = (session.status || "").toLowerCase().trim();
-                const isReallocationRequired = rawStatus === "reallocation_required";
+                const isReallocationRequired =
+                  rawStatus === "reallocation_required" || pendingReallocSessionIds.has(session.id);
 
                 return (
                   <TableRow
@@ -634,6 +698,33 @@ export default function LndLiveDemoTable({
                         )}
                       </div>
                     </TableCell>
+
+                    {/* 6. Actions */}
+                    <TableCell className="py-3 px-4 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5">
+                        {isReallocationRequired ? (
+                          <button
+                            type="button"
+                            onClick={() => setReallocatingSession(session)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider bg-amber-500 hover:bg-amber-600 text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer border border-amber-600 active:scale-95"
+                            title="Allocate SME Evaluator"
+                          >
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            <span>Allocate SME</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setReallocatingSession(session)}
+                            className="px-2.5 py-1.5 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors flex items-center gap-1.5 cursor-pointer"
+                            title="Reallocate or Swap SME Evaluator"
+                          >
+                            <ArrowLeftRight className="h-3 w-3 text-slate-400" />
+                            <span>Reallocate / Swap</span>
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 );
               })
@@ -641,6 +732,19 @@ export default function LndLiveDemoTable({
           </TableBody>
         </Table>
       </TableSurface>
+
+      {/* ── REALLOCATE / SWAP SME MODAL ── */}
+      {reallocatingSession && (
+        <LndReallocateSmeModal
+          isOpen={Boolean(reallocatingSession)}
+          onClose={() => setReallocatingSession(null)}
+          session={reallocatingSession}
+          onSuccess={async () => {
+            if (refreshData) await refreshData();
+          }}
+          colleges={colleges}
+        />
+      )}
     </div>
   );
 }

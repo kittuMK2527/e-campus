@@ -785,7 +785,7 @@ export async function POST(request: Request) {
       }
       const mentorRec = await db.get("SELECT college_id FROM mentors WHERE id = ?", [mentorId]).catch(() => null);
       const mentorCollegeId = mentorRec?.college_id || null;
-      const reschedCfg = await db.get("SELECT day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [newDateStr, mentorCollegeId]).catch(() => null);
+      const reschedCfg = await db.get("SELECT day_type, day_order FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [newDateStr, mentorCollegeId]).catch(() => null);
       let reschedEffectiveDay = weekdayOf(newDateStr);
       if (reschedCfg?.day_order && reschedCfg.day_order !== "None" && reschedCfg.day_order !== "none") {
         const { mapDayOrderToDayName } = await import("@/lib/utils");

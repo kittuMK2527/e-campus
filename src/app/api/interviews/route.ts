@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     }
 
     let mentorId = searchParams.get("mentorId");
-    let collegeId = searchParams.get("collegeId");
+    let collegeId = searchParams.get("collegeId") || searchParams.get("college_id");
     let kamId = searchParams.get("kamId");
 
     if (user.role === "mentor") {
@@ -77,17 +77,21 @@ export async function GET(request: Request) {
       params.push(mentorId, `%${mentorId}%`, mentorId, mentorId);
     } else if ((role === "cm" || role === "cam") && collegeId) {
       // 1. Internal: STRICTLY only inside this campus (college_id / origin_college_id)
-      // 2. External: Origin/Target campus OR responded campus OR all campuses under the SAME KAM who manages the origin college
+      // 2. External: STRICTLY inside the SAME KAM controlled colleges
       query += ` AND (
         (type = 'internal' AND (college_id = ? OR origin_college_id = ? OR target_college_id = ?))
         OR
         (type = 'external' AND (
-          college_id = ? OR 
-          origin_college_id = ? OR 
-          target_college_id = ? OR 
-          id IN (SELECT interview_id FROM cam_capacity_responses WHERE college_id = ?) OR
+          (college_id = ? OR origin_college_id = ?)
+          OR
           (
-            status NOT IN ('pending_origin_cm', 'draft', 'rejected') AND (
+            status NOT IN ('pending_origin_cm', 'draft', 'rejected') AND
+            (SELECT kam_id FROM colleges WHERE id = ?) IS NOT NULL AND
+            (SELECT kam_id FROM colleges WHERE id = ?) != '' AND
+            (target_college_id IS NULL OR target_college_id = '' OR
+              (SELECT kam_id FROM colleges WHERE id = target_college_id) =
+              (SELECT kam_id FROM colleges WHERE id = ?)) AND
+            (
               origin_college_id IN (
                 SELECT id FROM colleges 
                 WHERE kam_id = (SELECT kam_id FROM colleges WHERE id = ?) 
@@ -105,15 +109,38 @@ export async function GET(request: Request) {
           )
         ))
       )`;
-      params.push(collegeId, collegeId, collegeId, collegeId, collegeId, collegeId, collegeId, collegeId, collegeId);
+      params.push(
+        collegeId, collegeId, collegeId,
+        collegeId, collegeId, collegeId,
+        collegeId, collegeId, collegeId, collegeId
+      );
     } else if (role === "kam" && kamId) {
-      // KAM sees all internal & external interviews for colleges assigned to them
+      // Internal interviews belong to the KAM portfolio if any involved campus
+      // is assigned to them. External requests belong to the KAM that owns the
+      // origin campus; matching only the target campus can expose another KAM's
+      // request across portfolio boundaries.
       query += ` AND (
-        origin_college_id IN (SELECT id FROM colleges WHERE kam_id = ?) OR
-        college_id IN (SELECT id FROM colleges WHERE kam_id = ?) OR
-        target_college_id IN (SELECT id FROM colleges WHERE kam_id = ?)
+        (
+          type = 'external' AND
+          COALESCE(NULLIF(origin_college_id, ''), college_id) IN (
+            SELECT id FROM colleges WHERE kam_id = ?
+          ) AND
+          (target_college_id IS NULL OR target_college_id = '' OR target_college_id IN (
+            SELECT id FROM colleges WHERE kam_id = ?
+          ))
+        ) OR (
+          type != 'external' AND (
+            origin_college_id IN (SELECT id FROM colleges WHERE kam_id = ?) OR
+            college_id IN (SELECT id FROM colleges WHERE kam_id = ?) OR
+            target_college_id IN (SELECT id FROM colleges WHERE kam_id = ?)
+          )
+        )
       )`;
-      params.push(kamId, kamId, kamId);
+      params.push(kamId, kamId, kamId, kamId, kamId);
+      if (collegeId && collegeId !== "all") {
+        query += ` AND (origin_college_id = ? OR college_id = ? OR target_college_id = ?)`;
+        params.push(collegeId, collegeId, collegeId);
+      }
     } else if (role === "student") {
       let studentId = searchParams.get("studentId");
       let classGroup = searchParams.get("classGroup");
@@ -164,15 +191,23 @@ export async function GET(request: Request) {
       // Chunked IN-list: an admin's interview feed is unbounded, and binding every id
       // into one statement grows the parse plan with it. Per-chunk order is preserved,
       // which is all the grouping below needs.
-      const byInterviews = (table: string, orderBy: string) =>
-        readInChunks(db, interviewIds, (chunk, ph) => ({
-          sql: `SELECT * FROM ${table} WHERE interview_id IN (${ph}) ORDER BY ${orderBy}`,
-          params: [...chunk]
-        }));
+      const byInterviews = (table: string, orderBy: string, kamScopeResponses = false) =>
+        readInChunks(db, interviewIds, (chunk, ph) => kamScopeResponses && role === "kam"
+          ? {
+              sql: `SELECT responses.* FROM ${table} responses
+                    JOIN colleges response_college ON response_college.id = responses.college_id
+                    WHERE response_college.kam_id = ? AND responses.interview_id IN (${ph})
+                    ORDER BY responses.${orderBy}`,
+              params: [kamId, ...chunk]
+            }
+          : {
+              sql: `SELECT * FROM ${table} WHERE interview_id IN (${ph}) ORDER BY ${orderBy}`,
+              params: [...chunk]
+            });
 
       const [allAllocs, allCamResponses, allStudentSlots, allEvals] = await Promise.all([
         byInterviews("interview_allocations", "start_time ASC"),
-        byInterviews("cam_capacity_responses", "created_at ASC"),
+        byInterviews("cam_capacity_responses", "created_at ASC", true),
         byInterviews("student_interview_slots", "slot_start_time ASC"),
         byInterviews("interview_evaluations", "created_at DESC")
       ]);
@@ -283,6 +318,10 @@ export async function GET(request: Request) {
         "SELECT * FROM interview_evaluations WHERE mentor_id = ? ORDER BY created_at DESC",
         [mentorId]
       );
+    } else if (["kam", "cm", "cam", "student"].includes(role)) {
+      // Never return the global evaluation feed when a scoped role has no visible
+      // interviews. That fallback bypassed the interview scope for KAMs and CMs.
+      evaluations = [];
     } else {
       evaluations = await db.all("SELECT * FROM interview_evaluations ORDER BY created_at DESC");
     }
