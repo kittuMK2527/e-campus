@@ -61,6 +61,24 @@ export async function POST(request: Request) {
 
     const college = collegeRows[0];
     const collegeName = college?.name || "Campus";
+
+    // Verify that the responding partner college belongs to the same KAM zone as the origin campus
+    if (interview.type === "external") {
+      const originCollege = await db.get(
+        "SELECT kam_id FROM colleges WHERE id = ?",
+        [interview.origin_college_id || interview.college_id]
+      );
+      const originKamId = originCollege?.kam_id;
+      const respondingKamId = college?.kam_id;
+
+      if (!originKamId || !respondingKamId || originKamId !== respondingKamId) {
+        return NextResponse.json(
+          { success: false, message: "External interviews are restricted to partner campuses within the same KAM zone." },
+          { status: 403 }
+        );
+      }
+    }
+
     const now = new Date().toISOString();
     const acceptedCount = action === "decline" ? 0 : Math.max(0, Number(accepted_student_capacity) || 0);
 

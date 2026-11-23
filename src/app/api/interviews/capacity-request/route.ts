@@ -43,19 +43,15 @@ export async function POST(request: Request) {
     const originId = originCollege?.id || interview.origin_college_id || interview.college_id;
     const kamId = originCollege?.kam_id;
 
-    // 1. Fetch partner colleges under the same KAM (excluding origin college)
-    let regionalColleges = kamId
+    // 1. Fetch partner colleges strictly under the same KAM (excluding origin college)
+    const regionalColleges = kamId
       ? await db.all("SELECT * FROM colleges WHERE kam_id = ? AND id != ?", [kamId, originId])
       : [];
 
-    // 2. Fallback: If no other colleges share this specific KAM zone, broadcast to all other partner colleges in network
-    if (!regionalColleges || regionalColleges.length === 0) {
-      regionalColleges = await db.all("SELECT * FROM colleges WHERE id != ?", [originId]);
-    }
-
+    // External interviews must strictly only show and broadcast inside the KAM controlled colleges
     if (!regionalColleges || regionalColleges.length === 0) {
       return NextResponse.json(
-        { success: false, message: "No other partner colleges found in the network to broadcast capacity requests to." },
+        { success: false, message: "No other partner colleges found under this KAM zone to broadcast capacity requests to." },
         { status: 400 }
       );
     }

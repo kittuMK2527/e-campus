@@ -948,12 +948,12 @@ const StudentConductedRosterDrawer = ({
                   {(() => {
                     const hostId = interview.college_id || interview.origin_college_id;
                     const hostCol = allColleges.find((c: any) => c.id === hostId);
-                    const hostKamId = hostCol?.kam_id;
+                    const hostKamId = hostCol?.kam_id || (hostCol as any)?.kamId;
                     const valid = (interview.cam_responses || []).filter((cr: any) => {
                       if (cr.college_id === hostId) return false;
-                      if (!hostKamId) return true;
-                      const crKam = allColleges.find((c: any) => c.id === cr.college_id)?.kam_id;
-                      return !crKam || crKam === hostKamId;
+                      if (!hostKamId) return false;
+                      const crKam = allColleges.find((c: any) => c.id === cr.college_id)?.kam_id || (allColleges.find((c: any) => c.id === cr.college_id) as any)?.kamId;
+                      return Boolean(crKam && crKam === hostKamId);
                     });
                     if (valid.length === 0) return (
                       <Card><CardContent className="py-8 text-center text-slate-400 text-sm">No capacity responses yet.</CardContent></Card>
@@ -1587,7 +1587,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
       const params = new URLSearchParams();
       params.set("role", currentUserRole);
       if (currentMentor?.id) params.set("mentorId", currentMentor.id);
-      if (defaultCollegeId) params.set("collegeId", defaultCollegeId);
+      if (defaultCollegeId && defaultCollegeId !== "all") params.set("collegeId", defaultCollegeId);
       if (currentKAM?.id) params.set("kamId", currentKAM.id);
 
       const data = await apiFetch(`/api/interviews?${params.toString()}`);
@@ -1600,6 +1600,65 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   const interviewsList = interviewsQuery.data?.interviews || [];
   const evaluationsList = interviewsQuery.data?.evaluations || [];
   const isLoading = interviewsQuery.isFetching;
+
+  // Colleges governed under current KAM portfolio
+  const kamControlledColleges = useMemo(() => {
+    if (!currentKAM?.id) return [];
+    return colleges.filter(c => c.kam_id === currentKAM.id || (c as any).kamId === currentKAM.id);
+  }, [colleges, currentKAM]);
+
+  const kamControlledCollegeIds = useMemo(() => {
+    return new Set(kamControlledColleges.map(c => c.id));
+  }, [kamControlledColleges]);
+
+  // Scoped interviews: External interviews must strictly only show inside the KAM controlled colleges
+  const scopedInterviewsList = useMemo(() => {
+    const currentCollegeId = defaultCollegeId && defaultCollegeId !== "all" ? defaultCollegeId : (currentMentor?.college_id || "");
+
+    return interviewsList.filter(i => {
+      const originId = i.origin_college_id || i.college_id;
+      const originCol = colleges.find(c => c.id === originId);
+      const originKamId = originCol?.kam_id || (originCol as any)?.kamId;
+
+      // When KAM is viewing: only show interviews where origin or target college is in the KAM's portfolio
+      if (isReadOnlyKAM) {
+        if (currentKAM?.id) {
+          if (originKamId && originKamId !== currentKAM.id) return false;
+          const matchesPortfolio = kamControlledCollegeIds.has(originId) || (i.target_college_id && kamControlledCollegeIds.has(i.target_college_id));
+          if (!matchesPortfolio) return false;
+        }
+        if (currentCollegeId && currentCollegeId !== "all") {
+          return i.college_id === currentCollegeId || i.origin_college_id === currentCollegeId || i.target_college_id === currentCollegeId;
+        }
+        return true;
+      }
+
+      // For internal sessions:
+      if (i.type !== "external") {
+        if (isCM && currentCollegeId) {
+          return i.college_id === currentCollegeId || i.origin_college_id === currentCollegeId || i.target_college_id === currentCollegeId;
+        }
+        return true;
+      }
+
+      // For external sessions:
+      if (isCM && currentCollegeId) {
+        const isHost = i.college_id === currentCollegeId || i.origin_college_id === currentCollegeId;
+        if (isHost) return true;
+
+        // Partner CM: strictly must be under the SAME KAM zone as this CM's campus
+        const myCol = colleges.find(c => c.id === currentCollegeId);
+        const myKamId = myCol?.kam_id || (myCol as any)?.kamId;
+
+        if (!myKamId || !originKamId || myKamId !== originKamId) {
+          return false;
+        }
+        return true;
+      }
+
+      return true;
+    });
+  }, [interviewsList, isCM, isReadOnlyKAM, defaultCollegeId, currentMentor, currentKAM, colleges, kamControlledCollegeIds]);
 
   // Campus daily configs and exam schedules for detecting Exam Days
   const effectiveCollegeId = defaultCollegeId || currentMentor?.college_id || (colleges.length > 0 ? colleges[0]?.id : "") || "";
@@ -1772,7 +1831,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   // Map of interviews by target_date for calendar badges
   const scheduledInterviewsByDate = useMemo(() => {
     const map: Record<string, any[]> = {};
-    interviewsList.forEach(item => {
+    scopedInterviewsList.forEach(item => {
       if (item.target_date) {
         const dateKey = String(item.target_date).split("T")[0].trim();
         if (!map[dateKey]) map[dateKey] = [];
@@ -1780,7 +1839,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
       }
     });
     return map;
-  }, [interviewsList]);
+  }, [scopedInterviewsList]);
 
   // ── Handlers ────────────────────────────────────────────────────────────────
 
@@ -2238,7 +2297,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
       const XLSX = await import("xlsx");
       
       // 1. Interviews Sessions Sheet
-      const sessionsRows = (interviewsList || []).map((iv, idx) => {
+      const sessionsRows = (scopedInterviewsList || []).map((iv, idx) => {
         const originCol = activeCollegesList.find(c => c.id === iv.origin_college_id || c.id === iv.college_id);
         const targetCol = activeCollegesList.find(c => c.id === iv.target_college_id);
         return {
@@ -2264,7 +2323,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
       // 2. Candidate Evaluations Sheet
       const evalRows = (evaluationsList || []).map((ev, idx) => {
-        const iv = (interviewsList || []).find(i => i.id === ev.interview_id);
+        const iv = (scopedInterviewsList || []).find(i => i.id === ev.interview_id);
         return {
           "S.No": idx + 1,
           "Student ID": ev.student_id || "—",
@@ -2321,7 +2380,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
 
   const pendingRequests = useMemo(() => {
     const currentCollegeId = defaultCollegeId || currentMentor?.college_id;
-    return interviewsList
+    return scopedInterviewsList
       .filter(i => {
         const s = (i.status || "").toLowerCase();
         if (s === "completed" || s === "rejected" || s === "no_capacity") {
@@ -2362,7 +2421,16 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
               s === "draft"
             );
           } else {
-            // Partner CAM under same KAM:
+            // Partner CAM strictly under the same KAM zone:
+            const hostId = i.origin_college_id || i.college_id;
+            const hostCol = colleges.find(c => c.id === hostId);
+            const myCol = colleges.find(c => c.id === currentCollegeId);
+            const hostKamId = hostCol?.kam_id || (hostCol as any)?.kamId;
+            const myKamId = myCol?.kam_id || (myCol as any)?.kamId;
+
+            if (!hostKamId || !myKamId || hostKamId !== myKamId) {
+              return false;
+            }
             return remainingUnallocated > 0 && s !== "draft" && s !== "pending_origin_cm";
           }
         }
@@ -2375,7 +2443,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
         if (!aIsExternal && bIsExternal) return 1;
         return new Date(a.target_date || a.created_at || "").getTime() - new Date(b.target_date || b.created_at || "").getTime();
       });
-  }, [interviewsList, defaultCollegeId, currentMentor]);
+  }, [scopedInterviewsList, defaultCollegeId, currentMentor, colleges]);
 
   const sessionStudents = (req: any) => {
     if (!req) return [];
@@ -2525,7 +2593,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
   };
 
   // Filtered student list for Evaluation drawer
-  const activeReq = interviewsList.find(i => i.id === expandedRequest);
+  const activeReq = scopedInterviewsList.find(i => i.id === expandedRequest);
   const activeStudentsList = useMemo(() => {
     if (!activeReq) return [];
     let list = sessionStudents(activeReq);
@@ -2653,7 +2721,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             <button
               type="button"
               onClick={handleExportInterviews}
-              disabled={interviewsList.length === 0}
+              disabled={scopedInterviewsList.length === 0}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-extrabold transition-all cursor-pointer shadow-2xs disabled:opacity-40 disabled:cursor-not-allowed"
               title="Export Interview Sessions & Evaluations to Excel"
             >
@@ -3194,10 +3262,10 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
           {/* Top Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Total Sessions", value: interviewsList.length, color: "text-slate-800" },
-              { label: "Pending CM", value: interviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
-              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
-              { label: "Completed", value: interviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
+              { label: "Total Sessions", value: scopedInterviewsList.length, color: "text-slate-800" },
+              { label: "Pending CM", value: scopedInterviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
+              { label: "Assigned", value: scopedInterviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
+              { label: "Completed", value: scopedInterviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
             ].map(stat => (
               <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card text-center">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</div>
@@ -3210,7 +3278,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-sm text-slate-400 flex items-center justify-center gap-2 shadow-card">
               <Loader2 className="w-4 h-4 animate-spin text-[#4F46E5]" /> Loading session records...
             </div>
-          ) : interviewsList.length === 0 ? (
+          ) : scopedInterviewsList.length === 0 ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center shadow-card">
               <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-sm font-semibold text-slate-500">No interview sessions found.</p>
@@ -3218,7 +3286,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             </div>
           ) : (
             <div className="space-y-3">
-              {interviewsList.map(req => {
+              {scopedInterviewsList.map(req => {
                 const isExpanded = expandedRequest === req.id;
                 const reqStudents = sessionStudents(req);
                 const isRaiser = req.mentor_id === currentMentor?.id;
@@ -4025,25 +4093,23 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                                 const originCol = activeCollegesList.find(c => c.id === originId);
                                 const originKamId = originCol?.kam_id || (originCol as any)?.kamId || currentKAM?.id;
                                 
-                                // Partner colleges under the same KAM zone
-                                let partnerCols = activeCollegesList.filter(c => 
-                                  c.id !== originId && 
-                                  (originKamId ? (c.kam_id === originKamId || (c as any).kamId === originKamId) : false)
-                                ).map(c => ({ id: c.id, name: c.name }));
-
-                                // Fallback: If no colleges under same KAM ID, include other partner colleges in activeCollegesList
-                                if (partnerCols.length === 0) {
-                                  partnerCols = activeCollegesList
-                                    .filter(c => c.id !== originId)
-                                    .map(c => ({ id: c.id, name: c.name }));
+                                // Partner colleges strictly under the same KAM zone
+                                const partnerCols: { id: string; name: string }[] = [];
+                                
+                                if (originKamId) {
+                                  activeCollegesList.forEach(c => {
+                                    if (c.id !== originId && (c.kam_id === originKamId || (c as any).kamId === originKamId)) {
+                                      partnerCols.push({ id: c.id, name: c.name });
+                                    }
+                                  });
                                 }
                                 
                                 (req.cam_responses || []).forEach((resp: any) => {
                                   if (resp.college_id && resp.college_id !== originId && !partnerCols.some(c => c.id === resp.college_id)) {
                                     const colObj = activeCollegesList.find(c => c.id === resp.college_id);
                                     const colKam = colObj?.kam_id || (colObj as any)?.kamId;
-                                    // Exclude colleges belonging to other KAM zones
-                                    if (originKamId && colKam && colKam !== originKamId) {
+                                    // Strictly exclude colleges belonging to other KAM zones or colleges without matching KAM
+                                    if (!originKamId || !colKam || colKam !== originKamId) {
                                       return;
                                     }
                                     partnerCols.push({ id: resp.college_id, name: resp.college_name || colObj?.name || resp.college_id });
@@ -4695,10 +4761,10 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Total Sessions", value: interviewsList.length, color: "text-slate-800" },
-              { label: "Pending", value: interviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
-              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
-              { label: "Completed", value: interviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
+              { label: "Total Sessions", value: scopedInterviewsList.length, color: "text-slate-800" },
+              { label: "Pending", value: scopedInterviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
+              { label: "Assigned", value: scopedInterviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
+              { label: "Completed", value: scopedInterviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
             ].map(stat => (
               <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card text-center">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</div>
@@ -4711,7 +4777,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-sm text-slate-400 flex items-center justify-center gap-2 shadow-card">
               <Loader2 className="w-4 h-4 animate-spin text-[#4F46E5]" /> Loading...
             </div>
-          ) : interviewsList.length === 0 ? (
+          ) : scopedInterviewsList.length === 0 ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center shadow-card">
               <BarChart3 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-sm font-semibold text-slate-500">No interview sessions recorded.</p>
@@ -4728,7 +4794,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {interviewsList.map(i => (
+                    {scopedInterviewsList.map(i => (
                       <tr key={i.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 font-bold text-slate-800 whitespace-nowrap">{i.subject}</td>
                         <td className="px-4 py-3 text-slate-600 whitespace-nowrap">{i.class_group || "All"}</td>
@@ -4801,10 +4867,10 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {[
-              { label: "Total Sessions", value: interviewsList.length, color: "text-slate-800" },
-              { label: "Pending", value: interviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
-              { label: "Assigned", value: interviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
-              { label: "Completed", value: interviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
+              { label: "Total Sessions", value: scopedInterviewsList.length, color: "text-slate-800" },
+              { label: "Pending", value: scopedInterviewsList.filter(i => (i.status || "").includes("pending")).length, color: "text-amber-700" },
+              { label: "Assigned", value: scopedInterviewsList.filter(i => i.status === "assigned" || i.status === "pending_verification" || (Array.isArray(i.student_slots) && i.student_slots.length > 0)).length, color: "text-blue-700" },
+              { label: "Completed", value: scopedInterviewsList.filter(i => i.status === "completed").length, color: "text-emerald-700" },
             ].map(stat => (
               <div key={stat.label} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card text-center">
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{stat.label}</div>
@@ -4817,7 +4883,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center text-sm text-slate-400 flex items-center justify-center gap-2 shadow-card">
               <Loader2 className="w-4 h-4 animate-spin text-[#4F46E5]" /> Loading region data...
             </div>
-          ) : interviewsList.length === 0 ? (
+          ) : scopedInterviewsList.length === 0 ? (
             <div className="bg-white border border-slate-100 rounded-2xl p-10 text-center shadow-card">
               <BarChart3 className="w-8 h-8 text-slate-300 mx-auto mb-2" />
               <p className="text-sm font-semibold text-slate-500">No interview sessions recorded.</p>
@@ -4840,7 +4906,7 @@ export const InterviewModule: React.FC<InterviewModuleProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {interviewsList.map(i => (
+                    {scopedInterviewsList.map(i => (
                       <tr key={i.id} className="hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-3 font-bold text-slate-800">{i.subject}</td>
                         <td className="px-4 py-3 text-slate-600">{i.class_group || "All"}</td>

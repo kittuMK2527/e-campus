@@ -38,7 +38,7 @@ export async function GET(request: Request) {
     }
 
     let mentorId = searchParams.get("mentorId");
-    let collegeId = searchParams.get("collegeId");
+    let collegeId = searchParams.get("collegeId") || searchParams.get("college_id");
     let kamId = searchParams.get("kamId");
 
     if (user.role === "mentor") {
@@ -77,17 +77,18 @@ export async function GET(request: Request) {
       params.push(mentorId, `%${mentorId}%`, mentorId, mentorId);
     } else if ((role === "cm" || role === "cam") && collegeId) {
       // 1. Internal: STRICTLY only inside this campus (college_id / origin_college_id)
-      // 2. External: Origin/Target campus OR responded campus OR all campuses under the SAME KAM who manages the origin college
+      // 2. External: STRICTLY inside the SAME KAM controlled colleges
       query += ` AND (
         (type = 'internal' AND (college_id = ? OR origin_college_id = ? OR target_college_id = ?))
         OR
         (type = 'external' AND (
-          college_id = ? OR 
-          origin_college_id = ? OR 
-          target_college_id = ? OR 
-          id IN (SELECT interview_id FROM cam_capacity_responses WHERE college_id = ?) OR
+          (college_id = ? OR origin_college_id = ?)
+          OR
           (
-            status NOT IN ('pending_origin_cm', 'draft', 'rejected') AND (
+            status NOT IN ('pending_origin_cm', 'draft', 'rejected') AND
+            (SELECT kam_id FROM colleges WHERE id = ?) IS NOT NULL AND
+            (SELECT kam_id FROM colleges WHERE id = ?) != '' AND
+            (
               origin_college_id IN (
                 SELECT id FROM colleges 
                 WHERE kam_id = (SELECT kam_id FROM colleges WHERE id = ?) 
@@ -105,7 +106,11 @@ export async function GET(request: Request) {
           )
         ))
       )`;
-      params.push(collegeId, collegeId, collegeId, collegeId, collegeId, collegeId, collegeId, collegeId, collegeId);
+      params.push(
+        collegeId, collegeId, collegeId,
+        collegeId, collegeId,
+        collegeId, collegeId, collegeId, collegeId
+      );
     } else if (role === "kam" && kamId) {
       // KAM sees all internal & external interviews for colleges assigned to them
       query += ` AND (
@@ -114,6 +119,10 @@ export async function GET(request: Request) {
         target_college_id IN (SELECT id FROM colleges WHERE kam_id = ?)
       )`;
       params.push(kamId, kamId, kamId);
+      if (collegeId && collegeId !== "all") {
+        query += ` AND (origin_college_id = ? OR college_id = ? OR target_college_id = ?)`;
+        params.push(collegeId, collegeId, collegeId);
+      }
     } else if (role === "student") {
       let studentId = searchParams.get("studentId");
       let classGroup = searchParams.get("classGroup");

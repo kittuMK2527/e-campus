@@ -149,10 +149,17 @@ export async function generateCapacityFirstPrioritySplit(options: {
 
   const { totalMinutes, formattedDuration } = calculateInterviewDuration(requestedStudentCount);
 
-  // 1. Fetch accepted CAM capacity responses for this interview
+  // 1. Fetch accepted CAM capacity responses strictly from partner colleges in the same KAM zone
   const acceptedCamResponses = await db.all(
-    "SELECT * FROM cam_capacity_responses WHERE interview_id = ? AND status = 'accepted' AND accepted_student_capacity > 0",
-    [interviewId]
+    `SELECT r.* FROM cam_capacity_responses r
+     JOIN colleges c ON r.college_id = c.id
+     WHERE r.interview_id = ? 
+       AND r.status = 'accepted' 
+       AND r.accepted_student_capacity > 0
+       AND c.kam_id = (SELECT kam_id FROM colleges WHERE id = ?)
+       AND c.kam_id IS NOT NULL 
+       AND c.kam_id != ''`,
+    [interviewId, originCollegeId]
   );
 
   let totalAcceptedCapacity = 0;

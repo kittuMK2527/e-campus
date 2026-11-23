@@ -18347,9 +18347,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
 
                 {/* ── InterviewModule (full functional UI) ── */}
                 <InterviewModule
-                  currentUserRole="cm"
-                  currentUserName={currentCAM?.name || "Campus Manager"}
-                  defaultCollegeId={activeCollegeId}
+                  currentUserRole={isKAMView ? "kam" : (isSuperAdminUser ? "admin" : "cm")}
+                  currentUserName={isKAMView ? (currentKAM?.name || "Key Account Manager") : (currentCAM?.name || "Campus Manager")}
+                  defaultCollegeId={activeCollegeId === "all" ? undefined : activeCollegeId}
                 />
               </div>
             );
