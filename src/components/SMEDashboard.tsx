@@ -811,7 +811,13 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     setSuccessMsg("");
   };
 
-  const handlePlannerReallocate = (mentor: any, dateStr: string, timeSlot: string, targetSession?: any) => {
+  const handlePlannerReallocate = (
+    mentor: any,
+    dateStr: string,
+    timeSlot: string,
+    targetSession?: any,
+    swapWithSession?: any
+  ) => {
     let session = targetSession;
     if (!session) {
       session = affectedLeaveDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
@@ -833,6 +839,22 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
         status: "reallocation_required"
       };
     }
+
+    if (swapWithSession) {
+      setSwapModalSession(session);
+      setSwapReason("Mutual Faculty Slot Swap");
+      setSwapRemarks(`Swapping periods with ${swapWithSession.mentorName || "candidate"} (${swapWithSession.subject || "Session"} at ${swapWithSession.timeSlot || timeSlot})`);
+      setSelectedProposedMentor(swapWithSession);
+      setSelectedProposedTime({
+        dateStr,
+        timeSlot,
+        score: 100,
+        reason: `2-Way Swap with ${swapWithSession.mentorName || "Faculty"} (${swapWithSession.subject || "Demo"})`
+      });
+      setSwapStep(2);
+      return;
+    }
+
     handleOpenSwapModal(session, { dateStr, timeSlot });
   };
 

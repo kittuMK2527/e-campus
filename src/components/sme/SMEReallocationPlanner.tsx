@@ -36,7 +36,7 @@ export interface SMEReallocationPlannerProps {
   inboundRequests?: any[];
   affectedSessions?: any[];
   onResolveRequest?: (request: any, decision: "approved" | "rejected") => Promise<void>;
-  onReallocateSlot?: (mentor: any, dateStr: string, timeSlot: string, existingSession?: any) => void;
+  onReallocateSlot?: (mentor: any, dateStr: string, timeSlot: string, existingSession?: any, swapWithSession?: any) => void;
   onInitiateManualRealloc?: () => void;
 }
 
@@ -304,8 +304,13 @@ export default function SMEReallocationPlanner({
         isFree,
         bookedDemo,
         hasWindow: inWindow,
+        bookedMentorId: bookedDemo?.mentorId || (bookedDemo as any)?.mentor_id,
+        bookedMentorName: bookedDemo?.mentorName || (bookedDemo as any)?.mentor_name,
+        bookedSubject: bookedDemo?.subject,
+        bookedSession: bookedDemo,
+        isBookedWithOtherMentor: Boolean(bookedDemo),
         statusText: bookedDemo
-          ? `Booked: ${bookedDemo.mentorName || "Candidate"} (${bookedDemo.subject || "Demo"})`
+          ? `Booked with: ${bookedDemo.mentorName || "Candidate"} (${bookedDemo.subject || "Demo"})`
           : inWindow
           ? "Available for Evaluation"
           : "Outside Available Window"
@@ -395,6 +400,12 @@ export default function SMEReallocationPlanner({
         isTimeSlotMatch(currentRequest.proposedSlot, period)
       );
 
+      const isBookedWithOtherMentor = Boolean(smeP.isBookedWithOtherMentor);
+      const bookedMentorId = smeP.bookedMentorId;
+      const bookedMentorName = smeP.bookedMentorName || "";
+      const bookedSubject = smeP.bookedSubject || "";
+      const bookedSession = smeP.bookedSession || null;
+
       return {
         period,
         isMutuallyFree,
@@ -403,10 +414,17 @@ export default function SMEReallocationPlanner({
         mentorFree: mentorP.isFree,
         smeStatus: smeP.statusText,
         mentorStatus: mentorP.reason,
+        isBookedWithOtherMentor,
+        bookedMentorId,
+        bookedMentorName,
+        bookedSubject,
+        bookedSession,
         badgeType: isMutuallyFree
           ? "mutual"
           : mentorP.badgeType === "leave"
           ? "leave"
+          : isBookedWithOtherMentor
+          ? "booked_other"
           : !mentorP.isFree
           ? "mentor_busy"
           : "sme_busy"
@@ -445,6 +463,11 @@ export default function SMEReallocationPlanner({
   const handleSelectAlternativeSlot = (period: string) => {
     if (!currentRequest || !onReallocateSlot) return;
     onReallocateSlot(currentRequest.mentor, selectedDate, period, currentRequest.rawItem);
+  };
+
+  const handleSwapWithMentor = (period: string, bookedSession: any) => {
+    if (!currentRequest || !onReallocateSlot) return;
+    onReallocateSlot(currentRequest.mentor, selectedDate, period, currentRequest.rawItem, bookedSession);
   };
 
   // ── Empty State: Zero Reallocation Requests ────────────────────────
@@ -696,10 +719,10 @@ export default function SMEReallocationPlanner({
                         <span className="font-mono text-[8px] text-slate-400">{timingLabel}</span>
                       </div>
 
-                      {/* Mentor Status */}
+                      {/* Requesting Mentor Status */}
                       <div className="pt-1.5 space-y-1">
-                        <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">
-                          {currentRequest.mentorName.split(" ")[0]}:
+                        <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-500 truncate" title={currentRequest.mentorName}>
+                          {currentRequest.mentorName}:
                         </div>
                         <div className={`text-[9.5px] font-bold line-clamp-2 ${
                           slot.mentorFree ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
@@ -708,22 +731,43 @@ export default function SMEReallocationPlanner({
                         </div>
                       </div>
 
-                      {/* SME Status */}
+                      {/* SME Status & Current Occupant */}
                       <div className="pt-2 space-y-1 border-t border-slate-100/80 dark:border-slate-800/60 mt-1.5">
-                        <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-400">
-                          My Schedule:
+                        <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-500">
+                          {slot.isBookedWithOtherMentor ? "Current Occupant:" : "My Schedule:"}
                         </div>
-                        <div className={`text-[9.5px] font-bold line-clamp-2 ${
-                          slot.smeFree ? "text-emerald-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"
-                        }`}>
-                          {slot.smeStatus}
-                        </div>
+                        {slot.isBookedWithOtherMentor ? (
+                          <div className="space-y-0.5">
+                            <div className="text-[9.5px] font-black text-violet-800 dark:text-violet-300 line-clamp-1" title={slot.bookedMentorName}>
+                              Booked: {slot.bookedMentorName}
+                            </div>
+                            <div className="text-[8.5px] text-slate-500 dark:text-slate-400 font-semibold line-clamp-1">
+                              {slot.bookedSubject || "Demo Evaluation"}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className={`text-[9.5px] font-bold line-clamp-2 ${
+                            slot.smeFree ? "text-emerald-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"
+                          }`}>
+                            {slot.smeStatus}
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Action Trigger for this slot */}
+                    {/* Action Trigger for this slot (Interactive Swap Buttons) */}
                     <div className="pt-2">
-                      {slot.isProposedSlot && slot.isMutuallyFree ? (
+                      {slot.isBookedWithOtherMentor ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSwapWithMentor(slot.period, slot.bookedSession)}
+                          className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-violet-600 hover:bg-violet-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                          title={`Swap ${currentRequest.mentorName} with ${slot.bookedMentorName}`}
+                        >
+                          <RefreshCw className="h-2.5 w-2.5" />
+                          Swap with {slot.bookedMentorName ? slot.bookedMentorName.split(" ")[0] : "Faculty"}
+                        </button>
+                      ) : slot.isProposedSlot && slot.isMutuallyFree ? (
                         <div className="space-y-1">
                           <span className="px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase bg-emerald-600 text-white block text-center shadow-2xs">
                             Requested Slot (Free!)
@@ -742,17 +786,33 @@ export default function SMEReallocationPlanner({
                           type="button"
                           onClick={() => handleSelectAlternativeSlot(slot.period)}
                           className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-white dark:bg-slate-800 hover:bg-emerald-50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                          title={`Swap ${currentRequest.mentorName} into this period`}
                         >
-                          <RefreshCw className="h-2.5 w-2.5" /> Reallocate Here
+                          <RefreshCw className="h-2.5 w-2.5" /> Swap to this Slot
                         </button>
                       ) : slot.isProposedSlot ? (
-                        <span className="px-1.5 py-1 rounded text-[8.5px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 block text-center border border-rose-200">
-                          Requested Slot (Has Clash)
-                        </span>
+                        <div className="space-y-1">
+                          <span className="px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 block text-center border border-rose-200">
+                            Requested Slot (Has Clash)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAlternativeSlot(slot.period)}
+                            className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                            title="Click to proceed with swap and override the clash"
+                          >
+                            <RefreshCw className="h-2.5 w-2.5" /> Swap with Override
+                          </button>
+                        </div>
                       ) : (
-                        <span className="text-[8.5px] font-bold text-slate-400 block text-center">
-                          Unavailable
-                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectAlternativeSlot(slot.period)}
+                          className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                          title="Click to force-swap session into this period with override"
+                        >
+                          <RefreshCw className="h-2.5 w-2.5" /> Force Swap
+                        </button>
                       )}
                     </div>
                   </div>
