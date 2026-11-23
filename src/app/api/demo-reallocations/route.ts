@@ -188,11 +188,11 @@ export async function GET(request: Request) {
 
       // Query campus daily configs to capture campus-specific holidays and day orders
       const dailyConfigsRows = await db.all(
-        "SELECT dateStr, day_type, day_order, is_holiday FROM campus_daily_configs WHERE college_id = ? OR college_id IS NULL",
+        "SELECT dateStr, day_type, day_order FROM campus_daily_configs WHERE college_id = ? OR college_id IS NULL",
         [collegeId]
       ).catch(() => []);
       for (const dcr of dailyConfigsRows) {
-        if (dcr.day_type === "holiday" || dcr.is_holiday === 1) {
+        if (dcr.day_type === "holiday" || (dcr as any).is_holiday === 1) {
           const ds = dcr.dateStr || dcr.datestr;
           if (ds) holidaySet.add(ds);
         }
@@ -795,8 +795,8 @@ export async function POST(request: Request) {
       if (targetWeekday === "Saturday" && appCollege && (appCollege.is_saturday_working === 0 || appCollege.working_days === 5)) {
         return NextResponse.json({ success: false, message: "Cannot approve: campus is closed on Saturday." }, { status: 409 });
       }
-      const targetCfg = await db.get("SELECT day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [targetDate, appCollegeId]).catch(() => null);
-      if (targetCfg && (targetCfg.day_type === "holiday" || targetCfg.is_holiday === 1)) {
+      const targetCfg = await db.get("SELECT day_type, day_order FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [targetDate, appCollegeId]).catch(() => null);
+      if (targetCfg && (targetCfg.day_type === "holiday" || (targetCfg as any).is_holiday === 1)) {
         return NextResponse.json({ success: false, message: "Cannot approve: target date is a campus holiday." }, { status: 409 });
       }
       let effectiveTargetWeekday = targetWeekday;

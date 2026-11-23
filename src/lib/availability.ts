@@ -208,7 +208,7 @@ export async function loadAvailabilityContext(
 
   for (const chunk of dateChunks) {
     queries.push({
-      sql: `SELECT college_id, dateStr, day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr IN (${ph(chunk.length)})`,
+      sql: `SELECT college_id, dateStr, day_type, day_order FROM campus_daily_configs WHERE dateStr IN (${ph(chunk.length)})`,
       params: [...chunk],
     });
     labels.push("dailyConfigs");
@@ -342,9 +342,9 @@ export async function checkMentorAvailability(
   // Lookup campus daily config to resolve effective Day Order or holiday status
   const cfg = (ctx?.dailyConfigsByDate?.get(`${params.collegeId || ""}|${dateStr}`)
     || ctx?.dailyConfigsByDate?.get(dateStr))
-    || (!ctx ? await db.get("SELECT day_type, day_order, is_holiday FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [dateStr, params.collegeId || null]).catch(() => null) : null);
+    || (!ctx ? await db.get("SELECT day_type, day_order FROM campus_daily_configs WHERE dateStr = ? AND (college_id = ? OR college_id IS NULL) LIMIT 1", [dateStr, params.collegeId || null]).catch(() => null) : null);
 
-  const isCampusHoliday = Boolean(cfg && (cfg.day_type === "holiday" || cfg.is_holiday === 1));
+  const isCampusHoliday = Boolean(cfg && (cfg.day_type === "holiday" || (cfg as any).is_holiday === 1));
   let effectiveDay = rawDayOfWeek;
   let cfgDayOrder: string | null = null;
   if (cfg?.day_order && cfg.day_order !== "None" && cfg.day_order !== "none") {
