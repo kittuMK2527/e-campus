@@ -165,11 +165,25 @@ export default function SMEReallocationPlanner({
         return true;
       }
 
-      // If SME subject or department matches mentor's subjects/department
-      if (smeSubject && (m.department?.toLowerCase().includes(smeSubject) || (m.subjects || []).some((s: string) => s.toLowerCase().includes(smeSubject)))) {
-        return true;
+      // If SME subject matches mentor's subjects or department
+      if (smeSubject) {
+        const mDept = (m.department || "").toLowerCase();
+        if (mDept.includes(smeSubject)) {
+          return true;
+        }
+
+        const rawSubs = m.subjects;
+        const subList: string[] = Array.isArray(rawSubs)
+          ? rawSubs.map((s: any) => String(s).toLowerCase().trim())
+          : typeof rawSubs === "string"
+          ? rawSubs.split(/[\n,;/]+/).map((s: string) => s.toLowerCase().trim()).filter(Boolean)
+          : [];
+
+        if (subList.some((s: string) => s.includes(smeSubject) || smeSubject.includes(s))) {
+          return true;
+        }
       }
-      if (smeDept && m.department?.toLowerCase().includes(smeDept)) {
+      if (smeDept && (m.department || "").toLowerCase().includes(smeDept)) {
         return true;
       }
 
