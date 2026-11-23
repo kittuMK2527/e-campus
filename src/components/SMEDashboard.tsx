@@ -1996,7 +1996,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
               title="REALLOCATION HUB & DAILY AVAILABILITY"
             >
               <div className="space-y-6">
-                {/* Visual Daily Reallocation Matrix & Live Day Order */}
+                {/* Visual Daily Reallocation Studio for Requesting Mentors & Live Day Order */}
                 <SMEReallocationPlanner
                   currentSME={currentSME}
                   mentors={mentors}
@@ -2005,11 +2005,14 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                   demoSessions={demoSessions}
                   smeAvailability={smeAvailability}
                   leaveRequests={leaveRequests}
+                  inboundRequests={pendingInboundRequests}
                   affectedSessions={affectedLeaveDemos}
+                  onResolveRequest={handleResolveReallocation}
                   onReallocateSlot={handlePlannerReallocate}
+                  onInitiateManualRealloc={confirmedDemos.length > 0 ? () => handleOpenSwapModal(confirmedDemos[0]) : undefined}
                 />
 
-                {/* Quick Action Bar to initiate swap */}
+                {/* Quick Action Bar to initiate manual reallocation */}
                 {confirmedDemos.length > 0 && (
                   <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
                     <div className="text-xs text-slate-600 dark:text-slate-300 font-bold">
@@ -2024,100 +2027,6 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     </button>
                   </div>
                 )}
-
-                {/* Section 1: Inbound Pending Reallocation Requests */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-violet-600" />
-                    Inbound Proposed Requests ({pendingInboundRequests.length})
-                  </h3>
-
-                  {pendingInboundRequests.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {pendingInboundRequests.map((req: any) => (
-                        <div key={req.id} className="p-4 rounded-xl border border-violet-200/80 bg-violet-50/20 dark:bg-violet-950/10 space-y-3 shadow-2xs">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-extrabold text-slate-900 dark:text-white">{req.subject} • {req.stream || "General"}</span>
-                            <span className="px-2 py-0.5 bg-violet-100 text-violet-800 font-extrabold rounded-md text-[9px] uppercase">Reallocation Proposal</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3 text-xs p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-card">
-                            <div>
-                              <span className="text-[8.5px] font-black uppercase text-slate-400 block mb-0.5">Faculty & Group</span>
-                              <span className="font-bold text-slate-800 dark:text-slate-200 block">{req.mentorName || req.mentor_name}</span>
-                              <span className="text-[9px] text-slate-500">{getMentorCollege(req.mentorId || req.mentor_id)}</span>
-                              <span className="text-[9.5px] font-mono text-slate-600 block mt-1">Orig: {req.original_date_str || req.dateStr} • {req.original_time_slot || req.timeSlot}</span>
-                            </div>
-                            <div>
-                              <span className="text-[8.5px] font-black uppercase text-violet-600 block mb-0.5">Proposed Slot & SME</span>
-                              <span className="font-bold text-violet-700 dark:text-violet-400 block">{req.proposedSmeName || req.sme_name || req.smeName || currentSME.name}</span>
-                              <span className="text-[9.5px] font-mono text-violet-600 font-bold block mt-1">{req.proposed_date_str || req.proposedDateStr || req.dateStr} • {req.proposed_time_slot || req.proposedTimeSlot || req.timeSlot}</span>
-                            </div>
-                          </div>
-
-                          <p className="text-[10px] text-slate-500 italic">Reason: &quot;{req.reason || "Formal Reschedule Request"}&quot;</p>
-
-                          <div className="flex gap-3 pt-1">
-                            <button
-                              disabled={resolvingSwapId === req.id}
-                              onClick={() => handleResolveReallocation(req, "rejected")}
-                              className="flex-1 py-2 text-xs font-extrabold border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Reject
-                            </button>
-                            <button
-                              disabled={resolvingSwapId === req.id}
-                              onClick={() => handleResolveReallocation(req, "approved")}
-                              className="flex-1 py-2 text-xs font-extrabold bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Accept &amp; Confirm
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center text-slate-400 text-xs font-bold italic bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-                      No inbound reallocation proposals requiring approval.
-                    </div>
-                  )}
-                </div>
-
-                {/* Section 2: L&D Sessions Requiring Reallocation */}
-                <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    L&D Sessions Requiring Reallocation ({affectedLeaveDemos.length})
-                  </h3>
-
-                  {affectedLeaveDemos.length > 0 ? (
-                    <div className="space-y-3">
-                      {affectedLeaveDemos.map(demo => (
-                        <div key={demo.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50/20 dark:bg-amber-950/10 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">{demo.mentorName}</h4>
-                              <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded text-[9px] font-black uppercase">
-                                On Hold (Awaiting Mentor Reschedule)
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{demo.dateStr} • {demo.timeSlot} • {demo.subject}</p>
-                            <p className="text-[9.5px] text-amber-700 italic mt-0.5">{demo.comments || "CM Approved Mentor Leave. Mentor has been prompted to reschedule."}</p>
-                          </div>
-
-                          <div className="px-3.5 py-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 shrink-0">
-                            <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                            <span>Slot Freed — Waiting for Mentor to Reschedule</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center text-slate-400 text-xs font-bold italic bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-                      No L&D sessions currently affected by approved faculty leave.
-                    </div>
-                  )}
-                </div>
               </div>
             </Panel>
           )}
