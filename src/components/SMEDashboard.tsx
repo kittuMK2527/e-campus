@@ -54,6 +54,7 @@ import { WeeklyPlanViewer } from "./WeeklyPlanStudio";
 import { SkillTrackerPanel } from "./SkillTrackerPanel";
 import { DemoEvalCriteriaPanel, EvaluationChecklist, ChecklistEntry } from "./DemoEvalCriteriaPanel";
 import { SMEProfileTab } from "@/components/sme/SMEProfileTab";
+import SMEReallocationPlanner from "@/components/sme/SMEReallocationPlanner";
 
 type TabKey = "overview" | "demo_list" | "weekly_plans" | "skill_approvals" | "availability" | "reallocation" | "history" | "calendar" | "reallocation_hub" | "eval_criteria" | "more_menu" | "profile";
 
@@ -789,15 +790,50 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     setErrorMsg("");
   };
 
-  const handleOpenSwapModal = (session: any) => {
+  const handleOpenSwapModal = (session: any, prefillSlot?: { dateStr: string; timeSlot: string }) => {
     setSwapModalSession(session);
     setSwapReason(session.status === "reallocation_required" ? "CM Approved Mentor Leave" : "SME Unavailable");
     setSwapRemarks("");
-    setSwapStep(1);
-    setSelectedProposedMentor(null);
-    setSelectedProposedTime(null);
+    if (prefillSlot) {
+      setSelectedProposedTime({
+        dateStr: prefillSlot.dateStr,
+        timeSlot: prefillSlot.timeSlot,
+        score: 100,
+        reason: "Mutually available slot from daily availability matrix"
+      });
+      setSwapStep(2);
+    } else {
+      setSwapStep(1);
+      setSelectedProposedMentor(null);
+      setSelectedProposedTime(null);
+    }
     setErrorMsg("");
     setSuccessMsg("");
+  };
+
+  const handlePlannerReallocate = (mentor: any, dateStr: string, timeSlot: string, targetSession?: any) => {
+    let session = targetSession;
+    if (!session) {
+      session = affectedLeaveDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
+        confirmedDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
+        demoSessions.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id) && d.status !== "completed");
+    }
+    if (!session) {
+      session = {
+        id: `realloc_${mentor.id}_${Date.now()}`,
+        mentorId: mentor.id,
+        mentorName: mentor.name,
+        college_id: mentor.college_id,
+        smeId: currentSME?.id,
+        smeName: currentSME?.name,
+        subject: mentor.department || currentSME?.subject || "Subject Evaluation",
+        stream: mentor.department || "General",
+        dateStr: dateStr,
+        timeSlot: timeSlot,
+        status: "reallocation_required"
+      };
+    }
+    handleOpenSwapModal(session, { dateStr, timeSlot });
   };
 
   const updateScore = (key: string, value: number, max: number) => {
@@ -857,8 +893,22 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   };
 
   const currentSwapRecommendations = useMemo(() => {
-    return getSwapRecommendations(swapModalSession);
-  }, [swapModalSession, mentors, slots, weekDates, colleges, leaveRequests, demoSessions]);
+    const recs = getSwapRecommendations(swapModalSession);
+    if (selectedProposedTime) {
+      const exists = recs.timeSwaps.some(
+        t => t.dateStr === selectedProposedTime.dateStr && t.timeSlot === selectedProposedTime.timeSlot
+      );
+      if (!exists) {
+        recs.timeSwaps.unshift({
+          dateStr: selectedProposedTime.dateStr,
+          timeSlot: selectedProposedTime.timeSlot,
+          score: 100,
+          reason: selectedProposedTime.reason || "Mutually Free Verified Slot"
+        });
+      }
+    }
+    return recs;
+  }, [swapModalSession, mentors, slots, weekDates, colleges, leaveRequests, demoSessions, selectedProposedTime]);
 
   const handleSubmitSwapRequest = async () => {
     if (!swapModalSession) return;
@@ -1943,9 +1993,22 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
           {/* ═══════════════ TAB 3: REALLOCATION ═══════════════ */}
           {activeTab === "reallocation" && (
             <Panel
-              title="REALLOCATION REQUESTS"
+              title="REALLOCATION HUB & DAILY AVAILABILITY"
             >
               <div className="space-y-6">
+                {/* Visual Daily Reallocation Matrix & Live Day Order */}
+                <SMEReallocationPlanner
+                  currentSME={currentSME}
+                  mentors={mentors}
+                  colleges={colleges}
+                  slots={slots}
+                  demoSessions={demoSessions}
+                  smeAvailability={smeAvailability}
+                  leaveRequests={leaveRequests}
+                  affectedSessions={affectedLeaveDemos}
+                  onReallocateSlot={handlePlannerReallocate}
+                />
+
                 {/* Quick Action Bar to initiate swap */}
                 {confirmedDemos.length > 0 && (
                   <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
