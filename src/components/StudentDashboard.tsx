@@ -724,6 +724,48 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     return false;
   });
 
+  // Authoritative Batch Incharge (Faculty Coordinator) designated for this student's course/department
+  const studentBatchIncharge = useMemo(() => {
+    if (!currentStudent) return null;
+    const studentDept = (currentStudent.department || "").trim().toLowerCase();
+    const studentCg = (currentStudent.classGroup || "").trim().toLowerCase();
+    const studentColId = currentStudent.college_id;
+
+    const matchedCourse = (coursesList || []).find(c => {
+      const colMatch = !studentColId || !c.college_id || c.college_id === studentColId;
+      if (!colMatch) return false;
+      const cName = (c.name || "").trim().toLowerCase();
+      const cCode = (c.code || "").trim().toLowerCase();
+      if (studentDept && (cName === studentDept || (cCode && cCode === studentDept))) return true;
+      if (studentCg && (studentCg.startsWith(cName) || (cCode && studentCg.startsWith(cCode)))) return true;
+      return false;
+    }) || (coursesList || []).find(c => {
+      const cName = (c.name || "").trim().toLowerCase();
+      return studentDept && cName === studentDept;
+    });
+
+    if (matchedCourse?.incharge_mentor_name) {
+      return {
+        id: matchedCourse.incharge_mentor_id || "",
+        name: matchedCourse.incharge_mentor_name,
+        courseName: matchedCourse.name
+      };
+    }
+
+    if (matchedCourse?.incharge_mentor_id) {
+      const m = (mentors || []).find(men => men.id === matchedCourse.incharge_mentor_id);
+      if (m?.name) {
+        return {
+          id: m.id,
+          name: m.name,
+          courseName: matchedCourse.name
+        };
+      }
+    }
+
+    return null;
+  }, [currentStudent, coursesList, mentors]);
+
   // Synchronize the current active shift with the student's actual timetable slot shift
   useEffect(() => {
     let studentShift: "shift_1" | "shift_2" | "general" = "general";
@@ -1580,6 +1622,14 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   <span className="px-2 py-0.5 rounded bg-teal-50 border border-teal-100 text-[10px] font-black text-teal-700">{details.sem}</span>
                   <span className="text-slate-300">•</span>
                   <span className="text-slate-400">{details.shift}</span>
+                  {studentBatchIncharge?.name && (
+                    <>
+                      <span className="text-slate-300">•</span>
+                      <span className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-[10px] font-black text-indigo-700">
+                        Incharge: {studentBatchIncharge.name}
+                      </span>
+                    </>
+                  )}
                 </span>
               );
             })()}
@@ -5205,6 +5255,11 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                           <span>Group: {currentStudent.classGroup}</span>
                         </span>
                       )}
+                      {studentBatchIncharge?.name && (
+                        <span className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-900 flex items-center gap-1.5 shadow-2xs">
+                          <span>Incharge: {studentBatchIncharge.name}</span>
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -5218,9 +5273,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                       <span className="text-slate-800 font-mono text-[11px]">{currentStudent.roll_number || "—"}</span>
                     </div>
                     <div className="flex justify-between items-center text-xs font-semibold">
-                      <span className="text-slate-400">Faculty Incharge</span>
-                      <span className="text-slate-800 text-[11px] font-bold truncate max-w-[150px]" title={assignedMentor?.name || "Assigned Faculty Mentor"}>
-                        {assignedMentor?.name || "Assigned Faculty"}
+                      <span className="text-slate-400">Batch Incharge</span>
+                      <span className="text-slate-800 text-[11px] font-bold truncate max-w-[150px]" title={studentBatchIncharge?.name || assignedMentor?.name || "Assigned by Campus"}>
+                        {studentBatchIncharge?.name || assignedMentor?.name || "Assigned by Campus"}
                       </span>
                     </div>
                   </div>

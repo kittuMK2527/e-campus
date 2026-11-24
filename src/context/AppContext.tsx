@@ -355,6 +355,8 @@ export interface Department {
   sections?: string;
   working_days?: number;
   google_meet_link?: string | null;
+  incharge_mentor_id?: string | null;
+  incharge_mentor_name?: string | null;
 }
 
 export type Course = Department;

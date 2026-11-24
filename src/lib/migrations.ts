@@ -1098,6 +1098,25 @@ const migrations: Migration[] = [
         await db.exec("ALTER TABLE campus_daily_configs ADD COLUMN is_holiday INTEGER DEFAULT 0;").catch(() => {});
       }
     }
+  },
+  {
+    name: "courses_and_departments_batch_incharge_columns",
+    run: async (db) => {
+      const isPg = (db as any).isPostgres;
+      if (isPg) {
+        await db.exec(`
+          ALTER TABLE courses ADD COLUMN IF NOT EXISTS incharge_mentor_id TEXT;
+          ALTER TABLE courses ADD COLUMN IF NOT EXISTS incharge_mentor_name TEXT;
+          ALTER TABLE departments ADD COLUMN IF NOT EXISTS incharge_mentor_id TEXT;
+          ALTER TABLE departments ADD COLUMN IF NOT EXISTS incharge_mentor_name TEXT;
+        `).catch((err: any) => console.warn("[migrations] batch_incharge_columns:", err?.message || err));
+      } else {
+        await db.exec("ALTER TABLE courses ADD COLUMN incharge_mentor_id TEXT;").catch(() => {});
+        await db.exec("ALTER TABLE courses ADD COLUMN incharge_mentor_name TEXT;").catch(() => {});
+        await db.exec("ALTER TABLE departments ADD COLUMN incharge_mentor_id TEXT;").catch(() => {});
+        await db.exec("ALTER TABLE departments ADD COLUMN incharge_mentor_name TEXT;").catch(() => {});
+      }
+    }
   }
 ];
 

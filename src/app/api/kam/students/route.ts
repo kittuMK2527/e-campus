@@ -90,7 +90,7 @@ export async function GET(request: Request) {
     }
 
     // Fast indexed aggregate attendance query
-    const [allStudents, attendanceAggregates] = await Promise.all([
+    const [allStudents, attendanceAggregates, inchargeDepts] = await Promise.all([
       db.all(studentQuery, ...params),
       db.all(`
         SELECT studentId,
@@ -101,7 +101,8 @@ export async function GET(request: Request) {
         FROM student_attendance
         ${attWhere}
         GROUP BY studentId
-      `, ...attParams)
+      `, ...attParams),
+      db.all("SELECT id, name, college_id, incharge_mentor_id, incharge_mentor_name FROM departments WHERE incharge_mentor_name IS NOT NULL AND incharge_mentor_name != ''").catch(() => [])
     ]);
 
     // Build fast O(1) lookup map for student attendance
@@ -133,6 +134,24 @@ export async function GET(request: Request) {
       else if (pct >= 60) riskStatus = "at_risk";
       else if (pct >= 0) riskStatus = "critical";
 
+      // Resolve Batch Incharge
+      let inchargeName: string | null = null;
+      const deptLower = (st.department || "").toLowerCase().trim();
+      const cgLower = (st.classGroup || "").toLowerCase().trim();
+      const stCollegeId = st.college_id;
+      const matchedDept = (inchargeDepts || []).find((d: any) => {
+        const colMatch = !stCollegeId || !d.college_id || d.college_id === stCollegeId;
+        if (!colMatch) return false;
+        const dName = (d.name || "").toLowerCase().trim();
+        return (deptLower && dName === deptLower) || (cgLower && cgLower.startsWith(dName));
+      }) || (inchargeDepts || []).find((d: any) => {
+        const dName = (d.name || "").toLowerCase().trim();
+        return deptLower && dName === deptLower;
+      });
+      if (matchedDept?.incharge_mentor_name) {
+        inchargeName = matchedDept.incharge_mentor_name;
+      }
+
       return {
         id: st.id,
         name: st.name,
@@ -144,6 +163,7 @@ export async function GET(request: Request) {
         classGroup: st.classGroup || "General Batch",
         collegeId: st.college_id,
         collegeName: st.college_name || st.college_id,
+        inchargeMentorName: inchargeName,
         totalMarks: total,
         presentMarks: present,
         absentMarks: stats.absent,

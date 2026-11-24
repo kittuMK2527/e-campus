@@ -125,7 +125,9 @@ CREATE TABLE IF NOT EXISTS departments (
     years INTEGER DEFAULT 4,
     start_year VARCHAR(50),
     end_year VARCHAR(50),
-    shift_based INTEGER DEFAULT 0
+    shift_based INTEGER DEFAULT 0,
+    incharge_mentor_id VARCHAR(255),
+    incharge_mentor_name VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS courses (
@@ -145,7 +147,9 @@ CREATE TABLE IF NOT EXISTS courses (
     default_room TEXT,
     default_shift VARCHAR(50),
     shift_based INTEGER DEFAULT 0,
-    sections TEXT
+    sections TEXT,
+    incharge_mentor_id VARCHAR(255),
+    incharge_mentor_name VARCHAR(255)
 );
 
 -- Course names are unique per campus, not globally: two colleges commonly run the

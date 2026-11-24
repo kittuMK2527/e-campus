@@ -128,6 +128,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
         "Institution",
         "Department",
         "Batch / Cohort",
+        "Batch Incharge",
         "Total Conducted Periods",
         "Present Periods",
         "Absent Periods",
@@ -146,6 +147,7 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
         st.collegeName || "—",
         st.department || "General",
         st.classGroup || "General Batch",
+        st.inchargeMentorName || "Not Assigned",
         st.totalMarks || 0,
         st.presentMarks || 0,
         st.absentMarks || 0,
@@ -315,7 +317,12 @@ export const StudentDirectory: React.FC<StudentDirectoryProps> = ({
                       <p className="text-[10px] text-slate-400">{st.department}</p>
                     </TableCell>
                     <TableCell className="text-slate-600 text-[11px]">
-                      {st.classGroup}
+                      <div>{st.classGroup}</div>
+                      {st.inchargeMentorName && (
+                        <div className="text-[10px] font-bold text-indigo-600 mt-0.5">
+                          Incharge: {st.inchargeMentorName}
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-center font-bold text-slate-800">
                       {st.totalMarks}

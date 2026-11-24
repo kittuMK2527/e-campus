@@ -51,7 +51,14 @@ export async function POST(request: Request) {
 
     const db = await getDb();
     const body = await request.json();
-    const { name, college_id, code, description, established_year, status, years, start_date, end_date, start_year, end_year, default_room, default_shift, shift_based, sections } = body;
+    const { name, college_id, code, description, established_year, status, years, start_date, end_date, start_year, end_year, default_room, default_shift, shift_based, sections, incharge_mentor_id, incharge_mentor_name } = body;
+
+    let resolvedInchargeId = incharge_mentor_id !== undefined ? (incharge_mentor_id || null) : null;
+    let resolvedInchargeName = incharge_mentor_name !== undefined ? (incharge_mentor_name || null) : null;
+    if (resolvedInchargeId && !resolvedInchargeName) {
+      const mRow = await db.get("SELECT name FROM mentors WHERE id = ?", [resolvedInchargeId]).catch(() => null);
+      resolvedInchargeName = mRow?.name || null;
+    }
 
     if (!name || !name.trim()) {
       return NextResponse.json({ success: false, message: "Course name is required" }, { status: 400 });
@@ -117,7 +124,9 @@ export async function POST(request: Request) {
           default_room = COALESCE(NULLIF(?, ''), default_room),
           default_shift = COALESCE(NULLIF(?, ''), default_shift), 
           shift_based = ?,
-          sections = COALESCE(NULLIF(?, ''), sections)
+          sections = COALESCE(NULLIF(?, ''), sections),
+          incharge_mentor_id = ?,
+          incharge_mentor_name = ?
         WHERE id = ?`,
         targetCollegeId || existing.college_id,
         code || "",
@@ -132,6 +141,8 @@ export async function POST(request: Request) {
         default_shift || existing.default_shift || null,
         shift_based === undefined ? (existing.shift_based || 0) : Number(shift_based),
         sections || existing.sections || null,
+        resolvedInchargeId !== undefined ? resolvedInchargeId : (existing.incharge_mentor_id || null),
+        resolvedInchargeName !== undefined ? resolvedInchargeName : (existing.incharge_mentor_name || null),
         existing.id
       );
 
@@ -144,13 +155,18 @@ export async function POST(request: Request) {
         );
         if (existingDept) {
           await db.run(
-            "UPDATE departments SET name = ?, college_id = ?, code = ?, description = ? WHERE id = ?",
-            cleanName, targetCollegeId || existing.college_id, code || existing.code || "", description || existing.description || "", existingDept.id
+            "UPDATE departments SET name = ?, college_id = ?, code = ?, description = ?, incharge_mentor_id = ?, incharge_mentor_name = ? WHERE id = ?",
+            cleanName, targetCollegeId || existing.college_id, code || existing.code || "", description || existing.description || "",
+            resolvedInchargeId !== undefined ? resolvedInchargeId : (existing.incharge_mentor_id || null),
+            resolvedInchargeName !== undefined ? resolvedInchargeName : (existing.incharge_mentor_name || null),
+            existingDept.id
           );
         } else {
           await db.run(
-            "INSERT INTO departments (id, name, college_id, code, description) VALUES (?, ?, ?, ?, ?)",
-            existing.id, cleanName, targetCollegeId || existing.college_id, code || existing.code || "", description || existing.description || ""
+            "INSERT INTO departments (id, name, college_id, code, description, incharge_mentor_id, incharge_mentor_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
+            existing.id, cleanName, targetCollegeId || existing.college_id, code || existing.code || "", description || existing.description || "",
+            resolvedInchargeId !== undefined ? resolvedInchargeId : (existing.incharge_mentor_id || null),
+            resolvedInchargeName !== undefined ? resolvedInchargeName : (existing.incharge_mentor_name || null)
           );
         }
       } catch (_) {}
@@ -173,7 +189,9 @@ export async function POST(request: Request) {
           default_room: default_room || existing.default_room || null,
           default_shift: default_shift || existing.default_shift || null,
           shift_based: shift_based === undefined ? (existing.shift_based || 0) : Number(shift_based),
-          sections: sections || existing.sections || null
+          sections: sections || existing.sections || null,
+          incharge_mentor_id: resolvedInchargeId !== undefined ? resolvedInchargeId : (existing.incharge_mentor_id || null),
+          incharge_mentor_name: resolvedInchargeName !== undefined ? resolvedInchargeName : (existing.incharge_mentor_name || null)
         }
       });
     }
@@ -187,7 +205,7 @@ export async function POST(request: Request) {
 
     try {
       await db.run(
-        "INSERT INTO courses (id, name, college_id, code, description, hod_name, established_year, status, years, start_date, end_date, start_year, end_year, default_room, default_shift, shift_based, sections) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO courses (id, name, college_id, code, description, hod_name, established_year, status, years, start_date, end_date, start_year, end_year, default_room, default_shift, shift_based, sections, incharge_mentor_id, incharge_mentor_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         id,
         cleanName,
         targetCollegeId,
@@ -204,7 +222,9 @@ export async function POST(request: Request) {
         default_room || null,
         default_shift || null,
         shift_based === undefined ? 0 : Number(shift_based),
-        sections || null
+        sections || null,
+        resolvedInchargeId || null,
+        resolvedInchargeName || null
       );
     } catch (insertErr: any) {
       if (insertErr.message && (insertErr.message.includes("UNIQUE constraint failed") || insertErr.message.includes("duplicate key"))) {
@@ -242,7 +262,9 @@ export async function POST(request: Request) {
               default_room = COALESCE(NULLIF(?, ''), default_room),
               default_shift = COALESCE(NULLIF(?, ''), default_shift),
               shift_based = ?,
-              sections = COALESCE(NULLIF(?, ''), sections)
+              sections = COALESCE(NULLIF(?, ''), sections),
+              incharge_mentor_id = ?,
+              incharge_mentor_name = ?
             WHERE id = ?`,
             targetCollegeId || conflictCourse.college_id,
             code || "",
@@ -257,6 +279,8 @@ export async function POST(request: Request) {
             default_shift || conflictCourse.default_shift || null,
             shift_based === undefined ? (conflictCourse.shift_based || 0) : Number(shift_based),
             sections || conflictCourse.sections || null,
+            resolvedInchargeId !== undefined ? resolvedInchargeId : (conflictCourse.incharge_mentor_id || null),
+            resolvedInchargeName !== undefined ? resolvedInchargeName : (conflictCourse.incharge_mentor_name || null),
             conflictCourse.id
           );
           try {
@@ -268,13 +292,18 @@ export async function POST(request: Request) {
             );
             if (existingDept) {
               await db.run(
-                "UPDATE departments SET name = ?, college_id = ?, code = ?, description = ? WHERE id = ?",
-                cleanName, targetCollegeId || conflictCourse.college_id, code || conflictCourse.code || "", description || conflictCourse.description || "", existingDept.id
+                "UPDATE departments SET name = ?, college_id = ?, code = ?, description = ?, incharge_mentor_id = ?, incharge_mentor_name = ? WHERE id = ?",
+                cleanName, targetCollegeId || conflictCourse.college_id, code || conflictCourse.code || "", description || conflictCourse.description || "",
+                resolvedInchargeId !== undefined ? resolvedInchargeId : (conflictCourse.incharge_mentor_id || null),
+                resolvedInchargeName !== undefined ? resolvedInchargeName : (conflictCourse.incharge_mentor_name || null),
+                existingDept.id
               );
             } else {
               await db.run(
-                "INSERT INTO departments (id, name, college_id, code, description) VALUES (?, ?, ?, ?, ?)",
-                conflictCourse.id, cleanName, targetCollegeId || conflictCourse.college_id, code || conflictCourse.code || "", description || conflictCourse.description || ""
+                "INSERT INTO departments (id, name, college_id, code, description, incharge_mentor_id, incharge_mentor_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                conflictCourse.id, cleanName, targetCollegeId || conflictCourse.college_id, code || conflictCourse.code || "", description || conflictCourse.description || "",
+                resolvedInchargeId !== undefined ? resolvedInchargeId : (conflictCourse.incharge_mentor_id || null),
+                resolvedInchargeName !== undefined ? resolvedInchargeName : (conflictCourse.incharge_mentor_name || null)
               );
             }
           } catch (_) {}
@@ -286,7 +315,9 @@ export async function POST(request: Request) {
               ...conflictCourse,
               college_id: targetCollegeId || conflictCourse.college_id,
               code: code || conflictCourse.code || "",
-              description: description || conflictCourse.description || ""
+              description: description || conflictCourse.description || "",
+              incharge_mentor_id: resolvedInchargeId !== undefined ? resolvedInchargeId : (conflictCourse.incharge_mentor_id || null),
+              incharge_mentor_name: resolvedInchargeName !== undefined ? resolvedInchargeName : (conflictCourse.incharge_mentor_name || null)
             }
           });
         }
@@ -303,13 +334,13 @@ export async function POST(request: Request) {
       );
       if (existingDept) {
         await db.run(
-          "UPDATE departments SET name = ?, college_id = ?, code = ?, description = ? WHERE id = ?",
-          cleanName, targetCollegeId, code || "", description || "", existingDept.id
+          "UPDATE departments SET name = ?, college_id = ?, code = ?, description = ?, incharge_mentor_id = ?, incharge_mentor_name = ? WHERE id = ?",
+          cleanName, targetCollegeId, code || "", description || "", resolvedInchargeId || null, resolvedInchargeName || null, existingDept.id
         );
       } else {
         await db.run(
-          "INSERT INTO departments (id, name, college_id, code, description) VALUES (?, ?, ?, ?, ?)",
-          id, cleanName, targetCollegeId, code || "", description || ""
+          "INSERT INTO departments (id, name, college_id, code, description, incharge_mentor_id, incharge_mentor_name) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          id, cleanName, targetCollegeId, code || "", description || "", resolvedInchargeId || null, resolvedInchargeName || null
         );
       }
     } catch (_) {}
@@ -333,7 +364,9 @@ export async function POST(request: Request) {
         default_room: default_room || null,
         default_shift: default_shift || null,
         shift_based: shift_based === undefined ? 0 : Number(shift_based),
-        sections: sections || null
+        sections: sections || null,
+        incharge_mentor_id: resolvedInchargeId || null,
+        incharge_mentor_name: resolvedInchargeName || null
       }
     });
   } catch (error: any) {
@@ -353,7 +386,7 @@ export async function PUT(request: Request) {
 
     const db = await getDb();
     const body = await request.json();
-    const { id, name, college_id, code, description, established_year, status, years, start_date, end_date, start_year, end_year, default_room, default_shift, shift_based, sections } = body;
+    const { id, name, college_id, code, description, established_year, status, years, start_date, end_date, start_year, end_year, default_room, default_shift, shift_based, sections, incharge_mentor_id, incharge_mentor_name } = body;
 
     if (!id || !name || !name.trim()) {
       return NextResponse.json({ success: false, message: "ID and name are required." }, { status: 400 });
@@ -362,13 +395,22 @@ export async function PUT(request: Request) {
     const cleanName = name.trim();
 
     // Find the current course details
-    // Find the current course details
     let currentCourse = await db.get("SELECT * FROM courses WHERE id = ?", id);
     if (!currentCourse) {
       currentCourse = await db.get("SELECT * FROM courses WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND (college_id = ? OR college_id IS NULL)", cleanName, college_id || null);
     }
     if (!currentCourse) {
       return NextResponse.json({ success: false, message: "Course not found." }, { status: 404 });
+    }
+
+    let resolvedInchargeId = incharge_mentor_id !== undefined ? (incharge_mentor_id || null) : (currentCourse.incharge_mentor_id || null);
+    let resolvedInchargeName = incharge_mentor_name !== undefined ? (incharge_mentor_name || null) : (currentCourse.incharge_mentor_name || null);
+    if (resolvedInchargeId && (!resolvedInchargeName || incharge_mentor_id !== currentCourse.incharge_mentor_id)) {
+      const mRow = await db.get("SELECT name FROM mentors WHERE id = ?", [resolvedInchargeId]).catch(() => null);
+      if (mRow?.name) resolvedInchargeName = mRow.name;
+    }
+    if (!resolvedInchargeId) {
+      resolvedInchargeName = null;
     }
 
     let targetCollegeId = college_id || currentCourse.college_id;
@@ -410,7 +452,9 @@ export async function PUT(request: Request) {
           default_room = ?, 
           default_shift = ?, 
           shift_based = ?, 
-          sections = ? 
+          sections = ?,
+          incharge_mentor_id = ?,
+          incharge_mentor_name = ?
         WHERE id = ?`,
         cleanName,
         targetCollegeId,
@@ -428,6 +472,8 @@ export async function PUT(request: Request) {
         default_shift !== undefined ? default_shift : (currentCourse.default_shift || null),
         shift_based !== undefined ? Number(shift_based) : (currentCourse.shift_based || 0),
         sections !== undefined ? sections : (currentCourse.sections || null),
+        resolvedInchargeId,
+        resolvedInchargeName,
         currentCourse.id
       );
 
@@ -452,7 +498,9 @@ export async function PUT(request: Request) {
             years = ?, 
             start_year = ?, 
             end_year = ?, 
-            shift_based = ? 
+            shift_based = ?,
+            incharge_mentor_id = ?,
+            incharge_mentor_name = ?
           WHERE id = ?`,
           cleanName,
           targetCollegeId,
@@ -463,13 +511,15 @@ export async function PUT(request: Request) {
           start_year !== undefined ? start_year : (currentCourse.start_year || ""),
           end_year !== undefined ? end_year : (currentCourse.end_year || ""),
           shift_based !== undefined ? Number(shift_based) : (currentCourse.shift_based || 0),
+          resolvedInchargeId,
+          resolvedInchargeName,
           existingDept.id
         );
       } else {
         await tx.run(
           `INSERT INTO departments 
-            (id, name, college_id, code, description, status, years, start_year, end_year, shift_based) 
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (id, name, college_id, code, description, status, years, start_year, end_year, shift_based, incharge_mentor_id, incharge_mentor_name) 
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           currentCourse.id,
           cleanName,
           targetCollegeId,
@@ -479,7 +529,9 @@ export async function PUT(request: Request) {
           years !== undefined ? Number(years) : (currentCourse.years || 4),
           start_year !== undefined ? start_year : (currentCourse.start_year || ""),
           end_year !== undefined ? end_year : (currentCourse.end_year || ""),
-          shift_based !== undefined ? Number(shift_based) : (currentCourse.shift_based || 0)
+          shift_based !== undefined ? Number(shift_based) : (currentCourse.shift_based || 0),
+          resolvedInchargeId,
+          resolvedInchargeName
         );
       }
 
@@ -522,7 +574,9 @@ export async function PUT(request: Request) {
         default_room: default_room !== undefined ? default_room : (currentCourse.default_room || null),
         default_shift: default_shift !== undefined ? default_shift : (currentCourse.default_shift || null),
         shift_based: shift_based !== undefined ? Number(shift_based) : (currentCourse.shift_based || 0),
-        sections: sections !== undefined ? sections : (currentCourse.sections || null)
+        sections: sections !== undefined ? sections : (currentCourse.sections || null),
+        incharge_mentor_id: resolvedInchargeId || null,
+        incharge_mentor_name: resolvedInchargeName || null
       }
     });
   } catch (error: any) {
