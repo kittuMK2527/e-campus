@@ -43,6 +43,7 @@ export async function GET(request: Request) {
     let profile: Record<string, unknown> | null = null;
     let campus: Record<string, unknown> | null = null;
     let portfolioCampuses: Record<string, unknown>[] = [];
+    let classInchargeAssignments: Record<string, unknown>[] = [];
     const table = PROFILE_TABLES[role];
 
     if (table && userId) {
@@ -71,6 +72,16 @@ export async function GET(request: Request) {
             profile.id
           ).catch(() => []);
         }
+        if (role === "mentor" && profile.id && profile.college_id) {
+          classInchargeAssignments = await db.all(
+            `SELECT id, year, department, classGroup, updated_at
+             FROM class_mentor_assignments
+             WHERE mentor_id = ? AND college_id = ?
+             ORDER BY year ASC, classGroup ASC`,
+            profile.id,
+            profile.college_id
+          ).catch(() => []);
+        }
       } catch (err) {
         console.error("[/api/me] profile lookup failed:", err);
       }
@@ -88,7 +99,8 @@ export async function GET(request: Request) {
       },
       profile: toSafeProfile(profile),
       campus,
-      portfolioCampuses
+      portfolioCampuses,
+      classInchargeAssignments
     });
   } catch (err) {
     const authRes = apiAuthErrorResponse(err);

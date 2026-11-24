@@ -172,6 +172,26 @@ export async function GET(
     const totalPaid = safeFeeRows.reduce((sum, f) => sum + (Number(f.paid_amount) || 0), 0);
     const feeStatus = totalFees === 0 ? "cleared" : totalPaid >= totalFees ? "cleared" : totalPaid > 0 ? "partial" : "unpaid";
 
+    // Resolve Batch Incharge for this student's course/department
+    let inchargeMentorName: string | null = null;
+    let inchargeMentorId: string | null = null;
+    try {
+      const studentDept = student.department || "";
+      const studentCg = student.classGroup || "";
+      const deptRow = await db.get(`
+        SELECT incharge_mentor_id, incharge_mentor_name FROM departments 
+        WHERE (college_id = ? OR college_id IS NULL) AND (
+          LOWER(TRIM(name)) = LOWER(TRIM(?)) OR 
+          (? != '' AND LOWER(TRIM(?)) LIKE LOWER(TRIM(name)) || '%')
+        ) AND incharge_mentor_name IS NOT NULL AND incharge_mentor_name != ''
+        LIMIT 1
+      `, student.college_id, studentDept, studentCg, studentCg);
+      if (deptRow) {
+        inchargeMentorId = deptRow.incharge_mentor_id || null;
+        inchargeMentorName = deptRow.incharge_mentor_name || null;
+      }
+    } catch (_) {}
+
     return NextResponse.json({
       success: true,
       student: {
@@ -186,6 +206,8 @@ export async function GET(
         semester: student.semester || "",
         collegeId: student.college_id,
         collegeName: student.college_name || student.college_id,
+        inchargeMentorId,
+        inchargeMentorName,
         stats: {
           overallAttendancePct,
           totalPeriods: totalMarks,

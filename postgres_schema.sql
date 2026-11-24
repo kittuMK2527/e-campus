@@ -125,7 +125,9 @@ CREATE TABLE IF NOT EXISTS departments (
     years INTEGER DEFAULT 4,
     start_year VARCHAR(50),
     end_year VARCHAR(50),
-    shift_based INTEGER DEFAULT 0
+    shift_based INTEGER DEFAULT 0,
+    incharge_mentor_id VARCHAR(255),
+    incharge_mentor_name VARCHAR(255)
 );
 
 CREATE TABLE IF NOT EXISTS courses (
@@ -145,7 +147,9 @@ CREATE TABLE IF NOT EXISTS courses (
     default_room TEXT,
     default_shift VARCHAR(50),
     shift_based INTEGER DEFAULT 0,
-    sections TEXT
+    sections TEXT,
+    incharge_mentor_id VARCHAR(255),
+    incharge_mentor_name VARCHAR(255)
 );
 
 -- Course names are unique per campus, not globally: two colleges commonly run the
@@ -609,14 +613,8 @@ CREATE TABLE IF NOT EXISTS notifications (
     is_read INTEGER DEFAULT 0,
     link TEXT,
     type VARCHAR(100) DEFAULT 'info',
-    created_at VARCHAR(100) NOT NULL,
-    dedupe_key VARCHAR(512),
-    payload JSONB
+    created_at VARCHAR(100) NOT NULL
 );
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe
-    ON notifications (LOWER(user_id), dedupe_key)
-    WHERE dedupe_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS leave_requests (
     id VARCHAR(255) PRIMARY KEY,

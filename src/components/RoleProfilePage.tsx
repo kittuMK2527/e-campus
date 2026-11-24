@@ -15,6 +15,7 @@ type ProfileResponse = {
   profile?: Record<string, any> | null;
   campus?: Record<string, any> | null;
   portfolioCampuses?: Record<string, any>[];
+  classInchargeAssignments?: Record<string, any>[];
 };
 
 type ProfileField = { label: string; key: string };
@@ -38,7 +39,7 @@ const ROLE_FIELDS: Record<string, ProfileField[]> = {
     { label: "Designation", key: "designation" }, { label: "Qualification", key: "qualification" },
     { label: "Specialization", key: "specialization" }, { label: "Experience", key: "experience" },
     { label: "Joining date", key: "joining_date" }, { label: "Shift", key: "shift" },
-    { label: "Classes", key: "classes" }, { label: "Subjects", key: "subjects" },
+    { label: "Teaching classes", key: "classes" }, { label: "Subjects", key: "subjects" },
   ],
   cm: [],
   kam: [{ label: "Title", key: "title" }],
@@ -229,6 +230,24 @@ function RoleProfileContent() {
           </ul>
         </section>
       ) : null}
+
+      {role === "mentor" && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <h2 className="text-sm font-bold text-slate-900 dark:text-white">Class in-charge assignments</h2>
+          {data?.classInchargeAssignments?.length ? (
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {data.classInchargeAssignments.map((assignment) => (
+                <li key={assignment.id} className="rounded-lg bg-slate-50 px-3 py-3 dark:bg-slate-800">
+                  <span className="block text-sm font-semibold text-slate-800 dark:text-slate-100">{assignment.classGroup}</span>
+                  <span className="mt-1 block text-xs text-slate-500">{[assignment.year, assignment.department].filter(Boolean).join(" · ")}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-3 text-sm text-slate-500">No class in-charge assignments are recorded for your mentor profile.</p>
+          )}
+        </section>
+      )}
     </section>
   );
 }

@@ -192,6 +192,7 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
         "Department",
         "Semester",
         "Batch / Cohort",
+        "Batch Incharge",
         "Total Conducted Periods",
         "Present Periods",
         "Absent Periods",
@@ -211,6 +212,7 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
         st.department || "General",
         st.semester ? `Sem ${st.semester}` : "—",
         st.classGroup || "General Batch",
+        st.inchargeMentorName || "Not Assigned",
         st.totalMarks || 0,
         st.presentMarks || 0,
         st.absentMarks || 0,
@@ -536,6 +538,11 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
                             {st.semester ? `Sem ${st.semester}` : "Current Semester"}
                             {st.classGroup && st.classGroup !== st.department && ` • ${st.classGroup}`}
                           </div>
+                          {st.inchargeMentorName && (
+                            <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
+                              Incharge: {st.inchargeMentorName}
+                            </div>
+                          )}
                         </TableCell>
 
                         {/* Attendance % */}

@@ -1860,9 +1860,6 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     return MENTOR_TAB_IDS.includes(mapped) ? mapped : undefined;
   })();
   const activeTab = (resolvedPropTab || localActiveTab) as typeof localActiveTab;
-  useEffect(() => {
-    if (activeTab === "profile" && window.location.pathname !== "/profile") window.location.replace("/profile");
-  }, [activeTab]);
 
   // useTransition: marks tab switches as non-urgent so the current UI stays
   // responsive while React prepares the new tab content in the background.
@@ -2773,6 +2770,18 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
       setSelectedClassFilter(cls);
     }
   };
+
+  // Batches for which this mentor is designated Batch Incharge (Faculty Coordinator)
+  const inchargeBatches = useMemo(() => {
+    if (!currentMentor) return [];
+    const mId = currentMentor.id;
+    const mName = (currentMentor.name || "").trim().toLowerCase();
+    return (coursesList || []).filter(c => {
+      const idMatch = c.incharge_mentor_id && c.incharge_mentor_id === mId;
+      const nameMatch = c.incharge_mentor_name && c.incharge_mentor_name.trim().toLowerCase() === mName;
+      return idMatch || nameMatch;
+    });
+  }, [coursesList, currentMentor]);
 
   // Mentor timetable shift is derived from their slots, not a fixed profile field
   React.useEffect(() => {
@@ -5878,6 +5887,12 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         <span>{currentMentor.department}</span>
                       </span>
                     )}
+                    {inchargeBatches.length > 0 && (
+                      <span className="px-2.5 py-1 rounded-lg bg-indigo-50 border border-indigo-200 text-[10px] font-bold text-indigo-900 flex items-center gap-1.5 shadow-2xs">
+                        <Award className="w-3 h-3 text-indigo-600 shrink-0" />
+                        <span>Batch Incharge: {inchargeBatches.map(b => b.name).join(", ")}</span>
+                      </span>
+                    )}
                     {currentMentor.mentor_group && (
                       <span className="px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[10px] font-bold text-slate-700 flex items-center gap-1.5">
                         <BookOpen className="w-3 h-3 text-slate-500 shrink-0" />
@@ -5937,6 +5952,25 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                           <span className="text-xs text-slate-400 italic">No assigned class groups registered.</span>
                         )}
                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                        Batch Incharge (Faculty Coordinator)
+                      </span>
+                      {inchargeBatches.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {inchargeBatches.map((batch) => (
+                            <span key={batch.id} className="px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-900 shadow-2xs flex items-center gap-1.5">
+                              <UserCheck className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>{batch.name}</span>
+                              {batch.code && <span className="text-[10px] text-indigo-500 font-mono">({batch.code})</span>}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">No batch incharge assignments assigned.</span>
+                      )}
                     </div>
                   </div>
                 </div>

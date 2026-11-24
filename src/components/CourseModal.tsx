@@ -53,7 +53,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
   onSaved,
   onToast
 }) => {
-  const { colleges, departmentsList, createCourse, updateCourse } = useApp();
+  const { colleges, departmentsList, mentors, createCourse, updateCourse } = useApp();
 
   const currentYear = new Date().getFullYear();
   const targetCollegeId = defaultCollegeId || editingCourse?.college_id || colleges[0]?.id || "";
@@ -72,6 +72,8 @@ export const CourseModal: React.FC<CourseModalProps> = ({
     end_year: string;
     default_room: string;
     default_shift: string;
+    incharge_mentor_id: string;
+    incharge_mentor_name: string;
   }>({
     id: "",
     name: "",
@@ -85,12 +87,20 @@ export const CourseModal: React.FC<CourseModalProps> = ({
     start_year: currentYear.toString(),
     end_year: (currentYear + 3).toString(),
     default_room: "",
-    default_shift: "general"
+    default_shift: "general",
+    incharge_mentor_id: "",
+    incharge_mentor_name: ""
   });
 
   const [codeTouched, setCodeTouched] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Filter mentors strictly by this college/campus
+  const campusMentors = useMemo(() => {
+    const colId = form.college_id || targetCollegeId;
+    return (mentors || []).filter(m => !colId || m.college_id === colId);
+  }, [mentors, form.college_id, targetCollegeId]);
 
   // Initialize or reset form on open / editingCourse change
   useEffect(() => {
@@ -111,7 +121,9 @@ export const CourseModal: React.FC<CourseModalProps> = ({
         start_year: editingCourse.start_year || currentYear.toString(),
         end_year: editingCourse.end_year || (currentYear + yrs).toString(),
         default_room: editingCourse.default_room || "",
-        default_shift: editingCourse.default_shift || "general"
+        default_shift: editingCourse.default_shift || "general",
+        incharge_mentor_id: editingCourse.incharge_mentor_id || "",
+        incharge_mentor_name: editingCourse.incharge_mentor_name || ""
       });
       setCodeTouched(true);
     } else {
@@ -128,7 +140,9 @@ export const CourseModal: React.FC<CourseModalProps> = ({
         start_year: currentYear.toString(),
         end_year: (currentYear + 3).toString(),
         default_room: "",
-        default_shift: "general"
+        default_shift: "general",
+        incharge_mentor_id: "",
+        incharge_mentor_name: ""
       });
       setCodeTouched(false);
     }
@@ -316,7 +330,9 @@ export const CourseModal: React.FC<CourseModalProps> = ({
         years: Number(form.years) || 3,
         description: form.description?.trim() || "",
         default_shift: form.default_shift || "general",
-        shift_based: isShiftSplit ? 1 : 0
+        shift_based: isShiftSplit ? 1 : 0,
+        incharge_mentor_id: form.incharge_mentor_id || null,
+        incharge_mentor_name: form.incharge_mentor_name || null
       };
 
       let res;
@@ -583,7 +599,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
             </div>
 
             {/* Classroom / Room Allocation */}
-            <div className="space-y-2 sm:col-span-2 border-t border-slate-100 pt-3 mt-1">
+            <div className={`space-y-2 ${showYearWiseRooms ? "sm:col-span-2" : ""} border-t border-slate-100 pt-3 mt-1`}>
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">
@@ -592,7 +608,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                   <p className="text-[10px] text-slate-400 font-medium">
                     {showYearWiseRooms
                       ? "Custom room specified per academic year"
-                      : "Designated classroom assigned across academic years for this course"}
+                      : "Designated classroom for this course"}
                   </p>
                 </div>
                 <button
@@ -600,7 +616,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                   onClick={() => setShowYearWiseRooms(prev => !prev)}
                   className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:text-amber-700 underline cursor-pointer bg-transparent border-0 p-0"
                 >
-                  {showYearWiseRooms ? "← Use Single Room" : "+ Customize per Year"}
+                  {showYearWiseRooms ? "Single Room" : "+ Customize per Year"}
                 </button>
               </div>
 
@@ -662,6 +678,49 @@ export const CourseModal: React.FC<CourseModalProps> = ({
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Batch Incharge Dropdown (Beside Classroom Allocation) */}
+            <div className={`space-y-2 ${showYearWiseRooms ? "sm:col-span-2" : ""} border-t border-slate-100 pt-3 mt-1`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                    Batch Incharge
+                  </h4>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Faculty coordinator from this campus
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <select
+                  aria-label="Batch Incharge"
+                  value={form.incharge_mentor_id}
+                  onChange={(e) => {
+                    const selectedId = e.target.value;
+                    const selectedMentor = campusMentors.find(m => m.id === selectedId);
+                    setForm(prev => ({
+                      ...prev,
+                      incharge_mentor_id: selectedId,
+                      incharge_mentor_name: selectedMentor ? selectedMentor.name : ""
+                    }));
+                  }}
+                  className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-indigo-500/80 focus:border-indigo-500 text-slate-800 text-xs cursor-pointer"
+                >
+                  <option value="">— Select Batch Incharge (Optional) —</option>
+                  {form.incharge_mentor_id && !campusMentors.some(m => m.id === form.incharge_mentor_id) && (
+                    <option value={form.incharge_mentor_id}>
+                      {form.incharge_mentor_name || "Current Incharge"}
+                    </option>
+                  )}
+                  {campusMentors.map(m => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} {m.department ? `(${m.department})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Description */}

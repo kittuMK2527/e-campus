@@ -11,11 +11,15 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
-  Search,
-  Filter,
   Sparkles,
   BookOpen,
-  CalendarDays
+  CalendarDays,
+  Check,
+  X,
+  ArrowRight,
+  Inbox,
+  AlertCircle,
+  ShieldAlert
 } from "lucide-react";
 import { getLocalDateStr, shiftDateStr, parseLocalDate } from "@/lib/localDate";
 import { mapDayOrderToDayName, getCollegePeriodTimeSlots, isTimeSlotMatch } from "@/lib/utils";
@@ -29,8 +33,50 @@ export interface SMEReallocationPlannerProps {
   demoSessions: any[];
   smeAvailability: any[];
   leaveRequests: any[];
+  inboundRequests?: any[];
   affectedSessions?: any[];
-  onReallocateSlot: (mentor: any, dateStr: string, timeSlot: string, existingSession?: any) => void;
+  onResolveRequest?: (request: any, decision: "approved" | "rejected") => Promise<void>;
+  onReallocateSlot?: (mentor: any, dateStr: string, timeSlot: string, existingSession?: any, swapWithSession?: any) => void;
+  onInitiateManualRealloc?: () => void;
+}
+
+interface NormalizedReallocRequest {
+  id: string;
+  sourceType: "inbound_proposal" | "affected_session";
+  rawItem: any;
+  mentorId: string;
+  mentorName: string;
+  mentor: any;
+  college: any;
+  subject: string;
+  originalDate: string;
+  originalSlot: string;
+  proposedDate: string;
+  proposedSlot: string;
+  reason: string;
+  targetMentorId?: string;
+  targetMentorName?: string;
+  targetMentor?: any;
+  targetCollege?: any;
+  isPeerSwap: boolean;
+}
+
+// Safely format full mentor names without truncating honorifics (e.g., Dr., Prof., Er.)
+function formatMentorFullName(name?: string, fallback = "Faculty"): string {
+  if (!name) return fallback;
+  const trimmed = name.trim();
+  return trimmed || fallback;
+}
+
+function formatMentorShortName(name?: string, fallback = "Faculty"): string {
+  if (!name) return fallback;
+  const parts = name.trim().split(/\s+/);
+  if (parts.length <= 1) return parts[0];
+  const first = parts[0];
+  if (/^(dr\.?|prof\.?|mr\.?|mrs\.?|ms\.?|er\.?)$/i.test(first) && parts.length > 1) {
+    return `${parts[0]} ${parts[1]}`;
+  }
+  return parts[0];
 }
 
 interface CollegeDayConfig {
@@ -57,54 +103,170 @@ export default function SMEReallocationPlanner({
   demoSessions,
   smeAvailability,
   leaveRequests,
+  inboundRequests = [],
   affectedSessions = [],
-  onReallocateSlot
+  onResolveRequest,
+  onReallocateSlot,
+  onInitiateManualRealloc
 }: SMEReallocationPlannerProps) {
-  // ── Date and Filtering State ──────────────────────────────────────
+  // ── Normalize Active Reallocation Requests ─────────────────────────
+  // Pool only mentors who actually raised a reallocation proposal or have an affected session
+  const activeRequests: NormalizedReallocRequest[] = useMemo(() => {
+    const list: NormalizedReallocRequest[] = [];
+
+    // 1. Inbound proposals targeting this SME
+    for (const req of inboundRequests) {
+      const mId = req.mentorId || req.mentor_id;
+      const mentor = mentors.find(m => m.id === mId) || {
+        id: mId,
+        name: req.mentorName || req.mentor_name || "Faculty Mentor",
+        department: req.department || req.stream || "Engineering",
+        college_id: req.college_id || req.collegeId
+      };
+      const college = colleges.find(c => c.id === mentor.college_id);
+
+      // Extract target / peer mentor with whom the reallocation or swap is happening
+      const targetMId = req.proposedMentorId || req.proposed_mentor_id || req.targetMentorId || req.target_mentor_id || req.swapMentorId;
+      const targetMName = req.proposedMentorName || req.proposed_mentor_name || req.targetMentorName || req.target_mentor_name || req.swapMentorName;
+      const targetMentor = (targetMId || targetMName)
+        ? mentors.find(m => (targetMId && m.id === targetMId) || (targetMName && m.name.toLowerCase() === targetMName.toLowerCase())) || {
+            id: targetMId || "peer_mentor",
+            name: targetMName || "Faculty Candidate",
+            department: req.targetDepartment || req.stream || "Faculty",
+            college_id: req.target_college_id || mentor.college_id
+          }
+        : null;
+      const targetCollege = targetMentor ? colleges.find(c => c.id === targetMentor.college_id) : null;
+      const isPeerSwap = Boolean(targetMentor || req.swapType === "mentor" || req.swapType === "internal");
+
+      list.push({
+        id: req.id,
+        sourceType: "inbound_proposal",
+        rawItem: req,
+        mentorId: mId,
+        mentorName: req.mentorName || req.mentor_name || mentor.name,
+        mentor,
+        college,
+        subject: req.subject || "L&D Demo Evaluation",
+        originalDate: req.original_date_str || req.dateStr || getLocalDateStr(),
+        originalSlot: req.original_time_slot || req.timeSlot || "Period 1 (08:30 - 09:25)",
+        proposedDate: req.proposed_date_str || req.proposedDateStr || req.dateStr || getLocalDateStr(),
+        proposedSlot: req.proposed_time_slot || req.proposedTimeSlot || req.timeSlot || "Period 2 (09:25 - 10:20)",
+        reason: req.reason || "Faculty Reschedule Proposal",
+        targetMentorId: targetMentor?.id,
+        targetMentorName: targetMentor?.name,
+        targetMentor,
+        targetCollege,
+        isPeerSwap
+      });
+    }
+
+    // 2. Sessions requiring reallocation due to leave or clash
+    for (const sess of affectedSessions) {
+      // Avoid duplicate if already covered by an inbound proposal for the same session
+      if (list.some(r => r.rawItem.demo_session_id === sess.id || r.id === sess.id)) {
+        continue;
+      }
+      const mId = sess.mentorId || sess.mentor_id;
+      const mentor = mentors.find(m => m.id === mId) || {
+        id: mId,
+        name: sess.mentorName || sess.mentor_name || "Faculty Mentor",
+        department: sess.department || sess.stream || "Engineering",
+        college_id: sess.college_id || sess.collegeId
+      };
+      const college = colleges.find(c => c.id === mentor.college_id);
+
+      list.push({
+        id: sess.id,
+        sourceType: "affected_session",
+        rawItem: sess,
+        mentorId: mId,
+        mentorName: sess.mentorName || sess.mentor_name || mentor.name,
+        mentor,
+        college,
+        subject: sess.subject || "L&D Demo Evaluation",
+        originalDate: sess.dateStr || getLocalDateStr(),
+        originalSlot: sess.timeSlot || "Period 1 (08:30 - 09:25)",
+        proposedDate: sess.dateStr || getLocalDateStr(),
+        proposedSlot: sess.timeSlot || "Period 1 (08:30 - 09:25)",
+        reason: sess.comments || "Session affected by approved faculty leave / conflict",
+        isPeerSwap: false
+      });
+    }
+
+    return list;
+  }, [inboundRequests, affectedSessions, mentors, colleges]);
+
+  // Selected Request ID (default to first active request)
+  const [selectedRequestId, setSelectedRequestId] = useState<string>("");
+
+  useEffect(() => {
+    if (activeRequests.length > 0) {
+      if (!selectedRequestId || !activeRequests.some(r => r.id === selectedRequestId)) {
+        setSelectedRequestId(activeRequests[0].id);
+      }
+    } else {
+      setSelectedRequestId("");
+    }
+  }, [activeRequests, selectedRequestId]);
+
+  const currentRequest = useMemo(() => {
+    return activeRequests.find(r => r.id === selectedRequestId) || activeRequests[0] || null;
+  }, [activeRequests, selectedRequestId]);
+
+  // Selected Date for Inspection (defaults to the proposed date of the current request)
   const [selectedDate, setSelectedDate] = useState<string>(() => getLocalDateStr());
-  const [selectedCollegeId, setSelectedCollegeId] = useState<string>("all");
-  const [mentorSearch, setMentorSearch] = useState<string>("");
-  const [filterAvailabilityOnly, setFilterAvailabilityOnly] = useState<boolean>(false);
 
-  // ── Live Day Order State (from /api/daily-configs) ─────────────────
-  const [dailyConfigsMap, setDailyConfigsMap] = useState<Map<string, CollegeDayConfig>>(new Map());
-  const [loadingConfigs, setLoadingConfigs] = useState<boolean>(false);
+  // Update selected date whenever currentRequest changes
+  useEffect(() => {
+    if (currentRequest) {
+      setSelectedDate(currentRequest.proposedDate || currentRequest.originalDate || getLocalDateStr());
+    }
+  }, [currentRequest]);
 
-  // Fetch real-time Day Order configs for the selected date across all campuses
-  const fetchLiveDayOrders = useCallback(async (dateStr: string) => {
-    setLoadingConfigs(true);
+  // ── Live Day Order State for the Requesting Mentor's Campus ────────
+  const [campusDayConfig, setCampusDayConfig] = useState<CollegeDayConfig | null>(null);
+  const [loadingConfig, setLoadingConfig] = useState<boolean>(false);
+
+  const requestingMentor = currentRequest?.mentor || null;
+  const requestingCollege = currentRequest?.college || null;
+  const mentorCollegeId = requestingMentor?.college_id || requestingCollege?.id || null;
+
+  const fetchLiveCampusDayOrder = useCallback(async (collegeId: string | null, dateStr: string) => {
+    if (!collegeId) {
+      setCampusDayConfig({ dayOrder: "Day 1", dayType: "working", isHoliday: false });
+      return;
+    }
+    setLoadingConfig(true);
     try {
       const res = await apiFetch<any>(
-        `/api/daily-configs?college_id=all&startDate=${dateStr}&endDate=${dateStr}`
+        `/api/daily-configs?college_id=${collegeId}&startDate=${dateStr}&endDate=${dateStr}`
       );
-      const newMap = new Map<string, CollegeDayConfig>();
-      if (res.success && Array.isArray(res.configs)) {
-        res.configs.forEach((cfg: any) => {
-          const colId = cfg.college_id || cfg.collegeId;
-          if (colId) {
-            newMap.set(colId, {
-              dayOrder: cfg.day_order || "Day 1",
-              dayType: cfg.day_type || "working",
-              notes: cfg.notes || "",
-              isHoliday: cfg.day_type === "holiday" || cfg.is_holiday === 1
-            });
-          }
+      if (res.success && Array.isArray(res.configs) && res.configs.length > 0) {
+        const cfg = res.configs.find((c: any) => (c.college_id || c.collegeId) === collegeId) || res.configs[0];
+        setCampusDayConfig({
+          dayOrder: cfg.day_order || "Day 1",
+          dayType: cfg.day_type || "working",
+          notes: cfg.notes || "",
+          isHoliday: cfg.day_type === "holiday" || cfg.is_holiday === 1
         });
+      } else {
+        setCampusDayConfig({ dayOrder: "Day 1", dayType: "working", isHoliday: false });
       }
-      setDailyConfigsMap(newMap);
     } catch {
-      // Fallback: If network / API error, keep empty map; defaults will apply
-      setDailyConfigsMap(new Map());
+      setCampusDayConfig({ dayOrder: "Day 1", dayType: "working", isHoliday: false });
     } finally {
-      setLoadingConfigs(false);
+      setLoadingConfig(false);
     }
   }, []);
 
   useEffect(() => {
-    if (selectedDate) {
-      fetchLiveDayOrders(selectedDate);
+    if (mentorCollegeId && selectedDate) {
+      fetchLiveCampusDayOrder(mentorCollegeId, selectedDate);
+    } else {
+      setCampusDayConfig({ dayOrder: "Day 1", dayType: "working", isHoliday: false });
     }
-  }, [selectedDate, fetchLiveDayOrders]);
+  }, [mentorCollegeId, selectedDate, fetchLiveCampusDayOrder]);
 
   // Calendar weekday derived from selected date
   const rawWeekday = useMemo(() => {
@@ -116,7 +278,7 @@ export default function SMEReallocationPlanner({
     }
   }, [selectedDate]);
 
-  // Formatted date label for header
+  // Formatted date label
   const formattedDateLabel = useMemo(() => {
     try {
       const parsed = parseLocalDate(selectedDate);
@@ -131,70 +293,34 @@ export default function SMEReallocationPlanner({
     }
   }, [selectedDate]);
 
-  // ── Mentors Filtered Under this SME ───────────────────────────────
-  const mentorsUnderSme = useMemo(() => {
-    // 1. Mentors who have sessions assigned to this SME
-    const smeSessionMentorIds = new Set(
-      demoSessions
-        .filter(d => (d.smeId === currentSME?.id || (d as any).sme_id === currentSME?.id))
-        .map(d => d.mentorId || (d as any).mentor_id)
-        .filter(Boolean)
-    );
-
-    // 2. Mentors matching SME subject or department
-    const smeSubject = (currentSME?.subject || "").toLowerCase().trim();
-    const smeDept = (currentSME?.department || "").toLowerCase().trim();
-
-    return mentors.filter(m => {
-      // Match college filter
-      if (selectedCollegeId !== "all" && m.college_id !== selectedCollegeId) {
-        return false;
-      }
-      // Match search query
-      if (mentorSearch.trim()) {
-        const q = mentorSearch.toLowerCase().trim();
-        const mName = (m.name || "").toLowerCase();
-        const mDept = (m.department || "").toLowerCase();
-        if (!mName.includes(q) && !mDept.includes(q)) {
-          return false;
-        }
-      }
-
-      // If mentor has a session with this SME, always include
-      if (smeSessionMentorIds.has(m.id)) {
-        return true;
-      }
-
-      // If SME subject or department matches mentor's subjects/department
-      if (smeSubject && (m.department?.toLowerCase().includes(smeSubject) || (m.subjects || []).some((s: string) => s.toLowerCase().includes(smeSubject)))) {
-        return true;
-      }
-      if (smeDept && m.department?.toLowerCase().includes(smeDept)) {
-        return true;
-      }
-
-      // Default: include mentors across campuses if no strict subject matches found
-      return smeSessionMentorIds.size === 0;
-    });
-  }, [mentors, demoSessions, currentSME, selectedCollegeId, mentorSearch]);
-
-  // Standard period slots across colleges
+  // Standard period slots for this college
   const periodSlots = useMemo(() => {
-    const colId = selectedCollegeId !== "all" ? selectedCollegeId : colleges[0]?.id;
-    const derived = getCollegePeriodTimeSlots(colId, colleges, slots);
+    const derived = getCollegePeriodTimeSlots(mentorCollegeId, colleges, slots);
     return derived && derived.length > 0 ? derived : DEFAULT_PERIODS;
-  }, [selectedCollegeId, colleges, slots]);
+  }, [mentorCollegeId, colleges, slots]);
 
-  // ── SME's Own Schedule on selectedDate ────────────────────────────
+  // Effective academic day mapped from real-time Day Order
+  const effectiveDay = useMemo(() => {
+    const order = campusDayConfig?.dayOrder;
+    if (order && order !== "None" && order !== "none") {
+      return mapDayOrderToDayName(order, rawWeekday);
+    }
+    return rawWeekday;
+  }, [campusDayConfig, rawWeekday]);
+
+  // ── SME Schedule on selectedDate ──────────────────────────────────
   const smeSchedule = useMemo(() => {
     const smeDemosOnDate = demoSessions.filter(d => {
       const isMySme = d.smeId === currentSME?.id || (d as any).sme_id === currentSME?.id;
       const isDate = (d.dateStr || (d as any).date_str) === selectedDate;
       const isActive = d.status !== "not_conducted";
+      // Ignore the session currently being rescheduled if it's this SME's own
+      if (currentRequest && (d.id === currentRequest.id || d.id === currentRequest.rawItem.demo_session_id)) {
+        return false;
+      }
       return isMySme && isDate && isActive;
     });
 
-    // Check SME availability windows configured for this weekday / Day Order
     const activeWindows = (smeAvailability || []).filter((w: any) => {
       const matchSme = w.sme_id === currentSME?.id;
       const isAct = w.is_active !== 0;
@@ -202,14 +328,12 @@ export default function SMEReallocationPlanner({
       return matchSme && isAct && dayMatch;
     });
 
-    return periodSlots.map(period => {
-      // 1. Is there an active L&D demo session booked at this period?
+    return periodSlots.map((period: string) => {
       const bookedDemo = smeDemosOnDate.find(d => {
         const slot = d.timeSlot || (d as any).time_slot || "";
         return isTimeSlotMatch(slot, period);
       });
 
-      // 2. Is this period within an active availability window?
       const inWindow = activeWindows.length === 0 || activeWindows.some((w: any) => {
         const winStart = w.start_time || "09:00 AM";
         const winEnd = w.end_time || "05:30 PM";
@@ -223,507 +347,717 @@ export default function SMEReallocationPlanner({
         isFree,
         bookedDemo,
         hasWindow: inWindow,
+        bookedMentorId: bookedDemo?.mentorId || (bookedDemo as any)?.mentor_id,
+        bookedMentorName: bookedDemo?.mentorName || (bookedDemo as any)?.mentor_name,
+        bookedSubject: bookedDemo?.subject,
+        bookedSession: bookedDemo,
+        isBookedWithOtherMentor: Boolean(bookedDemo),
         statusText: bookedDemo
-          ? `Booked: ${bookedDemo.mentorName || "Candidate"} (${bookedDemo.subject})`
+          ? `Booked with: ${bookedDemo.mentorName || "Candidate"} (${bookedDemo.subject || "Demo"})`
           : inWindow
           ? "Available for Evaluation"
           : "Outside Available Window"
       };
     });
-  }, [demoSessions, currentSME, selectedDate, rawWeekday, smeAvailability, periodSlots]);
+  }, [demoSessions, currentSME, selectedDate, rawWeekday, smeAvailability, periodSlots, currentRequest]);
 
-  // ── Mentors' Free Time Matrix Computation ─────────────────────────
-  const mentorRowData = useMemo(() => {
-    return mentorsUnderSme.map(mentor => {
-      // Find campus config for this mentor's college
-      const colConfig = dailyConfigsMap.get(mentor.college_id) || {
-        dayOrder: "Day 1",
-        dayType: "working",
-        isHoliday: false
-      };
+  // ── Requesting Mentor Schedule on selectedDate ─────────────────────
+  const requestingMentorSchedule = useMemo(() => {
+    if (!requestingMentor) return [];
 
-      // Real-time Day Order mapping:
-      // Map Day Order to timetable day of week
-      const effectiveDay = colConfig.dayOrder && colConfig.dayOrder !== "None"
-        ? mapDayOrderToDayName(colConfig.dayOrder, rawWeekday)
-        : rawWeekday;
+    // Check faculty leave for mentor on selectedDate
+    const isOnLeave = (leaveRequests || []).some((l: any) => {
+      const mMatch = (l.mentorId || l.mentor_id || l.userId) === requestingMentor.id;
+      const statusMatch = l.status === "approved" || l.status === "Approved";
+      const start = l.startDate || l.start_date || l.dateStr || "";
+      const end = l.endDate || l.end_date || start;
+      return mMatch && statusMatch && selectedDate >= start && selectedDate <= end;
+    });
 
-      // Check faculty leave for mentor on selectedDate
-      const isOnLeave = (leaveRequests || []).some((l: any) => {
-        const mMatch = (l.mentorId || l.mentor_id || l.userId) === mentor.id;
-        const statusMatch = l.status === "approved" || l.status === "Approved";
-        const start = l.startDate || l.start_date || l.dateStr || "";
-        const end = l.endDate || l.end_date || start;
-        return mMatch && statusMatch && selectedDate >= start && selectedDate <= end;
-      });
-
-      // Evaluate each period
-      const periods = periodSlots.map(period => {
-        // 1. Leave check
-        if (isOnLeave) {
-          return {
-            period,
-            isFree: false,
-            reason: "On Approved Faculty Leave",
-            isMutuallyFree: false,
-            badgeType: "leave"
-          };
-        }
-
-        // 2. Regular Teaching Slot check (using effectiveDay mapped from Day Order!)
-        const teachingSlot = slots.find(s => {
-          const mMatch = (s.mentor_id || s.mentorId) === mentor.id;
-          const dayMatch = (s.day || "").toLowerCase().trim() === effectiveDay.toLowerCase().trim();
-          const timeMatch = isTimeSlotMatch(s.time, period);
-          return mMatch && dayMatch && timeMatch;
-        });
-
-        if (teachingSlot) {
-          return {
-            period,
-            isFree: false,
-            reason: `Teaching: ${teachingSlot.subject || "Class"} (${teachingSlot.class_group || "Regular"})`,
-            isMutuallyFree: false,
-            badgeType: "class"
-          };
-        }
-
-        // 3. Demo Session check
-        const activeDemo = demoSessions.find(d => {
-          const mMatch = (d.mentorId || (d as any).mentor_id) === mentor.id;
-          const dateMatch = (d.dateStr || (d as any).date_str) === selectedDate;
-          const timeMatch = isTimeSlotMatch(d.timeSlot || (d as any).time_slot, period);
-          const actMatch = d.status !== "not_conducted";
-          return mMatch && dateMatch && timeMatch && actMatch;
-        });
-
-        if (activeDemo) {
-          return {
-            period,
-            isFree: false,
-            reason: `L&D Demo: ${activeDemo.subject || "Session"} (${activeDemo.status})`,
-            isMutuallyFree: false,
-            badgeType: "demo"
-          };
-        }
-
-        // Mentor is FREE!
-        // Now check if SME is also free at this period
-        const smePeriod = smeSchedule.find(sp => sp.period === period);
-        const isMutuallyFree = Boolean(smePeriod && smePeriod.isFree);
-
+    return periodSlots.map((period: string) => {
+      // 1. Leave Check
+      if (isOnLeave) {
         return {
           period,
-          isFree: true,
-          reason: isMutuallyFree ? "Mutually Available" : "Mentor Free (SME Busy)",
-          isMutuallyFree,
-          badgeType: isMutuallyFree ? "mutual" : "free"
+          isFree: false,
+          reason: "On Approved Faculty Leave",
+          badgeType: "leave"
         };
+      }
+
+      // 2. Regular Teaching Slot (using effectiveDay from live Day Order!)
+      const teachingSlot = slots.find(s => {
+        const mMatch = (s.mentor_id || s.mentorId) === requestingMentor.id;
+        const dayMatch = (s.day || "").toLowerCase().trim() === effectiveDay.toLowerCase().trim();
+        const timeMatch = isTimeSlotMatch(s.time, period);
+        return mMatch && dayMatch && timeMatch;
       });
 
-      const freePeriodCount = periods.filter(p => p.isFree).length;
-      const mutualPeriodCount = periods.filter(p => p.isMutuallyFree).length;
+      if (teachingSlot) {
+        return {
+          period,
+          isFree: false,
+          reason: `Teaching: ${teachingSlot.subject || "Class"} (${teachingSlot.class_group || "Regular"})`,
+          badgeType: "class"
+        };
+      }
+
+      // 3. Demo Session Check (other demos not being rescheduled)
+      const otherDemo = demoSessions.find(d => {
+        const mMatch = (d.mentorId || (d as any).mentor_id) === requestingMentor.id;
+        const dateMatch = (d.dateStr || (d as any).date_str) === selectedDate;
+        const timeMatch = isTimeSlotMatch(d.timeSlot || (d as any).time_slot, period);
+        const actMatch = d.status !== "not_conducted";
+        const isSelf = currentRequest && (d.id === currentRequest.id || d.id === currentRequest.rawItem.demo_session_id);
+        return mMatch && dateMatch && timeMatch && actMatch && !isSelf;
+      });
+
+      if (otherDemo) {
+        return {
+          period,
+          isFree: false,
+          reason: `Other Demo: ${otherDemo.subject || "Session"} (${otherDemo.status})`,
+          badgeType: "demo"
+        };
+      }
 
       return {
-        mentor,
-        college: colleges.find(c => c.id === mentor.college_id),
-        colConfig,
-        effectiveDay,
-        periods,
-        freePeriodCount,
-        mutualPeriodCount
+        period,
+        isFree: true,
+        reason: "Mentor Free (No Class)",
+        badgeType: "free"
       };
     });
-  }, [mentorsUnderSme, dailyConfigsMap, rawWeekday, leaveRequests, selectedDate, slots, demoSessions, smeSchedule, periodSlots, colleges]);
+  }, [requestingMentor, leaveRequests, selectedDate, periodSlots, slots, effectiveDay, demoSessions, currentRequest]);
 
-  // Filter out mentors with zero mutual availability if toggle enabled
-  const displayedRows = useMemo(() => {
-    if (filterAvailabilityOnly) {
-      return mentorRowData.filter(r => r.mutualPeriodCount > 0);
+  // ── Combined Mutual Availability Matrix ────────────────────────────
+  const combinedPeriods = useMemo(() => {
+    return periodSlots.map((period: string, idx: number) => {
+      const smeP = smeSchedule[idx] || { isFree: false, statusText: "Unavailable" };
+      const mentorP = requestingMentorSchedule[idx] || { isFree: false, reason: "Unavailable", badgeType: "unavailable" };
+
+      const isMutuallyFree = Boolean(smeP.isFree && mentorP.isFree);
+      const isProposedSlot = Boolean(
+        currentRequest &&
+        selectedDate === currentRequest.proposedDate &&
+        isTimeSlotMatch(currentRequest.proposedSlot, period)
+      );
+
+      const isBookedWithOtherMentor = Boolean(smeP.isBookedWithOtherMentor);
+      const bookedMentorId = smeP.bookedMentorId;
+      const bookedMentorName = smeP.bookedMentorName || "";
+      const bookedSubject = smeP.bookedSubject || "";
+      const bookedSession = smeP.bookedSession || null;
+
+      return {
+        period,
+        isMutuallyFree,
+        isProposedSlot,
+        smeFree: smeP.isFree,
+        mentorFree: mentorP.isFree,
+        smeStatus: smeP.statusText,
+        mentorStatus: mentorP.reason,
+        isBookedWithOtherMentor,
+        bookedMentorId,
+        bookedMentorName,
+        bookedSubject,
+        bookedSession,
+        badgeType: isMutuallyFree
+          ? "mutual"
+          : mentorP.badgeType === "leave"
+          ? "leave"
+          : isBookedWithOtherMentor
+          ? "booked_other"
+          : !mentorP.isFree
+          ? "mentor_busy"
+          : "sme_busy"
+      };
+    });
+  }, [periodSlots, smeSchedule, requestingMentorSchedule, currentRequest, selectedDate]);
+
+  const mutualSlotCount = combinedPeriods.filter((p: any) => p.isMutuallyFree).length;
+  const isProposedSlotAvailable = useMemo(() => {
+    return combinedPeriods.some((p: any) => p.isProposedSlot && p.isMutuallyFree);
+  }, [combinedPeriods]);
+
+  // Resolving state
+  const [resolvingDecision, setResolvingDecision] = useState<string | null>(null);
+
+  const handleApproveProposed = async () => {
+    if (!currentRequest || !onResolveRequest) return;
+    setResolvingDecision("approved");
+    try {
+      await onResolveRequest(currentRequest.rawItem, "approved");
+    } finally {
+      setResolvingDecision(null);
     }
-    return mentorRowData;
-  }, [mentorRowData, filterAvailabilityOnly]);
-
-  // Find leave-affected or upcoming session for this mentor if any
-  const getMentorSessionToReallocate = (mentorId: string) => {
-    return affectedSessions.find(s => (s.mentorId === mentorId || (s as any).mentor_id === mentorId)) ||
-      demoSessions.find(s => (s.mentorId === mentorId || (s as any).mentor_id === mentorId) && s.status !== "completed");
   };
+
+  const handleReject = async () => {
+    if (!currentRequest || !onResolveRequest) return;
+    setResolvingDecision("rejected");
+    try {
+      await onResolveRequest(currentRequest.rawItem, "rejected");
+    } finally {
+      setResolvingDecision(null);
+    }
+  };
+
+  const handleSelectAlternativeSlot = (period: string) => {
+    if (!currentRequest || !onReallocateSlot) return;
+    const sessionObj = {
+      id: currentRequest.rawItem?.demo_session_id || currentRequest.rawItem?.sessionId || currentRequest.rawItem?.id || currentRequest.id,
+      demo_session_id: currentRequest.rawItem?.demo_session_id,
+      mentorId: currentRequest.mentorId,
+      mentorName: currentRequest.mentorName,
+      subject: currentRequest.subject,
+      stream: currentRequest.mentor?.department || "Engineering",
+      dateStr: currentRequest.originalDate || selectedDate,
+      timeSlot: currentRequest.originalSlot || period,
+      college_id: currentRequest.college?.id || currentRequest.mentor?.college_id,
+      smeId: currentSME?.id,
+      smeName: currentSME?.name,
+      status: "reallocation_required",
+      ...currentRequest.rawItem
+    };
+    onReallocateSlot(currentRequest.mentor, selectedDate, period, sessionObj);
+  };
+
+  const handleSwapWithMentor = (period: string, bookedSession: any) => {
+    if (!currentRequest || !onReallocateSlot) return;
+    const sessionObj = {
+      id: currentRequest.rawItem?.demo_session_id || currentRequest.rawItem?.sessionId || currentRequest.rawItem?.id || currentRequest.id,
+      demo_session_id: currentRequest.rawItem?.demo_session_id,
+      mentorId: currentRequest.mentorId,
+      mentorName: currentRequest.mentorName,
+      subject: currentRequest.subject,
+      stream: currentRequest.mentor?.department || "Engineering",
+      dateStr: currentRequest.originalDate || selectedDate,
+      timeSlot: currentRequest.originalSlot || period,
+      college_id: currentRequest.college?.id || currentRequest.mentor?.college_id,
+      smeId: currentSME?.id,
+      smeName: currentSME?.name,
+      status: "reallocation_required",
+      ...currentRequest.rawItem
+    };
+    onReallocateSlot(currentRequest.mentor, selectedDate, period, sessionObj, bookedSession);
+  };
+
+  // ── Empty State: Zero Reallocation Requests ────────────────────────
+  if (activeRequests.length === 0) {
+    return (
+      <div className="p-8 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-card text-center space-y-4">
+        <div className="h-14 w-14 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 mx-auto flex items-center justify-center border border-emerald-200/60 dark:border-emerald-800/40">
+          <CheckCircle2 className="h-7 w-7" />
+        </div>
+        <div className="max-w-md mx-auto space-y-1">
+          <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+            No Pending Reallocation Requests
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+            All faculty mentor demo evaluations under your supervision are currently scheduled without conflict.
+            When a mentor raises a reschedule proposal or a session is affected by approved leave, their live timetable,
+            campus Day Order, and mutual free slots will appear here for conflict-free resolution.
+          </p>
+        </div>
+        {onInitiateManualRealloc && (
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={onInitiateManualRealloc}
+              className="px-4 py-2 rounded-xl text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:text-slate-900 shadow-2xs cursor-pointer transition-all inline-flex items-center gap-1.5"
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Reallocate an Upcoming Demo Manually
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 font-sans">
-      {/* ── Top Control & Date Navigation Bar ────────────────────────── */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-card space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20">
-              <CalendarDays className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                Reallocation Availability Matrix
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
-                  Live Day Order
-                </span>
-              </h2>
-              <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                Inspect mentors&apos; timetable commitments and find mutually free periods for L&D demo reallocations.
-              </p>
-            </div>
-          </div>
-
-          {/* Date Picker & Quick Navigator */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-1">
-              <button
-                type="button"
-                onClick={() => setSelectedDate(shiftDateStr(selectedDate, -1))}
-                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
-                title="Previous Day"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-
-              <div className="px-3 flex items-center gap-2 text-xs font-black text-slate-800 dark:text-white">
-                <Calendar className="h-3.5 w-3.5 text-amber-500" />
-                <span>{formattedDateLabel}</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setSelectedDate(shiftDateStr(selectedDate, 1))}
-                className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
-                title="Next Day"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setSelectedDate(getLocalDateStr())}
-              className={`px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                selectedDate === getLocalDateStr()
-                  ? "bg-zinc-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
-              }`}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => setSelectedDate(shiftDateStr(getLocalDateStr(), 1))}
-              className={`px-3 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                selectedDate === shiftDateStr(getLocalDateStr(), 1)
-                  ? "bg-zinc-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200"
-              }`}
-            >
-              Tomorrow
-            </button>
-          </div>
+      {/* ── Active Request Switcher (Only Requesting Mentors) ──────────── */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+            <Inbox className="h-3.5 w-3.5 text-amber-500" />
+            Active Reallocation Requests ({activeRequests.length} Requiring Decision)
+          </span>
+          <span className="text-[10px] font-bold text-slate-400">
+            Select a request to inspect that mentor&apos;s live Day Order and timetable
+          </span>
         </div>
 
-        {/* ── Filter Bar: Colleges & Search ──────────────────────────── */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
-              <Building2 className="h-3 w-3" /> Campus:
-            </span>
-            <button
-              type="button"
-              onClick={() => setSelectedCollegeId("all")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                selectedCollegeId === "all"
-                  ? "bg-amber-500 text-white shadow-2xs"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
-              }`}
-            >
-              All Campuses
-            </button>
-            {colleges.map(c => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => setSelectedCollegeId(c.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  selectedCollegeId === c.id
-                    ? "bg-amber-500 text-white shadow-2xs"
-                    : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {activeRequests.map(req => {
+            const isSelected = req.id === currentRequest?.id;
+            return (
+              <div
+                key={req.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedRequestId(req.id)}
+                onKeyDown={(e: React.KeyboardEvent) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedRequestId(req.id);
+                  }
+                }}
+                className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                  isSelected
+                    ? "bg-amber-50/60 dark:bg-amber-950/20 border-amber-400 dark:border-amber-600 shadow-sm ring-1 ring-amber-400/50"
+                    : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 shadow-2xs"
                 }`}
               >
-                {c.name}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
-            <div className="relative flex-1 sm:w-60">
-              <Search className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search mentor or department..."
-                value={mentorSearch}
-                onChange={e => setMentorSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setFilterAvailabilityOnly(prev => !prev)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer flex items-center gap-1.5 shrink-0 ${
-                filterAvailabilityOnly
-                  ? "bg-emerald-50 text-emerald-800 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-300"
-                  : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700"
-              }`}
-            >
-              <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-              <span>Mutually Free Only</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Real-Time Day Order Status Strip ─────────────────────────── */}
-      <div className="p-3.5 bg-amber-50/40 dark:bg-amber-950/20 rounded-2xl border border-amber-200/70 dark:border-amber-800/40 space-y-2 shadow-2xs">
-        <div className="flex items-center justify-between">
-          <span className="text-[10.5px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-300 flex items-center gap-1.5">
-            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-            Live Campus Day Order Cycle ({rawWeekday})
-          </span>
-          {loadingConfigs && (
-            <span className="text-[9.5px] font-bold text-slate-400 flex items-center gap-1">
-              <RefreshCw className="h-3 w-3 animate-spin" /> Synchronizing Day Orders...
-            </span>
-          )}
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 pt-1">
-          {colleges
-            .filter(c => selectedCollegeId === "all" || c.id === selectedCollegeId)
-            .map(c => {
-              const cfg = dailyConfigsMap.get(c.id);
-              const dayOrder = cfg?.dayOrder || "Day 1";
-              const isHoliday = cfg?.isHoliday;
-              const effectiveWeekday = mapDayOrderToDayName(dayOrder, rawWeekday);
-
-              return (
-                <div
-                  key={c.id}
-                  className="p-2.5 bg-white dark:bg-slate-900 rounded-xl border border-amber-200/60 dark:border-amber-800/30 flex items-center justify-between gap-2 shadow-2xs"
-                >
-                  <div className="min-w-0">
-                    <span className="text-xs font-black text-slate-800 dark:text-white truncate block">
-                      {c.name}
-                    </span>
-                    <span className="text-[9.5px] font-semibold text-slate-400 block truncate">
-                      {isHoliday ? "Campus Holiday" : `Follows ${effectiveWeekday} Timetable`}
+                <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                  <div className="min-w-0 flex items-center gap-2">
+                    <div className="h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-[10px] text-slate-700 dark:text-slate-300 shrink-0">
+                      {req.mentorName.charAt(0) || "M"}
+                    </div>
+                    <span className="text-xs font-black text-slate-900 dark:text-white truncate" title={formatMentorFullName(req.mentorName)}>
+                      {formatMentorFullName(req.mentorName)}
                     </span>
                   </div>
-                  <div className="text-right shrink-0">
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                        isHoliday
-                          ? "bg-rose-100 text-rose-800 border border-rose-200"
-                          : "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300/80"
-                      }`}
-                    >
-                      {isHoliday ? "Holiday" : dayOrder}
-                    </span>
+                  <span
+                    className={`px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase shrink-0 ${
+                      req.sourceType === "inbound_proposal"
+                        ? req.isPeerSwap
+                          ? "bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300"
+                          : "bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300"
+                        : "bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300"
+                    }`}
+                  >
+                    {req.sourceType === "inbound_proposal" ? (req.isPeerSwap ? "Peer Swap" : "Proposal") : "Leave Clash"}
+                  </span>
+                </div>
+
+                <div className="pt-2 space-y-1">
+                  <div className="text-[10px] font-bold text-slate-600 dark:text-slate-300 truncate">
+                    {req.subject} • <span className="text-slate-400 font-semibold">{req.college?.name || "Campus"}</span>
+                  </div>
+                  {req.isPeerSwap && req.targetMentorName && (
+                    <div className="text-[9.5px] font-bold text-violet-700 dark:text-violet-300 flex items-center gap-1 truncate" title={`Swap with ${formatMentorFullName(req.targetMentorName)}`}>
+                      <RefreshCw className="h-2.5 w-2.5 shrink-0 text-violet-500" />
+                      <span>Swap with: <strong className="font-black">{formatMentorFullName(req.targetMentorName)}</strong></span>
+                    </div>
+                  )}
+                  <div className="text-[9.5px] font-mono text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                    <span>{req.originalDate}</span>
+                    <ArrowRight className="h-2.5 w-2.5 text-amber-500" />
+                    <span className="font-bold text-amber-700 dark:text-amber-400">{req.proposedDate} ({req.proposedSlot.split(" ")[0]})</span>
                   </div>
                 </div>
-              );
-            })}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* ── SME Existing Timetable Strip ─────────────────────────────── */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-card space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4 text-violet-600" />
-            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-              My Existing SME Schedule for {formattedDateLabel}
-            </h3>
-          </div>
-          <div className="flex items-center gap-3 text-[10px] font-bold">
-            <span className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              Open Window
-            </span>
-            <span className="flex items-center gap-1.5 text-violet-700 dark:text-violet-400">
-              <span className="h-2 w-2 rounded-full bg-violet-500" />
-              Booked Demo Session
-            </span>
-          </div>
-        </div>
+      {/* ── Request Details & Real-Time Day Order Strip ───────────────── */}
+      {currentRequest && (
+        <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-card space-y-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100 dark:border-slate-800">
+            {/* Requesting Mentor & Swap Partner Identity */}
+            <div className="flex flex-wrap items-center gap-4">
+              {/* Requesting Mentor Card */}
+              <div className="flex items-center gap-3">
+                <div className="h-11 w-11 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 border border-amber-500/20 font-black text-sm">
+                  {currentRequest.mentorName.charAt(0) || "M"}
+                </div>
+                <div>
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 block">
+                    Requesting Mentor
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                      {formatMentorFullName(currentRequest.mentorName)}
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-400">
+                      ({currentRequest.mentor?.department || "Faculty"})
+                    </span>
+                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      {currentRequest.college?.name || "Campus"}
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                    Subject: <strong className="text-slate-800 dark:text-slate-200">{currentRequest.subject}</strong>
+                    {" • "}
+                    Reason: <span className="italic">&quot;{currentRequest.reason}&quot;</span>
+                  </p>
+                </div>
+              </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-1">
-          {smeSchedule.map((slot, idx) => (
-            <div
-              key={idx}
-              className={`p-2.5 rounded-xl border flex flex-col justify-between gap-1.5 transition-all ${
-                slot.bookedDemo
-                  ? "bg-violet-50/40 dark:bg-violet-950/20 border-violet-200 dark:border-violet-800"
-                  : slot.isFree
-                  ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
-                  : "bg-slate-50 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-700 text-slate-400"
-              }`}
-            >
-              <span className="text-[10px] font-black uppercase tracking-wider block text-slate-500">
-                {slot.period.split(" ")[0]} {slot.period.split(" ")[1] || ""}
-              </span>
-              <span className="text-[9px] font-mono text-slate-400 block truncate">
-                {slot.period.match(/\((.*?)\)/)?.[1] || slot.period}
-              </span>
+              {/* Target / Peer Mentor (With Whom Reallocation Is Happening) */}
+              {currentRequest.isPeerSwap && currentRequest.targetMentorName && (
+                <div className="flex items-center gap-3 pl-4 border-l-2 border-violet-200 dark:border-violet-800">
+                  <div className="h-11 w-11 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0 border border-violet-500/20 font-black text-sm">
+                    <RefreshCw className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <span className="text-[9px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-400 block">
+                      Reallocating / Swapping With
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-black text-violet-950 dark:text-violet-200">
+                        {formatMentorFullName(currentRequest.targetMentorName)}
+                      </h3>
+                      <span className="text-[10px] font-bold text-slate-400">
+                        ({currentRequest.targetMentor?.department || currentRequest.mentor?.department || "Faculty"})
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-violet-100 text-violet-800 dark:bg-violet-950/60 dark:text-violet-300">
+                        {currentRequest.targetCollege?.name || currentRequest.college?.name || "Campus"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] font-semibold text-violet-600 dark:text-violet-400 mt-0.5">
+                      2-Way Mutual Session Exchange Partner
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
 
-              <div className="pt-1">
-                {slot.bookedDemo ? (
-                  <span className="px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase bg-violet-100 text-violet-900 dark:bg-violet-950 dark:text-violet-200 truncate block">
-                    Demo: {slot.bookedDemo.mentorName}
+            {/* Date Switcher for Target Day Inspection */}
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <div className="flex items-center border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800/60 p-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(shiftDateStr(selectedDate, -1))}
+                  className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
+                  title="Previous Day"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <div className="px-3 flex items-center gap-2 text-xs font-black text-slate-800 dark:text-white">
+                  <Calendar className="h-3.5 w-3.5 text-amber-500" />
+                  <span>{formattedDateLabel}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(shiftDateStr(selectedDate, 1))}
+                  className="p-1.5 hover:bg-white dark:hover:bg-slate-700 rounded-lg text-slate-600 dark:text-slate-300 transition-all cursor-pointer"
+                  title="Next Day"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+
+              {currentRequest.proposedDate && currentRequest.proposedDate !== selectedDate && (
+                <button
+                  type="button"
+                  onClick={() => setSelectedDate(currentRequest.proposedDate)}
+                  className="px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-violet-100 text-violet-800 hover:bg-violet-200 dark:bg-violet-950 dark:text-violet-300 cursor-pointer transition-all"
+                  title="Jump to Mentor's Requested Date"
+                >
+                  Requested Date ({currentRequest.proposedDate})
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Real-Time Campus Day Order Banner for this Mentor */}
+          <div className="p-3 bg-amber-50/50 dark:bg-amber-950/20 rounded-xl border border-amber-200/80 dark:border-amber-800/40 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs font-black text-xs">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-300 block">
+                  Campus Real-Time Day Order ({currentRequest.college?.name || "Campus"})
+                </span>
+                <span className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <span>{campusDayConfig?.isHoliday ? "Campus Holiday" : campusDayConfig?.dayOrder || "Day 1"}</span>
+                  <span className="text-slate-400 font-semibold">•</span>
+                  <span className="text-amber-700 dark:text-amber-400 font-bold">
+                    {campusDayConfig?.isHoliday ? "No Timetable" : `Follows ${effectiveDay} Academic Timetable`}
                   </span>
-                ) : slot.isFree ? (
-                  <span className="px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 truncate block">
-                    Free for Demo
-                  </span>
-                ) : (
-                  <span className="text-[8.5px] font-bold text-slate-400 block truncate">
-                    Outside Window
-                  </span>
-                )}
+                </span>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* ── College Mentors Schedule & Free Time Matrix ──────────────── */}
-      <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-card space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-              <User className="h-4 w-4 text-amber-500" />
-              Faculty Free Time Matrix ({displayedRows.length} Mentors Under Review)
-            </h3>
-            <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
-              Periods are aligned with each campus&apos;s active Day Order. Mutually free slots allow instant 1-click reallocation.
-            </p>
+            <div className="flex items-center gap-2">
+              {loadingConfig && (
+                <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                  <RefreshCw className="h-3 w-3 animate-spin" /> Syncing Day Order...
+                </span>
+              )}
+              <span className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-white dark:bg-slate-900 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-300 shadow-2xs">
+                {campusDayConfig?.isHoliday ? "Campus Closed" : `${campusDayConfig?.dayOrder || "Day 1"} Active`}
+              </span>
+            </div>
           </div>
-        </div>
 
-        {displayedRows.length > 0 ? (
-          <div className="space-y-3">
-            {displayedRows.map(row => {
-              const { mentor, college, colConfig, periods, mutualPeriodCount, freePeriodCount } = row;
-              const pendingSession = getMentorSessionToReallocate(mentor.id);
-
-              return (
-                <div
-                  key={mentor.id}
-                  className="p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-amber-400/80 transition-all bg-white dark:bg-slate-900/60 shadow-2xs space-y-3"
-                >
-                  {/* Mentor Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center font-black text-xs text-slate-700 dark:text-slate-300">
-                        {mentor.name?.charAt(0) || "M"}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-slate-900 dark:text-white">
-                            {mentor.name}
-                          </span>
-                          <span className="text-[9.5px] font-bold text-slate-400">
-                            ({mentor.department || "Faculty"})
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 text-[10px] text-slate-500 font-semibold mt-0.5">
-                          <span>{college?.name || "Campus"}</span>
-                          <span>•</span>
-                          <span className="text-amber-700 dark:text-amber-400 font-black">
-                            {colConfig.dayOrder} ({row.effectiveDay})
-                          </span>
-                        </div>
-                      </div>
+          {/* ── Dedicated SME Daily Timetable Strip ─────────────────────── */}
+          <div className="p-3.5 bg-slate-50/80 dark:bg-slate-800/40 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5 text-violet-600" />
+                My SME Daily Timetable ({formattedDateLabel})
+              </span>
+              <span className="text-[9.5px] font-bold text-slate-500 dark:text-slate-400">
+                {smeSchedule.filter((s: any) => s.isFree).length} of {smeSchedule.length} Periods Free for Evaluation
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+              {smeSchedule.map((smeSlot: any, sIdx: number) => {
+                const label = smeSlot.period.split(" ")[0] + " " + (smeSlot.period.split(" ")[1] || "");
+                const timing = smeSlot.period.match(/\((.*?)\)/)?.[1] || "";
+                return (
+                  <div
+                    key={sIdx}
+                    className={`p-2 rounded-lg border text-center transition-all ${
+                      smeSlot.isFree
+                        ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300"
+                        : smeSlot.bookedDemo
+                        ? "bg-violet-50 dark:bg-violet-950/40 border-violet-300 dark:border-violet-700 text-violet-800 dark:text-violet-300"
+                        : "bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-wider pb-1 border-b border-black/5 dark:border-white/5">
+                      <span>{label}</span>
+                      <span className="font-mono text-[7.5px] opacity-70">{timing}</span>
                     </div>
-
-                    <div className="flex items-center gap-2 text-right">
-                      <span className="px-2 py-0.5 rounded-md text-[9.5px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                        {freePeriodCount} free periods
+                    <div className="mt-1">
+                      <span className="text-[8.5px] font-black block truncate">
+                        {smeSlot.isFree
+                          ? "FREE FOR EVALUATION"
+                          : smeSlot.bookedDemo
+                          ? `BOOKED: ${formatMentorShortName(smeSlot.bookedMentorName)}`
+                          : "OUTSIDE WINDOW"}
                       </span>
-                      {mutualPeriodCount > 0 ? (
-                        <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/80 flex items-center gap-1">
-                          <CheckCircle2 className="h-3 w-3 text-emerald-600" />
-                          {mutualPeriodCount} Mutually Free
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 rounded-md text-[9.5px] font-bold bg-slate-100 text-slate-400">
-                          No Mutual Slots
+                      {smeSlot.bookedDemo && (
+                        <span className="text-[7.5px] font-semibold text-slate-500 dark:text-slate-400 block truncate">
+                          {smeSlot.bookedSubject || "Demo Evaluation"}
                         </span>
                       )}
                     </div>
                   </div>
+                );
+              })}
+            </div>
+          </div>
 
-                  {/* Period Cards Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                    {periods.map((p, pIdx) => {
-                      const periodLabel = p.period.split(" ")[0] + " " + (p.period.split(" ")[1] || "");
-                      const timingLabel = p.period.match(/\((.*?)\)/)?.[1] || "";
+          {/* ── SME vs Mentor Side-by-Side Schedule Comparison ─────────── */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-violet-600" />
+                  Day Schedule &amp; Free Time Comparison ({formattedDateLabel})
+                </h4>
+                <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                  Green periods highlight mutually free slots where both the mentor has no classes and the SME has open evaluation time.
+                </p>
+              </div>
 
-                      return (
-                        <div
-                          key={pIdx}
-                          className={`p-2.5 rounded-xl border flex flex-col justify-between gap-2 text-left transition-all ${
-                            p.isMutuallyFree
-                              ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-700 hover:scale-[1.02] shadow-2xs"
-                              : p.isFree
-                              ? "bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-800 text-slate-500"
-                              : p.badgeType === "leave"
-                              ? "bg-rose-50/40 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800 text-rose-700"
-                              : "bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 text-slate-400"
-                          }`}
-                        >
-                          <div>
-                            <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider text-slate-500">
-                              <span>{periodLabel}</span>
-                              <span className="font-mono text-[8px] text-slate-400">{timingLabel}</span>
-                            </div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-300/80 flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                  {mutualSlotCount} Mutually Free Periods
+                </span>
+              </div>
+            </div>
 
-                            <p className="text-[9.5px] font-bold mt-1 line-clamp-2" title={p.reason}>
-                              {p.isMutuallyFree ? "Mutually Free" : p.reason}
-                            </p>
-                          </div>
+            {/* Periods Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
+              {combinedPeriods.map((slot: any, idx: number) => {
+                const periodLabel = slot.period.split(" ")[0] + " " + (slot.period.split(" ")[1] || "");
+                const timingLabel = slot.period.match(/\((.*?)\)/)?.[1] || "";
+                const requestingFullName = formatMentorFullName(currentRequest.mentorName);
 
-                          {p.isMutuallyFree ? (
-                            <button
-                              type="button"
-                              onClick={() => onReallocateSlot(mentor, selectedDate, p.period, pendingSession)}
-                              className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
-                              title="Click to propose demo session at this slot"
-                            >
-                              <RefreshCw className="h-2.5 w-2.5" />
-                              Reallocate
-                            </button>
-                          ) : (
-                            <span className="text-[8.5px] font-bold text-slate-400 block truncate">
-                              {p.isFree ? "SME Busy" : "Unavailable"}
-                            </span>
-                          )}
+                return (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-xl border flex flex-col justify-between gap-2.5 text-left transition-all ${
+                      slot.isProposedSlot && slot.isMutuallyFree
+                        ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-400 dark:border-emerald-600 ring-2 ring-emerald-500/60 shadow-sm"
+                        : slot.isMutuallyFree
+                        ? "bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-700 shadow-2xs"
+                        : slot.isProposedSlot
+                        ? "bg-rose-50/40 dark:bg-rose-950/20 border-rose-300 dark:border-rose-700"
+                        : "bg-slate-50/80 dark:bg-slate-800/40 border-slate-200/80 dark:border-slate-800 text-slate-500"
+                    }`}
+                  >
+                    <div>
+                      {/* Period Header */}
+                      <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-wider pb-1.5 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-slate-700 dark:text-slate-300">{periodLabel}</span>
+                        <span className="font-mono text-[8px] text-slate-400">{timingLabel}</span>
+                      </div>
+
+                      {/* Requesting Mentor Status */}
+                      <div className="pt-1.5 space-y-1">
+                        <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-500 truncate" title={requestingFullName}>
+                          {requestingFullName}:
                         </div>
-                      );
-                    })}
+                        <div className={`text-[9.5px] font-bold line-clamp-2 ${
+                          slot.mentorFree ? "text-emerald-700 dark:text-emerald-400" : "text-rose-700 dark:text-rose-400"
+                        }`}>
+                          {slot.mentorStatus}
+                        </div>
+                      </div>
+
+                      {/* Reallocating / Swapping With OR SME Schedule */}
+                      <div className="pt-2 space-y-1 border-t border-slate-100/80 dark:border-slate-800/60 mt-1.5">
+                        {slot.isBookedWithOtherMentor ? (
+                          <div className="space-y-0.5">
+                            <div className="text-[8.5px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-400 flex items-center gap-1">
+                              <RefreshCw className="h-2.5 w-2.5 text-violet-600" />
+                              <span>Reallocating With:</span>
+                            </div>
+                            <div className="text-[9.5px] font-black text-violet-950 dark:text-violet-200 line-clamp-1" title={formatMentorFullName(slot.bookedMentorName)}>
+                              {formatMentorFullName(slot.bookedMentorName)}
+                            </div>
+                            <div className="text-[8.5px] text-slate-500 dark:text-slate-400 font-semibold line-clamp-1">
+                              {slot.bookedSubject || "Demo Evaluation"}
+                            </div>
+                          </div>
+                        ) : currentRequest.isPeerSwap && currentRequest.targetMentorName ? (
+                          <div className="space-y-0.5">
+                            <div className="text-[8.5px] font-black uppercase tracking-wider text-violet-700 dark:text-violet-400 flex items-center gap-1">
+                              <RefreshCw className="h-2.5 w-2.5 text-violet-600" />
+                              <span>Swap Partner:</span>
+                            </div>
+                            <div className="text-[9.5px] font-black text-violet-950 dark:text-violet-200 line-clamp-1" title={formatMentorFullName(currentRequest.targetMentorName)}>
+                              {formatMentorFullName(currentRequest.targetMentorName)}
+                            </div>
+                            <div className="text-[8.5px] text-slate-500 dark:text-slate-400 font-semibold line-clamp-1">
+                              {slot.smeStatus}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5">
+                            <div className="text-[8.5px] font-black uppercase tracking-wider text-slate-500">
+                              My Schedule:
+                            </div>
+                            <div className={`text-[9.5px] font-bold line-clamp-2 ${
+                              slot.smeFree ? "text-emerald-700 dark:text-emerald-400" : "text-slate-600 dark:text-slate-400"
+                            }`}>
+                              {slot.smeStatus}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action Trigger for this slot (Actionable Swap Buttons) */}
+                    <div className="pt-2">
+                      {slot.isBookedWithOtherMentor ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSwapWithMentor(slot.period, slot.bookedSession)}
+                          className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-violet-600 hover:bg-violet-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                          title={`Swap ${requestingFullName} with ${formatMentorFullName(slot.bookedMentorName)}`}
+                        >
+                          <RefreshCw className="h-2.5 w-2.5" />
+                          Swap with {formatMentorShortName(slot.bookedMentorName)}
+                        </button>
+                      ) : slot.isProposedSlot && slot.isMutuallyFree ? (
+                        <div className="space-y-1">
+                          <span className="px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase bg-emerald-600 text-white block text-center shadow-2xs">
+                            Requested Slot (Free!)
+                          </span>
+                          <button
+                            type="button"
+                            disabled={Boolean(resolvingDecision)}
+                            onClick={handleApproveProposed}
+                            className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50"
+                          >
+                            <Check className="h-3 w-3" /> Approve &amp; Swap to Slot
+                          </button>
+                        </div>
+                      ) : slot.isMutuallyFree ? (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectAlternativeSlot(slot.period)}
+                          className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-white dark:bg-slate-800 hover:bg-emerald-50 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                          title={currentRequest.isPeerSwap && currentRequest.targetMentorName ? `Swap with ${formatMentorFullName(currentRequest.targetMentorName)}` : `Swap ${requestingFullName} into this period`}
+                        >
+                          <RefreshCw className="h-2.5 w-2.5" /> {currentRequest.isPeerSwap && currentRequest.targetMentorName ? `Swap with ${formatMentorShortName(currentRequest.targetMentorName)}` : "Swap to this Slot"}
+                        </button>
+                      ) : slot.isProposedSlot ? (
+                        <div className="space-y-1">
+                          <span className="px-1.5 py-0.5 rounded text-[8.5px] font-black uppercase bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300 block text-center border border-rose-200">
+                            Requested Slot (Has Clash)
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectAlternativeSlot(slot.period)}
+                            className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-amber-600 hover:bg-amber-700 text-white shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                            title="Click to proceed with swap and override the clash"
+                          >
+                            <RefreshCw className="h-2.5 w-2.5" /> Swap Slot (Override)
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleSelectAlternativeSlot(slot.period)}
+                          className="w-full py-1.5 px-2 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 shadow-2xs transition-all cursor-pointer flex items-center justify-center gap-1"
+                          title="Click to force-swap session into this period with override"
+                        >
+                          <RefreshCw className="h-2.5 w-2.5" /> Force Swap
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
-        ) : (
-          <div className="py-10 text-center text-slate-400 text-xs font-bold italic border border-slate-200/80 dark:border-slate-800 rounded-xl">
-            No mentors found matching the current filters.
+
+          {/* ── Primary Action Decision Bar ──────────────────────────── */}
+          <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-xs">
+              <span className="font-bold text-slate-800 dark:text-slate-200">
+                {formatMentorFullName(currentRequest.mentorName)} Requested: {currentRequest.proposedDate} • {currentRequest.proposedSlot}
+                {currentRequest.isPeerSwap && currentRequest.targetMentorName && (
+                  <span className="text-violet-700 dark:text-violet-300 font-semibold ml-1.5">
+                    (2-Way Swap with {formatMentorFullName(currentRequest.targetMentorName)})
+                  </span>
+                )}
+              </span>
+              <p className="text-[10.5px] text-slate-500 mt-0.5">
+                {isProposedSlotAvailable ? (
+                  <span className="text-emerald-600 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3" /> Requested period is mutually free with zero teaching or demo clashes!
+                  </span>
+                ) : (
+                  <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> Requested period has a clash on {selectedDate}. Choose another mutually free period above or use Swap Slot (Override).
+                  </span>
+                )}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              {onResolveRequest && (
+                <button
+                  type="button"
+                  disabled={Boolean(resolvingDecision)}
+                  onClick={handleReject}
+                  className="px-3.5 py-2 text-xs font-black border border-rose-200 hover:border-rose-300 text-rose-700 hover:bg-rose-50 rounded-xl transition-all cursor-pointer disabled:opacity-50"
+                >
+                  <X className="h-3.5 w-3.5 inline mr-1" />
+                  {resolvingDecision === "rejected" ? "Rejecting..." : "Reject Request"}
+                </button>
+              )}
+
+              {onResolveRequest && isProposedSlotAvailable && (
+                <button
+                  type="button"
+                  disabled={Boolean(resolvingDecision)}
+                  onClick={handleApproveProposed}
+                  className="px-4 py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {resolvingDecision === "approved" ? "Approving..." : currentRequest.isPeerSwap ? "Approve Swap" : "Approve Proposed Slot"}
+                </button>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

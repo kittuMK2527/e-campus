@@ -98,6 +98,7 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
         ["Phone", student.phone || "—"],
         ["Department", student.department || "General"],
         ["Batch / Cohort", student.classGroup || "General Batch"],
+        ["Batch Incharge", student.inchargeMentorName || "Not Assigned"],
         ["Semester", student.semester || "—"],
         ["Institution", student.collegeName || "—"],
         ["Compliance Risk Tier", stats.risk],
@@ -301,7 +302,8 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
     student.department,
     student.classGroup && student.classGroup !== student.department ? student.classGroup : null,
     student.semester,
-    student.collegeName
+    student.collegeName,
+    student.inchargeMentorName ? `Incharge: ${student.inchargeMentorName}` : null
   ].filter(Boolean);
 
   const cleanSubtitle = subtitleParts.join(" • ");
@@ -416,6 +418,24 @@ export const Student360: React.FC<Student360Props> = ({ studentId, collegeId, on
           {/* 1. Overview Tab */}
           {activeTab === "overview" && (
             <div className="space-y-4">
+              {/* Cohort & Batch Incharge Details Card */}
+              <div className="bg-slate-50/80 rounded-2xl p-3.5 border border-slate-100 shadow-xs grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-[9.5px] font-black uppercase text-slate-400 tracking-wider block">Department</span>
+                  <span className="font-extrabold text-slate-900 truncate block mt-0.5">{student.department || "General"}</span>
+                </div>
+                <div>
+                  <span className="text-[9.5px] font-black uppercase text-slate-400 tracking-wider block">Batch / Cohort</span>
+                  <span className="font-extrabold text-slate-900 truncate block mt-0.5">{student.classGroup || "General Batch"}</span>
+                </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <span className="text-[9.5px] font-black uppercase text-indigo-600 tracking-wider block">Batch Incharge</span>
+                  <span className="font-black text-indigo-700 truncate block mt-0.5">
+                    {student.inchargeMentorName || "Not Assigned"}
+                  </span>
+                </div>
+              </div>
+
               {/* Quick Coding Metrics Strip in Overview */}
               {codingStats && (
                 <div className="p-3.5 bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl text-white flex items-center justify-between gap-3 shadow-md border border-slate-800">

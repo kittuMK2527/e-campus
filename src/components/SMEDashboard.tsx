@@ -148,9 +148,6 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     if (rawActiveTab === "demo_list") return "overview";
     return rawActiveTab;
   }, [rawActiveTab]);
-  useEffect(() => {
-    if (activeTab === "profile" && window.location.pathname !== "/profile") window.location.replace("/profile");
-  }, [activeTab]);
 
   const handleTabChange = (key: TabKey) => {
     const targetKey = key === "demo_list" ? "overview" : key;
@@ -607,7 +604,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const pendingInboundRequests = [
     ...reallocRequestsForSme.filter((r: any) => r.status === "pending"),
     ...(demoSwapRequests?.filter(
-      (r: any) => r.smeId !== currentSME.id && r.proposedSmeId === currentSME.id && (r.status === "pending" || r.status === "pending_sme")
+      (r: any) =>
+        (r.proposedSmeId === currentSME.id || r.smeId === currentSME.id) &&
+        (r.status === "pending" || r.status === "pending_sme")
     ) || [])
   ];
 
@@ -814,28 +813,57 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     setSuccessMsg("");
   };
 
-  const handlePlannerReallocate = (mentor: any, dateStr: string, timeSlot: string, targetSession?: any) => {
-    let session = targetSession;
-    if (!session) {
-      session = affectedLeaveDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
-        confirmedDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
-        demoSessions.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id) && d.status !== "completed");
+  const handlePlannerReallocate = (
+    mentor: any,
+    dateStr: string,
+    timeSlot: string,
+    targetSession?: any,
+    swapWithSession?: any
+  ) => {
+    // 1. Resolve actual demo session from demoSessions array
+    const realSessionId = targetSession?.demo_session_id || targetSession?.sessionId || targetSession?.id;
+    let foundDemo = demoSessions.find((d: any) => d.id === realSessionId);
+    if (!foundDemo && mentor?.id) {
+      foundDemo = demoSessions.find((d: any) =>
+        (d.mentorId === mentor.id || d.mentor_id === mentor.id) && d.status !== "completed"
+      );
     }
-    if (!session) {
-      session = {
-        id: `realloc_${mentor.id}_${Date.now()}`,
-        mentorId: mentor.id,
-        mentorName: mentor.name,
-        college_id: mentor.college_id,
-        smeId: currentSME?.id,
-        smeName: currentSME?.name,
-        subject: mentor.department || currentSME?.subject || "Subject Evaluation",
-        stream: mentor.department || "General",
-        dateStr: dateStr,
-        timeSlot: timeSlot,
-        status: "reallocation_required"
-      };
+    if (!foundDemo && mentor?.id) {
+      foundDemo = affectedLeaveDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id)) ||
+        confirmedDemos.find((d: any) => (d.mentorId === mentor.id || d.mentor_id === mentor.id));
     }
+
+    // 2. Synthesize completely normalized session object with zero missing fields
+    const session = {
+      id: foundDemo?.id || realSessionId || `demo_${mentor?.id || "m"}_${Date.now()}`,
+      demo_session_id: foundDemo?.id || realSessionId,
+      mentorId: foundDemo?.mentorId || foundDemo?.mentor_id || targetSession?.mentorId || targetSession?.mentor_id || mentor?.id,
+      mentorName: foundDemo?.mentorName || foundDemo?.mentor_name || targetSession?.mentorName || targetSession?.mentor_name || mentor?.name || "Faculty Mentor",
+      college_id: foundDemo?.college_id || mentor?.college_id || targetSession?.college_id,
+      smeId: foundDemo?.smeId || foundDemo?.sme_id || targetSession?.smeId || targetSession?.sme_id || currentSME?.id,
+      smeName: foundDemo?.smeName || foundDemo?.sme_name || targetSession?.smeName || targetSession?.sme_name || currentSME?.name || "Subject Matter Expert",
+      subject: foundDemo?.subject || targetSession?.subject || mentor?.department || currentSME?.subject || "L&D Demo Evaluation",
+      stream: foundDemo?.stream || targetSession?.stream || mentor?.department || "Engineering",
+      dateStr: foundDemo?.dateStr || foundDemo?.date_str || targetSession?.dateStr || targetSession?.original_date_str || targetSession?.proposed_date_str || dateStr,
+      timeSlot: foundDemo?.timeSlot || foundDemo?.time_slot || targetSession?.timeSlot || targetSession?.original_time_slot || targetSession?.proposed_time_slot || timeSlot,
+      status: foundDemo?.status || "reallocation_required"
+    };
+
+    if (swapWithSession) {
+      setSwapModalSession(session);
+      setSwapReason("Mutual Faculty Slot Swap");
+      setSwapRemarks(`Swapping periods with ${swapWithSession.mentorName || "candidate"} (${swapWithSession.subject || "Session"} at ${swapWithSession.timeSlot || timeSlot})`);
+      setSelectedProposedMentor(swapWithSession);
+      setSelectedProposedTime({
+        dateStr,
+        timeSlot,
+        score: 100,
+        reason: `2-Way Swap with ${swapWithSession.mentorName || "Faculty"} (${swapWithSession.subject || "Demo"})`
+      });
+      setSwapStep(2);
+      return;
+    }
+
     handleOpenSwapModal(session, { dateStr, timeSlot });
   };
 
@@ -917,21 +945,44 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     if (!swapModalSession) return;
     if (!selectedProposedTime) { setErrorMsg("Please select a suggested replacement timeslot."); return; }
     setSubmitting(true); setErrorMsg(""); setSuccessMsg("");
+
+    const targetDate = selectedProposedTime.dateStr || swapModalSession.dateStr || getLocalDateStr();
+    const targetSlot = selectedProposedTime.timeSlot || swapModalSession.timeSlot || "Period 1 (08:30 - 09:25)";
+
     const payload = {
-      sessionId: swapModalSession.id, mentorId: swapModalSession.mentorId, mentorName: swapModalSession.mentorName,
-      smeId: swapModalSession.smeId, smeName: swapModalSession.smeName, dateStr: swapModalSession.dateStr,
-      timeSlot: swapModalSession.timeSlot, subject: swapModalSession.subject, stream: swapModalSession.stream,
-      reason: swapReason, remarks: swapRemarks, swapType: "reallocation",
-      proposedSmeId: swapModalSession.smeId, proposedSmeName: swapModalSession.smeName,
-      proposedDateStr: selectedProposedTime.dateStr,
-      proposedTimeSlot: selectedProposedTime.timeSlot
+      sessionId: swapModalSession.id || swapModalSession.demo_session_id || swapModalSession.sessionId || `sess_${Date.now()}`,
+      mentorId: swapModalSession.mentorId || swapModalSession.mentor_id || "mentor",
+      mentorName: swapModalSession.mentorName || swapModalSession.mentor_name || "Faculty Mentor",
+      smeId: swapModalSession.smeId || swapModalSession.sme_id || currentSME?.id || "sme",
+      smeName: swapModalSession.smeName || swapModalSession.sme_name || currentSME?.name || "Subject Matter Expert",
+      dateStr: swapModalSession.dateStr || swapModalSession.original_date_str || swapModalSession.proposed_date_str || targetDate,
+      timeSlot: swapModalSession.timeSlot || swapModalSession.original_time_slot || swapModalSession.proposed_time_slot || targetSlot,
+      subject: swapModalSession.subject || "L&D Demo Evaluation",
+      stream: swapModalSession.stream || swapModalSession.department || "Engineering",
+      reason: swapReason || "SME Schedule Reallocation",
+      remarks: swapRemarks || "",
+      swapType: selectedProposedMentor ? "mentor" : "reallocation",
+      proposedMentorId: selectedProposedMentor?.mentorId || selectedProposedMentor?.mentor_id || selectedProposedMentor?.id || null,
+      proposedMentorName: selectedProposedMentor?.mentorName || selectedProposedMentor?.mentor_name || selectedProposedMentor?.name || null,
+      proposedSmeId: currentSME?.id,
+      proposedSmeName: currentSME?.name,
+      proposedDateStr: targetDate,
+      proposedTimeSlot: targetSlot
     };
     try {
       const res = await requestDemoSwap(payload);
-      if (res.success) { setSuccessMsg("L&D session reallocation proposal submitted successfully!"); setSwapModalSession(null); }
-      else { setErrorMsg(res.message); }
-    } catch (e: any) { setErrorMsg(e.message || "Failed to submit reallocation request."); }
-    finally { setSubmitting(false); }
+      if (res.success) {
+        setSuccessMsg("L&D session reallocation proposal submitted successfully!");
+        setSwapModalSession(null);
+        await refreshData();
+      } else {
+        setErrorMsg(res.message);
+      }
+    } catch (e: any) {
+      setErrorMsg(e.message || "Failed to submit reallocation request.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleResolveReallocation = async (req: any, decision: "approved" | "rejected") => {
@@ -1999,7 +2050,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
               title="REALLOCATION HUB & DAILY AVAILABILITY"
             >
               <div className="space-y-6">
-                {/* Visual Daily Reallocation Matrix & Live Day Order */}
+                {/* Visual Daily Reallocation Studio for Requesting Mentors & Live Day Order */}
                 <SMEReallocationPlanner
                   currentSME={currentSME}
                   mentors={mentors}
@@ -2008,11 +2059,14 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                   demoSessions={demoSessions}
                   smeAvailability={smeAvailability}
                   leaveRequests={leaveRequests}
+                  inboundRequests={pendingInboundRequests}
                   affectedSessions={affectedLeaveDemos}
+                  onResolveRequest={handleResolveReallocation}
                   onReallocateSlot={handlePlannerReallocate}
+                  onInitiateManualRealloc={confirmedDemos.length > 0 ? () => handleOpenSwapModal(confirmedDemos[0]) : undefined}
                 />
 
-                {/* Quick Action Bar to initiate swap */}
+                {/* Quick Action Bar to initiate manual reallocation */}
                 {confirmedDemos.length > 0 && (
                   <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800">
                     <div className="text-xs text-slate-600 dark:text-slate-300 font-bold">
@@ -2027,100 +2081,6 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     </button>
                   </div>
                 )}
-
-                {/* Section 1: Inbound Pending Reallocation Requests */}
-                <div className="space-y-3">
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-violet-600" />
-                    Inbound Proposed Requests ({pendingInboundRequests.length})
-                  </h3>
-
-                  {pendingInboundRequests.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {pendingInboundRequests.map((req: any) => (
-                        <div key={req.id} className="p-4 rounded-xl border border-violet-200/80 bg-violet-50/20 dark:bg-violet-950/10 space-y-3 shadow-2xs">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-extrabold text-slate-900 dark:text-white">{req.subject} • {req.stream || "General"}</span>
-                            <span className="px-2 py-0.5 bg-violet-100 text-violet-800 font-extrabold rounded-md text-[9px] uppercase">Reallocation Proposal</span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3 text-xs p-3 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-card">
-                            <div>
-                              <span className="text-[8.5px] font-black uppercase text-slate-400 block mb-0.5">Faculty & Group</span>
-                              <span className="font-bold text-slate-800 dark:text-slate-200 block">{req.mentorName || req.mentor_name}</span>
-                              <span className="text-[9px] text-slate-500">{getMentorCollege(req.mentorId || req.mentor_id)}</span>
-                              <span className="text-[9.5px] font-mono text-slate-600 block mt-1">Orig: {req.original_date_str || req.dateStr} • {req.original_time_slot || req.timeSlot}</span>
-                            </div>
-                            <div>
-                              <span className="text-[8.5px] font-black uppercase text-violet-600 block mb-0.5">Proposed Slot & SME</span>
-                              <span className="font-bold text-violet-700 dark:text-violet-400 block">{req.proposedSmeName || req.sme_name || req.smeName || currentSME.name}</span>
-                              <span className="text-[9.5px] font-mono text-violet-600 font-bold block mt-1">{req.proposed_date_str || req.proposedDateStr || req.dateStr} • {req.proposed_time_slot || req.proposedTimeSlot || req.timeSlot}</span>
-                            </div>
-                          </div>
-
-                          <p className="text-[10px] text-slate-500 italic">Reason: &quot;{req.reason || "Formal Reschedule Request"}&quot;</p>
-
-                          <div className="flex gap-3 pt-1">
-                            <button
-                              disabled={resolvingSwapId === req.id}
-                              onClick={() => handleResolveReallocation(req, "rejected")}
-                              className="flex-1 py-2 text-xs font-extrabold border border-rose-200 text-rose-700 hover:bg-rose-50 rounded-lg transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Reject
-                            </button>
-                            <button
-                              disabled={resolvingSwapId === req.id}
-                              onClick={() => handleResolveReallocation(req, "approved")}
-                              className="flex-1 py-2 text-xs font-extrabold bg-violet-600 hover:bg-violet-700 text-white rounded-lg transition-all shadow-2xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              Accept &amp; Confirm
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center text-slate-400 text-xs font-bold italic bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-                      No inbound reallocation proposals requiring approval.
-                    </div>
-                  )}
-                </div>
-
-                {/* Section 2: L&D Sessions Requiring Reallocation */}
-                <div className="space-y-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    L&D Sessions Requiring Reallocation ({affectedLeaveDemos.length})
-                  </h3>
-
-                  {affectedLeaveDemos.length > 0 ? (
-                    <div className="space-y-3">
-                      {affectedLeaveDemos.map(demo => (
-                        <div key={demo.id} className="p-4 rounded-xl border border-amber-200 bg-amber-50/20 dark:bg-amber-950/10 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">{demo.mentorName}</h4>
-                              <span className="px-2 py-0.5 bg-amber-100 text-amber-900 border border-amber-300 rounded text-[9px] font-black uppercase">
-                                On Hold (Awaiting Mentor Reschedule)
-                              </span>
-                            </div>
-                            <p className="text-[10px] text-slate-500 font-semibold mt-0.5">{demo.dateStr} • {demo.timeSlot} • {demo.subject}</p>
-                            <p className="text-[9.5px] text-amber-700 italic mt-0.5">{demo.comments || "CM Approved Mentor Leave. Mentor has been prompted to reschedule."}</p>
-                          </div>
-
-                          <div className="px-3.5 py-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5 shrink-0">
-                            <Clock className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                            <span>Slot Freed — Waiting for Mentor to Reschedule</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="py-8 text-center text-slate-400 text-xs font-bold italic bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-xl">
-                      No L&D sessions currently affected by approved faculty leave.
-                    </div>
-                  )}
-                </div>
               </div>
             </Panel>
           )}
