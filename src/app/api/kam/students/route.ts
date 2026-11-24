@@ -102,7 +102,27 @@ export async function GET(request: Request) {
         ${attWhere}
         GROUP BY studentId
       `, ...attParams),
-      db.all("SELECT id, name, college_id, incharge_mentor_id, incharge_mentor_name FROM departments WHERE incharge_mentor_name IS NOT NULL AND incharge_mentor_name != ''").catch(() => [])
+      db.all(`
+        SELECT c.id, c.name, c.college_id, c.incharge_mentor_id,
+               COALESCE(NULLIF(c.incharge_mentor_name, ''), m.name) as incharge_mentor_name
+        FROM courses c
+        LEFT JOIN mentors m ON m.id = c.incharge_mentor_id
+        WHERE (c.incharge_mentor_id IS NOT NULL AND c.incharge_mentor_id != '') 
+           OR (c.incharge_mentor_name IS NOT NULL AND c.incharge_mentor_name != '')
+        UNION
+        SELECT d.id, d.name, d.college_id, d.incharge_mentor_id,
+               COALESCE(NULLIF(d.incharge_mentor_name, ''), m.name) as incharge_mentor_name
+        FROM departments d
+        LEFT JOIN mentors m ON m.id = d.incharge_mentor_id
+        WHERE (d.incharge_mentor_id IS NOT NULL AND d.incharge_mentor_id != '') 
+           OR (d.incharge_mentor_name IS NOT NULL AND d.incharge_mentor_name != '')
+        UNION
+        SELECT cma.id, cma.department as name, cma.college_id, cma.mentor_id as incharge_mentor_id,
+               m.name as incharge_mentor_name
+        FROM class_mentor_assignments cma
+        JOIN mentors m ON m.id = cma.mentor_id
+        WHERE cma.mentor_id IS NOT NULL AND cma.mentor_id != ''
+      `).catch(() => [])
     ]);
 
     // Build fast O(1) lookup map for student attendance
