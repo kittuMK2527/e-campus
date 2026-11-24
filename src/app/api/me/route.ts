@@ -66,13 +66,13 @@ export async function GET(request: Request) {
             if (campus && kam) campus = { ...campus, kam_name: kam.name, kam_title: kam.title };
           }
         }
-        if (role === "kam" && profile.id) {
+        if (profile && role === "kam" && profile.id) {
           portfolioCampuses = await db.all(
             "SELECT id, name, code FROM colleges WHERE kam_id = ? ORDER BY name",
             profile.id
           ).catch(() => []);
         }
-        if (role === "mentor" && profile.id && profile.college_id) {
+        if (profile && role === "mentor" && profile.id && profile.college_id) {
           classInchargeAssignments = await db.all(
             `SELECT id, year, department, classGroup, updated_at
              FROM class_mentor_assignments

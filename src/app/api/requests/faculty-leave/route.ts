@@ -3,9 +3,9 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
+import { getDb, readInChunks } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
-import { checkMentorAvailability, loadAvailabilityContext } from "@/lib/availability";
+import { checkMentorAvailability, loadAvailabilityContext, type AvailabilityContext } from "@/lib/availability";
 
 // GET /api/requests/faculty-leave
 // Faculty leave system has been decommissioned.
@@ -35,38 +35,59 @@ export async function GET(request: Request) {
 
       const slot = slotRows?.[0];
       if (!slot) {
-        return NextResponse.json({ success: true, mentors: [] });
+        return NextResponse.json({ success: false, message: "Slot not found" }, { status: 404 });
       }
 
-      const mentors = mentorRows || [];
-      const availCtx = await loadAvailabilityContext(db, {
-        mentorIds: mentors.map((m: any) => m.id),
-        dates: [availableForDate],
-      });
+      const allMentors: any[] = mentorRows || [];
+      const mentorIds = allMentors.map((m: any) => m.id);
 
-      const availabilityChecks = await Promise.all(
-        mentors.map(async (m: any) => {
-          const status = await checkMentorAvailability(db, {
-            mentorId: m.id,
-            dateStr: availableForDate,
-            timeSlot: slot.time,
-            ctx: availCtx,
-          });
-          return { mentor: m, available: status.available };
+      const sameSubjectRead = readInChunks(
+        db,
+        mentorIds,
+        (chunk, ph) => ({
+          sql: `SELECT DISTINCT mentorId FROM slots WHERE mentorId IN (${ph}) AND LOWER(course) = LOWER(?)`,
+          params: [...chunk, slot.course]
         })
-      );
+      ).catch(() => [] as any[]);
 
-      const availableMentors = availabilityChecks
-        .filter((c) => c.available)
-        .map((c) => c.mentor);
+      const [sameSubjectRows, ctxResult] = await Promise.all([
+        sameSubjectRead,
+        loadAvailabilityContext(db, { mentorIds, dates: [availableForDate] })
+          .then(c => ({ ctx: c as AvailabilityContext | null, error: null as any }))
+          .catch(error => ({ ctx: null as AvailabilityContext | null, error }))
+      ]);
 
-      return NextResponse.json({ success: true, mentors: availableMentors });
+      const availCtx = ctxResult.ctx;
+      const sameSubjectIds = new Set<string>(sameSubjectRows.map((r: any) => String(r.mentorId ?? r.mentorid ?? "")));
+
+      const available: any[] = [];
+      for (const m of allMentors) {
+        const result = await checkMentorAvailability(db, {
+          mentorId: m.id,
+          dateStr: availableForDate,
+          timeSlot: slot.time,
+          shift: slot.shift,
+          ctx: availCtx ?? undefined
+        });
+        if (result.available) {
+          available.push({ ...m, sameSubject: sameSubjectIds.has(String(m.id)) });
+        }
+      }
+      available.sort((a, b) => (b.sameSubject ? 1 : 0) - (a.sameSubject ? 1 : 0));
+      return NextResponse.json({ success: true, mentors: available });
     }
 
     // All standard faculty leave requests return empty — leave system decommissioned
+    const records: any[] = [];
+    const coversByLeave = new Map();
+    records.forEach((rec: any) => {
+      const covers = coversByLeave.get(rec.id) || [];
+      rec.covers = covers;
+    });
+
     return NextResponse.json({
       success: true,
-      records: [],
+      records,
       message: "Faculty leave system has been decommissioned."
     });
   } catch (error: any) {
@@ -76,7 +97,10 @@ export async function GET(request: Request) {
 }
 
 // POST: Leave application & leave approval decommissioned
-export async function POST() {
+export async function POST(request: Request) {
+  const { errorResponse } = await requireAuth(request);
+  if (errorResponse) return errorResponse;
+
   return NextResponse.json(
     {
       success: false,

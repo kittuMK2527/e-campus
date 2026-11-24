@@ -81,6 +81,6 @@ describe("the configurator stops overwriting the record it loaded", () => {
   it("returns the whole form to create defaults, not just notes", () => {
     const cancel = panelSource.match(/const handleCancelDailyEdit = \(\) => \{[\s\S]*?\n {2}\};/);
     expect(cancel?.[0]).toContain("resetDailyConfigForm();");
-    expect(panelSource).toMatch(/const resetDailyConfigForm = \(\) => \{[\s\S]*?setDailyDeptScope\("All Departments"\);/);
+    expect(panelSource).toMatch(/const resetDailyConfigForm = \([^)]*\) => \{[\s\S]*?setDailyDeptScope\("All Departments"\);/);
   });
 });

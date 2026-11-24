@@ -38,7 +38,7 @@ export const StudentLogStudio: React.FC<StudentLogStudioProps> = ({
   slots = [],
   students = []
 }) => {
-  const { toast } = useToast();
+  const { toast, confirm: showConfirm } = useToast();
 
   // Class Groups handled by this mentor
   const mentorClassGroups = useMemo(() => {
@@ -195,7 +195,7 @@ export const StudentLogStudio: React.FC<StudentLogStudioProps> = ({
   };
 
   const handleDeleteLog = async (logId: string) => {
-    if (!confirm("Are you sure you want to remove this log?")) return;
+    if (!(await showConfirm({ message: "Are you sure you want to remove this log?", danger: true, confirmLabel: "Delete" }))) return;
     try {
       const res = await apiFetch<any>(`/api/mentor/student-logs?id=${encodeURIComponent(logId)}`, {
         method: "DELETE"

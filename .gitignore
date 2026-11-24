@@ -81,6 +81,7 @@ scripts/*
 !scripts/performance-indexes.sql
 !scripts/dump_prod_data.mjs
 !scripts/seed_db.mjs
+!scripts/backfill-handover-dates.sql
 
 # Python Cache & Environments
 __pycache__/

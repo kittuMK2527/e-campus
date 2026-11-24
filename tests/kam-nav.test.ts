@@ -7,13 +7,14 @@ import {
 } from "../src/lib/kamNav";
 
 describe("KAM 7-Pillar Navigation Model", () => {
-  it("should define exactly 7 minimal executive pillars", () => {
-    expect(KAM_PILLARS).toHaveLength(7);
+  it("should define exactly 8 minimal executive pillars", () => {
+    expect(KAM_PILLARS).toHaveLength(8);
     const pillarIds = KAM_PILLARS.map(p => p.id);
     expect(pillarIds).toEqual([
       "overview",
       "academics",
       "faculty",
+      "campus_log",
       "schedules",
       "students",
       "fees",

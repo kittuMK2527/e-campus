@@ -110,9 +110,9 @@ describe("KAM data-bundle scoping", () => {
     expect(res.status).toBe(200);
     const ids = ["Clg_a", "Clg_b"];
     expect(def("mentors")?.params).toEqual(ids);
-    expect(def("student_interviews")?.params).toEqual([...ids, ...ids, ...ids]);
+    expect(def("student_interviews")?.params).toEqual([...ids, ...ids, ...ids, ...ids, ...ids]);
     expect(def("interview_evaluations")?.sql).toContain("interview_id IN (SELECT id FROM student_interviews");
-    expect(def("interview_evaluations")?.params).toEqual([...ids, ...ids, ...ids]);
+    expect(def("interview_evaluations")?.params).toEqual([...ids, ...ids, ...ids, ...ids, ...ids]);
     expect(def("leave_balances")?.params).toEqual([...ids, ...ids, ...ids, ...ids]);
     expect(def("handover_requests")?.params).toEqual([...ids, ...ids]);
     expect(def("approved_handovers")?.params).toEqual([...ids, ...ids]);
