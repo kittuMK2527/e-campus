@@ -6,6 +6,7 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Pagination } from "@/components/ui/Pagination";
 import { isInCmQueue, cmRequestCategory } from "@/lib/requestStatus";
 import { cn } from "@/lib/utils";
+import { StudentODPanel } from "@/components/student/StudentODPanel";
 
 interface CMApprovalsHubProps {
   collegeId?: string;
@@ -57,7 +58,12 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
   }, [activeCollegeId, colleges]);
 
   // Filter state
-  const [activeTab, setActiveTab] = useState<"pending" | "history">("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "history" | "student_od">("pending");
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "student_od") {
+      setActiveTab("student_od");
+    }
+  }, []);
   const [categoryFilter, setCategoryFilter] = useState<"all" | "Late Attendance" | "Late Punch" | "Substitution" | "Exam Mark Edit">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -288,10 +294,19 @@ export function CMApprovalsHub({ collegeId, onCollegeChange }: CMApprovalsHubPro
           >
             Handover History
           </button>
+          {isCmUser && <button
+            onClick={() => setActiveTab("student_od")}
+            className={cn(
+              "px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 cursor-pointer",
+              activeTab === "student_od" ? "bg-white text-slate-900 shadow-xs border border-slate-200/80" : "text-slate-600 hover:text-slate-900"
+            )}
+          >Student OD</button>}
         </div>
       </div>
 
-      {activeTab === "history" ? (
+      {activeTab === "student_od" ? (
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6"><StudentODPanel role="cm" /></div>
+      ) : activeTab === "history" ? (
         <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-4">
           <div className="bg-white rounded-2xl shadow-card border border-slate-100 overflow-hidden">
             <Table className="w-full border-collapse text-left text-xs sm:text-sm">

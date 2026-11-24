@@ -649,6 +649,14 @@ export const CoursesTab: React.FC = () => {
                                         {formatYearWiseRooms(dept.default_room)}
                                       </span>
                                     </div>
+                                    <div className="col-span-2 pt-1 border-t border-slate-100">
+                                      <span className="text-[9px] uppercase tracking-wider text-indigo-600 font-bold block mb-0.5">
+                                        Batch Incharge (Faculty Coordinator)
+                                      </span>
+                                      <span className="text-indigo-900 font-black text-xs block">
+                                        {dept.incharge_mentor_name || "Not Assigned"}
+                                      </span>
+                                    </div>
                                     <div>
                                       <span className="text-[9px] uppercase tracking-wider text-gray-400 block mb-0.5">
                                         Current Status

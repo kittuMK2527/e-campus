@@ -16,6 +16,7 @@ const h = vi.hoisted(() => {
     reservations: [] as any[],
     session: null as any,
     campusManagers: [] as any[],
+    users: [] as any[],
     failOn: null as string | null
   };
 
@@ -27,6 +28,7 @@ const h = vi.hoisted(() => {
     if (sql.includes("FROM demo_sessions WHERE id = ?")) return state.session ? [state.session] : [];
     if (sql.includes("FROM demo_sessions")) return state.demoClash;
     if (sql.includes("FROM campus_managers")) return state.campusManagers;
+    if (sql.includes("FROM users")) return state.users;
     return [];
   };
 
@@ -47,8 +49,12 @@ const h = vi.hoisted(() => {
       if (sql.includes("FROM demo_sessions WHERE id = ?")) return state.session;
       return rowsFor(sql)[0] || null;
     },
-    all: async (sql: string) => {
+    all: async (sql: string, ...args: any[]) => {
       singleReads.push(sql);
+      if (sql.trim().toUpperCase().startsWith("INSERT")) {
+        writes.push(sql);
+        writeParams.push(args.length === 1 && Array.isArray(args[0]) ? args[0] : args);
+      }
       return rowsFor(sql);
     },
     run: async (sql: string, ...args: any[]) => {
@@ -128,6 +134,7 @@ beforeEach(() => {
       subject: "React", stream: "CSE", week: 5, dateStr: "2026-10-28", timeSlot: "9:00-10:00"
     },
     campusManagers: [{ id: "cam1" }, { id: "cam2" }, { id: "cam3" }],
+    users: [{ id: "u1", role: "admin" }, { id: "u2", role: "admin" }, { id: "u3", role: "l and d" }],
     failOn: null
   });
 });

@@ -179,7 +179,19 @@ export async function GET(
       const studentDept = student.department || "";
       const studentCg = student.classGroup || "";
       const deptRow = await db.get(`
-        SELECT incharge_mentor_id, incharge_mentor_name FROM departments 
+        SELECT incharge_mentor_id, incharge_mentor_name FROM (
+          SELECT c.incharge_mentor_id, COALESCE(NULLIF(c.incharge_mentor_name, ''), m.name) as incharge_mentor_name, c.name, c.college_id
+          FROM courses c
+          LEFT JOIN mentors m ON m.id = c.incharge_mentor_id
+          UNION
+          SELECT d.incharge_mentor_id, COALESCE(NULLIF(d.incharge_mentor_name, ''), m.name) as incharge_mentor_name, d.name, d.college_id
+          FROM departments d
+          LEFT JOIN mentors m ON m.id = d.incharge_mentor_id
+          UNION
+          SELECT cma.mentor_id as incharge_mentor_id, m.name as incharge_mentor_name, cma.department as name, cma.college_id
+          FROM class_mentor_assignments cma
+          JOIN mentors m ON m.id = cma.mentor_id
+        ) sub
         WHERE (college_id = ? OR college_id IS NULL) AND (
           LOWER(TRIM(name)) = LOWER(TRIM(?)) OR 
           (? != '' AND LOWER(TRIM(?)) LIKE LOWER(TRIM(name)) || '%')

@@ -49,7 +49,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
   isKAMView = false,
   readOnly = false
 }) => {
-  const { toast } = useToast();
+  const { toast, confirm: showConfirm } = useToast();
 
   const [activeConcernMode, setActiveConcernMode] = useState<"student" | "mentor">("student");
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -443,7 +443,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
   };
 
   const handleDeleteStudentLog = async (id: string, studentId?: string) => {
-    if (!confirm("Are you sure you want to remove this student log?")) return;
+    if (!(await showConfirm({ message: "Are you sure you want to remove this student log?", danger: true, confirmLabel: "Delete" }))) return;
     try {
       const res = await apiFetch<any>(`/api/mentor/student-logs?id=${encodeURIComponent(id)}`, {
         method: "DELETE"
@@ -561,7 +561,7 @@ export const FacultyConcernsTab: React.FC<FacultyConcernsTabProps> = ({
   };
 
   const handleDeleteMentorConcern = async (id: string) => {
-    if (!confirm("Are you sure you want to remove this mentor concern log?")) return;
+    if (!(await showConfirm({ message: "Are you sure you want to remove this mentor concern log?", danger: true, confirmLabel: "Delete" }))) return;
     try {
       const res = await apiFetch<any>(`/api/campus/mentor-concerns?id=${encodeURIComponent(id)}`, {
         method: "DELETE"

@@ -538,9 +538,13 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
                             {st.semester ? `Sem ${st.semester}` : "Current Semester"}
                             {st.classGroup && st.classGroup !== st.department && ` • ${st.classGroup}`}
                           </div>
-                          {st.inchargeMentorName && (
+                          {st.inchargeMentorName ? (
                             <div className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">
                               Incharge: {st.inchargeMentorName}
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-0.5">
+                              Incharge: Not Assigned
                             </div>
                           )}
                         </TableCell>
@@ -642,6 +646,9 @@ export const StudentsRegistryTable: React.FC<StudentsRegistryTableProps> = ({
                               collegeId={st.collegeId || st.college_id}
                               rollNumber={st.rollNumber || st.id}
                               studentName={st.name}
+                              department={st.department}
+                              classGroup={st.classGroup}
+                              inchargeMentorName={st.inchargeMentorName}
                             />
                           </TableCell>
                         </TableRow>
@@ -682,9 +689,12 @@ interface StudentInlineInspectionProps {
   collegeId?: string;
   rollNumber: string;
   studentName: string;
+  department?: string;
+  classGroup?: string;
+  inchargeMentorName?: string | null;
 }
 
-function StudentInlineInspectionRow({ studentId, collegeId, rollNumber, studentName }: StudentInlineInspectionProps) {
+function StudentInlineInspectionRow({ studentId, collegeId, rollNumber, studentName, department, classGroup, inchargeMentorName }: StudentInlineInspectionProps) {
   const [activeSubView, setActiveSubView] = useState<"marks" | "attendance" | "fees" | "coding">("marks");
 
   // Fetch full student progress
@@ -723,6 +733,23 @@ function StudentInlineInspectionRow({ studentId, collegeId, rollNumber, studentN
 
   return (
     <div className="space-y-4 rounded-xl bg-white dark:bg-zinc-950 p-4 border border-zinc-200 dark:border-zinc-800 shadow-inner">
+      {/* Cohort & Batch Incharge Details Strip */}
+      <div className="bg-slate-50 dark:bg-zinc-900/60 rounded-xl p-3 border border-slate-200/80 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+        <div>
+          <span className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Department</span>
+          <span className="font-extrabold text-zinc-900 dark:text-zinc-100 truncate block mt-0.5">{department || data?.student?.department || "General"}</span>
+        </div>
+        <div>
+          <span className="text-[10px] font-bold uppercase text-zinc-400 tracking-wider block">Cohort / Batch</span>
+          <span className="font-extrabold text-zinc-900 dark:text-zinc-100 truncate block mt-0.5">{classGroup || data?.student?.classGroup || "General Batch"}</span>
+        </div>
+        <div>
+          <span className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-400 tracking-wider block">Batch Incharge</span>
+          <span className="font-black text-indigo-700 dark:text-indigo-300 truncate block mt-0.5">
+            {inchargeMentorName || data?.student?.inchargeMentorName || "Not Assigned"}
+          </span>
+        </div>
+      </div>
       {/* Inline Sub-Tab Switcher */}
       <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 pb-3 flex-wrap gap-2">
         <div className="flex items-center gap-1.5">

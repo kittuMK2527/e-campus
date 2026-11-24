@@ -623,9 +623,18 @@ CREATE TABLE IF NOT EXISTS leave_requests (
     classGroup VARCHAR(255) NOT NULL,
     type VARCHAR(100) NOT NULL,
     dateStr VARCHAR(50) NOT NULL,
+    start_date VARCHAR(50),
+    end_date VARCHAR(50),
+    college_id VARCHAR(255),
+    mentor_id VARCHAR(255),
     reason TEXT NOT NULL,
     status VARCHAR(50) NOT NULL,
     approvedBy VARCHAR(255),
+    mentor_approved_by VARCHAR(255),
+    mentor_approved_at VARCHAR(100),
+    cm_approved_by VARCHAR(255),
+    cm_approved_at VARCHAR(100),
+    rejection_reason TEXT,
     timestamp VARCHAR(100) NOT NULL
 );
 
@@ -1320,6 +1329,7 @@ CREATE INDEX IF NOT EXISTS idx_mentors_college                 ON mentors(colleg
 
 CREATE INDEX IF NOT EXISTS idx_leave_requests_studentid        ON leave_requests(studentid);
 CREATE INDEX IF NOT EXISTS idx_leave_requests_timestamp        ON leave_requests(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_student_od_student_dates ON leave_requests(studentid, start_date, end_date, status);
 CREATE INDEX IF NOT EXISTS idx_login_history_user_id           ON login_history(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_user_created      ON notifications(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_faculty_leave_status            ON faculty_leave_requests(status);

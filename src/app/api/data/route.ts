@@ -17,6 +17,7 @@ function applyDataMigrations(): Promise<void> {
   _migrationsApplied = (async () => {
     await ensureMigration("audit_logs_extended_columns").catch(() => { });
     await ensureMigration("student_attendance_extended_columns").catch(() => { });
+    await ensureMigration("student_od_approval_flow").catch(() => { });
   })().catch((err) => {
     // Reset so the next request retries — don't permanently cache a failure.
     _migrationsApplied = null;

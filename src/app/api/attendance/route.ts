@@ -169,6 +169,7 @@ export async function POST(request: Request) {
     const realActorName = actor.name || actor.email || (isRealAdmin ? "Admin" : "Campus Manager");
 
     const db = await getDb();
+    await ensureMigration("student_od_approval_flow");
     const body = await request.json();
     const { action } = body;
 
@@ -209,6 +210,20 @@ export async function POST(request: Request) {
       const student = studentRows[0];
       if (!student) {
         return NextResponse.json({ success: false, message: "Student not found" }, { status: 404 });
+      }
+
+      const approvedOd = await db.get(
+        `SELECT id FROM leave_requests
+         WHERE studentId = ? AND type = 'OD' AND status = 'approved'
+           AND COALESCE(start_date, dateStr) <= ? AND COALESCE(end_date, dateStr) >= ?
+         LIMIT 1`,
+        [studentId, dateStr, dateStr]
+      );
+      if (approvedOd && String(newStatus).toLowerCase() !== "od") {
+        return NextResponse.json({ success: false, message: "This period is covered by an approved OD request and must remain OD." }, { status: 409 });
+      }
+      if (!approvedOd && String(newStatus).toLowerCase() === "od") {
+        return NextResponse.json({ success: false, message: "OD requires approval from both the class mentor and Campus Manager." }, { status: 403 });
       }
 
       // Campus isolation: CM can only correct students in their own assigned campus
@@ -312,7 +327,8 @@ export async function POST(request: Request) {
 
     // ── DIRECT PERIOD MARKING (CAM / FACULTY) ──────────────────────────────
     if (action === "mark_period") {
-      const { studentId, slotId, dateStr, status } = body;
+      const { studentId, slotId, dateStr } = body;
+      let status = body.status;
       if (!studentId || !slotId || !dateStr || !status) {
         return NextResponse.json({ success: false, message: "Missing required fields" }, { status: 400 });
       }
@@ -351,6 +367,23 @@ export async function POST(request: Request) {
             { status: 403 }
           );
         }
+      }
+
+      const approvedOd = await db.get(
+        `SELECT id FROM leave_requests
+         WHERE studentId = ? AND type = 'OD' AND status = 'approved'
+           AND COALESCE(start_date, dateStr) <= ? AND COALESCE(end_date, dateStr) >= ?
+         LIMIT 1`,
+        [studentId, dateStr, dateStr]
+      );
+      if (approvedOd) {
+        // Final CM approval owns the attendance status for covered dates.
+        status = "od";
+      } else if (String(status).toLowerCase() === "od") {
+        return NextResponse.json(
+          { success: false, message: "OD can only be marked after the student's mentor and Campus Manager approve the request." },
+          { status: 403 }
+        );
       }
 
       if (status === "not_marked") {
@@ -737,6 +770,36 @@ export async function POST(request: Request) {
         }
       }
     }
+
+    const attendanceStudentIds = Array.from(new Set(
+      attendance.filter((item: any) => item?.studentId).map((item: any) => String(item.studentId))
+    ));
+    const approvedOdStudentIds = new Set<string>();
+    for (let offset = 0; offset < attendanceStudentIds.length; offset += 500) {
+      const chunk = attendanceStudentIds.slice(offset, offset + 500);
+      const approvedRows = await db.all(
+        `SELECT DISTINCT studentId FROM leave_requests
+         WHERE type = 'OD' AND status = 'approved'
+           AND COALESCE(start_date, dateStr) <= ? AND COALESCE(end_date, dateStr) >= ?
+           AND studentId IN (${chunk.map(() => "?").join(",")})`,
+        [dateStr, dateStr, ...chunk]
+      );
+      approvedRows.forEach((row: any) => approvedOdStudentIds.add(String(row.studentId)));
+    }
+    const unapprovedOd = attendance.find((item: any) =>
+      String(item?.status || "").toLowerCase() === "od" && !approvedOdStudentIds.has(String(item.studentId || ""))
+    );
+    if (unapprovedOd) {
+      return NextResponse.json(
+        { success: false, message: "OD can only be marked after the student's mentor and Campus Manager approve the request." },
+        { status: 403 }
+      );
+    }
+    // Approved requests take precedence over any stale client status.
+    attendance.forEach((item: any) => {
+      if (item?.studentId && approvedOdStudentIds.has(String(item.studentId))) item.status = "od";
+    });
+
     // Recorded identity comes from the session for mentors (no spoofed markedBy).
     const recordedMarkedBy = actorRole === "mentor" ? String(actor.reference_id || actor.id) : (markedBy || actor.reference_id || "System");
     const recordedActorName = realActorName || actorName || "Faculty";

@@ -8,6 +8,7 @@ import { requireAuth } from "@/lib/authGuard";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
 import { getInstitutionDateStr } from "@/lib/localDate";
+import { fetchWithTimeout, MAIL_FETCH_TIMEOUT_MS } from "@/lib/net";
 
 
 // ── Intra-KAM Peer Rotation with 6-Cycle Cooldown & PRNG Tie-Breaker ──
@@ -432,7 +433,7 @@ export async function POST(request: Request) {
           </div>
         `;
 
-        fetch("https://api.brevo.com/v3/smtp/email", {
+        fetchWithTimeout("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -445,7 +446,7 @@ export async function POST(request: Request) {
             subject: `Action Required: Peer Review Assigned — ${campus} • ${mentor_name}`,
             htmlContent: emailHtml
           })
-        }).catch(e => console.warn("Brevo email warning:", e.message));
+        }, MAIL_FETCH_TIMEOUT_MS).catch(e => console.warn("Brevo email warning:", e.message));
       }
     } catch (e: any) {
       console.warn("Peer review email notification error:", e.message);

@@ -2074,8 +2074,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     </div>
                     <button
                       type="button"
+                      disabled={Boolean(resolvingSwapId)}
                       onClick={() => handleOpenSwapModal(confirmedDemos[0])}
-                      className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-white shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all shrink-0 border border-white/10"
+                      className="px-3.5 py-1.5 rounded-lg text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-white shadow-2xs flex items-center gap-1.5 cursor-pointer transition-all shrink-0 border border-white/10 disabled:opacity-50"
                     >
                       <RefreshCw className="h-3.5 w-3.5" /> Reallocate an Upcoming Demo
                     </button>

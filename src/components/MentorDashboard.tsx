@@ -1802,6 +1802,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
       if (res.success) {
         toast("Internal swap request submitted to peer mentor successfully!", "success");
         setDemoSwapModalSession(null);
+        announceDataChanged("demos");
       } else {
         toast(res.message, "error");
       }

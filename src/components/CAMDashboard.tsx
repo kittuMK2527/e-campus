@@ -10339,6 +10339,8 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     default_shift: string;
     shift_based: number;
     sections?: string;
+    incharge_mentor_id?: string;
+    incharge_mentor_name?: string;
   }>({
     id: "",
     name: "",
@@ -10354,7 +10356,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
     default_room: "",
     default_shift: "shift_1",
     shift_based: 0,
-    sections: ""
+    sections: "",
+    incharge_mentor_id: "",
+    incharge_mentor_name: ""
   });
 
   const handleSendWarningEmail = async (item: any) => {
@@ -12907,7 +12911,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         default_room: dept.default_room || "",
         default_shift: initialShift,
         shift_based: isShiftSplit ? 1 : 0,
-        sections: dept.sections || ""
+        sections: dept.sections || "",
+        incharge_mentor_id: dept.incharge_mentor_id || "",
+        incharge_mentor_name: dept.incharge_mentor_name || ""
       });
       // Pre-fill sections from existing class groups for this course
       setEditingDept(true);
@@ -12927,7 +12933,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
         default_room: "",
         default_shift: "general",
         shift_based: 0,
-        sections: ""
+        sections: "",
+        incharge_mentor_id: "",
+        incharge_mentor_name: ""
       });
       setEditingDept(false);
     }
@@ -15963,6 +15971,11 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                           </span>
                                         );
                                       })()}
+                                      {registeredDept?.incharge_mentor_name && (
+                                        <span className="text-[9px] px-2 py-0.5 border rounded font-bold bg-indigo-50 border-indigo-200 text-indigo-700">
+                                          Incharge: {registeredDept.incharge_mentor_name}
+                                        </span>
+                                      )}
                                     </div>
                                     {registeredDept?.description && <p className="text-[10px] text-slate-400 mt-0.5 font-medium">{registeredDept.description}</p>}
                                   </div>
@@ -16011,6 +16024,12 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                         <span className="text-[9px] uppercase tracking-wider text-slate-400 block mb-0.5">Assigned Classrooms (Year-wise)</span>
                                         <span className="text-amber-700 font-black block">
                                           {formatYearWiseRooms(registeredDept?.default_room)}
+                                        </span>
+                                      </div>
+                                      <div className="col-span-2 pt-1 border-t border-slate-100">
+                                        <span className="text-[9px] uppercase tracking-wider text-indigo-600 font-bold block mb-0.5">Batch Incharge (Faculty Coordinator)</span>
+                                        <span className="text-indigo-900 font-black text-xs block">
+                                          {registeredDept?.incharge_mentor_name || "Not Assigned"}
                                         </span>
                                       </div>
                                     </div>

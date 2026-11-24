@@ -506,19 +506,19 @@ export default function SMEReallocationPlanner({
   const handleSelectAlternativeSlot = (period: string) => {
     if (!currentRequest || !onReallocateSlot) return;
     const sessionObj = {
+      ...(currentRequest.rawItem || {}),
       id: currentRequest.rawItem?.demo_session_id || currentRequest.rawItem?.sessionId || currentRequest.rawItem?.id || currentRequest.id,
-      demo_session_id: currentRequest.rawItem?.demo_session_id,
-      mentorId: currentRequest.mentorId,
-      mentorName: currentRequest.mentorName,
-      subject: currentRequest.subject,
-      stream: currentRequest.mentor?.department || "Engineering",
+      demo_session_id: currentRequest.rawItem?.demo_session_id || currentRequest.id,
+      mentorId: currentRequest.mentorId || currentRequest.rawItem?.mentor_id,
+      mentorName: currentRequest.mentorName || currentRequest.rawItem?.mentor_name,
+      subject: currentRequest.subject || currentRequest.rawItem?.subject || "L&D Demo Evaluation",
+      stream: currentRequest.mentor?.department || currentRequest.rawItem?.stream || "Engineering",
       dateStr: currentRequest.originalDate || selectedDate,
       timeSlot: currentRequest.originalSlot || period,
       college_id: currentRequest.college?.id || currentRequest.mentor?.college_id,
-      smeId: currentSME?.id,
-      smeName: currentSME?.name,
-      status: "reallocation_required",
-      ...currentRequest.rawItem
+      smeId: currentSME?.id || currentRequest.rawItem?.sme_id,
+      smeName: currentSME?.name || currentRequest.rawItem?.sme_name,
+      status: "reallocation_required"
     };
     onReallocateSlot(currentRequest.mentor, selectedDate, period, sessionObj);
   };
@@ -526,19 +526,19 @@ export default function SMEReallocationPlanner({
   const handleSwapWithMentor = (period: string, bookedSession: any) => {
     if (!currentRequest || !onReallocateSlot) return;
     const sessionObj = {
+      ...(currentRequest.rawItem || {}),
       id: currentRequest.rawItem?.demo_session_id || currentRequest.rawItem?.sessionId || currentRequest.rawItem?.id || currentRequest.id,
-      demo_session_id: currentRequest.rawItem?.demo_session_id,
-      mentorId: currentRequest.mentorId,
-      mentorName: currentRequest.mentorName,
-      subject: currentRequest.subject,
-      stream: currentRequest.mentor?.department || "Engineering",
+      demo_session_id: currentRequest.rawItem?.demo_session_id || currentRequest.id,
+      mentorId: currentRequest.mentorId || currentRequest.rawItem?.mentor_id,
+      mentorName: currentRequest.mentorName || currentRequest.rawItem?.mentor_name,
+      subject: currentRequest.subject || currentRequest.rawItem?.subject || "L&D Demo Evaluation",
+      stream: currentRequest.mentor?.department || currentRequest.rawItem?.stream || "Engineering",
       dateStr: currentRequest.originalDate || selectedDate,
       timeSlot: currentRequest.originalSlot || period,
       college_id: currentRequest.college?.id || currentRequest.mentor?.college_id,
-      smeId: currentSME?.id,
-      smeName: currentSME?.name,
-      status: "reallocation_required",
-      ...currentRequest.rawItem
+      smeId: currentSME?.id || currentRequest.rawItem?.sme_id,
+      smeName: currentSME?.name || currentRequest.rawItem?.sme_name,
+      status: "reallocation_required"
     };
     onReallocateSlot(currentRequest.mentor, selectedDate, period, sessionObj, bookedSession);
   };

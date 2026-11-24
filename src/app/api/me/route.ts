@@ -66,14 +66,14 @@ export async function GET(request: Request) {
             if (campus && kam) campus = { ...campus, kam_name: kam.name, kam_title: kam.title };
           }
         }
-        if (role === "kam" && profile.id) {
+        if (profile && role === "kam" && profile.id) {
           portfolioCampuses = await db.all(
             "SELECT id, name, code FROM colleges WHERE kam_id = ? ORDER BY name",
             profile.id
           ).catch(() => []);
         }
-        if (role === "mentor" && profile.id && profile.college_id) {
-          classInchargeAssignments = await db.all(
+        if (profile && role === "mentor" && profile.id && profile.college_id) {
+          const cmaRows = await db.all(
             `SELECT id, year, department, classGroup, updated_at
              FROM class_mentor_assignments
              WHERE mentor_id = ? AND college_id = ?
@@ -81,6 +81,28 @@ export async function GET(request: Request) {
             profile.id,
             profile.college_id
           ).catch(() => []);
+
+          const courseRows = await db.all(
+            `SELECT id, 'All Years' as year, name as department, name as classGroup, updated_at
+             FROM courses
+             WHERE incharge_mentor_id = ? AND college_id = ?
+             UNION
+             SELECT id, 'All Years' as year, name as department, name as classGroup, updated_at
+             FROM departments
+             WHERE incharge_mentor_id = ? AND college_id = ?`,
+            profile.id,
+            profile.college_id,
+            profile.id,
+            profile.college_id
+          ).catch(() => []);
+
+          const seen = new Set<string>();
+          classInchargeAssignments = [...cmaRows, ...courseRows].filter((item: any) => {
+            const key = `${item.department || ""}-${item.classGroup || ""}`.toLowerCase();
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
         }
       } catch (err) {
         console.error("[/api/me] profile lookup failed:", err);

@@ -103,7 +103,6 @@ export function sundayOverridePayload(
     day_order: write.working ? order : "None",
     session_mode: write.sessionMode || "Offline",
     auto_advance: "false",
-    skip_sundays: "false",
     notes: write.notes || ""
   };
 }

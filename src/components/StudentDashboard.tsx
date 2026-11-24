@@ -13,6 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Button } from "./Button";
 import {
   Calendar,
+  CalendarDays,
   User,
   Clock,
   BookOpen,
@@ -54,6 +55,7 @@ import { Pagination } from "@/components/ui/Pagination";
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table";
 import { CourseInfoButton } from "./CourseInfoModal";
 import { StudentMonthlyNpsCard } from "@/components/student/StudentMonthlyNpsCard";
+import { StudentODPanel } from "@/components/student/StudentODPanel";
 
 // Library Books Interface
 interface BookItem {
@@ -95,8 +97,8 @@ const LeetCodeLogo: React.FC<{ className?: string }> = ({ className = "h-5 w-5" 
 );
 
 export interface StudentDashboardProps {
-  activeTab?: "dashboard" | "schedule" | "exams" | "materials" | "library" | "fees" | "profile" | "tracker" | "interviews" | "more_menu";
-  onTabChange?: (tab: "dashboard" | "schedule" | "exams" | "materials" | "library" | "fees" | "profile" | "tracker" | "interviews" | "more_menu") => void;
+  activeTab?: "dashboard" | "schedule" | "exams" | "materials" | "library" | "fees" | "profile" | "tracker" | "interviews" | "on_duty" | "more_menu";
+  onTabChange?: (tab: "dashboard" | "schedule" | "exams" | "materials" | "library" | "fees" | "profile" | "tracker" | "interviews" | "on_duty" | "more_menu") => void;
 }
 
 export const StudentDashboard: React.FC<StudentDashboardProps> = ({
@@ -133,7 +135,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [localActiveTab, setLocalActiveTab] = useState<"dashboard" | "schedule" | "exams" | "materials" | "library" | "fees" | "profile" | "tracker" | "interviews" | "more_menu">("dashboard");
+  const [localActiveTab, setLocalActiveTab] = useState<"dashboard" | "schedule" | "exams" | "materials" | "library" | "fees" | "profile" | "tracker" | "interviews" | "on_duty" | "more_menu">("dashboard");
 
   const studentTabAliases: Record<string, typeof localActiveTab> = {
     "home": "dashboard",
@@ -148,6 +150,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     "tracker": "tracker",
     "interview": "interviews",
     "interviews": "interviews",
+    "on-duty": "on_duty",
+    "on_duty": "on_duty",
+    "od": "on_duty",
     "fee": "fees",
     "fees": "fees",
     "dues": "fees",
@@ -156,7 +161,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     "profile": "profile",
     "materials": "materials"
   };
-  const STUDENT_TAB_IDS = ["dashboard", "schedule", "exams", "materials", "library", "fees", "profile", "tracker", "interviews", "more_menu"];
+  const STUDENT_TAB_IDS = ["dashboard", "schedule", "exams", "materials", "library", "fees", "profile", "tracker", "interviews", "on_duty", "more_menu"];
   // Unknown slugs (e.g. a stale notification link stored in the DB) fall back to the
   // default tab instead of rendering an empty workspace.
   const resolvedPropTab = (() => {
@@ -1480,6 +1485,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
                   { id: "exams", label: "Exams & Marks", icon: BookOpen },
                   { id: "materials", label: "Subject Materials", icon: Book },
                   { id: "fees", label: "Fees", icon: CreditCard },
+                  { id: "on_duty", label: "On Duty", icon: CalendarDays },
                   { id: "profile", label: "My Profile", icon: User }
                 ].map((tab) => {
                   const Icon = tab.icon;
@@ -1549,6 +1555,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             { id: "dashboard", label: "Home", icon: Activity },
             { id: "schedule", label: "Schedule", icon: Calendar },
             { id: "tracker", label: "Skills", icon: GraduationCap },
+            { id: "on_duty", label: "On Duty", icon: CalendarDays },
             { id: "materials", label: "Materials", icon: Book },
             { id: "more_menu", label: "More", icon: Menu },
           ].map(t => {
@@ -1608,6 +1615,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
               {(activeTab === "materials" || activeTab === "library") && "Study Materials"}
               {activeTab === "fees" && "Fee Details"}
               {activeTab === "profile" && "My Profile"}
+              {activeTab === "on_duty" && "On Duty"}
               {activeTab === "more_menu" && "More Options"}
             </h1>
             <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
@@ -1772,6 +1780,8 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
             </div>
           </div>
         )}
+
+        {activeTab === "on_duty" && <StudentODPanel role="student" />}
 
         {/* Tab 1: Dashboard Attendance & Bunk Predictor */}
         {activeTab === "dashboard" && (

@@ -33,7 +33,7 @@ describe("role landing routes", () => {
     expect(resolveFeeManagerTab(tab)).toBe("overview");
   });
 
-  it.each(["overview", "demo_list", "weekly_plans", "skill_approvals", "availability", "reallocation", "history", "eval_criteria"])("retains SME tab %s", (tab) => {
+  it.each(["overview", "weekly_plans", "skill_approvals", "availability", "reallocation", "history", "eval_criteria"])("retains SME tab %s", (tab) => {
     expect(resolveSmeTab(tab)).toBe(tab);
   });
 
@@ -44,6 +44,7 @@ describe("role landing routes", () => {
   it("retains SME tab aliases", () => {
     expect(resolveSmeTab("calendar")).toBe("availability");
     expect(resolveSmeTab("reallocation_hub")).toBe("reallocation");
+    expect(resolveSmeTab("demo_list")).toBe("overview");
   });
 
   it("normalizes URL tabs before rendering", () => {

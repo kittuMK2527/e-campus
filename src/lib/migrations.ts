@@ -991,6 +991,25 @@ const migrations: Migration[] = [
     }
   },
   {
+    name: "student_od_approval_flow",
+    run: async (db) => {
+      const columns = [
+        "start_date", "end_date", "college_id", "mentor_id",
+        "mentor_approved_by", "mentor_approved_at", "cm_approved_by", "cm_approved_at", "rejection_reason"
+      ];
+      if ((db as any).isPostgres) {
+        await db.exec(`ALTER TABLE leave_requests ${columns.map((name) => `ADD COLUMN IF NOT EXISTS ${name} TEXT`).join(", ")};`);
+      } else {
+        for (const name of columns) {
+          await db.exec(`ALTER TABLE leave_requests ADD COLUMN ${name} TEXT`).catch(() => {});
+        }
+      }
+      await db.exec("UPDATE leave_requests SET start_date = COALESCE(start_date, dateStr), end_date = COALESCE(end_date, dateStr)");
+      await db.exec("UPDATE leave_requests SET status = 'pending_mentor' WHERE UPPER(TRIM(type)) = 'OD' AND LOWER(TRIM(status)) IN ('pending', 'pending_cm', 'pending_cam')");
+      await db.exec("CREATE INDEX IF NOT EXISTS idx_student_od_student_dates ON leave_requests (studentId, start_date, end_date, status)");
+    }
+  },
+  {
     name: "mentor_plans_and_clearances_submission_link",
     run: async (db) => {
       await db.exec(`

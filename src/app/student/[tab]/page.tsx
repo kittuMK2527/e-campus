@@ -20,6 +20,7 @@ const VALID_STUDENT_TABS = [
   "materials",
   "library",
   "fees",
+  "on_duty",
   "profile",
   "more_menu"
 ] as const;
