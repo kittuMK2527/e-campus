@@ -117,10 +117,13 @@ export const MentorExamMarksStudio: React.FC = () => {
 
   // Subject/department scope: mentors must not see exams they do not teach.
   const mentorScope = useMemo(() => {
-    const subjects = (currentMentor?.subjects || "")
-      .split(/\n|\/|,|;/)
-      .map((s) => s.trim().toLowerCase())
-      .filter(Boolean);
+    const rawSubs = currentMentor?.subjects;
+    const subjects = Array.isArray(rawSubs)
+      ? rawSubs.map((s: any) => String(s).trim().toLowerCase()).filter(Boolean)
+      : (typeof rawSubs === "string" ? rawSubs : "")
+          .split(/\n|\/|,|;/)
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean);
     const department = (currentMentor?.department || "").trim().toLowerCase();
     return { subjects, department };
   }, [currentMentor]);
