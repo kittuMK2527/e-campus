@@ -23257,6 +23257,26 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                                   <TableCell className="p-3">
                                     <div className="font-bold text-slate-800">{st.department || "General"}</div>
                                     <div className="text-[10px] text-amber-500 font-semibold">{st.classGroup}</div>
+                                    {(() => {
+                                      const studentDept = (st.department || "").trim().toLowerCase();
+                                      const studentCg = (st.classGroup || "").trim().toLowerCase();
+                                      const matched = (coursesList || []).find(c => {
+                                        const cName = (c.name || "").trim().toLowerCase();
+                                        const cCode = (c.code || "").trim().toLowerCase();
+                                        return (studentDept && (cName === studentDept || (cCode && cCode === studentDept))) ||
+                                               (studentCg && (studentCg.startsWith(cName) || (cCode && studentCg.startsWith(cCode))));
+                                      });
+                                      const incharge = matched?.incharge_mentor_name;
+                                      return incharge ? (
+                                        <div className="text-[9.5px] font-bold text-indigo-600 mt-0.5">
+                                          Incharge: {incharge}
+                                        </div>
+                                      ) : (
+                                        <div className="text-[9.5px] text-slate-400 mt-0.5">
+                                          Incharge: Not Assigned
+                                        </div>
+                                      );
+                                    })()}
                                   </TableCell>
                                   <TableCell className="p-3">
                                     {st.hire_score ? (
@@ -26591,6 +26611,23 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
                 <div>
                   <span className="text-[9.5px] text-slate-400 font-bold uppercase block">Blood Group</span>
                   <span className="text-xs font-extrabold text-rose-600">{selectedStudentForDetail.blood_group || "—"}</span>
+                </div>
+
+                <div className="col-span-2 sm:col-span-4 bg-indigo-50/70 border border-indigo-100 rounded-lg p-2.5 flex items-center justify-between">
+                  <span className="text-[10px] text-indigo-700 font-bold uppercase tracking-wider block">Batch Incharge (Faculty Coordinator)</span>
+                  <span className="text-xs font-black text-indigo-900">
+                    {(() => {
+                      const studentDept = (selectedStudentForDetail.department || "").trim().toLowerCase();
+                      const studentCg = (selectedStudentForDetail.classGroup || "").trim().toLowerCase();
+                      const matched = (coursesList || []).find(c => {
+                        const cName = (c.name || "").trim().toLowerCase();
+                        const cCode = (c.code || "").trim().toLowerCase();
+                        return (studentDept && (cName === studentDept || (cCode && cCode === studentDept))) ||
+                               (studentCg && (studentCg.startsWith(cName) || (cCode && studentCg.startsWith(cCode))));
+                      });
+                      return matched?.incharge_mentor_name || "Not Assigned";
+                    })()}
+                  </span>
                 </div>
 
                 <div>
