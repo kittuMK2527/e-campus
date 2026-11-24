@@ -284,6 +284,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   })();
 
   const activeTab = resolvedPropTab || localActiveTab;
+  useEffect(() => {
+    if (activeTab === "profile" && window.location.pathname !== "/profile") window.location.replace("/profile");
+  }, [activeTab]);
   const setActiveTab = onTabChange || setLocalActiveTab;
   const { colleges, currentUser, currentAdmin } = useApp();
   const [drillDownCollegeId, setDrillDownCollegeId] = useState<string | null>(null);

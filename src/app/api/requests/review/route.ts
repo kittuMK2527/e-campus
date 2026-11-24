@@ -518,7 +518,9 @@ export async function POST(request: Request) {
                       type: "alert",
                       link: "/sme?tab=reallocation",
                       domain: "demos",
-                      action: "reallocated"
+                      action: "reallocated",
+                      dedupeKey: `demo:${ds.id}:leave-reallocation-required`,
+                      payload: { sessionId: ds.id, leaveRequestId: requestId },
                     }).catch(() => {});
                   }
                 }
@@ -620,6 +622,7 @@ export async function POST(request: Request) {
         type: status === "approved" ? "success" : "error",
         domain: "notifications",
         action: "created",
+        dedupeKey: `handover:${requestId}:${targetStatus}`,
         payload: {
           requestId,
           status: targetStatus,

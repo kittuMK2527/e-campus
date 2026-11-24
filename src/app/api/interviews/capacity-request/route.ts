@@ -136,7 +136,7 @@ export async function POST(request: Request) {
         studentCount: interview.student_count,
         mentorName: interview.mentor_name,
         originCollegeId: interview.origin_college_id || interview.college_id,
-        actionType: "created"
+        actionType: "broadcast"
       });
     } catch (notifErr) {
       console.warn("Capacity request notification dispatch warning:", notifErr);

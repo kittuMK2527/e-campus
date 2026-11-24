@@ -167,6 +167,9 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
   // Local tab state fallback if not managed by parent route
   const [internalActiveTab, setInternalActiveTab] = useState<string>(propActiveTab);
   const activeTab = propActiveTab || internalActiveTab;
+  useEffect(() => {
+    if (activeTab === "profile" && window.location.pathname !== "/profile") window.location.replace("/profile");
+  }, [activeTab]);
   const setActiveTab = useCallback((tab: string) => {
     setInternalActiveTab(tab);
     if (onTabChange) onTabChange(tab);

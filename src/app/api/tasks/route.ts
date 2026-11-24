@@ -59,6 +59,7 @@ export async function POST(request: Request) {
           type: priority === "high" || priority === "urgent" ? "warning" : "info",
           domain: "tasks",
           action: "assigned",
+          dedupeKey: `task:${taskId}:assigned`,
           payload: { taskId, title, priority, dueDate, collegeId }
         });
       } catch (taskNotifErr) {
@@ -116,6 +117,7 @@ export async function PUT(request: Request) {
           type: "info",
           domain: "tasks",
           action: "updated",
+          dedupeKey: `task:${id}:updated:${String(status || "details").toLowerCase()}`,
           payload: { taskId: id, status, title: updated.title }
         });
       } catch (_) {}

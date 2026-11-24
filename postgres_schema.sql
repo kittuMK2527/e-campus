@@ -609,8 +609,14 @@ CREATE TABLE IF NOT EXISTS notifications (
     is_read INTEGER DEFAULT 0,
     link TEXT,
     type VARCHAR(100) DEFAULT 'info',
-    created_at VARCHAR(100) NOT NULL
+    created_at VARCHAR(100) NOT NULL,
+    dedupe_key VARCHAR(512),
+    payload JSONB
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe
+    ON notifications (LOWER(user_id), dedupe_key)
+    WHERE dedupe_key IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS leave_requests (
     id VARCHAR(255) PRIMARY KEY,

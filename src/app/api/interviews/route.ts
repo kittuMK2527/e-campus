@@ -646,6 +646,8 @@ export async function PATCH(request: Request) {
               domain: "interviews",
               action: "evaluated",
               collegeId: interview.college_id,
+              dedupeKey: `interview-results:${interview.id}:verified`,
+              payload: { interviewId: interview.id },
             });
           }
         } catch (notifErr) {

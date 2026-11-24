@@ -127,6 +127,7 @@ export async function POST(request: Request) {
         type: "info",
         domain: "notifications",
         action: "created",
+        dedupeKey: `class-swap:${newId}:offered`,
         payload: { requestId: newId, requestorId, targetStaffId, slotId: offerSlotId, dateStr: offerDateStr }
       });
     } catch (_) {}

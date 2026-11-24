@@ -317,6 +317,8 @@ export async function PATCH(request: Request) {
         type: status === "resolved" ? "success" : "info",
         domain: "feedback",
         action: "app_feedback_saved",
+        dedupeKey: `feedback:${id}:${status}`,
+        payload: { feedbackId: id, status },
       }).catch(() => {});
     }
 

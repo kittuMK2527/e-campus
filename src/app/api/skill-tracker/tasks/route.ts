@@ -417,6 +417,7 @@ export async function POST(request: Request) {
             type: "skill_task",
             action: "skill_task_assigned",
             domain: "notifications",
+            dedupeKey: `skill-task:${mId}:${single.taskNumber}:${String(single.subject).toLowerCase()}`,
             payload: {
               mentorId: mId,
               taskNumber: single.taskNumber,
@@ -439,6 +440,7 @@ export async function POST(request: Request) {
             type: "skill_task",
             action: "skill_task_assigned",
             domain: "notifications",
+            dedupeKey: `skill-task-batch:${mId}:${minWk}:${maxWk}:${String(distinctSubjects).toLowerCase()}`,
             payload: {
               mentorId: mId,
               taskCount: mentorTasks.length,

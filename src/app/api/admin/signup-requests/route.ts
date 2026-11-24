@@ -184,6 +184,7 @@ export async function PATCH(request: Request) {
           type: "success",
           domain: "auth",
           action: "approved",
+          dedupeKey: `account-approved:${userId}`,
           payload: { userId, role: targetRole }
         });
       } catch (welcomeNotifErr) {

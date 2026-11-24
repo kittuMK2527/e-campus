@@ -47,6 +47,7 @@ export interface SendWebPushOptions extends WebPushPayload {
   userIds?: string[];
   roles?: string[];
   collegeId?: string | null;
+  linksByUserId?: Record<string, string>;
 }
 
 export interface SendWebPushResult {
@@ -110,18 +111,6 @@ export async function sendWebPushNotification(
     }
 
     // 2. Prepare payload
-    const pushPayloadString = JSON.stringify({
-      title: options.title,
-      message: options.message,
-      body: options.message,
-      link: options.link || "/",
-      url: options.link || "/",
-      tag: options.tag || `tag_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-      icon: options.icon || "/faceprep-fav.png",
-      badge: options.badge || "/faceprep-fav.png",
-      data: options.data || { url: options.link || "/" },
-    });
-
     // 3. Dispatch to all subscribed endpoints in parallel
     let sentCount = 0;
     let failedCount = 0;
@@ -129,6 +118,18 @@ export async function sendWebPushNotification(
 
     await Promise.allSettled(
       subscriptions.map(async (sub: any) => {
+        const link = options.linksByUserId?.[String(sub.user_id || "").toLowerCase()] || options.link || "/";
+        const pushPayloadString = JSON.stringify({
+          title: options.title,
+          message: options.message,
+          body: options.message,
+          link,
+          url: link,
+          tag: options.tag || `tag_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+          icon: options.icon || "/faceprep-fav.png",
+          badge: options.badge || "/faceprep-fav.png",
+          data: { ...(options.data || {}), url: link, link },
+        });
         const pushSubscription = {
           endpoint: sub.endpoint,
           keys: {

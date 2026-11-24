@@ -163,14 +163,15 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
     const message = `The campus schedule for next week (${nextDates[0]} to ${nextDates[6]}) has been automatically configured (${insertedConfigs.length} days). Please review your timetable.`;
 
     await dispatchSystemNotification(db, {
-      userIds: [body.user_id, body.userId].filter(Boolean),
       roles: ["cm", "mentor", "student", "admin", "kam"],
       collegeId: college_id,
       title,
       message,
       link: `/schedule?week=${nextDates[0]}`,
       type: "info",
-      action: "daily_config_auto_adapted"
+      action: "daily_config_auto_adapted",
+      dedupeKey: `dayconfig:${college_id}:${nextDates[0]}:${nextDates[6]}`,
+      payload: { collegeId: college_id || null, weekStart: nextDates[0], weekEnd: nextDates[6], configuredDays: insertedConfigs.length }
     });
 
     notifyRealtimeEvent({
@@ -276,14 +277,15 @@ async function handleAutoFillCurrentWeek(db: any, body: any) {
     const message = `Campus Day Order schedule for week (${weekDates[0]} to ${weekDates[6]}) has been auto-filled and aligned.`;
 
     await dispatchSystemNotification(db, {
-      userIds: [body.user_id, body.userId].filter(Boolean),
       roles: ["cm", "mentor", "student", "admin", "kam"],
       collegeId: college_id,
       title,
       message,
       link: `/schedule?week=${weekDates[0]}`,
       type: "info",
-      action: "daily_config_auto_adapted"
+      action: "daily_config_auto_adapted",
+      dedupeKey: `dayconfig:${college_id}:${weekDates[0]}:${weekDates[6]}`,
+      payload: { collegeId: college_id || null, weekStart: weekDates[0], weekEnd: weekDates[6], configuredDays: inserted.length }
     });
 
     notifyRealtimeEvent({
@@ -635,14 +637,15 @@ export async function POST(request: Request) {
         const notifType = plan.dayType === "holiday" ? "warning" : "info";
 
         await dispatchSystemNotification(db, {
-          userIds: [auth.user.id, auth.user.reference_id].filter(Boolean) as string[],
           roles: ["cm", "mentor", "student", "admin", "kam"],
           collegeId: college_id,
           title,
           message,
           link: `/schedule?date=${plan.dStr}`,
           type: notifType,
-          action: "daily_config_updated"
+          action: "daily_config_updated",
+          dedupeKey: `dayconfig:${college_id}:${plan.dStr}`,
+          payload: { collegeId: college_id || null, date: plan.dStr, dayOrder: orderLabel, dayType: displayType }
         });
       } else if (dayPlans.length > 1) {
         const first = dayPlans[0];
@@ -651,14 +654,15 @@ export async function POST(request: Request) {
         const message = `Campus Day Order schedule from ${first.dStr} to ${last.dStr} has been configured in ${sessionModeVal} mode.${notesVal ? ` Notes: ${notesVal}` : ""}`;
 
         await dispatchSystemNotification(db, {
-          userIds: [auth.user.id, auth.user.reference_id].filter(Boolean) as string[],
           roles: ["cm", "mentor", "student", "admin", "kam"],
           collegeId: college_id,
           title,
           message,
           link: `/schedule?date=${first.dStr}`,
           type: "info",
-          action: "daily_config_updated"
+          action: "daily_config_updated",
+          dedupeKey: `dayconfig:${college_id}:${first.dStr}:${last.dStr}`,
+          payload: { collegeId: college_id || null, startDate: first.dStr, endDate: last.dStr, configuredDays: dayPlans.length }
         });
       }
 

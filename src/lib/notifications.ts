@@ -35,6 +35,10 @@ export interface DispatchNotificationOptions {
   action?: string;
   /** Additional payload data */
   payload?: any;
+  /** Stable event identity used to suppress retries for each recipient. */
+  dedupeKey?: string | null;
+  /** Override the default: push only goes out for reminder/approval/alert events. */
+  push?: boolean;
   /** Tab ID that initiated the action (for client-side echo suppression) */
   originTabId?: string | null;
 }
@@ -71,8 +75,7 @@ export async function dispatchSystemNotification(
       return { success: true, count: 0, notificationIds: [], recipientUserIds: [] };
     }
 
-    const targetRecipients: { userId: string; aliases: string[] }[] = [];
-    const allTargetAliases = new Set<string>();
+    const targetRecipients: { userId: string; aliases: string[]; role?: string }[] = [];
 
     // 1. Resolve explicit user identifiers across id, reference_id, and email
     if (rawUserIds.length > 0) {
@@ -98,13 +101,13 @@ export async function dispatchSystemNotification(
         const aliases = [u.id, u.reference_id, u.email]
           .filter(Boolean)
           .map((s: string) => String(s).trim());
-        aliases.forEach((a) => allTargetAliases.add(a));
 
         // Prefer reference_id if present (matches session.userId convention in api-auth), fallback to id
         const canonicalId = String(u.reference_id || u.id);
         targetRecipients.push({
           userId: canonicalId,
           aliases,
+          role: u.role,
         });
 
         for (const raw of rawUserIds) {
@@ -122,98 +125,107 @@ export async function dispatchSystemNotification(
             userId: raw,
             aliases: [raw],
           });
-          allTargetAliases.add(raw);
         }
       }
     }
 
-    // 2. Resolve role-based recipients (e.g. all CMs of a college, mentors, or admins)
+    // 2. Resolve role recipients once, with campus-aware scope for campus events.
     if (roles.length > 0) {
-      // 2a. Global / Non-campus roles (admin, kam) from users table
-      const globalRoles = roles.filter((r) => r === "admin" || r === "kam");
-      if (globalRoles.length > 0) {
-        const placeholders = globalRoles.map(() => "?").join(", ");
-        const globalUsers = await db
-          .all(`SELECT id, reference_id, email, role FROM users WHERE role IN (${placeholders})`, globalRoles)
-          .catch(() => []);
-        for (const u of globalUsers) {
-          const canonicalId = String(u.reference_id || u.id);
-          if (!targetRecipients.some((r) => r.userId === canonicalId)) {
-            const aliases = [u.id, u.reference_id, u.email]
-              .filter(Boolean)
-              .map((s: string) => String(s).trim());
-            aliases.forEach((a) => allTargetAliases.add(a));
-            targetRecipients.push({
-              userId: canonicalId,
-              aliases,
-            });
+      const normalizeNotifRole = (value: string) => {
+        const role = String(value || "").toLowerCase().trim().replace(/[_-]+/g, " ");
+        if (["cam", "campus manager"].includes(role)) return "cm";
+        if (["l&d", "ld", "lnd", "learning and development", "allocator", "demo allocator"].includes(role)) return "l and d";
+        if (role === "fee manager") return "fee_manager";
+        return role;
+      };
+      const requestedRoles = Array.from(new Set(roles.map(normalizeNotifRole)));
+      const addRecipient = (row: any, roleHint?: string) => {
+        const userId = String(row.reference_id || row.id || "").trim();
+        if (!userId) return;
+        const aliases = [row.id, row.reference_id, row.email]
+          .filter(Boolean)
+          .map((value: string) => String(value).trim());
+        const existing = targetRecipients.find((recipient) => recipient.userId.toLowerCase() === userId.toLowerCase());
+        if (existing) {
+          existing.aliases = Array.from(new Set([...existing.aliases, ...aliases]));
+          existing.role ||= roleHint || row.role;
+          return;
+        }
+        targetRecipients.push({ userId, aliases, role: roleHint || row.role });
+      };
+
+      // A campus-specific event goes to its assigned KAM only. Global notices may
+      // still target every KAM when no campus is supplied.
+      if (requestedRoles.includes("kam")) {
+        let kamRows: any[] = [];
+        if (collegeId && collegeId !== "all") {
+          const college = await db.get("SELECT kam_id FROM colleges WHERE id = ?", [collegeId]).catch(() => null);
+          if (college?.kam_id) {
+            const kam = await db.get("SELECT id, email, name FROM kam_users WHERE id = ?", [college.kam_id]).catch(() => null);
+            if (kam) kamRows = [kam];
           }
+        } else {
+          kamRows = await db.all("SELECT id, email, name FROM kam_users").catch(() => []);
+        }
+        for (const kam of kamRows) {
+          const users = await db.all(
+            "SELECT id, reference_id, email, role FROM users WHERE reference_id = ? OR LOWER(email) = LOWER(?)",
+            [kam.id, kam.email || ""]
+          ).catch(() => []);
+          if (users.length > 0) users.forEach((row: any) => addRecipient(row, "kam"));
+          else addRecipient(kam, "kam");
         }
       }
 
-      // 2b. CMs from campus_managers table
-      if (roles.includes("cm")) {
-        const cmQuery = collegeId && collegeId !== "all"
-          ? `SELECT id, email, name FROM campus_managers WHERE college_id = ?`
-          : `SELECT id, email, name FROM campus_managers`;
-        const cmParams = collegeId && collegeId !== "all" ? [collegeId] : [];
-        const cmRows = await db.all(cmQuery, cmParams).catch(() => []);
-        for (const cm of cmRows) {
-          const cmId = String(cm.id);
-          if (!targetRecipients.some((r) => r.userId === cmId)) {
-            const aliases = [cm.id, cm.email].filter(Boolean).map((s: string) => String(s).trim());
-            aliases.forEach((a) => allTargetAliases.add(a));
-            targetRecipients.push({
-              userId: cmId,
-              aliases,
-            });
-          }
-        }
+      // Admins are global recipients only for global events. Campus-scoped events
+      // do not fan out to every administrator.
+      if (requestedRoles.includes("admin") && (!collegeId || collegeId === "all")) {
+        const admins = await db.all("SELECT id, reference_id, email, role FROM users WHERE LOWER(role) = 'admin'").catch(() => []);
+        admins.forEach((row: any) => addRecipient(row, "admin"));
       }
 
-      // 2c. Mentors from mentors table
-      if (roles.includes("mentor")) {
-        const mentorQuery = collegeId && collegeId !== "all"
-          ? `SELECT id, email, name FROM mentors WHERE college_id = ?`
-          : `SELECT id, email, name FROM mentors`;
-        const mentorParams = collegeId && collegeId !== "all" ? [collegeId] : [];
-        const mentorRows = await db.all(mentorQuery, mentorParams).catch(() => []);
-        for (const m of mentorRows) {
-          const mId = String(m.id);
-          if (!targetRecipients.some((r) => r.userId === mId)) {
-            const aliases = [m.id, m.email].filter(Boolean).map((s: string) => String(s).trim());
-            aliases.forEach((a) => allTargetAliases.add(a));
-            targetRecipients.push({
-              userId: mId,
-              aliases,
-            });
-          }
-        }
+      if (requestedRoles.includes("cm")) {
+        const scoped = collegeId && collegeId !== "all";
+        const rows = await db.all(
+          scoped ? "SELECT id, email, name FROM campus_managers WHERE college_id = ?" : "SELECT id, email, name FROM campus_managers",
+          scoped ? [collegeId] : []
+        ).catch(() => []);
+        rows.forEach((row: any) => addRecipient(row, "cm"));
+      }
+      if (requestedRoles.includes("mentor")) {
+        const scoped = collegeId && collegeId !== "all";
+        const rows = await db.all(
+          scoped ? "SELECT id, email, name FROM mentors WHERE college_id = ?" : "SELECT id, email, name FROM mentors",
+          scoped ? [collegeId] : []
+        ).catch(() => []);
+        rows.forEach((row: any) => addRecipient(row, "mentor"));
+      }
+      if (requestedRoles.includes("student")) {
+        const scoped = collegeId && collegeId !== "all";
+        const rows = await db.all(
+          scoped ? "SELECT id, email, name FROM students WHERE college_id = ?" : "SELECT id, email, name FROM students",
+          scoped ? [collegeId] : []
+        ).catch(() => []);
+        rows.forEach((row: any) => addRecipient(row, "student"));
       }
 
-      // 2d. Students from students table
-      if (roles.includes("student")) {
-        const studentQuery = collegeId && collegeId !== "all"
-          ? `SELECT id, email, name FROM students WHERE college_id = ?`
-          : `SELECT id, email, name FROM students`;
-        const studentParams = collegeId && collegeId !== "all" ? [collegeId] : [];
-        const studentRows = await db.all(studentQuery, studentParams).catch(() => []);
-        for (const s of studentRows) {
-          const sId = String(s.id);
-          if (!targetRecipients.some((r) => r.userId === sId)) {
-            const aliases = [s.id, s.email].filter(Boolean).map((a: string) => String(a).trim());
-            aliases.forEach((a) => allTargetAliases.add(a));
-            targetRecipients.push({
-              userId: sId,
-              aliases,
-            });
-          }
-        }
+      const accountRoles = requestedRoles.filter((role) => ["sme", "hr", "fee_manager", "l and d"].includes(role));
+      if (accountRoles.length > 0) {
+        const roleValues = accountRoles.flatMap((role) => role === "l and d"
+          ? ["l and d", "l&d", "lnd", "ld", "allocator", "demo allocator"]
+          : role === "fee_manager" ? ["fee_manager", "fee manager"] : [role]);
+        const placeholders = roleValues.map(() => "LOWER(?)").join(", ");
+        const scopedClause = collegeId && collegeId !== "all" ? " AND (college_id = ? OR college_id IS NULL)" : "";
+        const rows = await db.all(
+          `SELECT id, reference_id, email, role FROM users WHERE LOWER(role) IN (${placeholders})${scopedClause}`,
+          [...roleValues, ...(collegeId && collegeId !== "all" ? [collegeId] : [])]
+        ).catch(() => []);
+        rows.forEach((row: any) => addRecipient(row, normalizeNotifRole(row.role)));
       }
     }
 
     // 3. Deduplicate recipients by canonical user ID
-    const uniqueRecipients: { notifId: string; userId: string; createdAt: string }[] = [];
+    const uniqueRecipients: { notifId: string; userId: string; createdAt: string; aliases: string[]; role?: string }[] = [];
     const seenUserIds = new Set<string>();
 
     for (const r of targetRecipients) {
@@ -224,6 +236,8 @@ export async function dispatchSystemNotification(
           notifId: genId(),
           userId: r.userId,
           createdAt: new Date().toISOString(),
+          aliases: r.aliases,
+          role: r.role,
         });
       }
     }
@@ -232,12 +246,13 @@ export async function dispatchSystemNotification(
       return { success: true, count: 0, notificationIds: [], recipientUserIds: [] };
     }
 
-    // 4. Batch insert into `notifications`, 1,000 rows per statement. One statement
-    // for everyone broke past ~9,300 recipients (7 params each > Postgres's 65,535).
+    // 4. Batch insert into `notifications`. Stable keys make retries idempotent per
+    // recipient; only newly inserted notifications should create push/realtime events.
     const NOTIF_CHUNK = 1000;
+    const insertedRecipients: typeof uniqueRecipients = [];
     for (let i = 0; i < uniqueRecipients.length; i += NOTIF_CHUNK) {
       const chunk = uniqueRecipients.slice(i, i + NOTIF_CHUNK);
-      const notifValues = chunk.map(() => "(?, ?, ?, ?, 0, ?, ?, ?)").join(", ");
+      const notifValues = chunk.map(() => "(?, ?, ?, ?, 0, ?, ?, ?, ?, ?::jsonb)").join(", ");
       const notifParams = chunk.flatMap((r) => [
         r.notifId,
         r.userId,
@@ -246,25 +261,50 @@ export async function dispatchSystemNotification(
         options.link || null,
         options.type || "info",
         r.createdAt,
+        options.dedupeKey || null,
+        JSON.stringify(options.payload || {}),
       ]);
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-         VALUES ${notifValues}`,
-        notifParams
-      );
+      if (options.dedupeKey) {
+        const inserted = await db.all(
+          `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at, dedupe_key, payload)
+           VALUES ${notifValues}
+           ON CONFLICT (LOWER(user_id), dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+           RETURNING id, user_id`,
+          notifParams
+        );
+        const insertedUserIds = new Set(inserted.map((row: any) => String(row.user_id).toLowerCase()));
+        insertedRecipients.push(...chunk.filter((row) => insertedUserIds.has(row.userId.toLowerCase())));
+      } else {
+        await db.run(
+          `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at, dedupe_key, payload)
+           VALUES ${notifValues}`,
+          notifParams
+        );
+        insertedRecipients.push(...chunk);
+      }
+    }
+
+    if (insertedRecipients.length === 0) {
+      return { success: true, count: 0, notificationIds: [], recipientUserIds: [] };
     }
 
     // 5. Build envelope payload
     const eventId = `evt_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
-    const allTargetAliasesList = Array.from(allTargetAliases);
+    const allTargetAliasesList = Array.from(new Set(insertedRecipients.flatMap((recipient) => recipient.aliases)));
+    const linksByUserId: Record<string, string> = {};
+    for (const recipient of insertedRecipients) {
+      const universalDestination = `/notifications/open/${encodeURIComponent(recipient.notifId)}`;
+      recipient.aliases.forEach((alias) => { linksByUserId[alias.toLowerCase()] = universalDestination; });
+    }
     const envelopePayload = {
-      notificationIds: uniqueRecipients.map((r) => r.notifId),
+      notificationIds: insertedRecipients.map((r) => r.notifId),
       title: options.title,
       message: options.message,
       link: options.link || null,
       type: options.type || "info",
-      count: uniqueRecipients.length,
-      createdAt: uniqueRecipients[0].createdAt,
+      count: insertedRecipients.length,
+      createdAt: insertedRecipients[0].createdAt,
+      payload: options.payload || {},
       ...(options.payload || {}),
     };
 
@@ -279,7 +319,7 @@ export async function dispatchSystemNotification(
           options.action || "created",
           collegeId,
           JSON.stringify(allTargetAliasesList),
-          roles.length > 0 ? JSON.stringify(roles) : null,
+          null,
           options.originTabId || null,
           JSON.stringify(envelopePayload),
         ]
@@ -301,30 +341,33 @@ export async function dispatchSystemNotification(
       domain: (options.domain as any) || "notifications",
       action: (options.action as any) || "created",
       targetUserIds: allTargetAliasesList,
-      targetRoles: roles.length > 0 ? roles : undefined,
       collegeId: collegeId || undefined,
       payload: envelopePayload,
     }, { persist: false });
 
-    // 9. Asynchronous Web Push to Google FCM & Apple APNs (for closed tabs & locked phones)
-    sendWebPushNotification(db, {
-      userIds: allTargetAliasesList,
-      roles: roles.length > 0 ? roles : undefined,
-      collegeId: collegeId || undefined,
-      title: options.title,
-      message: options.message,
-      link: options.link || "/",
-      tag: uniqueRecipients[0]?.notifId,
-      data: envelopePayload,
-    }).catch((pushErr) => {
-      logger.warn("dispatchSystemNotification: webPush dispatch failed", { error: pushErr?.message });
-    });
+    // Routine updates stay in the in-app feed. Device push is reserved for events
+    // that need attention so a burst of informational updates is not disruptive.
+    const pushType = String(options.type || "info").toLowerCase();
+    const shouldPush = options.push ?? ["error", "alert", "reminder", "approval"].includes(pushType);
+    if (shouldPush) {
+      sendWebPushNotification(db, {
+        userIds: allTargetAliasesList,
+        title: options.title,
+        message: options.message,
+        link: options.link || "/",
+        tag: insertedRecipients[0]?.notifId,
+        data: envelopePayload,
+        linksByUserId,
+      }).catch((pushErr) => {
+        logger.warn("dispatchSystemNotification: webPush dispatch failed", { error: pushErr?.message });
+      });
+    }
 
     return {
       success: true,
-      count: uniqueRecipients.length,
-      notificationIds: uniqueRecipients.map((r) => r.notifId),
-      recipientUserIds: uniqueRecipients.map((r) => r.userId),
+      count: insertedRecipients.length,
+      notificationIds: insertedRecipients.map((r) => r.notifId),
+      recipientUserIds: insertedRecipients.map((r) => r.userId),
     };
   } catch (error: any) {
     logger.error("dispatchSystemNotification: error", { error: error?.message || String(error) });

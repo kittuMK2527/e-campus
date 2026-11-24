@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "crypto";
 import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { generateId } from "@/lib/id";
@@ -268,7 +269,9 @@ export async function POST(request: Request) {
           message,
           link: "/student/exams",
           type: "info",
-          action: "exam_scheduled"
+          action: "exam_scheduled",
+          dedupeKey: `exam-schedule:${collegeId}:${createHash("sha256").update(examRows.map((row: any) => String(row.values[0])).sort().join("\n")).digest("hex")}`,
+          payload: { examIds: examRows.map((row: any) => row.values[0]), collegeId, firstExamDate: first.exam_date }
         });
 
         notifyRealtimeEvent({

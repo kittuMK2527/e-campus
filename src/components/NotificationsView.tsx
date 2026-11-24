@@ -13,7 +13,6 @@ import {
 import {
   requestDeviceNotificationPermission,
   getDeviceNotificationStatus,
-  sendDeviceSystemNotification,
   registerPushSubscription,
   type DeviceNotificationPermission,
 } from "@/lib/deviceNotifications";
@@ -157,17 +156,9 @@ export function NotificationsView({ userId, portalType }: { userId?: string; por
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         bc = new BroadcastChannel("fp_realtime_channel");
         bc.onmessage = (event) => {
-          if (event.data?.domain === "notifications") {
-            if (event.data?.action === "created") {
+          if (event.data?.domain === "notifications" || event.data?.payload?.notificationIds?.length) {
+            if (event.data?.action === "created" || event.data?.payload?.notificationIds?.length) {
               queryClient.invalidateQueries({ queryKey: qk.notificationsFull(userId) });
-              if (event.data?.payload?.title) {
-                sendDeviceSystemNotification({
-                  title: event.data.payload.title,
-                  message: event.data.payload.message,
-                  link: event.data.payload.link,
-                  tag: event.data.payload.id || (Array.isArray(event.data.payload.notificationIds) ? event.data.payload.notificationIds[0] : undefined),
-                });
-              }
             } else if (event.data?.action === "all_marked_read") {
               patchCachedNotifications((prev) => prev.map((n) => ({ ...n, is_read: 1 })));
             } else if (event.data?.action === "marked_read" && event.data?.payload?.id) {

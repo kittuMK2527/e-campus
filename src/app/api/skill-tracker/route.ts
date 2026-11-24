@@ -5,6 +5,7 @@ import { getDb, type QueryFailure } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 import {
   buildWeekRollup,
   deriveSubjectType,
@@ -444,37 +445,27 @@ export async function POST(request: Request) {
       );
     }
 
-    // In-app notifications for mentor on verdict outcome
+    // Notify the mentor when a verdict is published.
     if (mentorId && (status === "not_cleared" || status === "needs_revision")) {
-      const notifId = generateId("notif");
       const title = status === "not_cleared" ? "Skill Submission Not Cleared" : "Skill Submission Needs Revision";
       const message = `Your Week ${weekNumber} submission for ${subject} was marked ${status === "not_cleared" ? "Not Cleared" : "Needs Revision"} by ${verifiedBy || "SME"}.${remarks ? ` Feedback: "${remarks}"` : ""}`;
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
-        notifId,
-        mentorId,
-        title,
-        message,
-        "/mentor?tab=my_skill_tracker",
-        "skill_verdict_revision",
-        nowStr
-      ).catch(() => {});
+      await dispatchSystemNotification(db, {
+        userIds: [mentorId], title, message,
+        link: "/mentor?tab=my_skill_tracker",
+        type: "warning", domain: "notifications", action: "skill_verdict_revision",
+        dedupeKey: `skill-clearance:${writtenId}:${status}`,
+        payload: { clearanceId: writtenId, weekNumber, subject, status }
+      }).catch(() => {});
     } else if (mentorId && status === "cleared") {
-      const notifId = generateId("notif");
       const title = "Skill Clearance Approved";
       const message = `Your Week ${weekNumber} submission for ${subject} has been Cleared by ${verifiedBy || "SME"}.`;
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
-        notifId,
-        mentorId,
-        title,
-        message,
-        "/mentor?tab=my_skill_tracker",
-        "skill_verdict_cleared",
-        nowStr
-      ).catch(() => {});
+      await dispatchSystemNotification(db, {
+        userIds: [mentorId], title, message,
+        link: "/mentor?tab=my_skill_tracker",
+        type: "success", domain: "notifications", action: "skill_verdict_cleared",
+        dedupeKey: `skill-clearance:${writtenId}:cleared`,
+        payload: { clearanceId: writtenId, weekNumber, subject, status }
+      }).catch(() => {});
     }
 
     // Presentation only - the panel refetches the roll-up after a successful POST, so a
@@ -585,20 +576,15 @@ export async function PATCH(request: Request) {
     }
 
     if (isRevision && cleanLink) {
-      const notifId = generateId("notif");
       const title = "Skill Work Re-submitted";
       const message = `${mentorName || mentorId} has re-submitted Week ${wk} work for ${subject} following your feedback.`;
-      await db.run(
-        `INSERT INTO notifications (id, user_id, title, message, is_read, link, type, created_at)
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?)`,
-        notifId,
-        clearance.verified_by || "sme",
-        title,
-        message,
-        "/sme?tab=skill_approvals",
-        "skill_resubmitted",
-        nowStr
-      ).catch(() => {});
+      await dispatchSystemNotification(db, {
+        userIds: [clearance.verified_by || "sme"], title, message,
+        link: "/sme?tab=skill_approvals",
+        type: "info", domain: "notifications", action: "skill_resubmitted",
+        dedupeKey: `skill-resubmission:${clearance.id}`,
+        payload: { clearanceId: clearance.id, weekNumber: wk, subject }
+      }).catch(() => {});
     }
 
     return NextResponse.json({

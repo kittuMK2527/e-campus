@@ -15,14 +15,14 @@ interface ExternalInterviewNotificationOptions {
   originCollegeId: string;
   targetCollegeId?: string;
   notes?: string;
-  actionType?: "created" | "accepted" | "declined" | "assigned" | "pending_confirmation";
+  actionType?: "created" | "broadcast" | "accepted" | "declined" | "assigned" | "pending_confirmation";
   gmeetLink?: string;
   gcalLink?: string;
   actorName?: string;
 }
 
 /**
- * Sends in-app and email notifications for external interviews.
+ * Sends in-app and web-push notifications for external interviews.
  * Notifies:
  * 1. The origin college KAM.
  * 2. All other colleges & CAMs managed by the SAME KAM (Regional College Cluster).
@@ -45,7 +45,6 @@ export async function dispatchExternalInterviewNotifications(
       originCollegeId,
       targetCollegeId,
       actionType = "created",
-      gmeetLink = "",
       actorName = "Campus Team"
     } = options;
 
@@ -56,7 +55,7 @@ export async function dispatchExternalInterviewNotifications(
     // failed slice degrades to a missing recipient instead of failing the caller.
     const wantsTarget = Boolean(targetCollegeId && targetCollegeId !== originCollegeId);
     const recipientFailures: QueryFailure[] = [];
-    const [originCollegeRows, targetCollegeRows, targetCamRows] = await db.multiQuery([
+    const [originCollegeRows, targetCollegeRows, targetCamRows, originCamRows] = await db.multiQuery([
       { sql: "SELECT * FROM colleges WHERE id = ?", params: [originCollegeId] },
       wantsTarget
         ? { sql: "SELECT * FROM colleges WHERE id = ?", params: [targetCollegeId] }
@@ -64,6 +63,7 @@ export async function dispatchExternalInterviewNotifications(
       wantsTarget
         ? { sql: "SELECT * FROM campus_managers WHERE college_id = ?", params: [targetCollegeId] }
         : { sql: "SELECT 1 WHERE 1=0" },
+      { sql: "SELECT * FROM campus_managers WHERE college_id = ?", params: [originCollegeId] },
     ], recipientFailures);
     if (recipientFailures.length > 0) {
       console.warn("[interview-notifications] origin/target lookup incomplete:", recipientFailures.map(f => f.error).join("; "));
@@ -102,6 +102,7 @@ export async function dispatchExternalInterviewNotifications(
     // 5. Target college CAMs (read above with the origin/target batch)
     const targetCAMs: any[] = targetCamRows;
     const targetCollege: any = targetCollegeRows[0];
+    const originCAMs: any[] = originCamRows;
 
     // 6. Gather target User IDs for In-App Notifications
     const notificationUserIds = new Set<string>();
@@ -112,17 +113,27 @@ export async function dispatchExternalInterviewNotifications(
       if (kamUser?.email) notificationUserIds.add(kamUser.email);
     }
 
-    // Add all Regional CAMs
-    regionalCAMs.forEach((cam: any) => {
-      if (cam.id) notificationUserIds.add(cam.id);
-      if (cam.email) notificationUserIds.add(cam.email);
-    });
+    // A request raised by a mentor goes only to its origin campus. Regional
+    // partners are notified once the origin CM actually broadcasts capacity.
+    if (["created", "accepted", "declined", "assigned", "pending_confirmation"].includes(actionType)) {
+      originCAMs.forEach((cam: any) => {
+        if (cam.id) notificationUserIds.add(cam.id);
+        if (cam.email) notificationUserIds.add(cam.email);
+      });
+    } else if (actionType === "broadcast") {
+      regionalCAMs.forEach((cam: any) => {
+        if (cam.id) notificationUserIds.add(cam.id);
+        if (cam.email) notificationUserIds.add(cam.email);
+      });
+    }
 
-    // Add Target CAMs
-    targetCAMs.forEach((cam: any) => {
-      if (cam.id) notificationUserIds.add(cam.id);
-      if (cam.email) notificationUserIds.add(cam.email);
-    });
+    // A target campus is only a valid recipient when it is in the origin KAM zone.
+    if (targetCollege && kamId && targetCollege.kam_id === kamId) {
+      targetCAMs.forEach((cam: any) => {
+        if (cam.id) notificationUserIds.add(cam.id);
+        if (cam.email) notificationUserIds.add(cam.email);
+      });
+    }
 
     // Also match centralized `users` table records for these reference IDs / emails
     if (notificationUserIds.size > 0) {
@@ -135,30 +146,31 @@ export async function dispatchExternalInterviewNotifications(
     }
 
     // 7. Determine notification titles & text based on actionType
-    let notifTitle = `[External Interview] ${subject}`;
-    let notifMsg = `External interview request for ${subject} (${classGroup}) on ${targetDate}.`;
+    let notifTitle = `Interview update: ${subject}`;
+    let notifMsg = `${subject} interview update for ${classGroup} on ${targetDate}. Open Interviews for details.`;
 
     if (actionType === "created") {
-      notifTitle = `[External Interview Request] ${subject}`;
-      notifMsg = `A new external interview for ${subject} has been raised by ${mentorName} for ${originCollege?.name || "Campus"}.`;
+      notifTitle = `Interview request: ${subject}`;
+      notifMsg = `${mentorName} requested an external interview for ${classGroup} on ${targetDate}. Please review it for ${originCollege?.name || "your campus"}.`;
+    } else if (actionType === "broadcast") {
+      notifTitle = `Interview capacity requested: ${subject}`;
+      notifMsg = `${originCollege?.name || "A partner campus"} is requesting capacity for ${studentCount || 0} ${classGroup} student(s) on ${targetDate}. Open Interviews to respond.`;
     } else if (actionType === "accepted") {
-      notifTitle = `[External Interview Accepted] ${subject}`;
-      notifMsg = `External interview for ${subject} accepted by ${actorName}. GMeet Link is ready.`;
+      notifTitle = `Interview confirmed: ${subject}`;
+      notifMsg = `${subject} is confirmed for ${targetDate}. Open Interviews to view the schedule and meeting details.`;
     } else if (actionType === "declined") {
-      notifTitle = `[External Interview Declined] ${subject}`;
-      notifMsg = `External interview for ${subject} was declined by partner CM and cascaded to next priority.`;
+      notifTitle = `Interview capacity declined: ${subject}`;
+      notifMsg = `${actorName} declined capacity for ${subject} on ${targetDate}. Open Interviews to review remaining capacity.`;
     } else if (actionType === "assigned") {
-      notifTitle = `[External Interview Assigned] ${subject}`;
-      notifMsg = `Mentors assigned for external interview ${subject} on ${targetDate}.`;
+      notifTitle = `Interview mentors assigned: ${subject}`;
+      notifMsg = `${studentCount || 0} ${classGroup} student(s) have been assigned interview mentors for ${targetDate}. Open Interviews to view the schedule.`;
     } else if (actionType === "pending_confirmation") {
-      notifTitle = `[External Interview Awaiting Confirmation] ${subject}`;
-      notifMsg = `The priority allocation for ${subject} on ${targetDate} is ready. Please confirm your campus allocation.`;
+      notifTitle = `Interview allocation needs confirmation: ${subject}`;
+      notifMsg = `The proposed allocation for ${subject} on ${targetDate} is ready. Open Interviews to review your campus allocation.`;
     }
 
-    // 8. Insert In-App Notifications for all affected Users
-    // One role lookup and one multi-row INSERT. The previous loop cost two round-trips
-    // per recipient, which for a regional broadcast meant hundreds of sequential queries.
-    const now = new Date().toISOString();
+    // 8. Dispatch the event once per recipient; the shared engine handles storage,
+    // idempotency, realtime delivery, and push policy.
     const candidates = Array.from(notificationUserIds);
     // 8. Dispatch Real-Time In-App Notifications
     if (candidates.length > 0) {
@@ -171,7 +183,10 @@ export async function dispatchExternalInterviewNotifications(
           type: "info",
           domain: "interviews",
           action: "capacity_requested",
-          collegeId: targetCollege?.id || originCollege?.id || undefined,
+          // This event can reach origin and partner campuses; a single collegeId
+          // would make the other campus discard an otherwise user-targeted update.
+          dedupeKey: `interview:${interviewId}:${actionType || "created"}:${targetCollege?.id || "all"}`,
+          payload: { interviewId, actionType: actionType || "created", targetDate, targetCollegeId: targetCollege?.id || null },
         });
       } catch (errNotif) {
         console.warn("Error inserting in-app notifications:", errNotif);

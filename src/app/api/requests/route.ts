@@ -243,6 +243,7 @@ export async function POST(request: Request) {
           type: "warning",
           domain: "notifications",
           action: "created",
+          dedupeKey: `request:${newId}:submitted`,
           payload: { requestId: newId, requestorId: mentorId, slotId, dateStr }
         });
       } catch (_) {}
@@ -407,6 +408,7 @@ export async function POST(request: Request) {
         type: isEmergency ? "warning" : "info",
         domain: "notifications",
         action: "created",
+        dedupeKey: `handover:${newId}:offered`,
         payload: { requestId: newId, requestorId: mentorId, targetStaffId, slotId, dateStr }
       });
     } catch (_) {}

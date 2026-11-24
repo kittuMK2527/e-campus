@@ -920,6 +920,20 @@ const migrations: Migration[] = [
     }
   },
   {
+    // Preserve event details for direct notification navigation and suppress retries
+    // when callers supply the same stable key.
+    name: "notification_payload_and_dedupe",
+    run: async (db) => {
+      await db.exec(`
+        ALTER TABLE notifications ADD COLUMN IF NOT EXISTS dedupe_key VARCHAR(512);
+        ALTER TABLE notifications ADD COLUMN IF NOT EXISTS payload JSONB;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe
+          ON notifications (LOWER(user_id), dedupe_key)
+          WHERE dedupe_key IS NOT NULL;
+      `).catch((err: any) => console.warn("[migrations] notification_payload_and_dedupe:", err?.message || err));
+    }
+  },
+  {
     // The room clash index ignored the campus, so "Room 101 / Mon / 9:00" at one college
     // blocked the same room name at every other college. The replacement is strictly
     // looser (adds college_id), so it can always be built from the existing rows.

@@ -8762,6 +8762,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [approvalsPageSize, setApprovalsPageSize] = useState<number>(10);
   const [approvalsSearch, setApprovalsSearch] = useState<string>("");
   const activeTab = resolvedPropTab || localActiveTab;
+  useEffect(() => {
+    if (activeTab === "profile" && window.location.pathname !== "/profile") window.location.replace("/profile");
+  }, [activeTab]);
   const setActiveTab = onTabChange || setLocalActiveTab;
 
   useEffect(() => {

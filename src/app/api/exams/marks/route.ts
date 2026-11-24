@@ -341,6 +341,8 @@ export async function POST(request: Request) {
         domain: "exams",
         action: "marks_submitted",
         collegeId: exam.college_id,
+        dedupeKey: `exam-marks:${exam_id}`,
+        payload: { examId: exam_id, studentCount: studentIds.length },
       }).catch(() => {});
     }
 

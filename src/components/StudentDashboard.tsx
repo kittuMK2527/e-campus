@@ -165,6 +165,9 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
     return STUDENT_TAB_IDS.includes(mapped) ? mapped : undefined;
   })();
   const activeTab = (resolvedPropTab || localActiveTab) as typeof localActiveTab;
+  useEffect(() => {
+    if (activeTab === "profile" && window.location.pathname !== "/profile") window.location.replace("/profile");
+  }, [activeTab]);
   const setActiveTab = onTabChange || setLocalActiveTab;
   const [examClockNow, setExamClockNow] = useState(() => getServerNow());
 

@@ -307,6 +307,7 @@ export async function POST(request: Request) {
         type: isAbsent ? "warning" : (finalStatus === "Cleared" ? "success" : "info"),
         domain: "interviews",
         action: "evaluated",
+        dedupeKey: `interview-evaluation:${interview_id}:${student_id}:${finalStatus}:${totalScore}`,
         payload: { interview_id, student_id, status: finalStatus, totalScore }
       });
     } catch (notifErr) {

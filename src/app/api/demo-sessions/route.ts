@@ -372,6 +372,8 @@ export async function POST(request: Request) {
         type: "success",
         domain: "demos",
         action: "reallocated",
+        dedupeKey: `demo:${makeupId}:makeup-scheduled`,
+        payload: { sessionId: makeupId, originalSessionId, targetDate, timeSlot },
       }).catch(() => {});
 
       return NextResponse.json({ success: true, message: "Make-up session scheduled for the following week.", sessionId: makeupId });
@@ -864,13 +866,15 @@ export async function POST(request: Request) {
       // Notify every L&D viewer via zero-delay notification engine
       const notifMessage = `${session.mentorName} requested moving the ${session.subject} L&D session from ${session.dateStr} (${session.timeSlot}) to ${newDateStr} (${newTimeSlot}).`;
       await dispatchSystemNotification(db, {
-        roles: ["cm", "admin"],
+        roles: ["L and D", "admin"],
         title: "L&D Reschedule Awaiting Approval",
         message: notifMessage,
         link: "/l-and-d",
         type: "warning",
         domain: "demos",
         action: "availability_updated",
+        dedupeKey: `demo:${sessionId}:reschedule-requested:${newDateStr}:${newTimeSlot}`,
+        payload: { sessionId, newDate: newDateStr, newTimeSlot },
       }).catch((notifErr: any) => console.warn("[demo-sessions] reschedule notifications failed:", notifErr?.message));
 
       // Audit Log

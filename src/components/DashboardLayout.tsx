@@ -430,19 +430,6 @@ export function DashboardLayout({ children, requiredRole, hideFloatingFeedback =
   const unreadCount = notifications.filter((n) => !n.is_read).length;
   const hasUnread = unreadCount > 0;
 
-  // Shake the bell only when unread state flips from read to unread.
-  const prevHasUnreadRef = useRef<boolean | null>(null);
-  useEffect(() => {
-    if (notificationsQuery.data === undefined) return;
-    if (prevHasUnreadRef.current === false && hasUnread) {
-      setBellShake(true);
-      const timer = setTimeout(() => setBellShake(false), 600);
-      prevHasUnreadRef.current = hasUnread;
-      return () => clearTimeout(timer);
-    }
-    prevHasUnreadRef.current = hasUnread;
-  }, [hasUnread, notificationsQuery.data]);
-
   const resolveNotificationTarget = (n: any) =>
     resolveNotificationDestination(n, currentRole);
 
@@ -718,6 +705,20 @@ export function DashboardLayout({ children, requiredRole, hideFloatingFeedback =
         ) {
           return;
         }
+        const hasNotification = Array.isArray(event.payload?.notificationIds) && event.payload.notificationIds.length > 0;
+        if (hasNotification || event.domain === "notifications") {
+          queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
+          const type = String(event.payload?.type || "info").toLowerCase();
+          const needsAttention = ["error", "alert", "reminder", "approval"].includes(type);
+          if (hasNotification && needsAttention) {
+            setBellShake(true);
+            setTimeout(() => setBellShake(false), 600);
+            playNotificationChime();
+            try {
+              showToast(event.payload?.title || "New action needed", "info");
+            } catch (_) {}
+          }
+        }
         if (event.domain === "requests") {
           refreshRequests().catch(() => {});
         } else if (event.domain === "attendance") {
@@ -732,31 +733,8 @@ export function DashboardLayout({ children, requiredRole, hideFloatingFeedback =
             }
           });
         } else if (event.domain === "notifications") {
-          // Invalidate notifications query so bell badge updates immediately
-          queryClient.invalidateQueries({ queryKey: notificationsQueryKey });
-          setBellShake(true);
-          setTimeout(() => setBellShake(false), 1200);
-
-          // Audio chime
-          playNotificationChime();
-
-          const payload = event.payload || {};
-          const title = payload.title || "FACE Prep Alert";
-          const message = payload.message || payload.body || "You have a new update.";
-          const link = payload.link || payload.url || undefined;
-
-          // In-app toast
-          try {
-            showToast(title + (message ? `: ${message}` : ""), "info");
-          } catch (_) {}
-
-          // Native OS / Mobile system notification
-          sendDeviceSystemNotification({
-            title,
-            message,
-            link,
-            tag: payload.id || `notif_${Date.now()}`,
-          }).catch(() => {});
+          // Notification-only events need no workspace data refresh.
+          return;
         } else if (event.domain === "tracker" || event.domain === "exams") {
           queryClient.invalidateQueries({
             predicate: (query) => {

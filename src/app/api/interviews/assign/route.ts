@@ -463,6 +463,7 @@ export async function POST(request: Request) {
           type: "info",
           domain: "interviews",
           action: "assigned",
+          dedupeKey: `interview:${interview.id}:students-assigned`,
           payload: { interviewId: interview.id, subject: interview.subject, targetDate: interview.target_date }
         });
       }
@@ -475,6 +476,7 @@ export async function POST(request: Request) {
           type: "info",
           domain: "interviews",
           action: "assigned",
+          dedupeKey: `interview:${interview.id}:mentors-assigned`,
           payload: { interviewId: interview.id, subject: interview.subject, targetDate: interview.target_date }
         });
       }

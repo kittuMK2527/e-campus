@@ -148,6 +148,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     if (rawActiveTab === "demo_list") return "overview";
     return rawActiveTab;
   }, [rawActiveTab]);
+  useEffect(() => {
+    if (activeTab === "profile" && window.location.pathname !== "/profile") window.location.replace("/profile");
+  }, [activeTab]);
 
   const handleTabChange = (key: TabKey) => {
     const targetKey = key === "demo_list" ? "overview" : key;

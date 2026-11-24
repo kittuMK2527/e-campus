@@ -86,6 +86,8 @@ export async function processMissedDemoSessions(customDb?: any) {
           type: "warning",
           domain: "demos",
           action: "status_changed",
+          dedupeKey: `demo:${s.id}:missed:sme`,
+          payload: { sessionId: s.id },
         }).catch(() => {});
       }
 
@@ -99,18 +101,22 @@ export async function processMissedDemoSessions(customDb?: any) {
           type: "warning",
           domain: "demos",
           action: "status_changed",
+          dedupeKey: `demo:${s.id}:missed:mentor`,
+          payload: { sessionId: s.id },
         }).catch(() => {});
       }
 
       // 3. Notify L&D and CM
       await dispatchSystemNotification(db, {
-        roles: ["cm", "admin"],
+        roles: ["L and D", "admin"],
         title: "L&D SLA Breach: Missed Demo",
         message: `Demo between ${s.mentorName || 'Faculty'} and SME ${s.smeName || 'Evaluator'} (${s.subject}) on ${s.dateStr} (${s.timeSlot}) was missed without evaluation. Routed to Carry-Forward Make-Up Queue.`,
         link: "/l-and-d",
         type: "error",
         domain: "demos",
         action: "status_changed",
+        dedupeKey: `demo:${s.id}:missed:oversight`,
+        payload: { sessionId: s.id },
       }).catch(() => {});
 
       // Audit Log

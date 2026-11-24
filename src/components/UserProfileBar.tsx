@@ -196,16 +196,7 @@ export function UserProfileBar({ onOpenChangePassword }: UserProfileBarProps) {
     currentSME
   ]);
 
-  const profilePath = useMemo(() => {
-    const role = normalizeRoleValue(currentRole);
-    if (role === "mentor") return "/mentor/profile";
-    if (role === "cm") return "/cm/profile";
-    if (role === "kam") return "/kam/profile";
-    if (role === "student") return "/student/profile";
-    if (role === "sme") return "/sme/profile";
-    if (role === "admin") return "/admin/profile";
-    return null;
-  }, [currentRole]);
+  const profilePath = "/profile";
 
   const handleToggle = useCallback(() => {
     setIsOpen((prev) => !prev);

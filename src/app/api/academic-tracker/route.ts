@@ -230,10 +230,14 @@ export async function POST(request: Request) {
       });
 
       try {
-        const studentRows = await db.all(
-          `SELECT id, email FROM students WHERE LOWER(TRIM(COALESCE(classgroup, ''))) = LOWER(TRIM(?))`,
-          [classGroup.trim()]
-        );
+        const mentorCampus = await db.get("SELECT college_id FROM mentors WHERE id = ?", [mentorId.trim()]).catch(() => null);
+        const studentRows = mentorCampus?.college_id
+          ? await db.all(
+              `SELECT id, email FROM students
+               WHERE LOWER(TRIM(COALESCE(classgroup, classGroup, ''))) = LOWER(TRIM(?)) AND college_id = ?`,
+              [classGroup.trim(), mentorCampus.college_id]
+            )
+          : [];
         const studentIds = studentRows.map((s: any) => s.id || s.email).filter(Boolean);
         if (studentIds.length > 0) {
           await dispatchSystemNotification(db, {
@@ -244,6 +248,8 @@ export async function POST(request: Request) {
             type: "info",
             domain: "tracker",
             action: "task_assigned",
+            collegeId: mentorCampus.college_id,
+            dedupeKey: `weekly-task:${mentorCampus.college_id}:${classGroup.trim().toLowerCase()}:${subject.trim().toLowerCase()}:${weekNumber}`,
             payload: { classGroup, subject, weekNumber, taskName }
           });
         }
@@ -365,6 +371,7 @@ export async function POST(request: Request) {
             type: "success",
             domain: "tracker",
             action: "marks_updated",
+            dedupeKey: `academic-marks:${classGroup.trim().toLowerCase()}:${subject.trim().toLowerCase()}:${weekNumber}:${updatedCount}`,
             payload: { classGroup, subject, weekNumber }
           });
         }
@@ -489,6 +496,7 @@ export async function POST(request: Request) {
           type: "success",
           domain: "tracker",
           action: "student_graded",
+          dedupeKey: `academic-grade:${studentId || email}:${subject.trim().toLowerCase()}:${weekNumber}`,
           payload: { studentEmail: email, classGroup, subject, weekNumber, totalMarks: totMarks }
         });
       } catch (notifErr) {

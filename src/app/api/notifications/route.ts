@@ -6,6 +6,7 @@ import { requireAuth } from "@/lib/authGuard";
 import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 import { dispatchSystemNotification } from "@/lib/notifications";
 import crypto from "crypto";
+import { canActOnCollege } from "@/lib/requestScope";
 
 function genId(prefix = "notif") {
   return `${prefix}_${Date.now()}_${crypto.randomBytes(3).toString("hex")}`;
@@ -13,7 +14,7 @@ function genId(prefix = "notif") {
 
 export async function POST(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, {
+    const { auth, errorResponse } = await requireAuth(request, {
       allowedRoles: ["mentor", "cm", "kam", "admin"],
     });
     if (errorResponse) return errorResponse;
@@ -32,6 +33,10 @@ export async function POST(request: Request) {
     } = body;
 
     if (college_id && remind_cm_for_date) {
+      const allowed = await canActOnCollege(db, auth!.user, college_id);
+      if (!allowed) {
+        return NextResponse.json({ success: false, message: "You cannot send a reminder for this campus." }, { status: 403 });
+      }
       const cams = await db.all("SELECT * FROM campus_managers WHERE college_id = ?", [
         college_id,
       ]);
@@ -71,6 +76,8 @@ export async function POST(request: Request) {
         link: notifLink,
         type: notifType,
         action: "cm_reminder_created",
+        dedupeKey: `dayconfig-reminder:${college_id}:${dateStr}`,
+        payload: { collegeId: college_id, date: dateStr },
       });
 
       return NextResponse.json({
@@ -78,6 +85,10 @@ export async function POST(request: Request) {
         message: `Reminder saved for ${dispatchResult.count} CM(s).`,
         notifications_created: dispatchResult.count,
       });
+    }
+
+    if (auth!.user.role !== "admin") {
+      return NextResponse.json({ success: false, message: "Only admins can send a custom notification." }, { status: 403 });
     }
 
     if (!user_id || !title || !message) {
@@ -114,6 +125,7 @@ export async function GET(request: Request) {
     const db = await getDb();
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || searchParams.get("user_id");
+    const notificationId = searchParams.get("notification_id") || searchParams.get("id");
     const actor = auth!.user;
 
     if (!userId) {
@@ -160,12 +172,16 @@ export async function GET(request: Request) {
     const uniqueSearchKeys = Array.from(new Set(searchKeys));
     const placeholders = uniqueSearchKeys.map(() => "?").join(", ");
 
-    const notifications = await db.all(
-      `SELECT * FROM notifications 
-       WHERE user_id IN (${placeholders}) OR LOWER(user_id) IN (${placeholders})
-       ORDER BY created_at DESC LIMIT ?`,
-      [...uniqueSearchKeys, ...uniqueSearchKeys, limit]
-    );
+    const ownerClause = `(user_id IN (${placeholders}) OR LOWER(user_id) IN (${placeholders}))`;
+    const notifications = notificationId
+      ? await db.all(
+          `SELECT * FROM notifications WHERE id = ? AND ${ownerClause} ORDER BY created_at DESC LIMIT 1`,
+          [notificationId, ...uniqueSearchKeys, ...uniqueSearchKeys]
+        )
+      : await db.all(
+          `SELECT * FROM notifications WHERE ${ownerClause} ORDER BY created_at DESC LIMIT ?`,
+          [...uniqueSearchKeys, ...uniqueSearchKeys, limit]
+        );
 
     const unreadCount = notifications.filter((n: any) => n.is_read === 0).length;
 

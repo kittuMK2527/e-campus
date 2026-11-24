@@ -194,6 +194,7 @@ export async function PATCH(request: Request) {
             type: status === "resolved" ? "success" : "info",
             domain: "tickets",
             action: "status_changed",
+            dedupeKey: `ticket:${ticketId}:${String(status).toLowerCase()}`,
             payload: { ticketId, status, notes }
           });
         } catch (ticketNotifErr) {

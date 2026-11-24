@@ -12,7 +12,7 @@ const ANNOUNCE_READ_ROLES: Role[] = [
 ];
 
 export async function GET(request: Request) {
-  const { errorResponse } = await requireAuth(request, {
+  const { auth, errorResponse } = await requireAuth(request, {
     allowedRoles: ANNOUNCE_READ_ROLES,
     checkCsrf: false
   });
@@ -20,21 +20,43 @@ export async function GET(request: Request) {
 
   try {
     const db = await getDb();
-    const { searchParams } = new URL(request.url);
-    const collegeId = searchParams.get("college_id");
-    const targetRole = searchParams.get("target_role");
+    const user = auth!.user;
+    const role = String(user.role || "").toLowerCase().replace(/[_-]+/g, " ").trim();
 
     let query = "SELECT * FROM announcements WHERE 1=1";
     const params: any[] = [];
 
-    if (collegeId) {
-      query += " AND (college_id = ? OR college_id IS NULL)";
-      params.push(collegeId);
+    if (role === "kam") {
+      const kam = await db.get(
+        "SELECT id FROM kam_users WHERE id = ? OR LOWER(email) = LOWER(?) LIMIT 1",
+        [user.reference_id, String(user.email || "")]
+      );
+      if (!kam) return NextResponse.json({ success: true, announcements: [] });
+      query += " AND (college_id IS NULL OR college_id IN (SELECT id FROM colleges WHERE kam_id = ?))";
+      params.push(kam.id);
+    } else if (role !== "admin") {
+      if (user.college_id) {
+        query += " AND (college_id = ? OR college_id IS NULL)";
+        params.push(user.college_id);
+      } else {
+        query += " AND college_id IS NULL";
+      }
     }
 
-    if (targetRole) {
-      query += " AND (target_role = ? OR target_role = 'All' OR target_role IS NULL)";
-      params.push(targetRole);
+    const normalizedRole = ["cam", "campus manager"].includes(role)
+      ? "cm"
+      : ["fee manager", "fee_manager"].includes(role)
+        ? "fee_manager"
+        : ["l&d", "lnd", "ld"].includes(role)
+          ? "l and d"
+          : role;
+    query += " AND (LOWER(TRIM(target_role)) = ? OR LOWER(TRIM(target_role)) = 'all' OR target_role IS NULL)";
+    params.push(normalizedRole);
+
+    const announcementId = new URL(request.url).searchParams.get("id");
+    if (announcementId) {
+      query += " AND id = ?";
+      params.push(announcementId);
     }
 
     query += " ORDER BY created_at DESC";
@@ -47,13 +69,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin"] });
+  const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["admin"] });
   if (errorResponse) return errorResponse;
 
   try {
     const db = await getDb();
     const body = await request.json();
-    const { title, description, created_by, target_role, college_id } = body;
+    const { title, description, target_role, college_id } = body;
 
     if (!title) {
       return NextResponse.json({ success: false, message: "Title is required" }, { status: 400 });
@@ -65,13 +87,13 @@ export async function POST(request: Request) {
     await db.run(
       `INSERT INTO announcements (id, title, description, created_by, target_role, college_id, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [newId, title, description || null, created_by || "Admin", target_role || "All", college_id || null, nowStr]
+      [newId, title, description || null, auth?.user?.name || "Admin", target_role || "All", college_id || null, nowStr]
     );
 
     // Instant multi-recipient dispatch: notify all users or target audience
     const normalizedTarget = (target_role || "All").toLowerCase();
     const targetRoles = normalizedTarget === "all"
-      ? ["student", "mentor", "cm", "kam", "admin"]
+      ? ["student", "mentor", "cm", "kam", "admin", "sme", "hr", "fee_manager", "L and D"]
       : [normalizedTarget];
 
     try {
@@ -80,7 +102,7 @@ export async function POST(request: Request) {
         collegeId: college_id || undefined,
         title: `Announcement: ${title}`,
         message: description ? (description.length > 120 ? description.slice(0, 117) + "..." : description) : "A new campus announcement was posted.",
-        link: "/announcements",
+        link: `/announcements?id=${encodeURIComponent(newId)}`,
         type: "info",
         domain: "notifications",
         action: "created",
@@ -90,7 +112,8 @@ export async function POST(request: Request) {
           description,
           collegeId: college_id || null,
           targetRole: target_role || "All"
-        }
+        },
+        dedupeKey: `announcement:${newId}`
       });
     } catch (notifErr: any) {
       console.warn("Announcements: notification dispatch error", notifErr?.message);

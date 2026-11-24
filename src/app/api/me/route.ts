@@ -23,8 +23,16 @@ const PROFILE_TABLES: Record<string, string> = {
   sme: "sme_users",
   fee_manager: "users",
   hr: "users",
-  "L and D": "users"
+  "L and D": "users",
+  program_ops: "users"
 };
+
+const PRIVATE_PROFILE_FIELD = /password|secret|token|aadhar|pan_number/i;
+
+function toSafeProfile(profile: Record<string, unknown> | null): Record<string, unknown> | null {
+  if (!profile) return null;
+  return Object.fromEntries(Object.entries(profile).filter(([key]) => !PRIVATE_PROFILE_FIELD.test(key)));
+}
 
 export async function GET(request: Request) {
   try {
@@ -33,6 +41,8 @@ export async function GET(request: Request) {
     const userId = session.userId;
 
     let profile: Record<string, unknown> | null = null;
+    let campus: Record<string, unknown> | null = null;
+    let portfolioCampuses: Record<string, unknown>[] = [];
     const table = PROFILE_TABLES[role];
 
     if (table && userId) {
@@ -44,8 +54,22 @@ export async function GET(request: Request) {
         if (!profile && session.email) {
           profile = await db.get(`SELECT * FROM ${table} WHERE email = ? LIMIT 1`, session.email) || null;
         }
-        if (!profile && (role === "fee_manager" || role === "hr" || role === "L and D")) {
+        if (!profile && (role === "fee_manager" || role === "hr" || role === "L and D" || role === "program_ops")) {
           profile = await db.get("SELECT * FROM users WHERE id = ? OR email = ? LIMIT 1", userId, session.email || "") || null;
+        }
+        if (profile?.college_id) {
+          campus = await db.get("SELECT id, name, code, kam_id FROM colleges WHERE id = ?", profile.college_id) || null;
+          const kamId = profile.kam_id || (campus as any)?.kam_id;
+          if (kamId) {
+            const kam = await db.get("SELECT id, name, title FROM kam_users WHERE id = ?", kamId).catch(() => null);
+            if (campus && kam) campus = { ...campus, kam_name: kam.name, kam_title: kam.title };
+          }
+        }
+        if (role === "kam" && profile.id) {
+          portfolioCampuses = await db.all(
+            "SELECT id, name, code FROM colleges WHERE kam_id = ? ORDER BY name",
+            profile.id
+          ).catch(() => []);
         }
       } catch (err) {
         console.error("[/api/me] profile lookup failed:", err);
@@ -62,7 +86,9 @@ export async function GET(request: Request) {
         name: session.name || null,
         exp: session.exp
       },
-      profile
+      profile: toSafeProfile(profile),
+      campus,
+      portfolioCampuses
     });
   } catch (err) {
     const authRes = apiAuthErrorResponse(err);

@@ -1860,6 +1860,9 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
     return MENTOR_TAB_IDS.includes(mapped) ? mapped : undefined;
   })();
   const activeTab = (resolvedPropTab || localActiveTab) as typeof localActiveTab;
+  useEffect(() => {
+    if (activeTab === "profile" && window.location.pathname !== "/profile") window.location.replace("/profile");
+  }, [activeTab]);
 
   // useTransition: marks tab switches as non-urgent so the current UI stays
   // responsive while React prepares the new tab content in the background.

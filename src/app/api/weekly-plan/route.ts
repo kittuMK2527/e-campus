@@ -420,6 +420,8 @@ export async function PATCH(request: Request) {
         type: "success",
         domain: "weekly_plan",
         action: "verified",
+        dedupeKey: `weekly-plan:${updated.id}:approved`,
+        payload: { planId: updated.id, status: "approved" },
       }).catch((e) => console.error("Failed to insert notification:", e));
     } else if (status === "Needs Revision" && updated && updated.mentor_id) {
       await dispatchSystemNotification(db, {
@@ -430,6 +432,8 @@ export async function PATCH(request: Request) {
         type: "alert",
         domain: "weekly_plan",
         action: "needs_revision",
+        dedupeKey: `weekly-plan:${updated.id}:revision`,
+        payload: { planId: updated.id, status: "Needs Revision" },
       }).catch((e) => console.error("Failed to insert notification:", e));
     }
 

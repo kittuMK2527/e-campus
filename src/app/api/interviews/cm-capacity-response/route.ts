@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/authGuard";
 import { getDb, type QueryFailure } from "@/lib/db";
 import { generateId } from "@/lib/id";
+import { dispatchSystemNotification } from "@/lib/notifications";
 
 export async function POST(request: Request) {
   try {
@@ -162,6 +163,45 @@ export async function POST(request: Request) {
        WHERE id = ?`,
       [totalAcceptedCapacity, remainingStudents, unallocatedStudents, newStatus, now, interview_id]
     );
+
+    if (interview.type === "external") {
+      const originId = interview.origin_college_id || interview.college_id;
+      const origin = originId
+        ? await db.get("SELECT id, name, kam_id FROM colleges WHERE id = ?", [originId]).catch(() => null)
+        : null;
+      const [originManagers, originKam] = await Promise.all([
+        originId
+          ? db.all("SELECT id, email FROM campus_managers WHERE college_id = ?", [originId]).catch(() => [])
+          : Promise.resolve([]),
+        origin?.kam_id
+          ? db.get("SELECT id, email FROM kam_users WHERE id = ?", [origin.kam_id]).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      const recipients = [
+        ...originManagers.flatMap((manager: any) => [manager.id, manager.email]),
+        originKam?.id,
+        originKam?.email,
+      ].filter(Boolean);
+      if (recipients.length > 0) {
+        const wasDeclined = action === "decline";
+        await dispatchSystemNotification(db, {
+          userIds: recipients,
+          title: wasDeclined
+            ? `Capacity declined: ${interview.subject}`
+            : `Capacity accepted: ${interview.subject}`,
+          message: wasDeclined
+            ? `${collegeName} declined capacity for ${interview.subject}. ${remainingStudents} student(s) still need capacity.`
+            : `${collegeName} accepted ${acceptedCount} student(s) for ${interview.subject}. Total accepted: ${totalAcceptedCapacity}/${requestedStudents}.`,
+          link: `/cm/interviews?interview_id=${encodeURIComponent(interview_id)}`,
+          type: wasDeclined ? "warning" : "success",
+          domain: "interviews",
+          action: wasDeclined ? "capacity_declined" : "capacity_accepted",
+          collegeId: originId,
+          dedupeKey: `interview:${interview_id}:capacity:${college_id}:${wasDeclined ? "declined" : `accepted:${acceptedCount}`}`,
+          payload: { interviewId: interview_id, respondingCollegeId: college_id, status: wasDeclined ? "declined" : "accepted", acceptedCapacity: acceptedCount },
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

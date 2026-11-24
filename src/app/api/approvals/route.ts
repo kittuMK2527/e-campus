@@ -91,12 +91,16 @@ export async function POST(request: Request) {
     );
 
     await dispatchSystemNotification(db, {
+      roles: college_id ? ["cm"] : ["admin"],
+      collegeId: college_id || undefined,
       title: `New Approval Request: ${title}`,
-      message: `${user.name} submitted an approval request for ${module_type} (${action_type}).`,
-      link: "/admin/approvals",
+      message: `${user.name} requested approval for ${module_type}: ${action_type}.`,
+      link: `/admin/approvals?id=${encodeURIComponent(id)}`,
       type: "info",
       domain: "approvals",
-      action: "submitted"
+      action: "submitted",
+      dedupeKey: `approval:${id}:submitted`,
+      payload: { approvalId: id, collegeId: college_id || null }
     }).catch(() => {});
 
     return NextResponse.json({ success: true, id, message: "Approval request submitted successfully" });
@@ -142,12 +146,15 @@ export async function PATCH(request: Request) {
     );
 
     await dispatchSystemNotification(db, {
+      userIds: [existing.requested_by].filter(Boolean),
       title: `Approval Request ${status === "approved" ? "Approved" : "Rejected"}`,
-      message: `Your approval request "${existing.title}" was ${status} by ${user.name}.`,
-      link: "/admin/approvals",
+      message: `Your request “${existing.title}” was ${status} by ${user.name}.${decision_notes ? ` Note: ${decision_notes}` : ""}`,
+      link: `/admin/approvals?id=${encodeURIComponent(id)}`,
       type: status === "approved" ? "success" : "warning",
       domain: "approvals",
-      action: status
+      action: status,
+      dedupeKey: `approval:${id}:${status}`,
+      payload: { approvalId: id, status, collegeId: existing.college_id || null }
     }).catch(() => {});
 
     return NextResponse.json({ success: true, message: `Approval ${status} successfully` });

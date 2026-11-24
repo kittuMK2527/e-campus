@@ -220,6 +220,45 @@ export function resolveNotificationDestination(
       return `${dest}${sep}${queryPart}`;
     };
 
+    if (cleanPath.includes("announcement")) {
+      return {
+        url: preserveQuery("/announcements"),
+        isExternal: false,
+        targetDate,
+        action: "details",
+        actionLabel: "Read Announcement",
+      };
+    }
+
+    if (cleanPath.includes("demo") || cleanPath.includes("reallocation") || fullText.includes("demo") || fullText.includes("reallocation")) {
+      const isReallocation = cleanPath.includes("reallocation") || fullText.includes("reallocation");
+      const destination = role === "mentor"
+        ? "/mentor/demo_evaluations"
+        : role === "sme"
+          ? (isReallocation ? "/sme/reallocation" : "/sme/overview")
+          : role === "cm"
+            ? "/cm/demos"
+            : roleRoutes.dashboard;
+      return {
+        url: preserveQuery(destination),
+        isExternal: false,
+        targetDate,
+        action: "details",
+        actionLabel: isReallocation ? "Review Reallocation" : "Open Demo Schedule",
+      };
+    }
+
+    if (cleanPath.includes("ticket") || fullText.includes("ticket")) {
+      const destination = role === "cm" ? "/cm/tickets" : roleRoutes.dashboard;
+      return {
+        url: preserveQuery(destination),
+        isExternal: false,
+        targetDate,
+        action: "details",
+        actionLabel: role === "cm" ? "Open Campus Tickets" : "Open Workspace",
+      };
+    }
+
     // Approvals / Handovers / Leaves
     if (
       cleanPath.includes("approval") ||
@@ -354,6 +393,35 @@ export function resolveNotificationDestination(
   }
 
   // 2. Keyword matching fallback
+  if (fullText.includes("demo") || fullText.includes("reallocation")) {
+    const isReallocation = fullText.includes("reallocation");
+    const destination = role === "mentor"
+      ? "/mentor/demo_evaluations"
+      : role === "sme"
+        ? (isReallocation ? "/sme/reallocation" : "/sme/overview")
+        : role === "cm"
+          ? "/cm/demos"
+          : roleRoutes.dashboard;
+    return {
+      url: withDate(destination),
+      isExternal: false,
+      targetDate,
+      action: "details",
+      actionLabel: isReallocation ? "Review Reallocation" : "Open Demo Schedule",
+    };
+  }
+
+  if (fullText.includes("ticket")) {
+    const destination = role === "cm" ? "/cm/tickets" : roleRoutes.dashboard;
+    return {
+      url: withDate(destination),
+      isExternal: false,
+      targetDate,
+      action: "details",
+      actionLabel: role === "cm" ? "Open Campus Tickets" : "Open Workspace",
+    };
+  }
+
   if (
     fullText.includes("leave") ||
     fullText.includes("on-duty") ||

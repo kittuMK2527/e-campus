@@ -660,12 +660,15 @@ export async function POST(request: Request) {
 
       // Dispatch real-time system notification to L&D / Admin
       await dispatchSystemNotification(db, {
+        roles: ["L and D", "admin"],
         title: "L&D Assistance Requested: Demo Reallocation",
         message: `${requestedBy || demo.mentorName} requested help from L&D to swap/reallocate the ${demo.subject} demo on ${demo.dateStr} (${demo.timeSlot}).`,
         link: "/l-and-d",
         type: "warning",
         domain: "demos",
         action: "reallocated",
+        dedupeKey: `demo:${demoSessionId}:assistance-requested`,
+        payload: { sessionId: demoSessionId },
       }).catch(() => {});
 
       // Audit log
@@ -761,7 +764,9 @@ export async function POST(request: Request) {
         link: "/mentor/demo_evaluations",
         type: "success",
         domain: "demos",
-        action: "reallocated"
+        action: "reallocated",
+        dedupeKey: `demo:${demoSessionId}:mentor-reassigned:${targetMentor.id}`,
+        payload: { sessionId: demoSessionId, mentorId: targetMentor.id },
       }).catch(() => {});
 
       const auditId = generateId("audit");
@@ -899,7 +904,9 @@ export async function POST(request: Request) {
         link: "/l-and-d",
         type: "success",
         domain: "demos",
-        action: "reallocated"
+        action: "reallocated",
+        dedupeKey: `demo:${demoSessionId}:sme-reallocated:${targetSme.id}`,
+        payload: { sessionId: demoSessionId, smeId: targetSme.id },
       }).catch(() => {});
 
       const auditId = generateId("audit");
@@ -1062,7 +1069,9 @@ export async function POST(request: Request) {
         link: "/l-and-d",
         type: "success",
         domain: "demos",
-        action: "reallocated"
+        action: "reallocated",
+        dedupeKey: `demo-sme-swap:${[demoA.id, demoB.id].sort().join(":")}`,
+        payload: { sessionIds: [demoA.id, demoB.id] },
       }).catch(() => {});
 
       const auditId = generateId("audit");
@@ -1175,12 +1184,15 @@ export async function POST(request: Request) {
       if (demo.smeId) {
         await dispatchSystemNotification(db, {
           userIds: [demo.smeId],
+          roles: ["L and D", "admin"],
           title: "L&D Reallocation Proposed",
           message: `${demo.mentorName} proposed moving the ${demo.subject} L&D session from ${demo.dateStr} (${demo.timeSlot}) to ${proposedDateStr} (${proposedTimeSlot}). Awaiting L&D approval.`,
           link: "/l-and-d",
           type: "warning",
           domain: "demos",
           action: "reallocated",
+          dedupeKey: `demo:${demoSessionId}:reallocation-proposed:${proposedDateStr}:${proposedTimeSlot}`,
+          payload: { requestId: reqId, sessionId: demoSessionId, proposedDate: proposedDateStr, proposedTimeSlot },
         }).catch(() => {});
       }
 
@@ -1352,6 +1364,8 @@ export async function POST(request: Request) {
         type: "success",
         domain: "demos",
         action: "reallocated",
+        dedupeKey: `demo-reallocation:${requestId}:approved`,
+        payload: { requestId, sessionId: req.demo_session_id },
       }).catch(() => {});
 
       const auditId = generateId("audit");
