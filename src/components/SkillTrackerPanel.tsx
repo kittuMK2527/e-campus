@@ -71,6 +71,7 @@ export interface SkillTrackerPanelProps {
 
 interface WeekRollup {
   week_number: number;
+  task_number?: number;
   topic_name?: string | null;
   topics: { topic: string; planned: boolean; conducted: boolean }[];
   topics_planned: number;
@@ -86,6 +87,8 @@ interface WeekRollup {
   weekly_plan_id: string | null;
   plan_status: string | null;
   submission_link?: string | null;
+  submission_date?: string | null;
+  deadline?: string | null;
   task_given_date?: string | null;
   assigned_by?: string | null;
   assigned_role?: string | null;
@@ -147,6 +150,7 @@ interface MentorSkillRow {
   mentor_id: string;
   mentor_name: string | null;
   college_id: string | null;
+  college_name?: string | null;
   subject: string;
   subject_type: "Skill" | "Academic";
   semester?: string | null;
@@ -403,34 +407,42 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
       const XLSX = await import("xlsx");
       const excelRows: any[] = [];
       filteredRows.forEach(r => {
+        const campusName = r.college_name || r.college_id || collegeName || "—";
         r.weeks.forEach(w => {
+          const deadlineVal = w.deadline || w.task_given_date || "—";
+          const submissionDateVal = w.submission_date || (w.submission_link ? "Submitted" : "Pending");
+          const submissionDocVal = w.submission_link || "—";
+          const topicVal = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "—");
+
           excelRows.push({
-            "Mentor": r.mentor_name || r.mentor_id,
-            "Mentor ID": r.mentor_id,
-            "Subject": r.subject,
+            "Employee ID": r.mentor_id,
+            "Mentor Name": r.mentor_name || r.mentor_id,
+            "Campus": campusName,
+            "Skill Course": r.subject,
             "Semester": r.semester || "—",
             "Department": r.department || "—",
-            "Subject Type": r.subject_type,
-            "Task Given Date": w.task_given_date || "—",
-            "Topic": w.topic_name || w.topics?.map(t => t.topic).join(", ") || "—",
-            "Week": `Week ${w.week_number}`,
-            "Topics Planned": w.topics_planned,
-            "Topics Conducted": w.topics_conducted,
-            "Demo Status": w.demo_status || "—",
-            "Demo Score": w.demo_marks ?? "—",
-            "Submission Link": w.submission_link || "—",
+            "Course Type": r.subject_type || "Skill",
+            "Task No": w.week_number ? `Task ${w.week_number}` : "—",
+            "Topic": topicVal,
+            "Deadline": deadlineVal,
+            "Submission Date": submissionDateVal,
+            "Submission Document / Link": submissionDocVal,
             "SME Verdict": VERDICT_LABELS[w.verdict] || w.verdict,
-            "SME Score": w.score ?? "—",
+            "SME Score": w.score !== null && w.score !== undefined ? w.score : "—",
             "SME Remarks": w.remarks || "—",
             "Verified By": w.verified_by || "—",
-            "Verified At": w.verified_at || "—"
+            "Verified At": w.verified_at || "—",
+            "Demo Status": w.demo_status || "—",
+            "Demo Score": w.demo_marks !== null && w.demo_marks !== undefined ? w.demo_marks : "—",
+            "Topics Planned": w.topics_planned,
+            "Topics Conducted": w.topics_conducted
           });
         });
       });
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelRows.length > 0 ? excelRows : [{ Info: "No data" }]);
-      XLSX.utils.book_append_sheet(wb, ws, "Skill Tracker");
-      XLSX.writeFile(wb, `Mentor_Skill_Tracker_${new Date().toISOString().split("T")[0]}.xlsx`);
+      XLSX.utils.book_append_sheet(wb, ws, "Skill Approvals");
+      XLSX.writeFile(wb, `Skill_Approvals_Tracker_${new Date().toISOString().split("T")[0]}.xlsx`);
       toast("Exported complete skill tracker to Excel.", "success");
     } catch (e: any) {
       toast("Export failed: " + e.message, "error");
@@ -459,27 +471,35 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
       const distinctSubjects = Array.from(new Set(mentorSubjectRows.map(r => r.subject)));
 
       mentorSubjectRows.forEach(r => {
+        const campusName = r.college_name || r.college_id || collegeName || "—";
         r.weeks.forEach(w => {
+          const deadlineVal = w.deadline || w.task_given_date || "—";
+          const submissionDateVal = w.submission_date || (w.submission_link ? "Submitted" : "Pending");
+          const submissionDocVal = w.submission_link || "—";
+          const topicVal = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "—");
+
           excelRows.push({
+            "Employee ID": r.mentor_id,
             "Mentor Name": r.mentor_name || r.mentor_id,
-            "Mentor ID": r.mentor_id,
-            "Department": r.department || "—",
-            "Subject": r.subject,
+            "Campus": campusName,
+            "Skill Course": r.subject,
             "Semester": r.semester || "—",
-            "Subject Type": r.subject_type,
-            "Task Given Date": w.task_given_date || "—",
-            "Topic": w.topic_name || w.topics?.map(t => t.topic).join(", ") || "—",
-            "Week": `Week ${w.week_number}`,
-            "Topics Planned": w.topics_planned,
-            "Topics Conducted": w.topics_conducted,
-            "Demo Status": w.demo_status || "—",
-            "Demo Score": w.demo_marks ?? "—",
-            "Submission Link": w.submission_link || "—",
+            "Department": r.department || "—",
+            "Course Type": r.subject_type || "Skill",
+            "Task No": w.week_number ? `Task ${w.week_number}` : "—",
+            "Topic": topicVal,
+            "Deadline": deadlineVal,
+            "Submission Date": submissionDateVal,
+            "Submission Document / Link": submissionDocVal,
             "SME Verdict": VERDICT_LABELS[w.verdict] || w.verdict,
-            "SME Score": w.score ?? "—",
+            "SME Score": w.score !== null && w.score !== undefined ? w.score : "—",
             "SME Remarks": w.remarks || "—",
             "Verified By": w.verified_by || "—",
-            "Verified At": w.verified_at || "—"
+            "Verified At": w.verified_at || "—",
+            "Demo Status": w.demo_status || "—",
+            "Demo Score": w.demo_marks !== null && w.demo_marks !== undefined ? w.demo_marks : "—",
+            "Topics Planned": w.topics_planned,
+            "Topics Conducted": w.topics_conducted
           });
         });
       });
@@ -493,7 +513,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
       // If mentor teaches multiple subjects, also create a separate tab per subject!
       if (distinctSubjects.length > 1) {
         distinctSubjects.forEach(subj => {
-          const subjRows = excelRows.filter(r => r["Subject"] === subj);
+          const subjRows = excelRows.filter(r => r["Skill Course"] === subj);
           const wsSubj = XLSX.utils.json_to_sheet(subjRows);
           const cleanTabName = subj.slice(0, 30).replace(/[:\\\/\?\*\[\]]/g, "_");
           XLSX.utils.book_append_sheet(wb, wsSubj, cleanTabName);
