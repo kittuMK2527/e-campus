@@ -402,48 +402,117 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
   );
 
 
+  const exportTableHeaders = useMemo(
+    () =>
+      role !== "mentor"
+        ? [
+            "Employee ID",
+            "Mentor Name",
+            "Skill Course",
+            "Semester",
+            "Type",
+            "Task No",
+            "Topic",
+            "Deadline",
+            "Submission Date",
+            "Submission Document / Link",
+            "SME Verdict"
+          ]
+        : [
+            "Skill Course",
+            "Semester",
+            "Type",
+            "Task No",
+            "Topic",
+            "Deadline",
+            "Submission Date",
+            "Submission Document / Link",
+            "SME Verdict"
+          ],
+    [role]
+  );
+
+  const exportTableColWidths = useMemo(
+    () =>
+      role !== "mentor"
+        ? [
+            { wch: 16 }, // Employee ID
+            { wch: 24 }, // Mentor Name
+            { wch: 24 }, // Skill Course
+            { wch: 14 }, // Semester
+            { wch: 10 }, // Type
+            { wch: 10 }, // Task No
+            { wch: 32 }, // Topic
+            { wch: 14 }, // Deadline
+            { wch: 16 }, // Submission Date
+            { wch: 42 }, // Submission Document / Link
+            { wch: 34 }  // SME Verdict
+          ]
+        : [
+            { wch: 24 }, // Skill Course
+            { wch: 14 }, // Semester
+            { wch: 10 }, // Type
+            { wch: 10 }, // Task No
+            { wch: 32 }, // Topic
+            { wch: 14 }, // Deadline
+            { wch: 16 }, // Submission Date
+            { wch: 42 }, // Submission Document / Link
+            { wch: 34 }  // SME Verdict
+          ],
+    [role]
+  );
+
+  const buildSkillExportRow = (r: MentorSkillRow, w: WeekRollup) => {
+    const topicText = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "");
+    const topicVal = topicText || (w.week_number ? `Task ${w.week_number}` : "—");
+    const deadlineVal = w.deadline || w.task_given_date || "—";
+    const submissionDateVal = w.submission_date || (w.submission_link ? "Submitted" : "Pending");
+    const submissionDocVal = w.submission_link
+      ? w.submission_link.startsWith("/uploads/") && typeof window !== "undefined"
+        ? `${window.location.origin}${w.submission_link}`
+        : w.submission_link
+      : "—";
+
+    const isResubmitted = w.verdict === "pending" && !!w.remarks && !!w.submission_link;
+    const baseVerdict = VERDICT_LABELS[w.verdict] || w.verdict;
+    const verdictParts = [isResubmitted ? `${baseVerdict} (Re-submitted)` : baseVerdict];
+    if (w.score !== null && w.score !== undefined) verdictParts.push(`Score: ${w.score}`);
+    if (w.remarks) verdictParts.push(`"${w.remarks}"`);
+    if (w.verified_by) verdictParts.push(`By ${w.verified_by}`);
+    const verdictVal = verdictParts.join(" | ");
+
+    const rowData: Record<string, string> = {};
+    if (role !== "mentor") {
+      rowData["Employee ID"] = r.mentor_id;
+      rowData["Mentor Name"] = r.mentor_name || r.mentor_id;
+    }
+    rowData["Skill Course"] = r.subject;
+    rowData["Semester"] = r.semester || "—";
+    rowData["Type"] = r.subject_type || "Skill";
+    rowData["Task No"] = w.week_number ? `Task ${w.week_number}` : "—";
+    rowData["Topic"] = topicVal;
+    rowData["Deadline"] = deadlineVal;
+    rowData["Submission Date"] = submissionDateVal;
+    rowData["Submission Document / Link"] = submissionDocVal;
+    rowData["SME Verdict"] = verdictVal;
+    return rowData;
+  };
+
   const handleExportExcel = async () => {
     try {
       const XLSX = await import("xlsx");
-      const excelRows: any[] = [];
+      const excelRows: Record<string, string>[] = [];
       filteredRows.forEach(r => {
-        const campusName = r.college_name || r.college_id || collegeName || "—";
         r.weeks.forEach(w => {
-          const deadlineVal = w.deadline || w.task_given_date || "—";
-          const submissionDateVal = w.submission_date || (w.submission_link ? "Submitted" : "Pending");
-          const submissionDocVal = w.submission_link || "—";
-          const topicVal = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "—");
-
-          excelRows.push({
-            "Employee ID": r.mentor_id,
-            "Mentor Name": r.mentor_name || r.mentor_id,
-            "Campus": campusName,
-            "Skill Course": r.subject,
-            "Semester": r.semester || "—",
-            "Department": r.department || "—",
-            "Course Type": r.subject_type || "Skill",
-            "Task No": w.week_number ? `Task ${w.week_number}` : "—",
-            "Topic": topicVal,
-            "Deadline": deadlineVal,
-            "Submission Date": submissionDateVal,
-            "Submission Document / Link": submissionDocVal,
-            "SME Verdict": VERDICT_LABELS[w.verdict] || w.verdict,
-            "SME Score": w.score !== null && w.score !== undefined ? w.score : "—",
-            "SME Remarks": w.remarks || "—",
-            "Verified By": w.verified_by || "—",
-            "Verified At": w.verified_at || "—",
-            "Demo Status": w.demo_status || "—",
-            "Demo Score": w.demo_marks !== null && w.demo_marks !== undefined ? w.demo_marks : "—",
-            "Topics Planned": w.topics_planned,
-            "Topics Conducted": w.topics_conducted
-          });
+          excelRows.push(buildSkillExportRow(r, w));
         });
       });
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelRows.length > 0 ? excelRows : [{ Info: "No data" }]);
+      const ws = XLSX.utils.json_to_sheet(excelRows, { header: exportTableHeaders });
+      ws["!cols"] = exportTableColWidths;
       XLSX.utils.book_append_sheet(wb, ws, "Skill Approvals");
-      XLSX.writeFile(wb, `Skill_Approvals_Tracker_${new Date().toISOString().split("T")[0]}.xlsx`);
-      toast("Exported complete skill tracker to Excel.", "success");
+      XLSX.writeFile(wb, `Skill_Approvals_${new Date().toISOString().split("T")[0]}.xlsx`);
+      toast("Exported Skill Approvals table to Excel.", "success");
     } catch (e: any) {
       toast("Export failed: " + e.message, "error");
     }
@@ -467,54 +536,28 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
         return;
       }
 
-      const excelRows: any[] = [];
+      const excelRows: Record<string, string>[] = [];
       const distinctSubjects = Array.from(new Set(mentorSubjectRows.map(r => r.subject)));
 
       mentorSubjectRows.forEach(r => {
-        const campusName = r.college_name || r.college_id || collegeName || "—";
         r.weeks.forEach(w => {
-          const deadlineVal = w.deadline || w.task_given_date || "—";
-          const submissionDateVal = w.submission_date || (w.submission_link ? "Submitted" : "Pending");
-          const submissionDocVal = w.submission_link || "—";
-          const topicVal = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "—");
-
-          excelRows.push({
-            "Employee ID": r.mentor_id,
-            "Mentor Name": r.mentor_name || r.mentor_id,
-            "Campus": campusName,
-            "Skill Course": r.subject,
-            "Semester": r.semester || "—",
-            "Department": r.department || "—",
-            "Course Type": r.subject_type || "Skill",
-            "Task No": w.week_number ? `Task ${w.week_number}` : "—",
-            "Topic": topicVal,
-            "Deadline": deadlineVal,
-            "Submission Date": submissionDateVal,
-            "Submission Document / Link": submissionDocVal,
-            "SME Verdict": VERDICT_LABELS[w.verdict] || w.verdict,
-            "SME Score": w.score !== null && w.score !== undefined ? w.score : "—",
-            "SME Remarks": w.remarks || "—",
-            "Verified By": w.verified_by || "—",
-            "Verified At": w.verified_at || "—",
-            "Demo Status": w.demo_status || "—",
-            "Demo Score": w.demo_marks !== null && w.demo_marks !== undefined ? w.demo_marks : "—",
-            "Topics Planned": w.topics_planned,
-            "Topics Conducted": w.topics_conducted
-          });
+          excelRows.push(buildSkillExportRow(r, w));
         });
       });
 
       const wb = XLSX.utils.book_new();
 
       // Master sheet with all subjects
-      const wsAll = XLSX.utils.json_to_sheet(excelRows.length > 0 ? excelRows : [{ Info: "No data" }]);
+      const wsAll = XLSX.utils.json_to_sheet(excelRows, { header: exportTableHeaders });
+      wsAll["!cols"] = exportTableColWidths;
       XLSX.utils.book_append_sheet(wb, wsAll, "All Subjects");
 
       // If mentor teaches multiple subjects, also create a separate tab per subject!
       if (distinctSubjects.length > 1) {
         distinctSubjects.forEach(subj => {
           const subjRows = excelRows.filter(r => r["Skill Course"] === subj);
-          const wsSubj = XLSX.utils.json_to_sheet(subjRows);
+          const wsSubj = XLSX.utils.json_to_sheet(subjRows, { header: exportTableHeaders });
+          wsSubj["!cols"] = exportTableColWidths;
           const cleanTabName = subj.slice(0, 30).replace(/[:\\\/\?\*\[\]]/g, "_");
           XLSX.utils.book_append_sheet(wb, wsSubj, cleanTabName);
         });
@@ -522,8 +565,8 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
 
       const cleanName = (targetMentorName || targetMentorId).replace(/[^a-zA-Z0-9_-]/g, "_");
       const dateStr = new Date().toISOString().split("T")[0];
-      XLSX.writeFile(wb, `Skill_Tracker_${cleanName}_${dateStr}.xlsx`);
-      toast(`Exported complete skill report for ${targetMentorName || targetMentorId} (${distinctSubjects.length} subject${distinctSubjects.length > 1 ? "s" : ""}).`, "success");
+      XLSX.writeFile(wb, `Skill_Approvals_${cleanName}_${dateStr}.xlsx`);
+      toast(`Exported skill approvals report for ${targetMentorName || targetMentorId} (${distinctSubjects.length} subject${distinctSubjects.length > 1 ? "s" : ""}).`, "success");
     } catch (e: any) {
       toast("Export failed: " + e.message, "error");
     }
