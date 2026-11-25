@@ -21,22 +21,17 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const collegeId = url.searchParams.get("collegeId");
 
-    // 1. Fetch Mentors
-    let mentorQuery = "SELECT id, name, email, college_id, department, subjects FROM mentors WHERE 1=1";
-    const mentorParams: any[] = [];
-    if (collegeId && collegeId !== "all") {
-      mentorQuery += " AND college_id = ?";
-      mentorParams.push(collegeId);
-    }
-    mentorQuery += " ORDER BY name ASC LIMIT 500";
-    const mentors = await db.all(mentorQuery, ...mentorParams).catch(() => []);
+    // 1. Fetch all mentors, colleges, and subjects in parallel so bulk validation always has full reference data
+    const [allMentors, colleges, allSubjects] = await Promise.all([
+      db.all("SELECT id, name, email, college_id, department, subjects FROM mentors ORDER BY name ASC LIMIT 500").catch(() => []),
+      db.all("SELECT id, name, code FROM colleges ORDER BY name ASC LIMIT 100").catch(() => []),
+      db.all("SELECT id, name, type, semester, department, college_id FROM subjects ORDER BY name ASC LIMIT 500").catch(() => [])
+    ]);
 
-    // 2. Fetch Colleges
-    const colleges = await db.all("SELECT id, name, code FROM colleges ORDER BY name ASC LIMIT 100").catch(() => []);
-
-    // 3. Fetch Skill Subjects
-    const allSubjects = await db.all("SELECT id, name, type, semester, department, college_id FROM subjects ORDER BY name ASC LIMIT 500").catch(() => []);
-    const skillSubjects = allSubjects.filter(s => deriveSubjectType(s.name, s.type) === "Skill");
+    const mentors = collegeId && collegeId !== "all"
+      ? allMentors.filter((m: any) => m.college_id === collegeId)
+      : allMentors;
+    const skillSubjects = allSubjects.filter((s: any) => deriveSubjectType(s.name, s.type) === "Skill");
 
     // 4. Fetch Recently Assigned Tasks (from mentor_weekly_plans where created_at is recent)
     let assignedTasksQuery = `
@@ -81,6 +76,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       mentors,
+      allMentors,
       colleges,
       skillSubjects,
       assignedTasks: assignedTasks.map((t: any) => {
@@ -152,12 +148,62 @@ export async function POST(request: Request) {
 
     const user = auth?.user;
     const assignedResults: any[] = [];
+    const rejected: { rowNumber: number; mentorId?: string; subject?: string; reason: string }[] = [];
     const nowIso = new Date().toISOString();
     const assignedBy = user?.name || user?.email || (user?.role === "admin" ? "System Admin" : "SME Reviewer");
     const assignedRole = user?.role || "sme";
 
-    // High-performance batch pre-cache: eliminates up to 100+ redundant round-trips during bulk Excel imports
-    const candidateMentorIds = Array.from(new Set(tasksToAssign.map(t => (t.mentorId || t.employeeId || "").trim()).filter(Boolean)));
+    // High-performance batch pre-cache: avoids per-row mentor/subject/plan round trips during bulk imports
+    const [allMentors, allColleges, allSubjects] = await Promise.all([
+      db.all("SELECT id, name, email, college_id, department FROM mentors").catch(() => []),
+      db.all("SELECT id, name, code FROM colleges").catch(() => []),
+      db.all("SELECT name, type, semester, department, college_id FROM subjects").catch(() => [])
+    ]);
+
+    const mentorById = new Map<string, any>();
+    const mentorByEmail = new Map<string, any>();
+    const mentorsByName = new Map<string, any[]>();
+    allMentors.forEach((m: any) => {
+      if (m?.id) mentorById.set(String(m.id).trim().toLowerCase(), m);
+      if (m?.email) mentorByEmail.set(String(m.email).trim().toLowerCase(), m);
+      if (m?.name) {
+        const key = String(m.name).trim().toLowerCase();
+        if (!mentorsByName.has(key)) mentorsByName.set(key, []);
+        mentorsByName.get(key)!.push(m);
+      }
+    });
+
+    const collegeById = new Map<string, any>();
+    allColleges.forEach((c: any) => {
+      if (c?.id) collegeById.set(String(c.id).trim().toLowerCase(), c);
+    });
+    const resolveCollegeMatch = (val?: string | null) => {
+      const q = (val || "").trim().toLowerCase();
+      if (!q) return null;
+      return (
+        collegeById.get(q) ||
+        allColleges.find((c: any) => c.code && String(c.code).trim().toLowerCase() === q) ||
+        allColleges.find((c: any) => c.name && String(c.name).trim().toLowerCase() === q) ||
+        allColleges.find((c: any) => c.name && String(c.name).trim().toLowerCase().includes(q)) ||
+        null
+      );
+    };
+
+    const candidateMentorIds = Array.from(
+      new Set(
+        tasksToAssign
+          .map(t => {
+            const rawId = (t.mentorId || t.employeeId || "").trim().toLowerCase();
+            const mFromId = rawId ? mentorById.get(rawId) : null;
+            if (mFromId?.id) return mFromId.id;
+            const rawEmail = (t.emailId || t.mentorEmail || "").trim().toLowerCase();
+            const mFromEmail = rawEmail ? mentorByEmail.get(rawEmail) : null;
+            if (mFromEmail?.id) return mFromEmail.id;
+            return (t.mentorId || t.employeeId || "").trim();
+          })
+          .filter(Boolean)
+      )
+    );
     const preloadedPlans = new Map<string, any>();
     const preloadedClearances = new Map<string, any>();
 
@@ -177,7 +223,9 @@ export async function POST(request: Request) {
       clearances.forEach((c: any) => preloadedClearances.set(`${c.mentor_id}|${c.subject}|${c.week_number}`, c));
     }
 
-    for (const t of tasksToAssign) {
+    for (let idx = 0; idx < tasksToAssign.length; idx++) {
+      const t = tasksToAssign[idx];
+      const rowNum = typeof t.rowNumber === "number" ? t.rowNumber : idx + 1;
       const {
         mentorId,
         employeeId,
@@ -201,54 +249,69 @@ export async function POST(request: Request) {
         materialUrl
       } = t;
 
-      let resolvedMentorId = (mentorId || employeeId || "").trim();
-      let resolvedMentorName = (mentorName || "").trim();
-      let resolvedCollegeId = collegeId || campus;
+      const rawId = (mentorId || employeeId || "").trim();
+      const rawName = (mentorName || "").trim();
       const targetEmail = (emailId || mentorEmail || "").trim();
+      const campusMatch = resolveCollegeMatch(collegeId || campus);
 
-      // 1. If resolvedMentorId not provided, search by employeeId or email
-      if (!resolvedMentorId && (employeeId || targetEmail)) {
-        const mRow = await db.get(
-          "SELECT id, name, college_id, department FROM mentors WHERE id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1",
-          employeeId || "", targetEmail
-        ).catch(() => null);
-        if (mRow?.id) {
-          resolvedMentorId = mRow.id;
-          resolvedMentorName = resolvedMentorName || mRow.name;
-          resolvedCollegeId = resolvedCollegeId || mRow.college_id;
+      let matchedMentor =
+        (rawId ? mentorById.get(rawId.toLowerCase()) : null) ||
+        (targetEmail ? mentorByEmail.get(targetEmail.toLowerCase()) : null) ||
+        null;
+
+      if (!matchedMentor && rawName) {
+        const candidates = mentorsByName.get(rawName.toLowerCase()) || [];
+        if (candidates.length === 1) {
+          matchedMentor = candidates[0];
+        } else if (candidates.length > 1 && campusMatch) {
+          matchedMentor = candidates.find((c: any) => c.college_id === campusMatch.id) || null;
         }
       }
 
-      // 2. If still not resolved, search by mentor name
-      if (!resolvedMentorId && resolvedMentorName) {
-        const mRow = await db.get(
-          "SELECT id, name, college_id, department FROM mentors WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) LIMIT 1",
-          resolvedMentorName
-        ).catch(() => null);
-        if (mRow?.id) {
-          resolvedMentorId = mRow.id;
-          resolvedMentorName = mRow.name;
-          resolvedCollegeId = resolvedCollegeId || mRow.college_id;
-        }
+      if (allMentors.length > 0 && !matchedMentor) {
+        rejected.push({
+          rowNumber: rowNum,
+          mentorId: rawId || undefined,
+          subject: subject ? String(subject).trim() : undefined,
+          reason: rawId
+            ? `Mentor Employee ID "${rawId}" was not found.`
+            : "Mentor could not be matched from Employee ID, Email, or Name."
+        });
+        continue;
       }
+
+      const resolvedMentorId = matchedMentor?.id || rawId;
+      const resolvedMentorName = matchedMentor?.name || rawName || resolvedMentorId;
+      const resolvedCollegeId = matchedMentor?.college_id || campusMatch?.id || collegeId || null;
 
       if (!resolvedMentorId || !subject || !topic) {
+        rejected.push({
+          rowNumber: rowNum,
+          mentorId: resolvedMentorId || undefined,
+          subject: subject ? String(subject).trim() : undefined,
+          reason: "Missing required field: mentorId, subject, or topic."
+        });
         continue;
       }
 
       const cleanTopic = String(topic).trim();
-      const cleanSubject = String(subject).trim();
-      const cleanDate = (deadline || taskGivenDate || nowIso.slice(0, 10)).trim();
-      const cleanSemester = semester ? String(semester).trim() : "Semester 1";
-      const cleanDesc = (inastructions || instructions || description || "").trim() || null;
-      const cleanRef = (referenceUrl || materialUrl || "").trim() || null;
+      const cleanSubjectInput = String(subject).trim();
+      const subjectMatches = allSubjects.filter(
+        (s: any) => s?.name && String(s.name).trim().toLowerCase() === cleanSubjectInput.toLowerCase()
+      );
+      const matchedSubjectRow =
+        (resolvedCollegeId && subjectMatches.find((s: any) => s.college_id === resolvedCollegeId)) ||
+        subjectMatches[0] ||
+        null;
 
-      // Ensure college_id is properly populated from mentor record if not explicitly provided
-      if (!resolvedCollegeId || !resolvedMentorName) {
-        const mRow = await db.get("SELECT college_id, name FROM mentors WHERE id = ?", resolvedMentorId).catch(() => null);
-        if (!resolvedCollegeId && mRow?.college_id) resolvedCollegeId = mRow.college_id;
-        if (!resolvedMentorName && mRow?.name) resolvedMentorName = mRow.name;
-      }
+      const cleanSubject = matchedSubjectRow?.name || cleanSubjectInput;
+      const resolvedDepartment = department || matchedMentor?.department || matchedSubjectRow?.department || null;
+      const cleanDate = (deadline || taskGivenDate || nowIso.slice(0, 10)).trim();
+      const cleanSemester = semester
+        ? String(semester).trim()
+        : (matchedSubjectRow?.semester ? String(matchedSubjectRow.semester).trim() : "Semester 1");
+      const cleanDesc = (instructions || description || inastructions || "").trim() || null;
+      const cleanRef = (referenceUrl || materialUrl || "").trim() || null;
 
       // Derive week/task number (max 40 tasks)
       let wk = parseInt(String(weekNumber || taskNumber || 1), 10);
@@ -292,6 +355,8 @@ export async function POST(request: Request) {
           `UPDATE mentor_weekly_plans SET
             college_id = COALESCE(college_id, ?),
             mentor_name = COALESCE(mentor_name, ?),
+            department = COALESCE(?, department),
+            class_group = COALESCE(NULLIF(?, ''), class_group),
             topics_planned = ?,
             session_plan = ?,
             start_date = ?,
@@ -300,6 +365,8 @@ export async function POST(request: Request) {
           WHERE id = ?`,
           resolvedCollegeId || null,
           resolvedMentorName || null,
+          resolvedDepartment,
+          cleanSemester,
           cleanTopic,
           sessionPlanJson,
           cleanDate,
@@ -317,7 +384,7 @@ export async function POST(request: Request) {
           resolvedCollegeId || null,
           resolvedMentorId,
           resolvedMentorName || null,
-          department || null,
+          resolvedDepartment,
           cleanSubject,
           cleanSemester,
           wk,
@@ -453,10 +520,25 @@ export async function POST(request: Request) {
       } catch (_) {}
     }
 
+    if (assignedResults.length === 0 && rejected.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: `Could not assign tasks: Row ${rejected[0].rowNumber} - ${rejected[0].reason}`,
+          rejected
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
-      message: `Successfully assigned ${assignedResults.length} task(s) to mentor(s).`,
+      message: rejected.length > 0
+        ? `Assigned ${assignedResults.length} task(s); ${rejected.length} row(s) rejected.`
+        : `Successfully assigned ${assignedResults.length} task(s) to mentor(s).`,
       count: assignedResults.length,
+      rejectedCount: rejected.length,
+      rejected,
       assigned: assignedResults
     });
   } catch (err: any) {

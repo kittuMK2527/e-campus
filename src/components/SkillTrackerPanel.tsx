@@ -1502,7 +1502,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
 
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                Task Instructions (`inastructions`)
+                Task Instructions
               </label>
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 font-medium leading-relaxed whitespace-pre-wrap">
                 {instructionTarget.instructions || "No specific instructions provided for this task."}
