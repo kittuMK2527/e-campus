@@ -102,19 +102,20 @@ describe("GET /api/demo-eval-criteria", () => {
 });
 
 describe("POST /api/demo-eval-criteria action=seed", () => {
-  it("seeds the four fixed checks in one statement and issues no DDL", async () => {
+  it("seeds the five fixed checks in one statement and issues no DDL", async () => {
     const res = await post({ action: "seed", department: "CSE" });
 
     expect(res.status).toBe(200);
     expect(h.ddl).toHaveLength(0);
     const inserts = h.writes.filter(w => w.sql.includes("INSERT INTO demo_evaluation_criteria"));
     expect(inserts).toHaveLength(1);
-    expect(inserts[0].sql.split("), (")).toHaveLength(4);
-    expect(inserts[0].params).toHaveLength(40);
+    expect(inserts[0].sql.split("), (")).toHaveLength(5);
+    expect(inserts[0].params).toHaveLength(50);
+    expect(inserts[0].params).toContain("Mentor certification program");
   });
 
   it("does not re-insert when the department already has criteria", async () => {
-    h.state.count = 4;
+    h.state.count = 5;
 
     await post({ action: "seed", department: "CSE" });
 

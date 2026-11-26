@@ -758,6 +758,7 @@ CREATE TABLE IF NOT EXISTS demo_sessions (
     marks INTEGER,
     comments TEXT,
     checklist TEXT,
+    score_breakdown TEXT,
     created_at VARCHAR(100) NOT NULL
 );
 

@@ -1117,6 +1117,45 @@ const migrations: Migration[] = [
         await db.exec("ALTER TABLE departments ADD COLUMN incharge_mentor_name TEXT;").catch(() => {});
       }
     }
+  },
+  {
+    name: "demo_eval_criteria_mentor_cert_v1",
+    run: async (db) => {
+      const existingDepts = await db.all(
+        "SELECT DISTINCT department FROM demo_evaluation_criteria"
+      ).catch(() => []);
+      for (const row of existingDepts || []) {
+        const dept = String(row?.department || "").trim();
+        if (!dept) continue;
+        const already = await db.get(
+          "SELECT id FROM demo_evaluation_criteria WHERE department = ? AND LOWER(TRIM(label)) = 'mentor certification program' LIMIT 1",
+          [dept]
+        ).catch(() => null);
+        if (!already) {
+          const maxRow = await db.get(
+            'SELECT COALESCE(MAX(sort_order), 3) AS "maxOrder" FROM demo_evaluation_criteria WHERE department = ?',
+            [dept]
+          ).catch(() => null);
+          const nextOrder = Math.max(4, Number(maxRow?.maxOrder ?? 3) + 1);
+          const deptHex = Buffer.from(dept).toString("hex").slice(0, 24);
+          const id = `dec_cert_${deptHex}`;
+          await db.run(
+            `INSERT INTO demo_evaluation_criteria (id, department, label, type, threshold, scale, is_system, is_active, sort_order, created_by)
+             VALUES (?, ?, 'Mentor certification program', 'checkbox', NULL, NULL, 1, 1, ?, 'system-seed')
+             ON CONFLICT (id) DO NOTHING`,
+            [id, dept, nextOrder]
+          ).catch(() => {});
+        }
+      }
+    }
+  },
+  {
+    name: "demo_sessions_score_breakdown_column",
+    run: async (db) => {
+      await db.exec("ALTER TABLE demo_sessions ADD COLUMN IF NOT EXISTS score_breakdown TEXT").catch(async () => {
+        await db.exec("ALTER TABLE demo_sessions ADD COLUMN score_breakdown TEXT").catch(() => {});
+      });
+    }
   }
 ];
 

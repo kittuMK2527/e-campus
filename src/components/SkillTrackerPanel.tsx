@@ -409,6 +409,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             "Employee ID",
             "Mentor Name",
             "Skill Course",
+            "Certification",
             "Semester",
             "Type",
             "Task No",
@@ -420,6 +421,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
           ]
         : [
             "Skill Course",
+            "Certification",
             "Semester",
             "Type",
             "Task No",
@@ -439,6 +441,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             { wch: 16 }, // Employee ID
             { wch: 24 }, // Mentor Name
             { wch: 24 }, // Skill Course
+            { wch: 18 }, // Certification
             { wch: 14 }, // Semester
             { wch: 10 }, // Type
             { wch: 10 }, // Task No
@@ -450,6 +453,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
           ]
         : [
             { wch: 24 }, // Skill Course
+            { wch: 18 }, // Certification
             { wch: 14 }, // Semester
             { wch: 10 }, // Type
             { wch: 10 }, // Task No
@@ -463,6 +467,15 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
   );
 
   const buildSkillExportRow = (r: MentorSkillRow, w: WeekRollup) => {
+    const total = r.weeks.length;
+    const cleared = r.weeks.filter(wk => wk.verdict === "cleared").length;
+    const isCertified = total > 0 && cleared === total;
+    const certVal = isCertified
+      ? `Certified (${cleared}/${total})`
+      : cleared === 0
+      ? `Pending (${cleared}/${total})`
+      : `In Progress (${cleared}/${total})`;
+
     const topicText = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "");
     const topicVal = topicText || (w.week_number ? `Task ${w.week_number}` : "—");
     const deadlineVal = w.deadline || w.task_given_date || "—";
@@ -487,6 +500,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
       rowData["Mentor Name"] = r.mentor_name || r.mentor_id;
     }
     rowData["Skill Course"] = r.subject;
+    rowData["Certification"] = certVal;
     rowData["Semester"] = r.semester || "—";
     rowData["Type"] = r.subject_type || "Skill";
     rowData["Task No"] = w.week_number ? `Task ${w.week_number}` : "—";
@@ -658,7 +672,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-black text-slate-900">
-                  {role === "mentor" ? "My Skill Tracker" : role === "sme" ? "Mentor Skill Development Approvals" : "Mentor Skill Development Tracker"}
+                  {role === "mentor" ? "Mentor Skill Development" : role === "sme" ? "Mentor Skill Development Approvals" : "Mentor Skill Development Tracker"}
                 </h2>
                 {collegeName && (
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700">
@@ -833,6 +847,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                 {role !== "mentor" && <TableHead className="p-3.5 min-w-[110px]">Employee ID</TableHead>}
                 {role !== "mentor" && <TableHead className="p-3.5 min-w-[160px]">Mentor Name</TableHead>}
                 <TableHead className="p-3.5 min-w-[140px]">Skill Course</TableHead>
+                <TableHead className="p-3.5 min-w-[130px]">Certification</TableHead>
                 <TableHead className="p-3.5 min-w-[80px]">Semester</TableHead>
                 <TableHead className="p-3.5 min-w-[70px]">Type</TableHead>
                 <TableHead className="p-3.5 text-center min-w-[85px]">Task No</TableHead>
@@ -850,7 +865,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={role !== "mentor" ? 12 : 9}
+                    colSpan={role !== "mentor" ? 13 : 10}
                     className="p-8 text-center text-slate-400"
                   >
                     Loading skill tracker...
@@ -859,7 +874,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               ) : paginatedRows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={role !== "mentor" ? 12 : 9}
+                    colSpan={role !== "mentor" ? 13 : 10}
                     className="p-8 text-center text-slate-400 italic"
                   >
                     No skill development records found. Records appear once tasks are assigned or imported.
@@ -896,6 +911,42 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                         )}
                         <TableCell className="p-3.5">
                           <span className="font-bold text-slate-800 dark:text-slate-200">{row.subject}</span>
+                        </TableCell>
+                        <TableCell className="p-3.5 whitespace-nowrap">
+                          {(() => {
+                            const total = row.weeks.length;
+                            const cleared = row.weeks.filter(wk => wk.verdict === "cleared").length;
+                            const notCleared = row.weeks.filter(wk => wk.verdict === "not_cleared").length;
+                            const pct = total > 0 ? Math.round((cleared / total) * 100) : 0;
+                            const isCertified = total > 0 && cleared === total;
+                            const isPending = cleared === 0;
+
+                            return (
+                              <div className="space-y-1 min-w-[110px]">
+                                <div className="flex items-center justify-between gap-1 text-[10px]">
+                                  <span className={`px-1.5 py-0.5 rounded-md font-black uppercase text-[9px] ${
+                                    isCertified
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300"
+                                      : isPending
+                                      ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200"
+                                      : "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300"
+                                  }`}>
+                                    {isCertified ? "Certified" : isPending ? "Pending" : `In Progress`}
+                                  </span>
+                                  <span className="font-extrabold text-slate-600 dark:text-slate-400">{cleared}/{total}</span>
+                                </div>
+                                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      isCertified ? "bg-emerald-500" : cleared > 0 ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-700"
+                                    }`}
+                                    style={{ width: `${pct}%` }}
+                                    title={`${pct}% certified (${cleared} of ${total} cleared)`}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="p-3.5">
                           <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">

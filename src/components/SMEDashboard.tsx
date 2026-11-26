@@ -16,6 +16,7 @@ import {
   Sparkles,
   Pencil,
   ClipboardList,
+  ClipboardCheck,
   CheckCircle,
   AlertCircle,
   FileText,
@@ -48,13 +49,27 @@ import {
   GraduationCap,
   Menu,
   Video,
-  Link2
+  Link2,
+  RotateCcw
 } from "lucide-react";
 import { WeeklyPlanViewer } from "./WeeklyPlanStudio";
 import { SkillTrackerPanel } from "./SkillTrackerPanel";
 import { DemoEvalCriteriaPanel, EvaluationChecklist, ChecklistEntry } from "./DemoEvalCriteriaPanel";
 import { SMEProfileTab } from "@/components/sme/SMEProfileTab";
 import SMEReallocationPlanner from "@/components/sme/SMEReallocationPlanner";
+import {
+  MAX_CRITERION_MARKS,
+  roundMarks,
+  clampCriterionMax,
+  clampCriterionScore,
+  calculateScaledMark
+} from "@/lib/demoScoring";
+import {
+  buildScoreBreakdown,
+  resolveSessionDisplayScores,
+  parseChecklistSnapshot,
+  formatEvalTimestamp
+} from "@/lib/demoEvaluationRecord";
 
 type TabKey = "overview" | "demo_list" | "weekly_plans" | "skill_approvals" | "availability" | "reallocation" | "history" | "calendar" | "reallocation_hub" | "eval_criteria" | "more_menu" | "profile";
 
@@ -70,29 +85,29 @@ export interface ScoringCriterion {
 }
 
 const DEFAULT_EVAL_CRITERIA: ScoringCriterion[] = [
-  { key: "attendance", label: "Attendance", max: 5 },
-  { key: "subjectKnowledge", label: "Subject Knowledge", max: 15 },
-  { key: "teachingMethodology", label: "Teaching Methodology", max: 15 },
-  { key: "communicationSkills", label: "Communication Skills", max: 10 },
-  { key: "technicalSkills", label: "Technical Skills", max: 15 },
-  { key: "studentInteraction", label: "Student Interaction", max: 10 },
-  { key: "classroomManagement", label: "Classroom Management", max: 10 },
-  { key: "questionHandling", label: "Question Handling", max: 10 },
-  { key: "timeManagement", label: "Time Management", max: 5 },
-  { key: "overallRemarks", label: "Overall Remarks", max: 5 },
+  { key: "attendance", label: "Attendance", max: MAX_CRITERION_MARKS },
+  { key: "subjectKnowledge", label: "Subject Knowledge", max: MAX_CRITERION_MARKS },
+  { key: "teachingMethodology", label: "Teaching Methodology", max: MAX_CRITERION_MARKS },
+  { key: "communicationSkills", label: "Communication Skills", max: MAX_CRITERION_MARKS },
+  { key: "technicalSkills", label: "Technical Skills", max: MAX_CRITERION_MARKS },
+  { key: "studentInteraction", label: "Student Interaction", max: MAX_CRITERION_MARKS },
+  { key: "classroomManagement", label: "Classroom Management", max: MAX_CRITERION_MARKS },
+  { key: "questionHandling", label: "Question Handling", max: MAX_CRITERION_MARKS },
+  { key: "timeManagement", label: "Time Management", max: MAX_CRITERION_MARKS },
+  { key: "overallRemarks", label: "Overall Remarks", max: MAX_CRITERION_MARKS },
 ];
 
 const EVAL_CRITERIA = DEFAULT_EVAL_CRITERIA;
 
 const DEFAULT_SCORES: Record<string, number> = {
   attendance: 4,
-  subjectKnowledge: 12,
-  teachingMethodology: 12,
-  communicationSkills: 8,
-  technicalSkills: 12,
-  studentInteraction: 8,
-  classroomManagement: 8,
-  questionHandling: 8,
+  subjectKnowledge: 4,
+  teachingMethodology: 4,
+  communicationSkills: 4,
+  technicalSkills: 4,
+  studentInteraction: 4,
+  classroomManagement: 4,
+  questionHandling: 4,
   timeManagement: 4,
   overallRemarks: 4,
 };
@@ -168,14 +183,20 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const [historyPageSize, setHistoryPageSize] = useState<number>(10);
 
   // Evaluation modal state
-  // Dynamic Evaluation Criteria (CRUD) state
+  // Dynamic Evaluation Criteria (CRUD) state — each criterion capped at <= 5 marks (decimals supported)
   const [criteriaList, setCriteriaList] = useState<ScoringCriterion[]>(() => {
     if (typeof window !== "undefined") {
       try {
         const stored = localStorage.getItem("fp_sme_eval_scoring_criteria");
         if (stored) {
           const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((c: any) => ({
+              key: String(c?.key || `crit_${Date.now()}`),
+              label: String(c?.label || "Criterion"),
+              max: clampCriterionMax(c?.max)
+            }));
+          }
         }
       } catch (_) {}
     }
@@ -183,72 +204,28 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   });
 
   const saveCriteriaList = (updated: ScoringCriterion[]) => {
-    setCriteriaList(updated);
+    const normalized = updated.map(c => ({
+      ...c,
+      max: clampCriterionMax(c.max)
+    }));
+    setCriteriaList(normalized);
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("fp_sme_eval_scoring_criteria", JSON.stringify(updated));
+        localStorage.setItem("fp_sme_eval_scoring_criteria", JSON.stringify(normalized));
       } catch (_) {}
     }
   };
 
-  const [showCriteriaModal, setShowCriteriaModal] = useState<boolean>(false);
-  const [editingCriterionKey, setEditingCriterionKey] = useState<string | null>(null);
-  const [editCriterionLabel, setEditCriterionLabel] = useState<string>("");
-  const [editCriterionMax, setEditCriterionMax] = useState<number>(10);
-  const [newCriterionLabel, setNewCriterionLabel] = useState<string>("");
-  const [newCriterionMax, setNewCriterionMax] = useState<number>(10);
-
-  const handleAddCriterion = () => {
-    if (!newCriterionLabel.trim()) {
-      toast("Please enter a criterion name.", "warning");
-      return;
-    }
-    const maxVal = Math.max(1, Number(newCriterionMax) || 10);
-    const key = newCriterionLabel.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Date.now();
-    const updated = [...criteriaList, { key, label: newCriterionLabel.trim(), max: maxVal }];
-    saveCriteriaList(updated);
-    setNewCriterionLabel("");
-    setNewCriterionMax(10);
-    toast(`Added "${newCriterionLabel.trim()}" (Max: ${maxVal})`, "success");
-  };
-
-  const handleStartEditCriterion = (c: ScoringCriterion) => {
-    setEditingCriterionKey(c.key);
-    setEditCriterionLabel(c.label);
-    setEditCriterionMax(c.max);
-  };
-
-  const handleSaveEditCriterion = () => {
-    if (!editCriterionLabel.trim()) {
-      toast("Criterion name cannot be empty.", "warning");
-      return;
-    }
-    const maxVal = Math.max(1, Number(editCriterionMax) || 10);
-    const updated = criteriaList.map(c =>
-      c.key === editingCriterionKey ? { ...c, label: editCriterionLabel.trim(), max: maxVal } : c
-    );
-    saveCriteriaList(updated);
-    setEditingCriterionKey(null);
-    toast(`Updated "${editCriterionLabel.trim()}"`, "success");
-  };
-
-  const handleDeleteCriterion = (key: string, label: string) => {
-    if (criteriaList.length <= 1) {
-      toast("At least one evaluation criterion is required.", "warning");
-      return;
-    }
-    const updated = criteriaList.filter(c => c.key !== key);
-    saveCriteriaList(updated);
-    toast(`Deleted "${label}"`, "info");
-  };
-
   const handleResetCriteriaDefaults = () => {
     saveCriteriaList(DEFAULT_EVAL_CRITERIA);
-    toast("Reset evaluation criteria to system defaults.", "success");
+    toast("Reset evaluation criteria to system defaults (Max 5 marks each).", "success");
   };
 
+  // Evaluation Criteria Sub-tab (Rubric vs Compliance Checklist)
+  const [evalCriteriaSubTab, setEvalCriteriaSubTab] = useState<"rubric" | "compliance">("rubric");
+
   const [evaluationModalSession, setEvaluationModalSession] = useState<any | null>(null);
-  const [evalScores, setEvalScores] = useState<Record<string, number>>({ ...DEFAULT_SCORES });
+  const [evalScores, setEvalScores] = useState<Record<string, number | string>>({ ...DEFAULT_SCORES });
   const [comments, setComments] = useState<string>("");
   const [successMsg, setSuccessMsg] = useState<string>("");
   const [errorMsg, setErrorMsg] = useState<string>("");
@@ -539,13 +516,19 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const [expandedHistoryId, setExpandedHistoryId] = useState<string | null>(null);
 
   const totalMaxMarks = useMemo(() => {
-    return criteriaList.reduce((sum, c) => sum + (c.max || 0), 0) || 100;
+    return roundMarks(criteriaList.reduce((sum, c) => sum + clampCriterionMax(c.max), 0)) || MAX_CRITERION_MARKS;
   }, [criteriaList]);
 
-  // Calculated total marks
+  // Calculated total marks (decimal safe)
   const marks = useMemo(() => {
-    return criteriaList.reduce((sum, c) => sum + (Number(evalScores[c.key]) || 0), 0);
+    return roundMarks(
+      criteriaList.reduce((sum, c) => sum + clampCriterionScore(evalScores[c.key] ?? 0, c.max), 0)
+    );
   }, [evalScores, criteriaList]);
+
+  const marksOutOf5 = useMemo(() => {
+    return calculateScaledMark(marks, totalMaxMarks, 5);
+  }, [marks, totalMaxMarks]);
 
   const marksNormalized = useMemo(() => {
     if (totalMaxMarks <= 0 || Number.isNaN(marks)) return 0;
@@ -689,12 +672,19 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const filteredHistory = useMemo(() => {
     if (!historySearch.trim()) return completedDemos;
     const q = historySearch.toLowerCase();
-    return completedDemos.filter(d =>
-      d.mentorName?.toLowerCase().includes(q) ||
-      d.subject?.toLowerCase().includes(q) ||
-      d.dateStr?.toLowerCase().includes(q)
-    );
-  }, [completedDemos, historySearch]);
+    return completedDemos.filter(d => {
+      const mentor = mentors.find(m => m.id === d.mentorId);
+      const collegeName = mentor ? (colleges.find(c => c.id === mentor.college_id)?.name || "") : "";
+      return (
+        d.mentorName?.toLowerCase().includes(q) ||
+        d.subject?.toLowerCase().includes(q) ||
+        d.dateStr?.toLowerCase().includes(q) ||
+        d.stream?.toLowerCase().includes(q) ||
+        d.smeName?.toLowerCase().includes(q) ||
+        collegeName.toLowerCase().includes(q)
+      );
+    });
+  }, [completedDemos, historySearch, mentors, colleges]);
 
   const paginatedHistory = useMemo(() => {
     const startIndex = (historyPage - 1) * historyPageSize;
@@ -781,9 +771,10 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     }
 
     setEvaluationModalSession(session);
-    const initialScores: Record<string, number> = {};
+    const initialScores: Record<string, number | string> = {};
     criteriaList.forEach(c => {
-      initialScores[c.key] = Math.round((c.max || 10) * 0.8);
+      const safeMax = clampCriterionMax(c.max);
+      initialScores[c.key] = roundMarks(safeMax * 0.8);
     });
     setEvalScores(initialScores);
     setComments("");
@@ -867,11 +858,25 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     handleOpenSwapModal(session, { dateStr, timeSlot });
   };
 
-  const updateScore = (key: string, value: number, max: number) => {
-    setEvalScores(prev => ({
-      ...prev,
-      [key]: Math.min(max, Math.max(0, value))
-    }));
+  const updateScore = (key: string, rawValue: string, max: number) => {
+    const safeMax = clampCriterionMax(max);
+    if (rawValue === "") {
+      setEvalScores(prev => ({ ...prev, [key]: "" }));
+      return;
+    }
+    const parsed = parseFloat(rawValue);
+    if (Number.isNaN(parsed)) return;
+    if (parsed > safeMax) {
+      toast(`Score cannot exceed max ${safeMax} for this criterion.`, "warning");
+      setEvalScores(prev => ({ ...prev, [key]: safeMax }));
+      return;
+    }
+    if (parsed < 0) {
+      setEvalScores(prev => ({ ...prev, [key]: 0 }));
+      return;
+    }
+    // Preserve intermediate decimal string while typing (e.g. "2." or "2.7")
+    setEvalScores(prev => ({ ...prev, [key]: rawValue }));
   };
 
   // Free-Time Checker for Reallocation Modal (Availability-Driven)
@@ -1040,7 +1045,14 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     setErrorMsg("");
     setSuccessMsg("");
     try {
-      const res = await evaluateDemoSession(evaluationModalSession.id, marksNormalized, comments, checklistEntries);
+      const scoreBreakdown = buildScoreBreakdown(criteriaList, evalScores);
+      const res = await evaluateDemoSession(
+        evaluationModalSession.id,
+        marksNormalized,
+        comments,
+        checklistEntries,
+        scoreBreakdown
+      );
       if (res.success) {
         setSuccessMsg(`Evaluation submitted successfully for ${evaluationModalSession.mentorName}!`);
         setEvaluationModalSession(null);
@@ -1108,7 +1120,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
           )}
 
           {/* 5 Primary Sidebar Navigation Tabs */}
-          <nav className="space-y-1.5 py-1">
+          <nav className="sidebar-role-sme space-y-1.5 py-1">
             {sidebarNavItems.map(item => {
               const Icon = item.icon;
               const isActive = activeTab === item.id;
@@ -1651,140 +1663,101 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
           {/* ═══════════════ TAB: EVALUATION CRITERIA (SCORING RUBRIC & COMPLIANCE CRUD) ═══════════════ */}
           {activeTab === "eval_criteria" && (
             <div className="space-y-6">
-              {/* Scoring Rubric Criteria CRUD Manager Panel */}
-              <Panel
-                title="SCORING RUBRIC CRITERIA (CRUD)"
-                subtitle="Configure the scoring parameters and maximum marks used during faculty demo evaluations"
-              >
-                <div className="space-y-4">
-                  {/* Top Bar: Add New Criterion Inline Form */}
-                  <div className="p-4 bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-wrap items-end gap-3 shadow-xs">
-                    <div className="flex-1 min-w-[200px]">
-                      <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">New Scoring Criterion</label>
-                      <input
-                        type="text"
-                        value={newCriterionLabel}
-                        onChange={e => setNewCriterionLabel(e.target.value)}
-                        placeholder="e.g. Body Language, Board Work, Code Hygiene..."
-                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <div className="w-28">
-                      <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">Max Marks</label>
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={newCriterionMax}
-                        onChange={e => setNewCriterionMax(Math.max(1, parseInt(e.target.value) || 10))}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={handleAddCriterion}
-                      disabled={!newCriterionLabel.trim()}
-                      className="px-4 py-2 rounded-xl text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-white disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-sm transition-all"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Add Criterion
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleResetCriteriaDefaults}
-                      className="px-3.5 py-2 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-all cursor-pointer"
-                    >
-                      Reset Defaults
-                    </button>
-                  </div>
-
-                  {/* Summary Bar */}
-                  <div className="flex justify-between items-center px-4 py-2.5 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs font-bold">
-                    <span className="text-slate-700 dark:text-slate-300">Total Configured Criteria: <strong>{criteriaList.length}</strong></span>
-                    <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">
-                      Cumulative Scale: {criteriaList.reduce((sum, c) => sum + (c.max || 0), 0)} Marks
-                    </span>
-                  </div>
-
-                  {/* Criteria List with Edit & Delete Operations */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {criteriaList.map(crit => {
-                      const isEditing = editingCriterionKey === crit.key;
-                      return (
-                        <div key={crit.key} className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shadow-xs">
-                          {isEditing ? (
-                            <div className="flex items-center gap-2 flex-1">
-                              <input
-                                type="text"
-                                value={editCriterionLabel}
-                                onChange={e => setEditCriterionLabel(e.target.value)}
-                                className="flex-1 px-2.5 py-1 text-xs font-bold border border-indigo-400 rounded-lg bg-white dark:bg-slate-800 focus:outline-none"
-                              />
-                              <input
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={editCriterionMax}
-                                onChange={e => setEditCriterionMax(parseInt(e.target.value) || 10)}
-                                className="w-16 px-2 py-1 text-xs font-bold border border-indigo-400 rounded-lg text-center bg-white dark:bg-slate-800 focus:outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={handleSaveEditCriterion}
-                                className="px-2.5 py-1 text-xs font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 cursor-pointer"
-                              >
-                                Save
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setEditingCriterionKey(null)}
-                                className="p-1 text-slate-400 hover:text-slate-600 rounded cursor-pointer"
-                              >
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="space-y-0.5 flex-1 truncate">
-                                <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block truncate">{crit.label}</span>
-                                <span className="text-[10px] text-slate-400 font-semibold">Weightage: Max {crit.max} marks</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 shrink-0">
-                                <button
-                                  type="button"
-                                  onClick={() => handleStartEditCriterion(crit)}
-                                  className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 rounded-lg transition-colors cursor-pointer"
-                                  title="Edit criterion"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteCriterion(crit.key, crit.label)}
-                                  className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete criterion"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+              {/* Sub-tab Switcher: Scoring Rubric vs Department Compliance */}
+              <div className="flex items-center justify-between gap-4 p-2 bg-slate-100 dark:bg-slate-800/80 rounded-2xl border border-slate-200 dark:border-slate-700/80">
+                <div className="flex items-center gap-1.5 p-1 bg-white dark:bg-slate-900 rounded-xl shadow-2xs border border-slate-200/70 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => setEvalCriteriaSubTab("rubric")}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                      evalCriteriaSubTab === "rubric"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <Award className="h-3.5 w-3.5" />
+                    <span>Scoring Rubric (Marks)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEvalCriteriaSubTab("compliance")}
+                    className={`px-4 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 ${
+                      evalCriteriaSubTab === "compliance"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    <ClipboardCheck className="h-3.5 w-3.5" />
+                    <span>Compliance Checklist (Rules)</span>
+                  </button>
                 </div>
-              </Panel>
 
-              {/* Department Compliance Checklist Rules */}
-              <DemoEvalCriteriaPanel
-                departments={Array.from(new Set([
-                  currentSME.subject,
-                  currentSME.head_subject_group,
-                  currentSME.mentor_group,
-                  "General"
-                ].filter(Boolean).map((s: string) => s.trim())))}
-                smeName={currentSME.name}
-              />
+                <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pr-2 hidden sm:block">
+                  {evalCriteriaSubTab === "rubric" ? "Active: Faculty Demo Scoring Scale" : "Active: Department Checklist Parameters"}
+                </div>
+              </div>
+
+              {evalCriteriaSubTab === "rubric" ? (
+                /* Scoring Rubric Criteria CRUD Manager Panel */
+                <Panel
+                  title="SCORING RUBRIC CRITERIA"
+                  subtitle="Configure the scoring parameters and maximum marks used during faculty demo evaluations"
+                >
+                  <div className="space-y-4">
+                    {/* Top Bar: Summary & Restore Defaults */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl shadow-xs">
+                      <div className="space-y-0.5">
+                        <span className="text-xs font-bold text-slate-800 dark:text-slate-200 block">
+                          Default Standard Evaluation Rubric (10 Parameters • Max {MAX_CRITERION_MARKS} Marks Each)
+                        </span>
+                        <p className="text-[10px] text-slate-400 font-medium">
+                          Fixed institutional criteria applied across all faculty demo evaluations.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleResetCriteriaDefaults}
+                        className="px-3.5 py-2 rounded-xl text-xs font-extrabold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-2xs flex items-center gap-1.5"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5 text-slate-500" />
+                        <span>Restore Defaults</span>
+                      </button>
+                    </div>
+
+                    {/* Summary Bar */}
+                    <div className="flex flex-wrap justify-between items-center gap-2 px-4 py-2.5 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs font-bold">
+                      <span className="text-slate-700 dark:text-slate-300">
+                        Total Criteria: <strong>{criteriaList.length}</strong>{" "}
+                        <span className="text-[10px] font-semibold text-slate-500">(max {MAX_CRITERION_MARKS} marks each; scaled to /5 threshold)</span>
+                      </span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">
+                        Cumulative Scale: {totalMaxMarks} Marks (Normalized: 5.00 / 5)
+                      </span>
+                    </div>
+
+                    {/* Criteria List */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {criteriaList.map(crit => (
+                        <div key={crit.key} className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-3 shadow-xs">
+                          <div className="space-y-0.5 flex-1 truncate">
+                            <span className="text-xs font-bold text-slate-800 dark:text-slate-100 block truncate">{crit.label}</span>
+                            <span className="text-[10px] text-slate-400 font-semibold">Weightage: Max {crit.max} marks</span>
+                          </div>
+                          <span className="px-2.5 py-1 text-[10px] font-black rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                            Max {crit.max}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Panel>
+              ) : (
+                /* Department Compliance Checklist Rules */
+                <DemoEvalCriteriaPanel
+                  departments={["General"]}
+                  smeName={currentSME.name}
+                />
+              )}
             </div>
           )}
 
@@ -2121,33 +2094,97 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 <div className="overflow-x-auto border border-slate-200/80 dark:border-slate-800 rounded-lg bg-white dark:bg-slate-900">
                   {paginatedHistory.length > 0 ? (
                     <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {paginatedHistory.map(demo => (
-                        <div key={demo.id} className="p-4 flex items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition-colors">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-10 w-10 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 border border-emerald-100">
-                              <Award className="h-5 w-5" />
+                      {paginatedHistory.map(demo => {
+                        const { breakdown, marksOutOf5, marksNormalized, thresholdMet } = resolveSessionDisplayScores(demo);
+                        const checklistItems = parseChecklistSnapshot(demo.checklist);
+                        const metChecks = checklistItems.filter(c => c.met).length;
+                        const unmetChecks = checklistItems.length - metChecks;
+                        const collegeName = getMentorCollege(demo.mentorId);
+
+                        return (
+                          <div
+                            key={demo.id}
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setViewEvalSession(demo)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                setViewEvalSession(demo);
+                              }
+                            }}
+                            className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/90 dark:hover:bg-slate-800/40 focus:outline-none focus:bg-slate-50/90 dark:focus:bg-slate-800/40 transition-colors cursor-pointer group"
+                          >
+                            <div className="flex items-start sm:items-center gap-3 min-w-0">
+                              <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                                thresholdMet
+                                  ? "bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900"
+                                  : "bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-100 dark:border-rose-900"
+                              }`}>
+                                <Award className="h-5 w-5" />
+                              </div>
+                              <div className="min-w-0 space-y-0.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <h3 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{demo.mentorName}</h3>
+                                  {demo.week ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 text-[9px] font-extrabold uppercase">
+                                      Week {demo.week}
+                                    </span>
+                                  ) : null}
+                                  <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase border ${
+                                    thresholdMet
+                                      ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800"
+                                      : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800"
+                                  }`}>
+                                    {thresholdMet ? "Pass >= 3.5/5" : "Below Threshold"}
+                                  </span>
+                                  {unmetChecks > 0 ? (
+                                    <span className="px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/30 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 text-[9px] font-bold">
+                                      {unmetChecks} Unmet Check{unmetChecks > 1 ? "s" : ""}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold truncate">
+                                  {demo.dateStr}{demo.timeSlot ? ` • ${demo.timeSlot}` : ""} • {demo.subject}{demo.stream ? ` (${demo.stream})` : ""}
+                                </p>
+                                <p className="text-[9.5px] text-amber-600 dark:text-amber-400 font-bold truncate">
+                                  {collegeName || "Campus N/A"}
+                                  {demo.smeName ? <span className="text-slate-400 font-semibold"> • SME: {demo.smeName}</span> : null}
+                                  {checklistItems.length > 0 ? (
+                                    <span className="text-slate-400 font-semibold"> • {metChecks}/{checklistItems.length} checks met</span>
+                                  ) : null}
+                                  {breakdown ? (
+                                    <span className="text-slate-400 font-semibold"> • {breakdown.criteria.length} criteria ({breakdown.totalScored}/{breakdown.totalMaxMarks})</span>
+                                  ) : null}
+                                </p>
+                              </div>
                             </div>
-                            <div className="min-w-0">
-                              <h3 className="text-xs font-extrabold text-slate-900 dark:text-white truncate">{demo.mentorName}</h3>
-                              <p className="text-[9.5px] text-slate-400 font-semibold">{demo.dateStr} • {demo.subject}</p>
-                              <p className="text-[9px] text-amber-500 dark:text-amber-400 font-bold uppercase">{getMentorCollege(demo.mentorId)}</p>
+                            <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 pl-13 sm:pl-0">
+                              <div className="text-left sm:text-right">
+                                <span className="text-[8px] font-black uppercase text-slate-400 block">Final Mark</span>
+                                <div className="flex items-baseline gap-1.5 sm:justify-end">
+                                  <span className={`text-sm font-black ${
+                                    marksOutOf5 >= 3.5 ? "text-emerald-600 dark:text-emerald-400" : marksOutOf5 >= 2.5 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"
+                                  }`}>
+                                    {marksOutOf5} / 5
+                                  </span>
+                                  <span className="text-[10px] font-bold text-slate-400">({marksNormalized}%)</span>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewEvalSession(demo);
+                                }}
+                                className="px-3.5 py-1.5 bg-emerald-50 group-hover:bg-emerald-100 dark:bg-emerald-950/30 dark:group-hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer"
+                              >
+                                <Eye className="h-3.5 w-3.5" /> View Details
+                              </button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 shrink-0">
-                            <div className="text-right">
-                              <span className="text-[8px] font-black uppercase text-slate-400 block">Score</span>
-                              <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">{demo.marks} / 100</span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setViewEvalSession(demo)}
-                              className="px-3.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-extrabold flex items-center gap-1 transition-all cursor-pointer"
-                            >
-                              <Eye className="h-3.5 w-3.5" /> View Scorecard
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   ) : (
                     <div className="p-10 text-center text-slate-400 text-xs font-bold italic">
@@ -2306,11 +2343,12 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                       </span>
                       <button
                         type="button"
-                        onClick={() => setShowCriteriaModal(true)}
-                        className="px-2.5 py-1 text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 dark:hover:bg-indigo-900/60 rounded-lg border border-indigo-200 dark:border-indigo-800 flex items-center gap-1 cursor-pointer transition-all"
-                        title="Add, edit, or remove scoring criteria"
+                        onClick={handleResetCriteriaDefaults}
+                        className="px-2.5 py-1 text-[10px] font-extrabold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 flex items-center gap-1 cursor-pointer transition-all shadow-2xs"
+                        title="Restore criteria to system defaults (Max 5 marks each)"
                       >
-                        <SlidersHorizontal className="h-3 w-3" /> Manage Criteria (CRUD)
+                        <RotateCcw className="h-3 w-3 text-slate-500" />
+                        <span>Restore Defaults</span>
                       </button>
                     </div>
 
@@ -2325,29 +2363,17 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                             type="number"
                             min={0}
                             max={crit.max}
-                            value={evalScores[crit.key] !== undefined ? evalScores[crit.key] : Math.round(crit.max * 0.8)}
-                            onChange={e => updateScore(crit.key, Number(e.target.value), crit.max)}
+                            step="0.1"
+                            value={evalScores[crit.key] !== undefined ? evalScores[crit.key] : roundMarks(crit.max * 0.8)}
+                            onChange={e => updateScore(crit.key, e.target.value, crit.max)}
+                            onBlur={() =>
+                              setEvalScores(prev => ({
+                                ...prev,
+                                [crit.key]: clampCriterionScore(prev[crit.key] ?? 0, crit.max)
+                              }))
+                            }
                             className="w-16 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
                           />
-                          <button
-                            type="button"
-                            onClick={() => {
-                              handleStartEditCriterion(crit);
-                              setShowCriteriaModal(true);
-                            }}
-                            className="p-1 text-slate-400 hover:text-indigo-600 rounded transition-colors cursor-pointer"
-                            title="Edit criterion"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCriterion(crit.key, crit.label)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded transition-colors cursor-pointer"
-                            title="Delete criterion"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
                         </div>
                       </div>
                     ))}
@@ -2355,8 +2381,8 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
 
                   <div className="flex justify-between items-center p-3 bg-indigo-50/40 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/40 rounded-xl text-xs font-bold">
                     <span className="text-slate-800 dark:text-slate-200">Calculated Total Marks:</span>
-                    <span className={`text-sm font-black ${marksNormalized >= 80 ? "text-emerald-600" : marksNormalized >= 60 ? "text-amber-600" : "text-rose-600"}`}>
-                      {marks} / {totalMaxMarks} ({marksNormalized}%)
+                    <span className={`text-sm font-black ${marksOutOf5 >= 3.5 ? "text-emerald-600" : marksOutOf5 >= 2.5 ? "text-amber-600" : "text-rose-600"}`}>
+                      {marksOutOf5} / 5 <span className="text-[11px] font-bold text-slate-500">({marks} / {totalMaxMarks} • {marksNormalized}%)</span>
                     </span>
                   </div>
 
@@ -2364,6 +2390,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                   <EvaluationChecklist
                     department={getMentorDept(evaluationModalSession.mentorId) || evaluationModalSession.stream || "General"}
                     marks={marks}
+                    totalMaxMarks={totalMaxMarks}
                     entries={checklistEntries}
                     onChange={setChecklistEntries}
                   />
@@ -2396,216 +2423,242 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
             </Dialog>
           )}
 
-          {/* Criteria Manager Modal (CRUD) */}
-          {showCriteriaModal && (
-            <Dialog
-              open={true}
-              onOpenChange={(next) => { if (!next) { setShowCriteriaModal(false); setEditingCriterionKey(null); } }}
-              ariaLabel="Evaluation Criteria Manager"
-              overlayClassName="z-[9999] bg-slate-950/60 backdrop-blur-sm overflow-y-auto animate-fadeIn"
-              panelClassName="rounded-2xl max-w-lg p-6 space-y-4 max-h-[85vh] overflow-y-auto my-auto bg-white dark:bg-slate-900"
-            >
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-9 w-9 rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 flex items-center justify-center shrink-0">
-                    <SlidersHorizontal className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">Evaluation Criteria (CRUD)</h3>
-                    <p className="text-[10px] text-slate-400 font-medium">Add, edit, or delete scoring rubrics</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => { setShowCriteriaModal(false); setEditingCriterionKey(null); }}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
+          {/* ═══════════════ VIEW EVALUATION (READ-ONLY) MODAL ═══════════════ */}
+          {viewEvalSession && (() => {
+            const mentorObj = mentors.find(m => m.id === viewEvalSession.mentorId);
+            const mentorCollege = getMentorCollege(viewEvalSession.mentorId) || "Not specified";
+            const mentorDept = getMentorDept(viewEvalSession.mentorId) || "Not specified";
+            const { breakdown, marksOutOf5, marksNormalized, thresholdMet } = resolveSessionDisplayScores(viewEvalSession);
+            const checklistItems = parseChecklistSnapshot(viewEvalSession.checklist);
+            const metChecks = checklistItems.filter(c => c.met).length;
+            const unmetChecks = checklistItems.length - metChecks;
+            const recordedAt = formatEvalTimestamp(viewEvalSession.created_at);
 
-              {/* Add New Criterion */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl space-y-2">
-                <span className="text-[10px] font-black uppercase text-slate-500 tracking-wider block">Add New Criterion</span>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={newCriterionLabel}
-                    onChange={e => setNewCriterionLabel(e.target.value)}
-                    placeholder="e.g. Body Language / Code Review"
-                    className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={newCriterionMax}
-                    onChange={e => setNewCriterionMax(Math.max(1, parseInt(e.target.value) || 10))}
-                    className="w-16 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:outline-none"
-                    title="Max marks"
-                  />
+            return (
+              <Dialog
+                open={Boolean(viewEvalSession)}
+                onOpenChange={(next) => {
+                  if (!next) setViewEvalSession(null);
+                }}
+                ariaLabel="SME evaluation record details"
+                overlayClassName="bg-slate-950/60 backdrop-blur-sm"
+                panelClassName="max-w-2xl rounded-2xl p-6 space-y-5 max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900"
+              >
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Lock className="h-4 w-4 text-emerald-500" />
+                      Evaluation Record Details
+                    </h3>
+                    <p className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                      Record ID: <span className="font-mono">{viewEvalSession.id}</span> • Recorded {recordedAt}
+                    </p>
+                  </div>
                   <button
                     type="button"
-                    onClick={handleAddCriterion}
-                    disabled={!newCriterionLabel.trim()}
-                    className="px-3 py-1.5 text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white rounded-lg disabled:opacity-50 cursor-pointer"
+                    onClick={() => setViewEvalSession(null)}
+                    className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                    aria-label="Close evaluation details"
                   >
-                    Add
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
-              </div>
 
-              {/* List of Criteria */}
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {criteriaList.map(crit => (
-                  <div key={crit.key} className="p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-slate-900 flex items-center justify-between gap-2 text-xs">
-                    {editingCriterionKey === crit.key ? (
-                      <div className="flex items-center gap-1.5 flex-1">
-                        <input
-                          type="text"
-                          value={editCriterionLabel}
-                          onChange={e => setEditCriterionLabel(e.target.value)}
-                          className="flex-1 px-2 py-1 text-xs font-bold border border-indigo-400 rounded-md bg-white dark:bg-slate-800"
-                        />
-                        <input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={editCriterionMax}
-                          onChange={e => setEditCriterionMax(parseInt(e.target.value) || 10)}
-                          className="w-14 px-1 py-1 text-xs font-bold border border-indigo-400 rounded-md text-center bg-white dark:bg-slate-800"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleSaveEditCriterion}
-                          className="px-2 py-1 text-[11px] font-bold bg-emerald-600 text-white rounded-md cursor-pointer"
-                        >
-                          Save
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex-1 truncate">
-                          <span className="font-bold text-slate-800 dark:text-slate-100 block truncate">{crit.label}</span>
-                          <span className="text-[10px] text-slate-400">Max: {crit.max} marks</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEditCriterion(crit)}
-                            className="p-1 text-slate-400 hover:text-indigo-600 rounded cursor-pointer"
-                            title="Edit"
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteCriterion(crit.key, crit.label)}
-                            className="p-1 text-slate-400 hover:text-rose-600 rounded cursor-pointer"
-                            title="Delete"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      </>
-                    )}
+                {/* Score & Threshold Summary Banner */}
+                <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+                  thresholdMet
+                    ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/60"
+                    : "bg-rose-50/60 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/60"
+                }`}>
+                  <div className="min-w-0">
+                    <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Evaluated Faculty</span>
+                    <p className="text-base font-black text-slate-900 dark:text-white truncate">{viewEvalSession.mentorName}</p>
+                    <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 truncate">
+                      {mentorCollege} • {mentorDept}
+                    </p>
+                    {mentorObj?.designation ? (
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold mt-0.5">{mentorObj.designation}</p>
+                    ) : null}
                   </div>
-                ))}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="flex justify-between items-center pt-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={handleResetCriteriaDefaults}
-                  className="text-[11px] font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
-                >
-                  Reset Defaults
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowCriteriaModal(false); setEditingCriterionKey(null); }}
-                  className="px-4 py-1.5 text-xs font-bold text-white bg-zinc-900 hover:bg-zinc-800 rounded-lg cursor-pointer"
-                >
-                  Done
-                </button>
-              </div>
-            </Dialog>
-          )}
-
-          {/* ═══════════════ VIEW EVALUATION (READ-ONLY) MODAL ═══════════════ */}
-          {viewEvalSession && (
-            <Dialog
-              open={Boolean(viewEvalSession)}
-              onOpenChange={(next) => {
-                if (!next) setViewEvalSession(null);
-              }}
-              ariaLabel="SME evaluation record"
-              overlayClassName="bg-slate-950/60 backdrop-blur-sm"
-              panelClassName="max-w-md rounded-xl p-6 space-y-5 max-h-[90vh] bg-white dark:bg-slate-900"
-            >
-                <div className="border-b border-slate-100 dark:border-slate-800 pb-3 flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <Lock className="h-4 w-4 text-emerald-500" />
-                    Evaluation Record
-                  </h3>
-                  <button onClick={() => setViewEvalSession(null)} className="text-slate-400 hover:text-slate-600 text-xs font-bold cursor-pointer">Close</button>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex justify-between">
-                    <div>
-                      <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Faculty</span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">{viewEvalSession.mentorName}</p>
-                      <p className="text-[9px] text-amber-500 font-bold uppercase">{getMentorCollege(viewEvalSession.mentorId)}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Score</span>
-                      <span className={`text-lg font-black ${(viewEvalSession.marks || 0) >= 80 ? "text-emerald-600" : (viewEvalSession.marks || 0) >= 60 ? "text-amber-600" : "text-rose-600"}`}>
-                        {viewEvalSession.marks} / 100
+                  <div className="text-left sm:text-right shrink-0">
+                    <span className="text-[9px] font-black uppercase text-slate-400 block mb-0.5">Final Evaluation Mark</span>
+                    <div className="flex items-baseline gap-2 sm:justify-end">
+                      <span className={`text-2xl font-black ${
+                        marksOutOf5 >= 3.5 ? "text-emerald-600 dark:text-emerald-400" : marksOutOf5 >= 2.5 ? "text-amber-600 dark:text-amber-400" : "text-rose-600 dark:text-rose-400"
+                      }`}>
+                        {marksOutOf5} / 5
+                      </span>
+                      <span className="text-xs font-extrabold text-slate-500 dark:text-slate-400">
+                        ({marksNormalized} / 100)
                       </span>
                     </div>
+                    <div className="flex flex-wrap items-center gap-1.5 sm:justify-end mt-1.5">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${
+                        thresholdMet
+                          ? "bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700"
+                          : "bg-rose-100 text-rose-700 border-rose-300 dark:bg-rose-900/40 dark:text-rose-300 dark:border-rose-700"
+                      }`}>
+                        {thresholdMet ? "Meets >= 3.5/5 Threshold" : "Below 3.5/5 Threshold"}
+                      </span>
+                      {breakdown ? (
+                        <span className="px-2 py-0.5 rounded-md bg-white/80 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-[10px] font-extrabold text-slate-600 dark:text-slate-300">
+                          Raw: {breakdown.totalScored} / {breakdown.totalMaxMarks}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Faculty Profile & Session Metadata Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                      <User className="h-3 w-3 text-slate-400" /> Faculty Details
+                    </span>
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Mentor ID:</span> {viewEvalSession.mentorId || "N/A"}</p>
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Email:</span> {mentorObj?.email || "Not available"}</p>
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Phone:</span> {mentorObj?.phone || "Not available"}</p>
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Department:</span> {mentorDept}</p>
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Campus:</span> {mentorCollege}</p>
+                    </div>
                   </div>
 
-                  <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
-                    <p><strong>Subject:</strong> {viewEvalSession.subject}</p>
-                    <p><strong>Date/Time:</strong> {viewEvalSession.dateStr} • {viewEvalSession.timeSlot}</p>
-                    <p><strong>Stream:</strong> {viewEvalSession.stream}</p>
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 space-y-1.5">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1">
+                      <Calendar className="h-3 w-3 text-slate-400" /> Session &amp; Evaluator Details
+                    </span>
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Subject:</span> {viewEvalSession.subject || "N/A"}</p>
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Stream:</span> {viewEvalSession.stream || "Not specified"}</p>
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Week:</span> {viewEvalSession.week ? `Week ${viewEvalSession.week}` : "Not specified"}</p>
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Schedule:</span> {viewEvalSession.dateStr} • {viewEvalSession.timeSlot || "Slot N/A"}</p>
+                      <p><span className="font-bold text-slate-800 dark:text-slate-200">Evaluated By:</span> {viewEvalSession.smeName || "SME"} {viewEvalSession.smeId ? `(${viewEvalSession.smeId})` : ""}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Rubric Criteria Score Breakdown */}
+                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <Target className="h-3.5 w-3.5 text-indigo-500" />
+                      Rubric Criteria Breakdown
+                    </span>
+                    {breakdown ? (
+                      <span className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400">
+                        {breakdown.criteria.length} Criteria • {breakdown.totalScored} / {breakdown.totalMaxMarks} Marks ({breakdown.marksOutOf5} / 5)
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400">Consolidated Record</span>
+                    )}
                   </div>
 
-                  <div className="p-3 bg-emerald-50/30 dark:bg-emerald-950/10 border border-emerald-100 rounded-xl">
-                    <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Feedback Comments</span>
-                    <p className="text-xs text-slate-600 dark:text-slate-300 italic">&quot;{viewEvalSession.comments || "No comments recorded."}&quot;</p>
+                  {breakdown && breakdown.criteria.length > 0 ? (
+                    <div className="space-y-2.5">
+                      {breakdown.criteria.map((crit) => {
+                        const pct = crit.max > 0 ? Math.min(100, Math.round((crit.score / crit.max) * 100)) : 0;
+                        const barTone = pct >= 70 ? "bg-emerald-500" : pct >= 50 ? "bg-amber-500" : "bg-rose-500";
+                        return (
+                          <div key={crit.key} className="space-y-1">
+                            <div className="flex items-center justify-between gap-2 text-xs">
+                              <span className="font-bold text-slate-700 dark:text-slate-200 truncate">{crit.label}</span>
+                              <span className="font-black text-slate-800 dark:text-white shrink-0">
+                                {crit.score} / {crit.max} <span className="text-[10px] font-semibold text-slate-400">({pct}%)</span>
+                              </span>
+                            </div>
+                            <div className="h-1.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${barTone}`} style={{ width: `${pct}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/40 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800">
+                      Consolidated score recorded as <strong>{marksOutOf5} / 5</strong> ({marksNormalized} / 100). Detailed per-criterion breakdown was not captured for this earlier evaluation.
+                    </p>
+                  )}
+                </div>
+
+                {/* Full Compliance Checklist Status */}
+                <div className="p-3.5 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                      <ClipboardCheck className="h-3.5 w-3.5 text-emerald-500" />
+                      Compliance Checklist
+                    </span>
+                    {checklistItems.length > 0 ? (
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black border ${
+                        unmetChecks === 0
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-800"
+                          : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800"
+                      }`}>
+                        {metChecks} / {checklistItems.length} Checks Met
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-slate-400">Not Recorded</span>
+                    )}
                   </div>
 
-                  {(() => {
-                    let flagged: string[] = [];
-                    try {
-                      const list = typeof viewEvalSession.checklist === "string" ? JSON.parse(viewEvalSession.checklist) : viewEvalSession.checklist;
-                      if (Array.isArray(list)) flagged = list.filter((c: any) => c && c.met === false && c.label).map((c: any) => c.label);
-                    } catch (_) {}
-                    return flagged.length > 0 ? (
-                      <div className="p-3 bg-rose-50/30 dark:bg-rose-950/10 border border-rose-100 rounded-xl">
-                        <span className="text-[9px] font-black uppercase text-slate-400 block mb-1">Unmet Compliance Criteria (escalated)</span>
-                        <div className="flex flex-wrap gap-1.5">
-                          {flagged.map((label: string, i: number) => (
-                            <span key={i} className="px-2 py-0.5 bg-rose-100 text-rose-700 border border-rose-300 rounded-lg text-[9px] font-black">{label}</span>
-                          ))}
+                  {checklistItems.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {checklistItems.map((item, idx) => (
+                        <div
+                          key={item.criterionId || `${item.label}_${idx}`}
+                          className={`p-2 rounded-lg border flex items-center justify-between gap-2 text-xs ${
+                            item.met
+                              ? "bg-emerald-50/40 dark:bg-emerald-950/15 border-emerald-200/70 dark:border-emerald-900/50 text-emerald-900 dark:text-emerald-200"
+                              : "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/60 text-rose-900 dark:text-rose-200"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {item.met ? (
+                              <CheckCircle className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                            ) : (
+                              <AlertTriangle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400 shrink-0" />
+                            )}
+                            <div className="min-w-0">
+                              <span className="font-bold block truncate">{item.label}</span>
+                              {item.detail ? <span className="text-[10px] text-slate-500 dark:text-slate-400 block">{item.detail}</span> : null}
+                            </div>
+                          </div>
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase shrink-0 ${
+                            item.met
+                              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300"
+                              : "bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-300"
+                          }`}>
+                            {item.met ? "Met" : "Unmet"}
+                          </span>
                         </div>
-                      </div>
-                    ) : null;
-                  })()}
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-400 italic">No compliance checklist snapshot recorded for this session.</p>
+                  )}
+                </div>
+
+                {/* Pedagogical Feedback Comments */}
+                <div className="p-3.5 bg-emerald-50/30 dark:bg-emerald-950/10 border border-emerald-100 dark:border-emerald-900/50 rounded-xl space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                    <FileText className="h-3.5 w-3.5 text-emerald-600" />
+                    Pedagogical Comments &amp; Feedback
+                  </span>
+                  <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
+                    {viewEvalSession.comments || "No comments recorded."}
+                  </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setViewEvalSession(null)}
-                  className="w-full px-4 py-2.5 text-xs font-extrabold text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer mt-4"
+                  className="w-full px-4 py-2.5 text-xs font-extrabold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
                 >
                   Close
                 </button>
-            </Dialog>
-          )}
+              </Dialog>
+            );
+          })()}
 
           {/* ═══════════════ AVAILABILITY CONFIGURATION MODAL ═══════════════ */}
           {showAvailModal && (
@@ -3021,7 +3074,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
       </main>
 
       {/* ── Mobile Bottom Navigation Bar (Persistent 1-Tap Thumb Navigation) ── */}
-      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom" aria-label="SME sections">
+      <nav className="sidebar-role-sme flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom" aria-label="SME sections">
         <div className="flex w-full items-stretch justify-around px-1 py-1">
           {[
             { id: "overview" as const, label: "Dashboard", icon: LayoutDashboard, count: totalAssigned },

@@ -4,16 +4,13 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/lib/queryKeys";
 import { apiFetch } from "@/lib/apiFetch";
+import { evaluateThresholdRule } from "@/lib/demoScoring";
 import { Panel } from "./Panel";
 import {
-  SlidersHorizontal,
-  Plus,
-  Trash2,
   CheckSquare,
   Target,
-  RefreshCw,
-  X,
   Pencil,
+  Trash2,
   Lock,
 } from "lucide-react";
 
@@ -74,11 +71,13 @@ export async function fetchCriteriaForDepartment(department: string): Promise<De
 export function EvaluationChecklist({
   department,
   marks,
+  totalMaxMarks = 100,
   entries,
   onChange
 }: {
   department: string;
   marks: number;
+  totalMaxMarks?: number;
   entries: ChecklistEntry[];
   onChange: (next: ChecklistEntry[]) => void;
 }) {
@@ -98,8 +97,8 @@ export function EvaluationChecklist({
           if (c.type === "score_rule") {
             const threshold = c.threshold ?? 0;
             const scale = c.scale ?? 5;
-            const normalized = (marks / 100) * scale; // /100 rubric → criteria scale
-            return { criterionId: c.id, label: c.label, type: c.type, met: normalized >= threshold };
+            const { met } = evaluateThresholdRule(marks, totalMaxMarks, threshold, scale);
+            return { criterionId: c.id, label: c.label, type: c.type, met };
           }
           return { criterionId: c.id, label: c.label, type: c.type, met: prev?.met ?? false };
         })
@@ -110,7 +109,7 @@ export function EvaluationChecklist({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [department]);
 
-  // Live score_rule re-evaluation as marks change
+  // Live score_rule re-evaluation as marks or totalMaxMarks change
   useEffect(() => {
     if (criteria.length === 0) return;
     const next = criteria.map((c) => {
@@ -118,15 +117,15 @@ export function EvaluationChecklist({
       if (c.type === "score_rule") {
         const threshold = c.threshold ?? 0;
         const scale = c.scale ?? 5;
-        const normalized = (marks / 100) * scale;
-        return { criterionId: c.id, label: c.label, type: c.type, met: normalized >= threshold };
+        const { met } = evaluateThresholdRule(marks, totalMaxMarks, threshold, scale);
+        return { criterionId: c.id, label: c.label, type: c.type, met };
       }
       return prev || { criterionId: c.id, label: c.label, type: c.type, met: false };
     });
     const changed = JSON.stringify(next) !== JSON.stringify(entries);
     if (changed) onChange(next);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marks, criteria]);
+  }, [marks, totalMaxMarks, criteria]);
 
   if (loading) {
     return (
@@ -143,36 +142,53 @@ export function EvaluationChecklist({
       <span className="text-[9.5px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider block mb-2">
         Compliance Checklist — {department} (unmet items escalate to KAM / CM)
       </span>
-      {entries.map((entry) => (
-        <div key={entry.criterionId} className="flex items-center justify-between gap-3">
-          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex-1 flex items-center gap-2">
-            {entry.type === "checkbox" ? (
-              <input
-                type="checkbox"
-                checked={entry.met}
-                onChange={(e) =>
-                  onChange(entries.map((x) => x.criterionId === entry.criterionId ? { ...x, met: e.target.checked } : x))
-                }
-                className="h-4 w-4 rounded accent-[#4F46E5] cursor-pointer"
-              />
-            ) : (
-              <Target className="h-3.5 w-3.5 text-[#4F46E5] dark:text-[#818CF8] shrink-0" />
+      {entries.map((entry) => {
+        const criterionMeta = criteria.find((c) => c.id === entry.criterionId);
+        const scale = criterionMeta?.scale ?? 5;
+        const threshold = criterionMeta?.threshold ?? 3.5;
+        const { scaledScore } =
+          entry.type === "score_rule"
+            ? evaluateThresholdRule(marks, totalMaxMarks, threshold, scale)
+            : { scaledScore: 0 };
+
+        return (
+          <div key={entry.criterionId} className="flex items-center justify-between gap-3">
+            <label className="text-[11px] font-bold text-slate-700 dark:text-slate-200 flex-1 flex items-center gap-2">
+              {entry.type === "checkbox" ? (
+                <input
+                  type="checkbox"
+                  checked={entry.met}
+                  onChange={(e) =>
+                    onChange(entries.map((x) => x.criterionId === entry.criterionId ? { ...x, met: e.target.checked } : x))
+                  }
+                  className="h-4 w-4 rounded accent-[#4F46E5] cursor-pointer"
+                />
+              ) : (
+                <Target className="h-3.5 w-3.5 text-[#4F46E5] dark:text-[#818CF8] shrink-0" />
+              )}
+              <span>
+                {entry.label}
+                {entry.type === "score_rule" && (
+                  <span className="ml-1.5 text-[10px] font-extrabold text-slate-500 dark:text-slate-400">
+                    (&gt;= {threshold}/{scale})
+                  </span>
+                )}
+              </span>
+            </label>
+            {entry.type === "score_rule" && (
+              <span
+                className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${
+                  entry.met
+                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900"
+                    : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900"
+                }`}
+              >
+                {scaledScore}/{scale} {entry.met ? "Pass" : "Fail"}
+              </span>
             )}
-            {entry.label}
-          </label>
-          {entry.type === "score_rule" && (
-            <span
-              className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${
-                entry.met
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900"
-                  : "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300 border border-rose-200 dark:border-rose-900"
-              }`}
-            >
-              {entry.met ? "Pass" : "Fail"}
-            </span>
-          )}
-        </div>
-      ))}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -189,7 +205,8 @@ export function DemoEvalCriteriaPanel({
   smeName?: string;
 }) {
   const queryClient = useQueryClient();
-  const [selectedDept, setSelectedDept] = useState<string>(departments[0] || "General");
+  const visibleDepartments = ["General"];
+  const [selectedDept, setSelectedDept] = useState<string>(visibleDepartments[0]);
   const criteriaQuery = useQuery({
     queryKey: qk.demoCriteria(selectedDept),
     enabled: !!selectedDept,
@@ -197,14 +214,16 @@ export function DemoEvalCriteriaPanel({
   });
   const criteria = criteriaQuery.data || [];
   const loading = criteriaQuery.isFetching;
-  const [newLabel, setNewLabel] = useState("");
-  const [newType, setNewType] = useState<"checkbox" | "score_rule">("checkbox");
-  const [newThreshold, setNewThreshold] = useState<string>("3.5");
-  const [newScale, setNewScale] = useState<string>("5");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editThreshold, setEditThreshold] = useState<string>("");
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (departments.length > 0 && selectedDept !== "General") {
+      setSelectedDept("General");
+    }
+  }, [departments, selectedDept]);
 
   const load = (dept: string) =>
     queryClient.invalidateQueries({ queryKey: qk.demoCriteria(dept) });
@@ -230,7 +249,7 @@ export function DemoEvalCriteriaPanel({
         {/* Department selector */}
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Department:</span>
-          {departments.map((d) => (
+          {visibleDepartments.map((d) => (
             <button
               key={d}
               type="button"
@@ -246,78 +265,11 @@ export function DemoEvalCriteriaPanel({
           ))}
         </div>
 
-        {/* Add criterion */}
-        <div className="p-4 bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-2xl flex flex-wrap items-end gap-3 shadow-xs">
-          <div className="flex-1 min-w-[200px]">
-            <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">New criterion</label>
-            <input
-              type="text"
-              value={newLabel}
-              onChange={(e) => setNewLabel(e.target.value)}
-              placeholder="e.g. Materials shared with students before demo"
-              className="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
-            />
-          </div>
-          <div>
-            <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">Type</label>
-            <select
-              aria-label="Criteria Type"
-              value={newType}
-              onChange={(e) => setNewType(e.target.value as "checkbox" | "score_rule")}
-              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold cursor-pointer focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
-            >
-              <option value="checkbox">Checkbox (manual)</option>
-              <option value="score_rule">Mark rule (auto)</option>
-            </select>
-          </div>
-          {newType === "score_rule" && (
-            <>
-              <div className="w-24">
-                <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">Min mark</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={newThreshold}
-                  onChange={(e) => setNewThreshold(e.target.value)}
-                  className="w-full px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
-                />
-              </div>
-              <div className="w-20">
-                <label className="text-[9.5px] font-black uppercase text-slate-400 block mb-1">Scale</label>
-                <input
-                  type="number"
-                  value={newScale}
-                  onChange={(e) => setNewScale(e.target.value)}
-                  className="w-full px-2 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-center focus:ring-2 focus:ring-[#4F46E5]/30 focus:border-[#4F46E5]"
-                />
-              </div>
-            </>
-          )}
-          <button
-            type="button"
-            disabled={busy || !newLabel.trim()}
-            onClick={async () => {
-              await callApi({
-                action: "create",
-                department: selectedDept,
-                label: newLabel.trim(),
-                type: newType,
-                threshold: newType === "score_rule" ? parseFloat(newThreshold) : null,
-                scale: newType === "score_rule" ? parseFloat(newScale) : null
-              });
-              setNewLabel("");
-            }}
-            className="px-4 py-2 rounded-xl text-xs font-black bg-gradient-to-r from-[#4F46E5] to-[#7C3AED] hover:opacity-95 text-white disabled:opacity-50 cursor-pointer flex items-center gap-1.5 shadow-md shadow-[#4F46E5]/20 transition-all"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add
-          </button>
-        </div>
-
         {/* Fixed system criteria note */}
         <div className="p-3.5 bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 rounded-xl text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-start gap-2.5">
           <Lock className="h-4 w-4 shrink-0 mt-0.5 text-slate-400" />
           <span>
-            The four mandatory compliance checks (tracker sheet, weekly plan, demo-per-plan, mark threshold) are fixed system criteria — every department always has them and they cannot be edited or deleted. Add your own department-specific criteria below.
+            The five mandatory compliance checks (tracker sheet, weekly plan, demo-per-plan, mark threshold, mentor certification program) are fixed system criteria and cannot be edited or deleted.
           </span>
         </div>
 

@@ -16,7 +16,7 @@ import { requireAuth } from "@/lib/authGuard";
  *  - score_rule → auto-evaluated against the final marks (threshold on `scale`)
  *
  * Default seed (all departments): tracker sheet updated, weekly plan submitted,
- * demo taken per the weekly plan, final mark ≥ 3.5 (scale 5).
+ * demo taken per the weekly plan, final mark >= 3.5 (scale 5), mentor certification program.
  */
 
 const DEFAULT_LABELS = [
@@ -24,6 +24,7 @@ const DEFAULT_LABELS = [
   { label: "Weekly plan submitted", type: "checkbox" },
   { label: "Demo taken as per the weekly plan", type: "checkbox" },
   { label: "Final evaluation mark at or above threshold", type: "score_rule", threshold: 3.5, scale: 5 },
+  { label: "Mentor certification program", type: "checkbox" },
 ];
 
 async function seedDefaults(db: any, department: string) {
@@ -60,6 +61,7 @@ export async function GET(request: Request) {
 
     const db = await getDb();
     await ensureMigration("demo_evaluation_criteria");
+    await ensureMigration("demo_eval_criteria_mentor_cert_v1").catch(() => {});
 
     const { searchParams } = new URL(request.url);
     const department = searchParams.get("department");
@@ -104,6 +106,7 @@ export async function POST(request: Request) {
 
     const db = await getDb();
     await ensureMigration("demo_evaluation_criteria");
+    await ensureMigration("demo_eval_criteria_mentor_cert_v1").catch(() => {});
 
     const body = await request.json();
     const { action } = body;
