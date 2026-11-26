@@ -1156,6 +1156,44 @@ const migrations: Migration[] = [
         await db.exec("ALTER TABLE demo_sessions ADD COLUMN score_breakdown TEXT").catch(() => {});
       });
     }
+  },
+  {
+    name: "sme_leaves_table",
+    run: async (db) => {
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS sme_leaves (
+          id VARCHAR(255) PRIMARY KEY,
+          sme_id VARCHAR(255) NOT NULL,
+          sme_name VARCHAR(255) NOT NULL,
+          leave_type VARCHAR(100) NOT NULL DEFAULT 'Personal Leave',
+          start_date VARCHAR(50) NOT NULL,
+          end_date VARCHAR(50) NOT NULL,
+          reason TEXT,
+          status VARCHAR(50) NOT NULL DEFAULT 'approved',
+          notified_mentor_count INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_sme_leaves_sme_dates ON sme_leaves(sme_id, start_date, end_date, status);
+      `).catch(async () => {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS sme_leaves (
+            id TEXT PRIMARY KEY,
+            sme_id TEXT NOT NULL,
+            sme_name TEXT NOT NULL,
+            leave_type TEXT NOT NULL DEFAULT 'Personal Leave',
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            reason TEXT,
+            status TEXT NOT NULL DEFAULT 'approved',
+            notified_mentor_count INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+          );
+        `).catch(() => {});
+        await db.exec("CREATE INDEX IF NOT EXISTS idx_sme_leaves_sme_dates ON sme_leaves(sme_id, start_date, end_date, status);").catch(() => {});
+      });
+    }
   }
 ];
 

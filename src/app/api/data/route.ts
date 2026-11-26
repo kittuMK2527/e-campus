@@ -17,6 +17,7 @@ function applyDataMigrations(): Promise<void> {
   _migrationsApplied = (async () => {
     await ensureMigration("audit_logs_extended_columns").catch(() => { });
     await ensureMigration("student_attendance_extended_columns").catch(() => { });
+    await ensureMigration("student_od_approval_flow").catch(() => { });
   })().catch((err) => {
     // Reset so the next request retries — don't permanently cache a failure.
     _migrationsApplied = null;
@@ -533,6 +534,21 @@ export async function GET(request: Request) {
       }
     }
 
+    let smeLeaves: any[] = [];
+    if (needsDemo || isSME) {
+      await ensureMigration("sme_leaves_table").catch(() => {});
+      if (isSME && userId) {
+        smeLeaves = await db.all(
+          "SELECT * FROM sme_leaves WHERE sme_id = ? ORDER BY start_date DESC, created_at DESC LIMIT 100",
+          [userId]
+        ).catch(() => []);
+      } else {
+        smeLeaves = await db.all(
+          "SELECT * FROM sme_leaves WHERE status = 'approved' ORDER BY start_date DESC, created_at DESC LIMIT 200"
+        ).catch(() => []);
+      }
+    }
+
     const systemSettings: { mailing_enabled: boolean; attendance_lock_enabled: boolean;[key: string]: any } = {
       mailing_enabled: true,
       attendance_lock_enabled: true
@@ -685,6 +701,7 @@ export async function GET(request: Request) {
       campusManagers: stripSecrets(campusManagers || []),
       kamUsers: stripSecrets(kamUsers || []),
       facultyLeaves: facultyLeaves || [],
+      smeLeaves: smeLeaves || [],
       systemSettings
     }, {
       headers: {

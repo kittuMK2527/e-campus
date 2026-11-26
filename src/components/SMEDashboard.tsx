@@ -24,6 +24,7 @@ import {
   Award,
   Calendar,
   RefreshCw,
+  RotateCcw,
   Check,
   Search,
   Clock,
@@ -50,7 +51,8 @@ import {
   Menu,
   Video,
   Link2,
-  RotateCcw
+  CalendarClock,
+  Send
 } from "lucide-react";
 import { WeeklyPlanViewer } from "./WeeklyPlanStudio";
 import { SkillTrackerPanel } from "./SkillTrackerPanel";
@@ -70,8 +72,12 @@ import {
   parseChecklistSnapshot,
   formatEvalTimestamp
 } from "@/lib/demoEvaluationRecord";
+import {
+  resolveMentorsUnderSme,
+  smeOnLeaveOnDate
+} from "@/lib/smeLeaves";
 
-type TabKey = "overview" | "demo_list" | "weekly_plans" | "skill_approvals" | "availability" | "reallocation" | "history" | "calendar" | "reallocation_hub" | "eval_criteria" | "more_menu" | "profile";
+type TabKey = "overview" | "demo_list" | "weekly_plans" | "skill_approvals" | "availability" | "leaves" | "reallocation" | "history" | "calendar" | "reallocation_hub" | "eval_criteria" | "more_menu" | "profile";
 
 interface SMEDashboardProps {
   activeTab?: TabKey;
@@ -134,7 +140,9 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     subjectGroups,
     smeAvailability,
     saveSmeAvailability,
-    deleteSmeAvailabilityWindow
+    deleteSmeAvailabilityWindow,
+    smeLeaves,
+    setSmeLeaves
   } = useApp();
 
   const { toast } = useToast();
@@ -258,6 +266,16 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   const [selectedCourseForMeet, setSelectedCourseForMeet] = useState<any | null>(null);
   const [courseMeetInput, setCourseMeetInput] = useState("");
   const [savingCourseMeet, setSavingCourseMeet] = useState(false);
+
+  // SME Self-Leave State
+  const [leaveStartDate, setLeaveStartDate] = useState<string>(() => getLocalDateStr());
+  const [leaveEndDate, setLeaveEndDate] = useState<string>(() => getLocalDateStr());
+  const [leaveType, setLeaveType] = useState<string>("Personal Leave");
+  const [leaveReason, setLeaveReason] = useState<string>("");
+  const [todayLeaveReason, setTodayLeaveReason] = useState<string>("");
+  const [savingSmeLeave, setSavingSmeLeave] = useState<boolean>(false);
+  const [cancellingLeaveId, setCancellingLeaveId] = useState<string | null>(null);
+  const [fetchedSmeLeaves, setFetchedSmeLeaves] = useState<any[] | null>(null);
 
   const handleSaveCourseMeet = async () => {
     setSavingCourseMeet(true);
@@ -619,13 +637,141 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     }).filter(Boolean)
   ));
 
+  const mySmeLeaves = useMemo(() => {
+    const source = fetchedSmeLeaves !== null ? fetchedSmeLeaves : (smeLeaves || []);
+    return source.filter((l: any) => !currentSME?.id || String(l.sme_id || l.smeId || "") === String(currentSME.id));
+  }, [fetchedSmeLeaves, smeLeaves, currentSME?.id]);
+
+  const todaySmeLeave = useMemo(() => {
+    return smeOnLeaveOnDate(mySmeLeaves, currentSME?.id, todayStr);
+  }, [mySmeLeaves, currentSME?.id, todayStr]);
+
+  const activeUpcomingLeavesCount = useMemo(() => {
+    return mySmeLeaves.filter(
+      (l: any) => String(l.status || "") === "approved" && String(l.end_date || l.start_date || "") >= todayStr
+    ).length;
+  }, [mySmeLeaves, todayStr]);
+
+  const targetMentorsForToday = useMemo(() => {
+    if (!currentSME) return { mentors: [], smeTags: [] };
+    return resolveMentorsUnderSme({
+      sme: currentSME,
+      mentors,
+      subjectGroups,
+      demoSessions,
+      startDate: todayStr,
+      endDate: todayStr
+    });
+  }, [currentSME, mentors, subjectGroups, demoSessions, todayStr]);
+
+  const targetMentorsForRange = useMemo(() => {
+    if (!currentSME) return { mentors: [], smeTags: [] };
+    return resolveMentorsUnderSme({
+      sme: currentSME,
+      mentors,
+      subjectGroups,
+      demoSessions,
+      startDate: leaveStartDate || todayStr,
+      endDate: leaveEndDate || leaveStartDate || todayStr
+    });
+  }, [currentSME, mentors, subjectGroups, demoSessions, leaveStartDate, leaveEndDate, todayStr]);
+
+  useEffect(() => {
+    if (activeTab !== "leaves" || !currentSME?.id) return;
+    let active = true;
+    apiFetch<any>(`/api/sme-leaves?smeId=${encodeURIComponent(currentSME.id)}`)
+      .then((res) => {
+        if (!active || !res?.success || !Array.isArray(res.leaves)) return;
+        setFetchedSmeLeaves(res.leaves);
+        setSmeLeaves(prev => {
+          const others = (prev || []).filter((l: any) => String(l.sme_id || l.smeId || "") !== String(currentSME.id));
+          return [...res.leaves, ...others];
+        });
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [activeTab, currentSME?.id, setSmeLeaves]);
+
+  const handleMarkSmeLeave = async (opts: {
+    startDate: string;
+    endDate?: string;
+    leaveType?: string;
+    reason?: string;
+    isQuickToday?: boolean;
+  }) => {
+    if (!currentSME?.id) return;
+    setSavingSmeLeave(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const payload = {
+        smeId: currentSME.id,
+        startDate: opts.startDate,
+        endDate: opts.endDate || opts.startDate,
+        leaveType: opts.leaveType || "Personal Leave",
+        reason: opts.reason || ""
+      };
+      const res = await apiFetch<any>("/api/sme-leaves", {
+        method: "POST",
+        body: payload
+      });
+      if (res?.success && res.leave) {
+        setFetchedSmeLeaves(prev => [res.leave, ...(prev ?? (smeLeaves || []).filter((l: any) => String(l.sme_id || "") === String(currentSME.id)))]);
+        setSmeLeaves(prev => [res.leave, ...(prev || [])]);
+        if (opts.isQuickToday) {
+          setTodayLeaveReason("");
+        } else {
+          setLeaveReason("");
+        }
+        const msg = res.message || `Leave marked and notified ${res.notifiedCount ?? 0} mentor(s).`;
+        setSuccessMsg(msg);
+        toast(msg, "success");
+      } else {
+        const err = res?.message || "Failed to mark leave.";
+        setErrorMsg(err);
+        toast(err, "error");
+      }
+    } catch (err: any) {
+      const errMsg = err?.message || "Failed to mark leave.";
+      setErrorMsg(errMsg);
+      toast(errMsg, "error");
+    } finally {
+      setSavingSmeLeave(false);
+    }
+  };
+
+  const handleCancelSmeLeave = async (leaveId: string) => {
+    if (!leaveId) return;
+    setCancellingLeaveId(leaveId);
+    setErrorMsg("");
+    try {
+      const res = await apiFetch<any>(`/api/sme-leaves?id=${encodeURIComponent(leaveId)}`, {
+        method: "DELETE"
+      });
+      if (res?.success) {
+        const markCancelled = (list: any[]) =>
+          list.map((l: any) => (l.id === leaveId ? { ...l, status: "cancelled" } : l));
+        setFetchedSmeLeaves(prev => (prev ? markCancelled(prev) : prev));
+        setSmeLeaves(prev => markCancelled(prev || []));
+        toast(res.message || "Leave cancelled successfully.", "success");
+      } else {
+        toast(res?.message || "Failed to cancel leave.", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Failed to cancel leave.", "error");
+    } finally {
+      setCancellingLeaveId(null);
+    }
+  };
+
   // Notification Counts for Primary SME Sidebar Items
   const sidebarNavItems = [
     { id: "overview", label: "Dashboard", icon: LayoutDashboard, count: totalAssigned },
     { id: "weekly_plans", label: "Weekly Plans", icon: CalendarRange, count: 0 },
     { id: "skill_approvals", label: "Skill Approvals", icon: GraduationCap, count: 0 },
     { id: "eval_criteria", label: "Evaluation Criteria", icon: SlidersHorizontal, count: 0 },
-    { id: "availability", label: "Availability", icon: Calendar, count: 0 },
+    { id: "availability", label: "Availability", icon: CalendarClock, count: 0 },
+    { id: "leaves", label: "Leaves", icon: Calendar, count: activeUpcomingLeavesCount },
     { id: "reallocation", label: "Reallocation", icon: RefreshCw, count: pendingInboundRequests.length + affectedCount },
     { id: "history", label: "History", icon: FileText, count: completedCount }
   ];
@@ -1791,6 +1937,14 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                     bg: "bg-purple-50 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400"
                   },
                   {
+                    id: "leaves",
+                    label: "Leaves",
+                    subtitle: "Mark leave & notify mentors under you",
+                    icon: Calendar,
+                    bg: "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400",
+                    count: activeUpcomingLeavesCount
+                  },
+                  {
                     id: "reallocation",
                     label: "Reallocation Requests",
                     subtitle: "Manage demo swaps and leave requests",
@@ -1952,7 +2106,8 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                                 return demoMin >= slotMin && demoMin < slotMin + 60;
                               });
                               const slotOnSlot = slots.find(s => (s as any).smeId === currentSME?.id && s.day === w.day && parseTimeToMin(s.time) >= slotMin && parseTimeToMin(s.time) < slotMin + 60);
-                              const isLeave = leaveRequests?.some((l: any) => l.smeId === currentSME?.id && l.dateStr === w.dateStr && l.status === "approved");
+                              const activeLeaveRow = smeOnLeaveOnDate(mySmeLeaves, currentSME?.id, w.dateStr);
+                              const isLeave = Boolean(activeLeaveRow) || leaveRequests?.some((l: any) => l.smeId === currentSME?.id && l.dateStr === w.dateStr && l.status === "approved");
 
                               if (isLeave) {
                                 return (
@@ -2207,6 +2362,284 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                 </div>
               </div>
             </Panel>
+          )}
+
+          {/* ═══════════════ TAB 4B: LEAVES & MENTOR NOTIFICATIONS ═══════════════ */}
+          {activeTab === "leaves" && (
+            <div className="space-y-6 animate-fadeIn">
+              {/* Quick Action: Mark Today as Leave */}
+              <div className={`p-5 rounded-2xl border shadow-card flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
+                todaySmeLeave
+                  ? "bg-amber-50/70 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/70"
+                  : "bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800"
+              }`}>
+                <div className="space-y-1.5 min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className={`p-2 rounded-xl ${
+                      todaySmeLeave
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300"
+                        : "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
+                    }`}>
+                      <Calendar className="h-4 w-4" />
+                    </div>
+                    <h2 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wide">
+                      Today&apos;s Leave Status ({todayStr})
+                    </h2>
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase border ${
+                      todaySmeLeave
+                        ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/50 dark:text-amber-200 dark:border-amber-700"
+                        : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+                    }`}>
+                      {todaySmeLeave ? `On Leave (${todaySmeLeave.leave_type || "Leave"})` : "Available Today"}
+                    </span>
+                  </div>
+
+                  {todaySmeLeave ? (
+                    <p className="text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                      Today is marked as <strong>{todaySmeLeave.leave_type || "Leave"}</strong>
+                      {todaySmeLeave.reason ? ` — "${todaySmeLeave.reason}"` : ""}.{" "}
+                      Notified <strong>{todaySmeLeave.notified_mentor_count ?? 0}</strong> mentor{(todaySmeLeave.notified_mentor_count ?? 0) === 1 ? "" : "s"} under you.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      One click marks <strong>Today ({todayStr})</strong> as leave and immediately notifies{" "}
+                      <strong>{targetMentorsForToday.mentors.length}</strong> mentor{targetMentorsForToday.mentors.length === 1 ? "" : "s"} assigned under you.
+                    </p>
+                  )}
+                </div>
+
+                {todaySmeLeave ? (
+                  <button
+                    type="button"
+                    disabled={cancellingLeaveId === todaySmeLeave.id}
+                    onClick={() => handleCancelSmeLeave(todaySmeLeave.id)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-extrabold border border-rose-200 bg-white hover:bg-rose-50 text-rose-700 dark:bg-slate-900 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/30 transition-all cursor-pointer shrink-0 disabled:opacity-50"
+                  >
+                    {cancellingLeaveId === todaySmeLeave.id ? "Cancelling..." : "Cancel Today's Leave"}
+                  </button>
+                ) : (
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0 w-full lg:w-auto">
+                    <input
+                      type="text"
+                      value={todayLeaveReason}
+                      onChange={(e) => setTodayLeaveReason(e.target.value)}
+                      placeholder="Quick reason (optional)..."
+                      className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500 sm:w-56"
+                    />
+                    <button
+                      type="button"
+                      disabled={savingSmeLeave}
+                      onClick={() =>
+                        handleMarkSmeLeave({
+                          startDate: todayStr,
+                          endDate: todayStr,
+                          leaveType: "Personal Leave",
+                          reason: todayLeaveReason,
+                          isQuickToday: true
+                        })
+                      }
+                      className="px-4 py-2.5 rounded-xl text-xs font-black bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-amber-500 dark:hover:bg-amber-400 dark:text-slate-950 shadow-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      <Send className="h-3.5 w-3.5" />
+                      {savingSmeLeave ? "Sending Alerts..." : `Mark Today as Leave (${targetMentorsForToday.mentors.length} Mentors)`}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Form + Target Mentor Scope Grid */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="lg:col-span-7">
+                  <Panel title="MARK LEAVE & NOTIFY MENTORS">
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block mb-1">Leave Type</label>
+                          <select
+                            value={leaveType}
+                            onChange={(e) => setLeaveType(e.target.value)}
+                            aria-label="Leave type"
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white cursor-pointer"
+                          >
+                            <option value="Personal Leave">Personal Leave</option>
+                            <option value="Sick Leave">Sick Leave</option>
+                            <option value="Casual Leave">Casual Leave</option>
+                            <option value="Official / Duty Leave">Official / Duty Leave</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block mb-1">Start Date</label>
+                          <input
+                            type="date"
+                            aria-label="Start date"
+                            value={leaveStartDate}
+                            onChange={(e) => {
+                              const nextStart = e.target.value;
+                              setLeaveStartDate(nextStart);
+                              if (leaveEndDate < nextStart) setLeaveEndDate(nextStart);
+                            }}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block mb-1">End Date</label>
+                          <input
+                            type="date"
+                            aria-label="End date"
+                            value={leaveEndDate}
+                            min={leaveStartDate}
+                            onChange={(e) => setLeaveEndDate(e.target.value)}
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-bold text-slate-800 dark:text-white"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 block mb-1">Reason / Note for Mentors (Optional)</label>
+                        <textarea
+                          rows={3}
+                          value={leaveReason}
+                          onChange={(e) => setLeaveReason(e.target.value)}
+                          placeholder="Enter brief details (shared in the notification sent to mentors under you)..."
+                          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-medium text-slate-800 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3 pt-1 flex-wrap">
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                          Takes effect immediately and alerts <strong>{targetMentorsForRange.mentors.length}</strong> mentor{targetMentorsForRange.mentors.length === 1 ? "" : "s"} under you.
+                        </span>
+                        <button
+                          type="button"
+                          disabled={savingSmeLeave || !leaveStartDate}
+                          onClick={() =>
+                            handleMarkSmeLeave({
+                              startDate: leaveStartDate,
+                              endDate: leaveEndDate || leaveStartDate,
+                              leaveType,
+                              reason: leaveReason
+                            })
+                          }
+                          className="px-5 py-2.5 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                        >
+                          <Send className="h-3.5 w-3.5" />
+                          {savingSmeLeave ? "Marking Leave..." : "Mark Leave & Notify Mentors"}
+                        </button>
+                      </div>
+                    </div>
+                  </Panel>
+                </div>
+
+                {/* Live Target Mentors Preview */}
+                <div className="lg:col-span-5">
+                  <Panel title={`MENTORS UNDER YOU (${targetMentorsForRange.mentors.length})`}>
+                    <div className="space-y-3">
+                      <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-slate-100 dark:border-slate-800 text-[11px] text-slate-600 dark:text-slate-300 space-y-1">
+                        <p className="font-bold text-slate-800 dark:text-slate-200">
+                          Scoped Notification Recipients Only
+                        </p>
+                        <p className="text-[10.5px] text-slate-500 dark:text-slate-400">
+                          Matched via your Subject Group / Domain
+                          {targetMentorsForRange.smeTags.length > 0 ? ` (${targetMentorsForRange.smeTags.join(", ")})` : ""}
+                          {" "}and any scheduled demo sessions with you in the selected dates.
+                        </p>
+                      </div>
+
+                      {targetMentorsForRange.mentors.length > 0 ? (
+                        <div className="max-h-56 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200/70 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900">
+                          {targetMentorsForRange.mentors.map((m) => (
+                            <div key={m.id} className="px-3 py-2 flex items-center justify-between gap-2 text-xs">
+                              <div className="min-w-0">
+                                <p className="font-bold text-slate-800 dark:text-slate-200 truncate">{m.name}</p>
+                                <p className="text-[10px] text-slate-400 truncate">{getMentorCollege(m.id) || getMentorDept(m.id) || m.id}</p>
+                              </div>
+                              <div className="flex flex-wrap gap-1 shrink-0">
+                                {m.matchedVia.includes("scheduled_demo") ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-300 text-[9px] font-black uppercase">
+                                    Scheduled Demo
+                                  </span>
+                                ) : null}
+                                {m.matchedVia.includes("group_subject") ? (
+                                  <span className="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 text-[9px] font-black uppercase">
+                                    Assigned Group
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-4 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-center text-xs text-slate-400 font-semibold">
+                          No active mentors matched your SME group or selected demo dates yet. You can still mark your leave to block L&amp;D scheduling.
+                        </div>
+                      )}
+                    </div>
+                  </Panel>
+                </div>
+              </div>
+
+              {/* Leave History */}
+              <Panel title="MARKED LEAVES LOG">
+                {mySmeLeaves.length > 0 ? (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800 border border-slate-200/80 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900">
+                    {mySmeLeaves.map((lv: any) => {
+                      const isCancelled = String(lv.status || "") === "cancelled";
+                      const sDate = String(lv.start_date || "");
+                      const eDate = String(lv.end_date || lv.start_date || "");
+                      const isTodayInRange = !isCancelled && sDate <= todayStr && eDate >= todayStr;
+                      const isUpcoming = !isCancelled && sDate > todayStr;
+                      const canCancel = !isCancelled && eDate >= todayStr;
+
+                      return (
+                        <div key={lv.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-xs font-black text-slate-900 dark:text-white">
+                                {sDate}{eDate !== sDate ? ` to ${eDate}` : ""}
+                              </span>
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[10px] font-bold">
+                                {lv.leave_type || "Leave"}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase border ${
+                                isCancelled
+                                  ? "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-800 dark:text-slate-400"
+                                  : isTodayInRange
+                                  ? "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/40 dark:text-amber-300"
+                                  : isUpcoming
+                                  ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/30 dark:text-blue-300"
+                                  : "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300"
+                              }`}>
+                                {isCancelled ? "Cancelled" : isTodayInRange ? "On Leave Today" : isUpcoming ? "Upcoming Leave" : "Completed"}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                              {lv.reason || "No additional reason provided."}
+                              {" • "}
+                              Notified <strong>{lv.notified_mentor_count ?? 0}</strong> mentor{(lv.notified_mentor_count ?? 0) === 1 ? "" : "s"}
+                            </p>
+                          </div>
+
+                          {canCancel ? (
+                            <button
+                              type="button"
+                              disabled={cancellingLeaveId === lv.id}
+                              onClick={() => handleCancelSmeLeave(lv.id)}
+                              className="px-3.5 py-1.5 rounded-lg text-xs font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 dark:bg-rose-950/30 dark:text-rose-300 dark:border-rose-800 transition-colors cursor-pointer shrink-0 disabled:opacity-50"
+                            >
+                              {cancellingLeaveId === lv.id ? "Cancelling..." : "Cancel Leave"}
+                            </button>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-8 text-center text-xs text-slate-400 font-semibold italic">
+                    No leaves marked yet. Use &quot;Mark Today as Leave&quot; or pick dates above to record a leave and alert your mentors.
+                  </div>
+                )}
+              </Panel>
+            </div>
           )}
 
           {/* ═══════════════ TAB 5: EVALUATOR PROFILE ═══════════════ */}
@@ -3088,7 +3521,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
             }
           ].map((t) => {
             const Icon = t.icon;
-            const isMoreTab = ["skill_approvals", "eval_criteria", "reallocation", "history"].includes(activeTab);
+            const isMoreTab = ["skill_approvals", "eval_criteria", "leaves", "reallocation", "history"].includes(activeTab);
             const isActive = t.id === "more_menu" ? isMoreTab : activeTab === t.id;
             return (
               <button

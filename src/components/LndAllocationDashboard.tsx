@@ -83,6 +83,7 @@ export function LndAllocationDashboard() {
     deleteDemoRule,
     leaveRequests,
     facultyLeaves,
+    smeLeaves,
     holidays,
     demoSwapRequests,
     resolveDemoSwap,
@@ -296,6 +297,19 @@ export function LndAllocationDashboard() {
     queryClient.invalidateQueries({ queryKey: ["daily-configs"] });
 
 
+  // Combine mentor faculty leaves with approved self-marked SME leaves for grid availability checks
+  const effectiveFacultyLeaves = useMemo(() => {
+    const approvedSmeLeaves = (smeLeaves || [])
+      .filter((l: any) => String(l.status || "") === "approved")
+      .map((l: any) => ({
+        ...l,
+        mentor_id: l.sme_id,
+        mentorId: l.sme_id,
+        request_type: l.leave_type || "SME Leave"
+      }));
+    return [...(facultyLeaves || []), ...approvedSmeLeaves];
+  }, [facultyLeaves, smeLeaves]);
+
   // ── Derived grid model: week dates, day orders, quota rows, slot rows, capacity, free mentors ──
   // Pure logic lives in lib/lndGridModel; React wiring lives in hooks/useLndGridModel.
   const {
@@ -333,7 +347,7 @@ export function LndAllocationDashboard() {
     totalFreeSlotsCount,
     unassignedMentors
   } = useLndGridModel({
-    colleges, mentors, slots, smes, demoSessions, demoRules, facultyLeaves, holidays,
+    colleges, mentors, slots, smes, demoSessions, demoRules, facultyLeaves: effectiveFacultyLeaves, holidays,
     smeAvailability, subjectGroups, dailyConfigsMap,
     selectedDateStr, selectedCollegeId, selectedGroupId, selectedSmeId,
     mentorTargets, mentorQuotaSearch, previewSessions, generationStep

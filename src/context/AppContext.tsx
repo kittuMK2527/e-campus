@@ -601,6 +601,8 @@ interface AppContextProps {
   ) => Promise<{ success: boolean; message: string }>;
   leaveRequests: any[];
   facultyLeaves: any[];
+  smeLeaves: any[];
+  setSmeLeaves: React.Dispatch<React.SetStateAction<any[]>>;
   holidays: Holiday[];
   updateStudent: (student: Student) => Promise<{ success: boolean; message: string }>;
   deleteStudent: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -772,6 +774,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [studentAttendance, setStudentAttendance] = useState<StudentAttendance[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [facultyLeaves, setFacultyLeaves] = useState<any[]>([]);
+  const [smeLeaves, setSmeLeaves] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>([]);
   const [studentTracker, setStudentTracker] = useState<StudentTrackerEntry[]>([]);
@@ -1015,6 +1018,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSignupRequests(data.signupRequests || []);
         if (data.smeAvailability) setSmeAvailability(data.smeAvailability);
         if (data.facultyLeaves) setFacultyLeaves(data.facultyLeaves);
+        if (data.smeLeaves) setSmeLeaves(data.smeLeaves);
 
         if (data.demoSwapRequests) setDemoSwapRequests(data.demoSwapRequests);
         if (data.demoReallocations) setDemoReallocations(data.demoReallocations);
@@ -3995,6 +3999,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     markAttendance,
     leaveRequests,
     facultyLeaves,
+    smeLeaves,
+    setSmeLeaves,
     holidays,
     weeklyTasks,
     studentTracker,
@@ -4100,6 +4106,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentStudent,
     leaveRequests,
     facultyLeaves,
+    smeLeaves,
+    setSmeLeaves,
     holidays,
     weeklyTasks,
     studentTracker,

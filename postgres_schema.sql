@@ -727,6 +727,21 @@ CREATE TABLE IF NOT EXISTS sme_availability (
     slot_type TEXT DEFAULT 'demo'
 );
 
+CREATE TABLE IF NOT EXISTS sme_leaves (
+    id VARCHAR(255) PRIMARY KEY,
+    sme_id VARCHAR(255) NOT NULL,
+    sme_name VARCHAR(255) NOT NULL,
+    leave_type VARCHAR(100) NOT NULL DEFAULT 'Personal Leave',
+    start_date VARCHAR(50) NOT NULL,
+    end_date VARCHAR(50) NOT NULL,
+    reason TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'approved',
+    notified_mentor_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_sme_leaves_sme_dates ON sme_leaves(sme_id, start_date, end_date, status);
+
 CREATE TABLE IF NOT EXISTS mentor_groups (
     id VARCHAR(255) PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
