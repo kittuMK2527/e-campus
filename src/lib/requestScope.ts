@@ -26,8 +26,7 @@ export async function resolveKamCollegeIds(db: any, user: AuthenticatedUser): Pr
     [user.reference_id, String(user.email || "").toLowerCase()]
   );
   if (!kam) return null;
-  let colleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", [kam.id]);
-  if (colleges.length === 0) colleges = await db.all("SELECT id FROM colleges");
+  const colleges = await db.all("SELECT id FROM colleges WHERE kam_id = ?", [kam.id]);
   return colleges.map((c: any) => String(c.id));
 }
 

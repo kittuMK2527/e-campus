@@ -202,6 +202,12 @@ export async function POST(request: Request) {
     }
 
     if (handoverRequest.request_type === "exam_marks_edit") {
+      if (actorRoleFromAuth === "mentor") {
+        return NextResponse.json(
+          { success: false, message: "Exam mark modification requests can only be reviewed by Campus Managers or Admins." },
+          { status: 403 }
+        );
+      }
       const targetStatus = status === "approved" ? "approved" : "rejected";
 
       // Resolve the mark/grade before opening the transaction so the write set is
@@ -268,9 +274,12 @@ export async function POST(request: Request) {
       handoverRequest.targetStaffId === "CM-APPROVAL" ||
       handoverRequest.targetStaffId === "cam_approval" ||
       handoverRequest.targetStaffId === "CAM-APPROVAL" ||
-      (typeof handoverRequest.targetStaffId === "string" && (handoverRequest.targetStaffId.toLowerCase().includes("cm") || handoverRequest.targetStaffId.toLowerCase().includes("cam"))) ||
+      handoverRequest.targetStaffId === "cm" ||
+      handoverRequest.targetStaffId === "cam" ||
+      handoverRequest.request_type === "late_attendance" ||
+      handoverRequest.request_type === "late_punch" ||
+      handoverRequest.request_type === "acad_log_edit" ||
       (handoverRequest.targetStaffName && (handoverRequest.targetStaffName.includes("CM Approval") || handoverRequest.targetStaffName.includes("CAM Approval"))) ||
-      (handoverRequest.reason && handoverRequest.reason.includes("Late Attendance")) ||
       (handoverRequest.slotId && handoverRequest.slotId.startsWith("mentor_daily_punch_")) ||
       (handoverRequest.slotId && handoverRequest.slotId.startsWith("acad_log_edit_"));
 
@@ -375,6 +384,24 @@ export async function POST(request: Request) {
           "UPDATE handover_requests SET status = ?, headerReason = ?, approvedBy = ? WHERE requestorId = ? AND slotId = ? AND (dateStr = ? OR datestr = ?) AND id != ? AND status IN ('pending', 'pending_cm', 'pending_cam')",
           [targetStatus, headerReason || null, cleanApproverName, handoverRequest.requestorId, handoverRequest.slotId, dStr, dStr, requestId]
         );
+      }
+
+      // If this is an approved academic log edit request, update the academic tracker row
+      if (status === "approved" && handoverRequest.slotId && handoverRequest.slotId.startsWith("acad_log_edit_")) {
+        const logId = handoverRequest.slotId.replace("acad_log_edit_", "");
+        const topicMatch = (handoverRequest.reason || "").match(/Proposed Topic:\s*([^|]+)/i);
+        const remarksMatch = (handoverRequest.reason || "").match(/Proposed Remarks:\s*([^|]+)/i);
+        const newTopic = topicMatch ? topicMatch[1].trim() : null;
+        const newRemarks = remarksMatch ? remarksMatch[1].trim() : null;
+        if (logId && (newTopic !== null || newRemarks !== null)) {
+          const updateSets: string[] = [];
+          const updateParams: any[] = [];
+          if (newTopic !== null) { updateSets.push("topic = ?"); updateParams.push(newTopic); }
+          if (newRemarks !== null) { updateSets.push("comments = ?"); updateParams.push(newRemarks); }
+          updateSets.push("updated_at = ?"); updateParams.push(new Date().toISOString());
+          updateParams.push(logId);
+          await tx.run(`UPDATE academic_tracker SET ${updateSets.join(", ")} WHERE id = ?`, updateParams);
+        }
       }
 
       // If this is a leave cover linked to faculty_leave_requests, link and update parent leave

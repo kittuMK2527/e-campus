@@ -2,20 +2,17 @@ export const dynamic = "force-dynamic";
 
 import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { getSessionFromRequest } from "@/lib/api-auth";
+import { requireAuth } from "@/lib/authGuard";
 import { sendWebPushNotification } from "@/lib/webPush";
 
 export async function POST(request: Request) {
   try {
-    const db = await getDb();
-    let session = null;
-    try {
-      session = await getSessionFromRequest(request);
-    } catch (_) {}
+    const { auth, errorResponse } = await requireAuth(request);
+    if (errorResponse || !auth) return errorResponse || NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
+    const db = await getDb();
     const body = await request.json().catch(() => ({}));
-    const userId = session?.userId || body.userId;
-    const role = session?.role || body.role;
+    const userId = auth.user.reference_id || auth.user.id;
     const delaySeconds = Math.min(Math.max(Number(body.delaySeconds) || 5, 1), 30);
 
     if (!userId) {
@@ -27,7 +24,6 @@ export async function POST(request: Request) {
       try {
         await sendWebPushNotification(db, {
           userIds: [userId],
-          roles: role ? [role] : undefined,
           title: "Closed Tab Background Push Test",
           message: `This alert was delivered through Google FCM / Apple APNs while your tab was closed at ${new Date().toLocaleTimeString()}!`,
           link: "/schedule",
@@ -47,4 +43,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
-

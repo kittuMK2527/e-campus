@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { RedirectingLoader } from "@/components/RedirectingLoader";
 
-export default function mentorIndexPage() {
+export default function MentorIndexPage() {
   const router = useRouter();
   useEffect(() => {
     router.replace("/mentor/home");

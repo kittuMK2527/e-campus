@@ -22,25 +22,48 @@ function parseTimeToMinutes(t: string): number {
   return hr * 60 + min;
 }
 
+const PERIOD_DEFAULTS: Record<number, { start: number; end: number }> = {
+  1: { start: 8 * 60 + 30, end: 9 * 60 + 25 },
+  2: { start: 9 * 60 + 25, end: 10 * 60 + 20 },
+  3: { start: 10 * 60 + 40, end: 11 * 60 + 35 },
+  4: { start: 11 * 60 + 35, end: 12 * 60 + 30 },
+  5: { start: 13 * 60 + 25, end: 14 * 60 + 20 },
+  6: { start: 14 * 60 + 20, end: 15 * 60 + 15 },
+  7: { start: 15 * 60 + 15, end: 16 * 60 + 10 },
+  8: { start: 16 * 60 + 10, end: 17 * 60 },
+};
+
 function parseTimeSlotRange(value: string): { start: number; end: number } {
-  const matches = Array.from(String(value || "").matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
+  const str = String(value || "").trim();
+  const withoutPeriod = str.replace(/period\s*\d+/gi, "").trim();
+  const matches = Array.from(withoutPeriod.matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
   if (matches.length >= 2) {
     let s = parseTimeToMinutes(matches[0][0]);
     let e = parseTimeToMinutes(matches[1][0]);
     const m1Ampm = matches[0][3];
     const m2Ampm = matches[1][3];
+    const sHr = parseInt(matches[0][1], 10);
+    const eHr = parseInt(matches[1][1], 10);
+    if (!m1Ampm && sHr >= 1 && sHr <= 6) s += 12 * 60;
+    if (!m2Ampm && eHr >= 1 && eHr <= 6) e += 12 * 60;
     if (!m1Ampm && m2Ampm) {
-      const sHr = parseInt(matches[0][1], 10);
-      const eHr = parseInt(matches[1][1], 10);
       if (m2Ampm.toUpperCase() === "PM" && sHr < 12 && sHr <= eHr) {
-        s += 12 * 60;
+        if (s < 12 * 60) s += 12 * 60;
       }
     }
     return { start: s, end: Math.max(s, e) };
   }
   if (matches.length === 1) {
-    const s = parseTimeToMinutes(matches[0][0]);
+    let s = parseTimeToMinutes(matches[0][0]);
+    const sHr = parseInt(matches[0][1], 10);
+    const m1Ampm = matches[0][3];
+    if (!m1Ampm && sHr >= 1 && sHr <= 6) s += 12 * 60;
     return { start: s, end: s + 50 };
+  }
+  const pMatch = str.match(/period\s*(\d+)/i);
+  if (pMatch) {
+    const pNum = parseInt(pMatch[1], 10);
+    if (PERIOD_DEFAULTS[pNum]) return PERIOD_DEFAULTS[pNum];
   }
   return { start: -1, end: -1 };
 }

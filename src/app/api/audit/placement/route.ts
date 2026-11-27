@@ -94,7 +94,7 @@ async function fetchScopedByStudent(
 
 export async function GET(request: Request) {
   try {
-    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin"] });
+    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin", "hr"] });
     if (errorResponse) return errorResponse;
 
     // This is a second Supabase project and the key bypasses its RLS policies,

@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/apiFetch";
-import { qk } from "@/lib/queryKeys";
+import { collectFeeStudentRows, feeStudentsUrl, type FeeStudentFilters } from "@/lib/feePages";
 import { useApp } from "../context/AppContext";
 import { useToast } from "@/context/ToastContext";
 import {
@@ -141,22 +141,41 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
   const activeTab = propActiveTab || localActiveTab;
   const setActiveTab = onTabChange || setLocalActiveTab;
   const queryClient = useQueryClient();
-  const feesQuery = useQuery<{
+  const summaryQuery = useQuery<{
+    success: boolean;
     colleges: CollegeRecord[];
-    students: StudentRecord[];
-    fees: StudentFee[];
-    payments: FeePayment[];
-    cams: CamRecord[];
     stats: FeeStats;
-  } | null>({
-    queryKey: qk.fees("dashboard", "all", "all", ""),
+    todayRevenue: number;
+    collegeTotals: Array<{
+      college_id: string;
+      totalStudents: number;
+      totalFees: number;
+      totalPaid: number;
+      paymentTotal: number;
+      paidCount: number;
+      partialCount: number;
+      unpaidCount: number;
+      pendingCount: number;
+    }>;
+    facets: Array<{
+      college_id: string;
+      department: string;
+      semester: string;
+      year: string;
+      classGroup: string;
+    }>;
+  }>({
+    queryKey: ["fees", "summary"],
     queryFn: async () => {
-      const json = await apiFetch<any>("/api/fees?role=fee_manager");
-      return json?.success ? json : null;
+      const json = await apiFetch<any>("/api/fees?mode=summary");
+      if (!json || !json.success) {
+        throw new Error(json?.message || "Failed to load fee summary");
+      }
+      return json;
     },
   });
-  const data = feesQuery.data ?? null;
-  const loading = feesQuery.isPending;
+  const summaryData = summaryQuery.data ?? null;
+  const loading = summaryQuery.isPending;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCollege, setFilterCollege] = useState(propCollegeId || "all");
@@ -169,12 +188,8 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
   const [filterDept, setFilterDept] = useState("all");
   const [filterYear, setFilterYear] = useState("all");
   const [filterFeeStatus, setFilterFeeStatus] = useState("all");
-  const [filterFromDate, setFilterFromDate] = useState(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 7);
-    return d.toISOString().split("T")[0];
-  });
-  const [filterToDate, setFilterToDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [filterFromDate, setFilterFromDate] = useState("");
+  const [filterToDate, setFilterToDate] = useState("");
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
   const [selectedReportYear, setSelectedReportYear] = useState("2025-2027");
 
@@ -183,6 +198,108 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
   const [studentsPageSize, setStudentsPageSize] = useState(25);
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [paymentsPageSize, setPaymentsPageSize] = useState(25);
+
+  const studentFilters = useMemo<FeeStudentFilters>(() => {
+    const filters: FeeStudentFilters = {};
+    if (searchQuery) filters.q = searchQuery;
+    if (filterCollege && filterCollege !== "all") filters.collegeId = filterCollege;
+    if (filterDept && filterDept !== "all") filters.department = filterDept;
+    if (filterYear && filterYear !== "all") filters.year = filterYear;
+    if (filterFeeStatus && filterFeeStatus !== "all") filters.status = filterFeeStatus;
+    return filters;
+  }, [searchQuery, filterCollege, filterDept, filterYear, filterFeeStatus]);
+
+  const studentsQuery = useQuery<{
+    success: boolean;
+    students: StudentRecord[];
+    fees: StudentFee[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }>({
+    queryKey: ["fees", "students", studentFilters, studentsPage, studentsPageSize],
+    queryFn: async () => {
+      const url = feeStudentsUrl(studentFilters, studentsPage, studentsPageSize);
+      const json = await apiFetch<any>(url);
+      if (!json || !json.success) {
+        throw new Error(json?.message || "Failed to load students fee ledger");
+      }
+      return json;
+    },
+    enabled: activeTab === "students",
+  });
+  const studentsData = studentsQuery.data ?? null;
+
+  const paymentFilters = useMemo(() => {
+    const filters: Record<string, string> = {};
+    if (searchQuery) filters.q = searchQuery;
+    if (filterCollege && filterCollege !== "all") filters.collegeId = filterCollege;
+    if (filterFromDate) filters.from = filterFromDate;
+    if (filterToDate) filters.to = filterToDate;
+    return filters;
+  }, [searchQuery, filterCollege, filterFromDate, filterToDate]);
+
+  const paymentsQuery = useQuery<{
+    success: boolean;
+    payments: Array<FeePayment & { student_name?: string | null }>;
+    total: number;
+    page: number;
+    pageSize: number;
+  }>({
+    queryKey: ["fees", "payments", paymentFilters, paymentsPage, paymentsPageSize],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        mode: "payments",
+        page: String(paymentsPage),
+        pageSize: String(paymentsPageSize),
+        ...paymentFilters,
+      });
+      const url = `/api/fees?${params.toString()}`;
+      const json = await apiFetch<any>(url);
+      if (!json || !json.success) {
+        throw new Error(json?.message || "Failed to load payment transactions");
+      }
+      return json;
+    },
+    enabled: activeTab === "transactions",
+  });
+  const paymentsData = paymentsQuery.data ?? null;
+
+  // Clamping page after a mutation reduces the total
+  useEffect(() => {
+    if (studentsData && typeof studentsData.total === "number") {
+      const maxPage = Math.max(1, Math.ceil(studentsData.total / studentsPageSize));
+      if (studentsPage > maxPage) {
+        setStudentsPage(maxPage);
+      }
+    }
+  }, [studentsData?.total, studentsPageSize, studentsPage]);
+
+  useEffect(() => {
+    if (paymentsData && typeof paymentsData.total === "number") {
+      const maxPage = Math.max(1, Math.ceil(paymentsData.total / paymentsPageSize));
+      if (paymentsPage > maxPage) {
+        setPaymentsPage(maxPage);
+      }
+    }
+  }, [paymentsData?.total, paymentsPageSize, paymentsPage]);
+
+  const displayStudentsPage = studentsData && typeof studentsData.total === "number"
+    ? Math.min(studentsPage, Math.max(1, Math.ceil(studentsData.total / studentsPageSize)))
+    : studentsPage;
+
+  const displayPaymentsPage = paymentsData && typeof paymentsData.total === "number"
+    ? Math.min(paymentsPage, Math.max(1, Math.ceil(paymentsData.total / paymentsPageSize)))
+    : paymentsPage;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setStudentsPage(1);
+  }, [searchQuery, filterCollege, filterDept, filterYear, filterFeeStatus]);
+
+  useEffect(() => {
+    setPaymentsPage(1);
+  }, [searchQuery, filterCollege, filterFromDate, filterToDate]);
 
   // Sidebar Collapse State
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -225,46 +342,48 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
   const [selectedTemplateDept, setSelectedTemplateDept] = useState("");
   const [selectedTemplateSem, setSelectedTemplateSem] = useState("");
   const [selectedTemplateYear, setSelectedTemplateYear] = useState("");
+  const [isExportingReport, setIsExportingReport] = useState(false);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
 
   const fetchData = () =>
     queryClient.invalidateQueries({ queryKey: ["fees"] });
 
   useEffect(() => {
-    if (data?.colleges?.length && !selectedTemplateCollege) {
-      setSelectedTemplateCollege(data.colleges[0].name);
+    if (summaryData?.colleges?.length && !selectedTemplateCollege) {
+      setSelectedTemplateCollege(summaryData.colleges[0].name);
     }
-  }, [data?.colleges, selectedTemplateCollege]);
+  }, [summaryData?.colleges, selectedTemplateCollege]);
 
   const selectedCollegeObj = useMemo(() => {
     if (!selectedTemplateCollege) return null;
     const cleanName = selectedTemplateCollege.trim().toLowerCase();
-    const fromData = data?.colleges?.find(c => c.name.trim().toLowerCase() === cleanName);
+    const fromData = summaryData?.colleges?.find(c => c.name.trim().toLowerCase() === cleanName);
     if (fromData) return fromData;
     const fromCtx = ctxColleges?.find(c => c.name.trim().toLowerCase() === cleanName);
     if (fromCtx) return fromCtx;
     return null;
-  }, [selectedTemplateCollege, data?.colleges, ctxColleges]);
+  }, [selectedTemplateCollege, summaryData?.colleges, ctxColleges]);
 
   const availableColleges = useMemo(() => {
     const list = new Map<string, string>();
-    if (data?.colleges) {
-      data.colleges.forEach(c => list.set(c.name.trim(), c.id));
+    if (summaryData?.colleges) {
+      summaryData.colleges.forEach(c => list.set(c.name.trim(), c.id));
     }
     if (ctxColleges) {
       ctxColleges.forEach(c => list.set(c.name.trim(), c.id));
     }
     return Array.from(list.keys()).sort();
-  }, [data?.colleges, ctxColleges]);
+  }, [summaryData?.colleges, ctxColleges]);
 
   const availableDepartments = useMemo(() => {
     const list = new Set<string>();
     const targetCollegeId = selectedCollegeObj?.id;
 
-    if (data?.students) {
-      data.students.forEach(s => {
-        if (targetCollegeId && s.college_id !== targetCollegeId) return;
-        if (s.department) {
-          const clean = s.department.trim();
+    if (summaryData?.facets) {
+      summaryData.facets.forEach(f => {
+        if (targetCollegeId && f.college_id !== targetCollegeId) return;
+        if (f.department) {
+          const clean = f.department.trim();
           if (!clean.toLowerCase().includes("year") && !/^\d+$/.test(clean)) {
             list.add(clean);
           }
@@ -278,34 +397,34 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
       });
     }
     return Array.from(list).filter(Boolean).sort();
-  }, [selectedCollegeObj, data?.students, ctxCourses]);
+  }, [selectedCollegeObj, summaryData?.facets, ctxCourses]);
 
   const availableSemesters = useMemo(() => {
     const list = new Set<string>();
     const targetCollegeId = selectedCollegeObj?.id;
     const targetDeptLower = selectedTemplateDept?.trim().toLowerCase();
 
-    if (data?.students) {
-      data.students.forEach(s => {
-        if (targetCollegeId && s.college_id !== targetCollegeId) return;
-        if (targetDeptLower && s.department && s.department.trim().toLowerCase() !== targetDeptLower) return;
-        const sem = s.semester;
+    if (summaryData?.facets) {
+      summaryData.facets.forEach(f => {
+        if (targetCollegeId && f.college_id !== targetCollegeId) return;
+        if (targetDeptLower && f.department && f.department.trim().toLowerCase() !== targetDeptLower) return;
+        const sem = f.semester;
         if (sem) list.add(sem.trim());
       });
     }
     return Array.from(list).filter(Boolean).sort();
-  }, [selectedCollegeObj, selectedTemplateDept, data?.students]);
+  }, [selectedCollegeObj, selectedTemplateDept, summaryData?.facets]);
 
   const availableYears = useMemo(() => {
     const list = new Set<string>();
     const targetCollegeId = selectedCollegeObj?.id;
     const targetDeptLower = selectedTemplateDept?.trim().toLowerCase();
 
-    if (data?.students) {
-      data.students.forEach(s => {
-        if (targetCollegeId && s.college_id !== targetCollegeId) return;
-        if (targetDeptLower && s.department && s.department.trim().toLowerCase() !== targetDeptLower) return;
-        if (s.year) list.add(s.year.trim());
+    if (summaryData?.facets) {
+      summaryData.facets.forEach(f => {
+        if (targetCollegeId && f.college_id !== targetCollegeId) return;
+        if (targetDeptLower && f.department && f.department.trim().toLowerCase() !== targetDeptLower) return;
+        if (f.year) list.add(f.year.trim());
       });
     }
     if (list.size === 0) {
@@ -314,7 +433,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
       list.add("Year III");
     }
     return Array.from(list).filter(Boolean).sort();
-  }, [selectedCollegeObj, selectedTemplateDept, data?.students]);
+  }, [selectedCollegeObj, selectedTemplateDept, summaryData?.facets]);
 
   useEffect(() => {
     if (availableDepartments.length > 0) {
@@ -341,6 +460,8 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
   }, [availableYears, selectedTemplateYear]);
 
   const handleDownloadTemplate = async () => {
+    if (isExportingReport || isDownloadingTemplate) return;
+    setIsDownloadingTemplate(true);
     try {
       const headers = [
         "Registration Number",
@@ -357,37 +478,54 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
         "Payment Link"
       ];
       
-      const targetCollege = data?.colleges.find(
+      const targetCollege = summaryData?.colleges.find(
+        c => c.name.trim().toLowerCase() === selectedTemplateCollege.trim().toLowerCase()
+      ) || ctxColleges?.find(
         c => c.name.trim().toLowerCase() === selectedTemplateCollege.trim().toLowerCase()
       );
+      const targetCollegeId = targetCollege?.id || selectedCollegeObj?.id;
 
-      const matchingStudents = (data?.students || []).filter(s => {
-        if (targetCollege && s.college_id !== targetCollege.id) return false;
-        if (s.department && selectedTemplateDept && s.department.trim().toLowerCase() !== selectedTemplateDept.trim().toLowerCase()) return false;
-        return true;
-      });
+      const templateFilters: FeeStudentFilters = {};
+      if (targetCollegeId) {
+        templateFilters.collegeId = targetCollegeId;
+      }
 
-      const rows = matchingStudents.map(s => {
-        let regNo = s.register_number || s.roll_number || "";
-        const emailPrefix = (s.email || "").split("@")[0].toLowerCase();
-        if (regNo.toLowerCase() === emailPrefix || regNo.startsWith("student_")) {
-          regNo = "";
+      const rows = await collectFeeStudentRows<StudentRecord, StudentFee, any>(
+        templateFilters,
+        (url) => apiFetch(url),
+        (page) => {
+          const matchingStudents = page.students.filter(s => {
+            if (s.department && selectedTemplateDept) {
+              const deptClean = s.department.trim().toLowerCase();
+              const selClean = selectedTemplateDept.trim().toLowerCase();
+              if (deptClean && deptClean !== selClean) return false;
+            }
+            return true;
+          });
+
+          return matchingStudents.map(s => {
+            let regNo = s.register_number || s.roll_number || "";
+            const emailPrefix = (s.email || "").split("@")[0].toLowerCase();
+            if (regNo.toLowerCase() === emailPrefix || regNo.startsWith("student_")) {
+              regNo = "";
+            }
+            return {
+              "Registration Number": regNo,
+              "College Name": selectedTemplateCollege,
+              "Student Name": s.name || "",
+              "Year": s.year || selectedTemplateYear,
+              "Email": s.email || "",
+              "Mobile Number": s.phone || "",
+              "Department": s.department || selectedTemplateDept,
+              "Semester": s.semester || selectedTemplateSem,
+              "FPC FEES PAID": "",
+              "FPC FEES PENDING": "",
+              "Amount": "",
+              "Payment Link": ""
+            };
+          });
         }
-        return {
-          "Registration Number": regNo,
-          "College Name": selectedTemplateCollege,
-          "Student Name": s.name || "",
-          "Year": s.year || selectedTemplateYear,
-          "Email": s.email || "",
-          "Mobile Number": s.phone || "",
-          "Department": s.department || selectedTemplateDept,
-          "Semester": s.semester || selectedTemplateSem,
-          "FPC FEES PAID": "",
-          "FPC FEES PENDING": "",
-          "Amount": "",
-          "Payment Link": ""
-        };
-      });
+      );
 
       if (rows.length === 0) {
         rows.push({
@@ -414,46 +552,64 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
       const filename = `Fee_Template_${(selectedTemplateDept || "General").replace(/[^a-zA-Z0-9]/g, "_")}_${(selectedTemplateYear || "Year_I").replace(/\s+/g, "_")}.xlsx`;
       XLSX.writeFile(workbook, filename);
     } catch (e: any) {
-      setUploadError("Failed to generate template: " + e.message);
+      toastFe(e.message || "Failed to generate template");
+    } finally {
+      setIsDownloadingTemplate(false);
     }
   };
 
   const handleDownloadFilteredReport = async () => {
+    if (isExportingReport || isDownloadingTemplate) return;
+    setIsExportingReport(true);
     try {
-      if (!filteredStudents || filteredStudents.length === 0) {
+      const rows = await collectFeeStudentRows<StudentRecord, StudentFee, any>(
+        studentFilters,
+        (url) => apiFetch(url),
+        (page) => {
+          const feesByStudent = new Map<string, StudentFee[]>();
+          for (const f of page.fees) {
+            if (!feesByStudent.has(f.student_id)) feesByStudent.set(f.student_id, []);
+            feesByStudent.get(f.student_id)!.push(f);
+          }
+          return page.students.map((s) => {
+            const studentFees = feesByStudent.get(s.id) || [];
+            const totalFees = studentFees.reduce((sum, f) => sum + Number(f.amount || 0), 0);
+            const totalPaid = studentFees.reduce((sum, f) => sum + Number(f.paid_amount || 0), 0);
+            const remaining = Math.max(totalFees - totalPaid, 0);
+            return {
+              "Student ID": s.id,
+              "Registration Number": s.register_number || s.roll_number || "",
+              "Student Name": s.name,
+              "College": getCollegeName(s.college_id),
+              "Department": s.department || "General",
+              "Academic Year": s.year || "Year I",
+              "Semester": s.semester || "Semester 1",
+              "Class/Batch": s.classGroup || "",
+              "Email": s.email || "",
+              "Phone": s.phone || "",
+              "Total Target Fee (₹)": totalFees,
+              "Paid Fee (₹)": totalPaid,
+              "Remaining Dues (₹)": remaining,
+              "Fee Status": totalPaid >= totalFees && totalFees > 0 ? "Paid" : totalPaid > 0 ? "Partial" : "Unpaid"
+            };
+          });
+        }
+      );
+
+      if (rows.length === 0) {
         toastFe("No student records found to export for the selected filter.", "warning");
         return;
       }
-      const reportData = filteredStudents.map(s => {
-        const studentFees = getStudentFees(s.id);
-        const totalFees = studentFees.reduce((sum, f) => sum + f.amount, 0);
-        const totalPaid = studentFees.reduce((sum, f) => sum + f.paid_amount, 0);
-        const remaining = Math.max(totalFees - totalPaid, 0);
-        return {
-          "Student ID": s.id,
-          "Registration Number": s.register_number || s.roll_number || "",
-          "Student Name": s.name,
-          "College": getCollegeName(s.college_id),
-          "Department": s.department || "General",
-          "Academic Year": s.year || "Year I",
-          "Semester": s.semester || "Semester 1",
-          "Class/Batch": s.classGroup || "",
-          "Email": s.email || "",
-          "Phone": s.phone || "",
-          "Total Target Fee (₹)": totalFees,
-          "Paid Fee (₹)": totalPaid,
-          "Remaining Dues (₹)": remaining,
-          "Fee Status": totalPaid >= totalFees && totalFees > 0 ? "Paid" : totalPaid > 0 ? "Partial" : "Unpaid"
-        };
-      });
 
       const XLSX = await import("xlsx");
-      const worksheet = XLSX.utils.json_to_sheet(reportData);
+      const worksheet = XLSX.utils.json_to_sheet(rows);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Fee Directory Report");
       XLSX.writeFile(workbook, `Student_Fee_Report_${new Date().toISOString().split("T")[0]}.xlsx`);
     } catch (e: any) {
-      toastFe("Failed to export report: " + e.message);
+      toastFe(e.message || "Failed to export report");
+    } finally {
+      setIsExportingReport(false);
     }
   };
 
@@ -714,17 +870,15 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
 
   /* Fixed College Statistics Calculation */
   const collegeStats = useMemo(() => {
-    if (!data) return [];
-    return data.colleges.map((col) => {
-      const colFees = data.fees.filter((f) => f.college_id === col.id);
-      const colStudents = data.students.filter((s) => s.college_id === col.id);
-      const colPayments = data.payments.filter((p) => p.college_id === col.id);
+    if (!summaryData) return [];
+    return summaryData.colleges.map((col) => {
+      const cTotal = summaryData.collegeTotals?.find((ct) => ct.college_id === col.id);
+      let total = cTotal?.totalFees ?? 0;
+      let paid = cTotal?.totalPaid ?? 0;
+      const paymentTotal = cTotal?.paymentTotal ?? 0;
 
-      let total = colFees.reduce((s, f) => s + Number(f.amount || 0), 0);
-      let paid = colFees.reduce((s, f) => s + Number(f.paid_amount || 0), 0);
-
-      if (paid === 0 && colPayments.length > 0) {
-        paid = colPayments.reduce((s, p) => s + Number(p.amount || 0), 0);
+      if (paid === 0 && paymentTotal > 0) {
+        paid = paymentTotal;
       }
 
       if (paid > total) {
@@ -736,163 +890,76 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
 
       return {
         ...col,
-        totalStudents: colStudents.length,
+        totalStudents: cTotal?.totalStudents ?? 0,
         totalFees: total,
         totalPaid: paid,
         outstanding,
         collectionRate,
-        paidCount: colFees.filter((f) => f.status === "paid").length,
-        unpaidCount: colFees.filter((f) => f.status === "unpaid").length,
+        paidCount: cTotal?.paidCount ?? 0,
+        unpaidCount: cTotal?.unpaidCount ?? 0,
       };
     });
-  }, [data]);
+  }, [summaryData]);
 
   const uniqueDepartments = useMemo(() => {
-    if (!data?.students) return [];
+    if (!summaryData?.facets) return [];
     const depts = new Set<string>();
-    data.students.forEach((s) => {
-      if (filterCollege !== "all" && s.college_id !== filterCollege) return;
-      if (s.department) depts.add(s.department.trim());
+    summaryData.facets.forEach((f) => {
+      if (filterCollege !== "all" && f.college_id !== filterCollege) return;
+      if (f.department) {
+        const clean = f.department.trim();
+        if (clean) depts.add(clean);
+      }
     });
     return Array.from(depts).sort();
-  }, [data?.students, filterCollege]);
+  }, [summaryData?.facets, filterCollege]);
 
   /* Dynamically derive Unique Academic Years directly from Database */
   const uniqueYears = useMemo(() => {
-    if (!data?.students) return [];
+    if (!summaryData?.facets) return [];
     const years = new Set<string>();
-    data.students.forEach((s) => {
-      if (filterCollege !== "all" && s.college_id !== filterCollege) return;
-      if (s.year) {
-        years.add(s.year.trim());
-      } else if (s.classGroup) {
-        const match = s.classGroup.match(/Year\s+(I|II|III|IV|1|2|3|4)/i);
+    summaryData.facets.forEach((f) => {
+      if (filterCollege !== "all" && f.college_id !== filterCollege) return;
+      if (f.year) {
+        years.add(f.year.trim());
+      } else if (f.classGroup) {
+        const match = f.classGroup.match(/Year\s+(I|II|III|IV|1|2|3|4)/i);
         if (match) years.add(match[0].trim());
       }
     });
     return Array.from(years).sort();
-  }, [data?.students, filterCollege]);
+  }, [summaryData?.facets, filterCollege]);
 
   const studentFeesMap = useMemo(() => {
-    const map = new Map<string, any[]>();
-    if (data?.fees) {
-      for (const f of data.fees) {
+    const map = new Map<string, StudentFee[]>();
+    if (studentsData?.fees) {
+      for (const f of studentsData.fees) {
         if (!map.has(f.student_id)) map.set(f.student_id, []);
         map.get(f.student_id)!.push(f);
       }
     }
     return map;
-  }, [data?.fees]);
-
-  const filteredStudents = useMemo(() => {
-    if (!data) return [];
-    return data.students.filter((s) => {
-      const q = searchQuery.toLowerCase().trim();
-      const matchSearch =
-        !q ||
-        s.name.toLowerCase().includes(q) ||
-        s.email.toLowerCase().includes(q) ||
-        s.id.toLowerCase().includes(q) ||
-        (s.register_number && s.register_number.toLowerCase().includes(q)) ||
-        (s.phone && s.phone.includes(q));
-
-      const matchCollege = filterCollege === "all" || s.college_id === filterCollege;
-      const matchDept = filterDept === "all" || s.department === filterDept;
-
-      let matchYear = true;
-      if (filterYear !== "all") {
-        const yrLower = filterYear.toLowerCase();
-        const sYr = (s.year || "").toLowerCase();
-        const sClass = (s.classGroup || "").toLowerCase();
-        matchYear = sYr === yrLower || sClass.includes(yrLower);
-      }
-
-      let matchStatus = true;
-      if (filterFeeStatus !== "all") {
-        const studentFees = studentFeesMap.get(s.id) || [];
-        const totalFees = studentFees.reduce((sum, f) => sum + f.amount, 0);
-        const totalPaid = studentFees.reduce((sum, f) => sum + f.paid_amount, 0);
-        const overallStatus =
-          totalPaid >= totalFees && totalFees > 0 ? "paid"
-          : totalPaid > 0 ? "partial"
-          : "unpaid";
-        matchStatus = overallStatus === filterFeeStatus;
-      }
-
-      return matchSearch && matchCollege && matchDept && matchYear && matchStatus;
-    });
-  }, [data, searchQuery, filterCollege, filterDept, filterYear, filterFeeStatus, studentFeesMap]);
-
-  const filteredPayments = useMemo(() => {
-    if (!data) return [];
-    let pays = [...data.payments].sort(
-      (a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime()
-    );
-    if (filterCollege !== "all") {
-      pays = pays.filter((p) => p.college_id === filterCollege);
-    }
-    if (filterFromDate) {
-      pays = pays.filter((p) => p.payment_date && p.payment_date >= filterFromDate);
-    }
-    if (filterToDate) {
-      const toStr = filterToDate.includes("T") ? filterToDate : `${filterToDate}T23:59:59.999Z`;
-      pays = pays.filter((p) => p.payment_date && p.payment_date <= toStr);
-    }
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      pays = pays.filter(
-        (p) =>
-          p.receipt_no.toLowerCase().includes(q) ||
-          p.student_id.toLowerCase().includes(q) ||
-          p.reference_no.toLowerCase().includes(q)
-      );
-    }
-    return pays;
-  }, [data, searchQuery, filterCollege, filterFromDate, filterToDate]);
-
-  // Reset page when filters change
-  useEffect(() => {
-    setStudentsPage(1);
-  }, [searchQuery, filterCollege, filterDept, filterYear, filterFeeStatus]);
-
-  useEffect(() => {
-    setPaymentsPage(1);
-  }, [searchQuery, filterCollege, filterFromDate, filterToDate]);
-
-  // Paginated Slices for optimal DOM rendering performance
-  const paginatedStudents = useMemo(() => {
-    const start = (studentsPage - 1) * studentsPageSize;
-    return filteredStudents.slice(start, start + studentsPageSize);
-  }, [filteredStudents, studentsPage, studentsPageSize]);
-
-  const paginatedPayments = useMemo(() => {
-    const start = (paymentsPage - 1) * paymentsPageSize;
-    return filteredPayments.slice(start, start + paymentsPageSize);
-  }, [filteredPayments, paymentsPage, paymentsPageSize]);
+  }, [studentsData?.fees]);
 
   const reportsData = useMemo(() => {
-    if (!data) return null;
+    if (!summaryData) return null;
 
     const reportYearsList = ["2025-2027", "2024-2028", "2023-2027"];
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayRevenue = summaryData.todayRevenue || 0;
 
-    const todayRevenue = data.payments
-      .filter(p => p.payment_date && p.payment_date.startsWith(todayStr))
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    const totalPaidOverall = data.fees.reduce((sum, f) => sum + f.paid_amount, 0);
-    const totalTargetOverall = Math.max(data.fees.reduce((sum, f) => sum + f.amount, 0), totalPaidOverall);
+    const totalPaidOverall = summaryData.stats?.totalPaid || 0;
+    const totalTargetOverall = Math.max(summaryData.stats?.totalFees || 0, totalPaidOverall);
     const totalPendingOverall = Math.max(totalTargetOverall - totalPaidOverall, 0);
     const totalAchievedPercent = totalTargetOverall > 0 ? Math.min((totalPaidOverall / totalTargetOverall) * 100, 100) : 0;
 
-    const collegesList = data.colleges.map(col => {
-      const colFees = data.fees.filter(f => f.college_id === col.id);
-      const colStudents = data.students.filter(s => s.college_id === col.id);
-      const paidStus = colFees.filter(f => f.status === "paid").length;
-      const pendingStus = colFees.filter(f => f.status !== "paid").length;
+    const collegesList = (summaryData.colleges || []).map((col) => {
+      const cTotal = summaryData.collegeTotals?.find((ct) => ct.college_id === col.id);
+      const totalStudents = cTotal?.totalStudents ?? 0;
+      const paidStudents = cTotal?.paidCount ?? 0;
+      const pendingStudents = cTotal?.pendingCount ?? 0;
 
-      let collegeFeesTarget = colFees.reduce((s, f) => s + f.amount, 0);
-      const collegeFeesAchieved = colFees.reduce((s, f) => s + f.paid_amount, 0);
+      let collegeFeesTarget = cTotal?.totalFees ?? 0;
+      const collegeFeesAchieved = cTotal?.totalPaid ?? 0;
       if (collegeFeesAchieved > collegeFeesTarget) {
         collegeFeesTarget = collegeFeesAchieved;
       }
@@ -903,9 +970,9 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
       return {
         id: col.id,
         name: col.name,
-        totalStudents: colStudents.length,
-        paidStudents: paidStus,
-        pendingStudents: pendingStus,
+        totalStudents,
+        paidStudents,
+        pendingStudents,
         collegeFeesTarget,
         collegeFeesAchieved,
         fpcFeesTarget,
@@ -913,8 +980,8 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
       };
     });
 
-    const maxStudentCount = Math.max(...collegesList.map(c => Math.max(c.paidStudents, c.pendingStudents, 10)), 50);
-    const maxFeeAmount = Math.max(...collegesList.map(c => Math.max(c.collegeFeesTarget, c.fpcFeesTarget, 10000)), 100000);
+    const maxStudentCount = Math.max(...collegesList.map((c) => Math.max(c.paidStudents, c.pendingStudents, 10)), 50);
+    const maxFeeAmount = Math.max(...collegesList.map((c) => Math.max(c.collegeFeesTarget, c.fpcFeesTarget, 10000)), 100000);
 
     const paidPoints = collegesList.map((col, idx) => {
       const N = collegesList.length;
@@ -965,19 +1032,19 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
       totalCollegeFeesTarget,
       totalCollegeFeesAchieved,
       totalFpcFeesTarget,
-      totalFpcFeesAchieved
+      totalFpcFeesAchieved,
     };
-  }, [data]);
+  }, [summaryData]);
 
   const getStudentFees = (studentId: string) =>
-    data?.fees.filter((f) => f.student_id === studentId) || [];
+    studentsData?.fees?.filter((f) => f.student_id === studentId) || [];
 
   const getStudentName = (studentId: string) =>
-    data?.students.find((s) => s.id === studentId)?.name || studentId;
+    studentsData?.students?.find((s) => s.id === studentId)?.name || studentId;
 
   const getCollegeName = (collegeId: string) => {
     if (!collegeId) return "—";
-    const col = data?.colleges.find((c) => c.id === collegeId);
+    const col = summaryData?.colleges?.find((c) => c.id === collegeId) || ctxColleges?.find((c) => c.id === collegeId);
     return col ? col.name : collegeId;
   };
 
@@ -992,7 +1059,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
     );
   }
 
-  if (!data) {
+  if (!summaryData) {
     return (
       <div className="flex-1 flex items-center justify-center min-h-[500px] bg-warm-canvas">
         <Card className="max-w-md text-center p-8">
@@ -1007,7 +1074,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
     );
   }
 
-  const { stats } = data;
+  const { stats } = summaryData;
 
   /* Clean Sidebar Tabs without Number Badges */
   const tabs: { id: TabType; label: string; icon: React.FC<any> }[] = [
@@ -1106,6 +1173,18 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                 className="bg-transparent outline-none cursor-pointer text-xs font-bold text-slate-800 dark:text-slate-200"
                 title="To Date"
               />
+              {(filterFromDate || filterToDate) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterFromDate("");
+                    setFilterToDate("");
+                  }}
+                  className="text-[10px] font-extrabold text-amber-600 hover:text-amber-700 ml-1 cursor-pointer"
+                >
+                  Clear
+                </button>
+              )}
             </div>
 
             {/* Quick Date Chips */}
@@ -1157,12 +1236,13 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
             {activeTab === "students" && (
               <Button
                 onClick={handleDownloadFilteredReport}
+                disabled={isExportingReport || isDownloadingTemplate}
                 variant="outline"
                 size="default"
                 className="border-slate-200 dark:border-slate-800 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 font-bold"
               >
                 <Download className="h-4 w-4" />
-                <span>Export Report</span>
+                <span>{isExportingReport ? "Exporting…" : "Export Report"}</span>
               </Button>
             )}
 
@@ -1566,7 +1646,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     className="px-3 py-2 rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken dark:bg-[#181820] text-xs font-bold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 cursor-pointer"
                   >
                     <option value="all">All Colleges</option>
-                    {data.colleges.map((c) => (
+                    {(summaryData?.colleges || []).map((c) => (
                       <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
@@ -1610,13 +1690,26 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                 </div>
 
                 <div className="flex items-center justify-between text-[10px] text-slate-400 font-extrabold uppercase tracking-wider pt-1">
-                  <span>Showing {filteredStudents.length} of {data.students.length} students</span>
+                  <span>Showing {studentsData?.total ?? 0} of {summaryData?.stats?.totalStudents ?? 0} students</span>
                 </div>
               </Card>
 
               {/* Student Cards */}
               <div className="space-y-4">
-                {filteredStudents.length === 0 ? (
+                {studentsQuery.isPending ? (
+                  <Card role="status" className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-wider space-y-3">
+                    <div className="h-8 w-8 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin mx-auto" />
+                    <p>Loading students fee records…</p>
+                  </Card>
+                ) : studentsQuery.isError ? (
+                  <Card role="alert" className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-wider space-y-3">
+                    <AlertCircle className="h-8 w-8 text-amber-600 mx-auto" />
+                    <p>{(studentsQuery.error as any)?.message || "Failed to load students fee ledger"}</p>
+                    <Button onClick={() => studentsQuery.refetch()} variant="outline" size="sm">
+                      Retry Students
+                    </Button>
+                  </Card>
+                ) : (studentsData?.students || []).length === 0 ? (
                   <Card className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-wider space-y-3">
                     <p>No students match the selected filters.</p>
                     <Button
@@ -1635,7 +1728,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   </Card>
                 ) : (
                   <>
-                    {paginatedStudents.map((student) => {
+                    {(studentsData?.students || []).map((student) => {
                       const studentFees = getStudentFees(student.id);
                       const totalFees = studentFees.reduce((sum, f) => sum + f.amount, 0);
                       const totalPaid = studentFees.reduce((sum, f) => sum + f.paid_amount, 0);
@@ -1946,11 +2039,15 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                     })}
 
                     <Pagination
-                      currentPage={studentsPage}
-                      totalItems={filteredStudents.length}
+                      currentPage={displayStudentsPage}
+                      totalItems={studentsData?.total ?? 0}
                       pageSize={studentsPageSize}
+                      pageSizeOptions={[10, 25, 50, 100]}
                       onPageChange={setStudentsPage}
-                      onPageSizeChange={setStudentsPageSize}
+                      onPageSizeChange={(newSize) => {
+                        setStudentsPageSize(newSize);
+                        setStudentsPage(1);
+                      }}
                     />
                   </>
                 )}
@@ -1962,77 +2059,97 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
           {activeTab === "transactions" && (
             <div className="space-y-6 animate-fadeIn">
               <Card className="overflow-hidden">
-                {/* Mobile Responsive Cards (viewports < md) */}
-                <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-                  {paginatedPayments.map((p) => (
-                    <div key={p.id} className="p-4 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs text-slate-900 dark:text-amber-400 font-extrabold">{p.receipt_no}</span>
-                        <MethodBadge method={p.payment_method} />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">{getStudentName(p.student_id)}</span>
-                          <span className="text-[10px] text-slate-400 font-medium">{getCollegeName(p.college_id)}</span>
-                        </div>
-                        <span className="font-black text-sm text-slate-900 dark:text-slate-100">{fmt(p.amount)}</span>
-                      </div>
-                      <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-50 dark:border-slate-800/60 font-mono">
-                        <span>Ref: {p.reference_no || "N/A"}</span>
-                        <span>{new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Desktop Full Data Table (viewports >= md) */}
-                <div className="hidden md:block">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="pl-6">Receipt No</TableHead>
-                        <TableHead>Student</TableHead>
-                        <TableHead>College</TableHead>
-                        <TableHead>Amount</TableHead>
-                        <TableHead>Payment Method</TableHead>
-                        <TableHead>Reference No</TableHead>
-                        <TableHead className="pr-6">Date</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {paginatedPayments.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="pl-6 font-mono text-slate-900 dark:text-amber-400 font-extrabold">{p.receipt_no}</TableCell>
-                          <TableCell>
-                            <span className="font-extrabold text-slate-800 dark:text-slate-200 block">{getStudentName(p.student_id)}</span>
-                            <span className="text-[10px] text-slate-400 font-mono">{p.student_id}</span>
-                          </TableCell>
-                          <TableCell className="text-slate-500 font-medium text-[11px] max-w-[200px] truncate">
-                            {getCollegeName(p.college_id)}
-                          </TableCell>
-                          <TableCell className="font-black text-slate-900 dark:text-slate-100">{fmt(p.amount)}</TableCell>
-                          <TableCell><MethodBadge method={p.payment_method} /></TableCell>
-                          <TableCell className="font-mono text-[10px] text-slate-400">{p.reference_no}</TableCell>
-                          <TableCell className="pr-6 text-slate-500">
-                            {new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-                {filteredPayments.length === 0 ? (
+                {paymentsQuery.isPending ? (
+                  <div role="status" className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-wider space-y-3">
+                    <div className="h-8 w-8 rounded-full border-4 border-amber-500/20 border-t-amber-500 animate-spin mx-auto" />
+                    <p>Loading payment transactions…</p>
+                  </div>
+                ) : paymentsQuery.isError ? (
+                  <div role="alert" className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-wider space-y-3">
+                    <AlertCircle className="h-8 w-8 text-amber-600 mx-auto" />
+                    <p>{(paymentsQuery.error as any)?.message || "Failed to load payment transactions"}</p>
+                    <Button onClick={() => paymentsQuery.refetch()} variant="outline" size="sm">
+                      Retry Transactions
+                    </Button>
+                  </div>
+                ) : (paymentsData?.payments || []).length === 0 ? (
                   <div className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-wider">
                     No payment transactions found.
                   </div>
                 ) : (
-                  <Pagination
-                    currentPage={paymentsPage}
-                    totalItems={filteredPayments.length}
-                    pageSize={paymentsPageSize}
-                    onPageChange={setPaymentsPage}
-                    onPageSizeChange={setPaymentsPageSize}
-                  />
+                  <>
+                    {/* Mobile Responsive Cards (viewports < md) */}
+                    <div className="block md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+                      {(paymentsData?.payments || []).map((p) => (
+                        <div key={p.id} className="p-4 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs text-slate-900 dark:text-amber-400 font-extrabold">{p.receipt_no}</span>
+                            <MethodBadge method={p.payment_method} />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className="font-bold text-slate-800 dark:text-slate-200 block text-xs">{p.student_name || p.student_id}</span>
+                              <span className="text-[10px] text-slate-400 font-medium">{getCollegeName(p.college_id)}</span>
+                            </div>
+                            <span className="font-black text-sm text-slate-900 dark:text-slate-100">{fmt(p.amount)}</span>
+                          </div>
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-50 dark:border-slate-800/60 font-mono">
+                            <span>Ref: {p.reference_no || "N/A"}</span>
+                            <span>{new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Desktop Full Data Table (viewports >= md) */}
+                    <div className="hidden md:block">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="pl-6">Receipt No</TableHead>
+                            <TableHead>Student</TableHead>
+                            <TableHead>College</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Payment Method</TableHead>
+                            <TableHead>Reference No</TableHead>
+                            <TableHead className="pr-6">Date</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {(paymentsData?.payments || []).map((p) => (
+                            <TableRow key={p.id}>
+                              <TableCell className="pl-6 font-mono text-slate-900 dark:text-amber-400 font-extrabold">{p.receipt_no}</TableCell>
+                              <TableCell>
+                                <span className="font-extrabold text-slate-800 dark:text-slate-200 block">{p.student_name || p.student_id}</span>
+                                <span className="text-[10px] text-slate-400 font-mono">{p.student_id}</span>
+                              </TableCell>
+                              <TableCell className="text-slate-500 font-medium text-[11px] max-w-[200px] truncate">
+                                {getCollegeName(p.college_id)}
+                              </TableCell>
+                              <TableCell className="font-black text-slate-900 dark:text-slate-100">{fmt(p.amount)}</TableCell>
+                              <TableCell><MethodBadge method={p.payment_method} /></TableCell>
+                              <TableCell className="font-mono text-[10px] text-slate-400">{p.reference_no}</TableCell>
+                              <TableCell className="pr-6 text-slate-500">
+                                {new Date(p.payment_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+
+                    <Pagination
+                      currentPage={displayPaymentsPage}
+                      totalItems={paymentsData?.total ?? 0}
+                      pageSize={paymentsPageSize}
+                      pageSizeOptions={[10, 25, 50, 100]}
+                      onPageChange={setPaymentsPage}
+                      onPageSizeChange={(newSize) => {
+                        setPaymentsPageSize(newSize);
+                        setPaymentsPage(1);
+                      }}
+                    />
+                  </>
                 )}
               </Card>
             </div>
@@ -2133,11 +2250,13 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
                   <Button
                     type="button"
                     onClick={handleDownloadTemplate}
+                    disabled={isExportingReport || isDownloadingTemplate}
                     variant="outline"
                     size="sm"
                     className="border-slate-200 text-slate-800 dark:border-slate-800 dark:text-slate-200 hover:bg-slate-100"
                   >
-                    <Download className="h-3.5 w-3.5" /> Download (.xlsx)
+                    <Download className="h-3.5 w-3.5" />
+                    <span>{isDownloadingTemplate ? "Downloading…" : "Download (.xlsx)"}</span>
                   </Button>
                 </div>
               </div>

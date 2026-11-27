@@ -128,7 +128,7 @@ async function uploadSnapPhoto(file: File, college: string, stage: "start" | "en
 
 export async function POST(request: Request) {
   try {
-    const { errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin"] });
+    const { errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "kam", "admin", "hr"] });
     if (errorResponse) return errorResponse;
     const contentType = request.headers.get("content-type") || "";
 

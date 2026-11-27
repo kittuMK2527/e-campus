@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { RedirectingLoader } from "@/components/RedirectingLoader";
 
-export default function kamIndexPage() {
+export default function KamIndexPage() {
   const router = useRouter();
   useEffect(() => {
     router.replace("/kam/overview");

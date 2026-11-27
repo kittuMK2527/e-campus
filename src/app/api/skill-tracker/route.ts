@@ -135,7 +135,6 @@ export async function GET(request: Request) {
       { sql: trackerQuery, params: trackerParams },
       { sql: "SELECT name, type, semester, department, college_id FROM subjects", params: [] },
       { sql: slotQuery, params: slotParams },
-      { sql: "SELECT id, name FROM colleges", params: [] },
     ];
 
     // ── 7. Mentor roster for the requested scope ───────────────────────
@@ -143,12 +142,10 @@ export async function GET(request: Request) {
       slices.push({ sql: "SELECT id, name, college_id, subjects FROM mentors WHERE id = ?", params: [mentorId] });
     } else if (collegeId && collegeId !== "all") {
       slices.push({ sql: "SELECT id, name, college_id, subjects FROM mentors WHERE college_id = ? ORDER BY name ASC", params: [collegeId] });
-    } else {
-      slices.push({ sql: "SELECT id, name, college_id, subjects FROM mentors ORDER BY name ASC", params: [] });
     }
 
     const failedSlices: QueryFailure[] = [];
-    const [clearances, plans, demos, trackerRows, subjectRows, slotRows, collegeRows, mentorRoster] = await db.multiQuery(slices, failedSlices);
+    const [clearances, plans, demos, trackerRows, subjectRows, slotRows, mentorRoster = []] = await db.multiQuery(slices, failedSlices);
     if (failedSlices.length > 0) {
       const tables = failedSlices.map(f => f.sql.match(/FROM\s+([a-z_]+)/i)?.[1] || "unknown");
       console.error("GET /api/skill-tracker partial read:", failedSlices.map(f => `${f.sql.slice(0, 80)} → ${f.error}`).join(" | "));
@@ -157,11 +154,6 @@ export async function GET(request: Request) {
         { status: 500 }
       );
     }
-
-    const collegeMap = new Map<string, string>();
-    (collegeRows || []).forEach((c: any) => {
-      if (c?.id && c?.name) collegeMap.set(c.id, c.name);
-    });
 
     const subjectTypeMap = new Map<string, string>();
     const subjectSemesterMap = new Map<string, string>();
@@ -303,7 +295,7 @@ export async function GET(request: Request) {
         }
 
         const mentorCollegeId = mentorObj?.college_id || collegeId;
-        const resolvedCollegeName = (mentorCollegeId && collegeMap.get(mentorCollegeId)) || null;
+        const resolvedCollegeName = null;
         const semFromSubj = (mentorCollegeId && subjectSemesterMap.get(`${subjKey}__${mentorCollegeId}`)) || subjectSemesterMap.get(subjKey);
         const deptFromSubj = (mentorCollegeId && subjectDeptMap.get(`${subjKey}__${mentorCollegeId}`)) || subjectDeptMap.get(subjKey);
         const slotMatch = (slotRows || []).find((s: any) => s.mentorid === mId && normalizeTopic(s.course) === subjKey);

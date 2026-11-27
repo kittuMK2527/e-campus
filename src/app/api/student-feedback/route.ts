@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import { getDb, type QueryFailure } from "@/lib/db";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
+import { requireAuth } from "@/lib/authGuard";
 
 export async function POST(request: Request) {
   try {
@@ -202,6 +203,13 @@ export async function GET(request: Request) {
 
     // If specific student check
     if (regNo) {
+      const { auth } = await requireAuth(request).catch(() => ({ auth: null }));
+      if (auth && auth.user.role === "student") {
+        const studentReg = (auth.user as any).register_number || (auth.user as any).registerNumber || auth.user.reference_id || "";
+        if (studentReg && studentReg.toLowerCase() !== regNo.trim().toLowerCase()) {
+          return NextResponse.json({ success: false, message: "Forbidden" }, { status: 403 });
+        }
+      }
       const feedback = await db.get(
         "SELECT * FROM student_mentor_feedback WHERE LOWER(TRIM(register_number)) = LOWER(TRIM(?)) LIMIT 1",
         [regNo.trim()]
@@ -212,6 +220,11 @@ export async function GET(request: Request) {
         submission: feedback || null
       });
     }
+
+    const { errorResponse } = await requireAuth(request, {
+      allowedRoles: ["admin", "cm", "kam", "hr", "mentor"]
+    });
+    if (errorResponse) return errorResponse;
 
     // Build query for feedback submissions
     let feedbackQuery = "SELECT * FROM student_mentor_feedback WHERE 1=1";

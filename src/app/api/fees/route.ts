@@ -512,7 +512,7 @@ export async function POST(request: Request) {
       });
     } else {
       // Standard transaction pathway
-      if (payAmount <= 0) {
+      if (typeof payAmount !== "number" || !Number.isFinite(payAmount) || payAmount <= 0) {
         return NextResponse.json({ success: false, message: "Payment amount must be greater than zero" }, { status: 400 });
       }
 

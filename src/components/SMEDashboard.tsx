@@ -335,15 +335,34 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
     return `https://${trimmed}`;
   };
 
+  const PERIOD_DEFAULTS: Record<number, { startMin: number; endMin: number }> = {
+    1: { startMin: 8 * 60 + 30, endMin: 9 * 60 + 25 },
+    2: { startMin: 9 * 60 + 25, endMin: 10 * 60 + 20 },
+    3: { startMin: 10 * 60 + 40, endMin: 11 * 60 + 35 },
+    4: { startMin: 11 * 60 + 35, endMin: 12 * 60 + 30 },
+    5: { startMin: 13 * 60 + 25, endMin: 14 * 60 + 20 },
+    6: { startMin: 14 * 60 + 20, endMin: 15 * 60 + 15 },
+    7: { startMin: 15 * 60 + 15, endMin: 16 * 60 + 10 },
+    8: { startMin: 16 * 60 + 10, endMin: 17 * 60 },
+  };
+
   // Helper to parse time string to minutes (supports period-prefixed, 12h & 24h formats)
   const parseTimeToMin = (t: string) => {
     if (!t) return 9999;
     const str = String(t).trim();
-    const match = str.match(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/i);
-    if (!match) return 9999;
+    const withoutPeriod = str.replace(/period\s*\d+/gi, "").trim();
+    const match = withoutPeriod.match(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/i);
+    if (!match) {
+      const pMatch = str.match(/period\s*(\d+)/i);
+      if (pMatch && PERIOD_DEFAULTS[parseInt(pMatch[1], 10)]) {
+        return PERIOD_DEFAULTS[parseInt(pMatch[1], 10)].startMin;
+      }
+      return 9999;
+    }
     let hr = parseInt(match[1], 10);
     const min = match[2] ? parseInt(match[2], 10) : 0;
     const ampm = match[3] ? match[3].toUpperCase() : null;
+    if (!ampm && hr >= 1 && hr <= 6) hr += 12;
     if (ampm === "PM" && hr < 12) hr += 12;
     if (ampm === "AM" && hr === 12) hr = 0;
     return hr * 60 + min;
@@ -352,25 +371,36 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
   // Helper to parse timetable time slot window into start & end minutes (handles period names)
   const parseSlotWindow = (t: string) => {
     if (!t) return { startMin: 0, endMin: 0 };
-    const matches = Array.from(String(t).matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
+    const str = String(t).trim();
+    const withoutPeriod = str.replace(/period\s*\d+/gi, "").trim();
+    const matches = Array.from(withoutPeriod.matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
     if (matches.length >= 2) {
       let s = parseTimeToMin(matches[0][0]);
       let e = parseTimeToMin(matches[1][0]);
       const m1Ampm = matches[0][3];
       const m2Ampm = matches[1][3];
+      const sHr = parseInt(matches[0][1], 10);
+      const eHr = parseInt(matches[1][1], 10);
+      if (!m1Ampm && sHr >= 1 && sHr <= 6) s += 12 * 60;
+      if (!m2Ampm && eHr >= 1 && eHr <= 6) e += 12 * 60;
       if (!m1Ampm && m2Ampm) {
-        const sHr = parseInt(matches[0][1], 10);
-        const eHr = parseInt(matches[1][1], 10);
         if (m2Ampm.toUpperCase() === "PM" && sHr < 12 && sHr <= eHr) {
-          s += 12 * 60;
+          if (s < 12 * 60) s += 12 * 60;
         }
       }
       if (e <= s) e = s + 50;
       return { startMin: Math.max(0, s), endMin: Math.max(s, e) };
     }
     if (matches.length === 1) {
-      const s = parseTimeToMin(matches[0][0]);
+      let s = parseTimeToMin(matches[0][0]);
+      const sHr = parseInt(matches[0][1], 10);
+      if (!matches[0][3] && sHr >= 1 && sHr <= 6) s += 12 * 60;
       return { startMin: Math.max(0, s), endMin: Math.max(0, s + 50) };
+    }
+    const pMatch = str.match(/period\s*(\d+)/i);
+    if (pMatch) {
+      const pNum = parseInt(pMatch[1], 10);
+      if (PERIOD_DEFAULTS[pNum]) return PERIOD_DEFAULTS[pNum];
     }
     return { startMin: 0, endMin: 0 };
   };
@@ -1717,7 +1747,7 @@ export function SMEDashboard({ activeTab: propTab, onTabChange }: SMEDashboardPr
                               <button onClick={() => setViewEvalSession(demo)} className="px-3.5 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-extrabold flex items-center gap-1 hover:bg-emerald-100 transition-all cursor-pointer">
                                 <Award className="h-3.5 w-3.5" /> View Scorecard ({demo.marks}/100)
                               </button>
-                            ) : demo.status === "confirmed" ? (
+                            ) : (demo.status === "confirmed" || demo.status === "scheduled") ? (
                               <>
                                 {(() => {
                                   const timing = getDemoEvaluationTiming(demo);

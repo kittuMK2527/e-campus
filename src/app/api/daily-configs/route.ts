@@ -137,8 +137,8 @@ async function handleAutoAdaptNextWeek(db: any, body: any) {
     const sessionMode = "Offline";
     let notesVal = "";
 
-    // Weekend rules: Sunday is always holiday; Saturday is holiday on 5-day campus or if skip_sundays is set
-    const isWeekendToSkip = isSunday || (workingDaysCount === 5 && isSaturday) || (skip_sundays && isSaturday);
+    // Weekend rules: Sunday is always holiday; Saturday is holiday on 5-day campus (or fewer)
+    const isWeekendToSkip = isSunday || (workingDaysCount <= 5 && isSaturday);
     const institutionalHoliday = holidayMap.get(nextDateStr);
 
     if (isWeekendToSkip || institutionalHoliday) {

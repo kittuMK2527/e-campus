@@ -26,6 +26,7 @@ export interface QueryFailure {
 }
 
 export interface PostgresDbAdapter {
+  isPostgres?: boolean;
   get: (sql: string, ...params: any[]) => Promise<any>;
   all: (sql: string, ...params: any[]) => Promise<any[]>;
   run: (sql: string, ...params: any[]) => Promise<{ lastID?: number; changes: number }>;
@@ -314,6 +315,7 @@ export function normalizePgRow(row: any): any {
 
 export function createPostgresAdapter(pool: pg.Pool): PostgresDbAdapter {
   return {
+    isPostgres: true,
     pool,
     client: {
       async batch(statements: { sql: string; args?: any[] }[]) {
@@ -382,16 +384,16 @@ export function createPostgresAdapter(pool: pg.Pool): PostgresDbAdapter {
             }
             nonNoopIndices.push(i);
             const inlined = inlineQueryParams(q.sql, q.params);
-            const adapted = adaptSqlText(inlined, []); // inlined literals: unique text, keep out of the cache
-            stmts.push(adapted.sql.trim().replace(/;+$/, '') + ';');
+            stmts.push(inlined.trim().replace(/;+$/, '') + ';');
           }
 
           if (stmts.length === 0) {
             return queries.map(() => []);
           }
 
+          const isReadOnly = queries.every(q => isReadOnlySql(q.sql || ""));
           const combinedSql = stmts.join("\n");
-          const res = await executeWithRetry(() => pool.query(combinedSql), { readOnly: true });
+          const res = await executeWithRetry(() => pool.query(combinedSql), { readOnly: isReadOnly });
           const resultSets = Array.isArray(res) ? res : [res];
 
           if (resultSets.length === nonNoopIndices.length) {

@@ -8743,6 +8743,7 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                     dateFormatted: targetAcadEditLog.date,
                     targetStaffId: "cam_approval",
                     targetStaffName: "CM Approval (Academic Period Log Edit Request)",
+                    requestType: "acad_log_edit",
                     reason: `[Academic Log Edit Request] Log ID: ${targetAcadEditLog.id} | Date: ${targetAcadEditLog.date} (${targetAcadEditLog.period_slot}) | Subject: ${targetAcadEditLog.subject} | Class: ${targetAcadEditLog.class_group} | Proposed Topic: ${acadEditProposedTopic.trim()} | Proposed Remarks: ${acadEditProposedComments.trim()} | Reason: ${acadEditReason.trim()}`,
                     course: targetAcadEditLog.subject,
                     classGroup: targetAcadEditLog.class_group

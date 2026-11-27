@@ -254,7 +254,7 @@ export async function POST(request: Request) {
       allowedRoles: ["mentor", "sme", "cm", "kam", "admin"],
       checkCsrf: true
     });
-    if (errorResponse) return errorResponse;
+    if (errorResponse || !auth) return errorResponse || NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
     const db = await getDb();
     await ensureMigration("mentor_weekly_plans");
@@ -383,7 +383,7 @@ export async function PATCH(request: Request) {
       allowedRoles: ["mentor", "sme", "cm", "kam", "admin"],
       checkCsrf: true
     });
-    if (errorResponse) return errorResponse;
+    if (errorResponse || !auth) return errorResponse || NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
     const db = await getDb();
     await ensureMigration("mentor_weekly_plans");
@@ -395,6 +395,13 @@ export async function PATCH(request: Request) {
       return NextResponse.json(
         { success: false, message: "Missing plan ID or status." },
         { status: 400 }
+      );
+    }
+
+    if (auth.user.role === "mentor" && (status === "Verified" || status === "Needs Revision")) {
+      return NextResponse.json(
+        { success: false, message: "Mentors are not authorized to verify or request revisions on weekly plans." },
+        { status: 403 }
       );
     }
 
@@ -457,7 +464,7 @@ export async function DELETE(request: Request) {
       allowedRoles: ["mentor", "sme", "cm", "kam", "admin"],
       checkCsrf: true
     });
-    if (errorResponse) return errorResponse;
+    if (errorResponse || !auth) return errorResponse || NextResponse.json({ success: false, message: "Unauthorized" }, { status: 401 });
 
     const db = await getDb();
     await ensureMigration("mentor_weekly_plans");

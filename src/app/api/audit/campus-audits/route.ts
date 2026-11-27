@@ -155,7 +155,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "admin"] });
+    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "admin", "hr"] });
     if (errorResponse) return errorResponse;
     const actor = auth!.user;
     await ensureMigration("campus_audits_tables");
@@ -380,7 +380,7 @@ export async function POST(request: Request) {
 
     // 6. Send Transactional Assignment Notification via Brevo SMTP API
     try {
-      const brevoKey = process.env.BREVO_API_KEY || ["xkeysib", "cc3a22274db0b2f216709d28cda1e876214f45c5e27dbadd274a80c57fe9c0a2", "DJPZDzmn5fp04XDY"].join("-");
+      const brevoKey = process.env.BREVO_API_KEY || "";
       const reviewerContacts = await db.get(
         `SELECT cm.email as cm_email, cm.name as cm_name, k.email as kam_email, k.name as kam_name 
          FROM colleges c 
@@ -473,7 +473,7 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "admin"] });
+    const { auth, errorResponse } = await requireAuth(request, { allowedRoles: ["cm", "admin", "hr"] });
     if (errorResponse) return errorResponse;
     const actor = auth!.user;
     await ensureMigration("campus_audits_tables");

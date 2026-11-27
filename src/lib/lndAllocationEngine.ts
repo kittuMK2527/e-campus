@@ -58,14 +58,45 @@ function parseMatch(m: RegExpMatchArray): number {
   return hr * 60 + min;
 }
 
+const PERIOD_DEFAULTS: Record<number, { startMin: number; endMin: number }> = {
+  1: { startMin: 8 * 60 + 30, endMin: 9 * 60 + 25 },
+  2: { startMin: 9 * 60 + 25, endMin: 10 * 60 + 20 },
+  3: { startMin: 10 * 60 + 40, endMin: 11 * 60 + 35 },
+  4: { startMin: 11 * 60 + 35, endMin: 12 * 60 + 30 },
+  5: { startMin: 13 * 60 + 25, endMin: 14 * 60 + 20 },
+  6: { startMin: 14 * 60 + 20, endMin: 15 * 60 + 15 },
+  7: { startMin: 15 * 60 + 15, endMin: 16 * 60 + 10 },
+  8: { startMin: 16 * 60 + 10, endMin: 17 * 60 },
+};
+
 /** Start/end minutes of a period label such as "Period 1 (8.30 AM - 9.25 AM)". */
 export function extractSlotStartAndEnd(timeSlotStr: string): { startMin: number; endMin: number } {
   if (!timeSlotStr) return { startMin: DEFAULT_WORK_START_MIN, endMin: 600 };
-  const matches = Array.from(timeSlotStr.matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
-  if (matches.length >= 2) return { startMin: parseMatch(matches[0]), endMin: parseMatch(matches[1]) };
+  const str = String(timeSlotStr || "").trim();
+  const withoutPeriod = str.replace(/period\s*\d+/gi, "").trim();
+  const matches = Array.from(withoutPeriod.matchAll(/(\d{1,2})(?:[:.](\d{2}))?\s*(AM|PM)?/gi));
+  if (matches.length >= 2) {
+    let s = parseMatch(matches[0]);
+    let e = parseMatch(matches[1]);
+    const sHr = parseInt(matches[0][1], 10);
+    const eHr = parseInt(matches[1][1], 10);
+    if (!matches[0][3] && sHr >= 1 && sHr <= 6) s += 12 * 60;
+    if (!matches[1][3] && eHr >= 1 && eHr <= 6) e += 12 * 60;
+    if (!matches[0][3] && matches[1][3] && matches[1][3].toUpperCase() === "PM" && sHr < 12 && sHr <= eHr) {
+      if (s < 12 * 60) s += 12 * 60;
+    }
+    return { startMin: s, endMin: Math.max(s, e) };
+  }
   if (matches.length === 1) {
-    const s = parseSlotTimeToMinutes(matches[0][0]);
+    let s = parseSlotTimeToMinutes(matches[0][0]);
+    const sHr = parseInt(matches[0][1], 10);
+    if (!matches[0][3] && sHr >= 1 && sHr <= 6) s += 12 * 60;
     return { startMin: s, endMin: s + 50 };
+  }
+  const pMatch = str.match(/period\s*(\d+)/i);
+  if (pMatch) {
+    const pNum = parseInt(pMatch[1], 10);
+    if (PERIOD_DEFAULTS[pNum]) return PERIOD_DEFAULTS[pNum];
   }
   return { startMin: DEFAULT_WORK_START_MIN, endMin: 600 };
 }

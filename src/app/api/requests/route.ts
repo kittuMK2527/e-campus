@@ -143,11 +143,13 @@ export async function POST(request: Request) {
       normalizedTargetStaffId.toLowerCase() === "cam_approval" ||
       normalizedTargetStaffId.toLowerCase() === "cam-approval" ||
       normalizedTargetStaffId.toLowerCase() === "cam" ||
-      normalizedTargetStaffId.toLowerCase() === "cm"
-      || normalizedTargetStaffId.toLowerCase().includes("cam") ||
+      normalizedTargetStaffId.toLowerCase() === "cm" ||
       slotId.startsWith("mentor_daily_punch_") ||
       slotId.startsWith("acad_log_edit_") ||
-      (typeof reason === "string" && reason.toLowerCase().includes("late attendance"));
+      requestType === "late_attendance" ||
+      requestType === "late_punch" ||
+      requestType === "acad_log_edit" ||
+      (typeof reason === "string" && reason.toLowerCase().startsWith("late attendance"));
 
     if (isMetaRequest) {
       // Check for duplicate pending or approved requests for this slot and date
@@ -220,7 +222,7 @@ export async function POST(request: Request) {
         reason,
         new Date().toISOString(),
         metaClassGroup,
-        requestType || ((typeof reason === "string" && reason.toLowerCase().includes("late attendance")) ? "late_attendance" : "late_punch")
+        requestType || (slotId.startsWith("acad_log_edit_") ? "acad_log_edit" : (typeof reason === "string" && reason.toLowerCase().includes("late attendance")) ? "late_attendance" : "late_punch")
       );
 
       // Audit log

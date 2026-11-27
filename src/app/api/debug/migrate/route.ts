@@ -24,7 +24,7 @@ export async function GET(request: Request) {
     const db = await getDb();
 
     // Additive column migration (idempotent)
-    try { await db.exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT 0;"); } catch (_) {}
+    try { await db.exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE;"); } catch (_) {}
     try { await db.exec("ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TEXT DEFAULT NULL;"); } catch (_) {}
 
     return NextResponse.json({

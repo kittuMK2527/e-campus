@@ -645,5 +645,32 @@ export async function checkSmeAvailability(
     }
   }
 
+  // Also check SME Leaves
+  let activeLeaves: any[] = [];
+  if (ctx) {
+    activeLeaves = (ctx.leaves || []).filter(l =>
+      (l.sme_id === smeId || l.smeId === smeId) &&
+      (l.status === "approved") &&
+      (l.start_date <= dateStr && l.end_date >= dateStr)
+    );
+  } else if (typeof db?.all === "function") {
+    activeLeaves = await db.all(
+      `SELECT id, leave_type, reason, start_date, end_date FROM sme_leaves
+       WHERE sme_id = ? AND status = 'approved' AND start_date <= ? AND end_date >= ?
+       LIMIT 1`,
+      [smeId, dateStr, dateStr]
+    ).catch(() => []);
+  }
+
+  if (activeLeaves?.[0]) {
+    const activeLeave = activeLeaves[0];
+    return {
+      available: false,
+      busyType: "leave",
+      reason: `SME is on leave (${activeLeave.leave_type || "Leave"}) from ${activeLeave.start_date} to ${activeLeave.end_date}.`,
+      details: activeLeave
+    };
+  }
+
   return { available: true };
 }

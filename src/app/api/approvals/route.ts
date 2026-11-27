@@ -120,7 +120,9 @@ export async function PATCH(request: Request) {
     const user = auth.user;
     const db = await getDb();
     const body = await request.json();
-    const { id, status, decision_notes } = body;
+    const id = body.id || body.approval_id;
+    const status = body.status;
+    const decision_notes = body.decision_notes || body.remarks || body.rejection_reason;
 
     if (!id || !status || !["approved", "rejected"].includes(status)) {
       return NextResponse.json({ success: false, error: "Valid id and status ('approved' | 'rejected') are required" }, { status: 400 });
@@ -162,4 +164,8 @@ export async function PATCH(request: Request) {
     console.error("PATCH /api/approvals error:", error);
     return NextResponse.json({ success: false, error: error?.message || "Failed to update approval" }, { status: 500 });
   }
+}
+
+export async function PUT(request: Request) {
+  return PATCH(request);
 }

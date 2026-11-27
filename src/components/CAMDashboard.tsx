@@ -10776,6 +10776,9 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
   const [workingDays, setWorkingDays] = useState<string[]>(["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
   const [configCollegeId, setConfigCollegeId] = useState<string>("");
 
+  const [collegeHours, setCollegeHours] = useState<{ start: string; end: string }>({ start: "", end: "" });
+  const [isSavingCollegeHours, setIsSavingCollegeHours] = useState(false);
+
   useEffect(() => {
     const isMultiCampus = isSuperAdminUser || isKAMView;
     const targetId = isMultiCampus
@@ -10797,9 +10800,6 @@ export const CAMDashboard: React.FC<CAMDashboardProps> = ({
       setSelectedYear(activeCollege.academic_year);
     }
   }, [configCollegeId, activeCollegeId, colleges, scopedColleges, isSuperAdminUser, isKAMView, currentCAM?.college_id]);
-
-  const [collegeHours, setCollegeHours] = useState<{ start: string; end: string }>({ start: "", end: "" });
-  const [isSavingCollegeHours, setIsSavingCollegeHours] = useState(false);
 
   const handleSaveCollegeHoursAndDays = async () => {
     const isMultiCampus = isSuperAdminUser || isKAMView;

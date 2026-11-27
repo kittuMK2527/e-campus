@@ -24,7 +24,7 @@ function classify(score: number): "promoter" | "passive" | "detractor" {
 }
 
 export async function GET(request: Request) {
-  const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin", "kam", "cm"] });
+  const { errorResponse } = await requireAuth(request, { allowedRoles: ["admin", "kam", "cm", "hr"] });
   if (errorResponse) return errorResponse;
   try {
     const { searchParams } = new URL(request.url);

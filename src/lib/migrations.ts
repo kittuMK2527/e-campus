@@ -156,7 +156,7 @@ const migrations: Migration[] = [
     name: "users_columns",
     run: async (db) => {
       const stmts = [
-        "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN DEFAULT FALSE",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TEXT DEFAULT NULL",
       ];
       for (const sql of stmts) {
@@ -1193,6 +1193,22 @@ const migrations: Migration[] = [
         `).catch(() => {});
         await db.exec("CREATE INDEX IF NOT EXISTS idx_sme_leaves_sme_dates ON sme_leaves(sme_id, start_date, end_date, status);").catch(() => {});
       });
+    }
+  },
+  {
+    name: "student_od_approval_flow",
+    run: async (db) => {
+      const stmts = [
+        "ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS start_date VARCHAR(50)",
+        "ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS end_date VARCHAR(50)",
+        "ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS college_id VARCHAR(255)",
+        "ALTER TABLE leave_requests ADD COLUMN IF NOT EXISTS mentor_id VARCHAR(255)",
+      ];
+      for (const sql of stmts) {
+        await db.exec(sql).catch((err: any) => {
+          console.warn(`[migrations] ${sql.slice(0, 60)}... failed:`, err?.message);
+        });
+      }
     }
   }
 ];
