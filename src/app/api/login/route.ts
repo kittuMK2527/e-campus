@@ -11,6 +11,7 @@ import { after } from "next/server";
 import { ensureMigration } from "@/lib/migrations";
 import { generateId } from "@/lib/id";
 import { DEFAULT_PASSWORD } from "@/lib/authConfig";
+import { checkAndEnforceDeviceAuthorization } from "@/lib/deviceSecurity";
 
 /** Profile tables that hold a display name for each role (whitelisted — never user input). */
 const ROLE_PROFILE_TABLES: Record<string, string> = {
@@ -408,13 +409,38 @@ export async function POST(request: Request) {
     // Super admin is derived purely from the stored role — never from the email address
     const isSuperAdmin = roleGrantsSuperAdmin(user.role);
 
-    // College scope and the header display name live on the role's profile row, and the
-    // session row is keyed only by user.id - so the profile read and the session insert
-    // go out together instead of one waiting on the other.
-    const [profile, session] = await Promise.all([
-      resolveProfile(db, user),
-      createUserSession(db, user.id, { ip, userAgent })
-    ]);
+    // College scope and the header display name live on the role's profile row
+    const profile = await resolveProfile(db, user);
+
+    // Multi-Device Signature Enforcement: 1 Desktop + 1 Mobile limit (Admins exempt)
+    const deviceCheck = await checkAndEnforceDeviceAuthorization(
+      db,
+      user,
+      {
+        name: profile.name || user.email || "User",
+        collegeId: profile.collegeId
+      },
+      {
+        deviceSignature: body.deviceSignature,
+        deviceType: body.deviceType,
+        deviceName: body.deviceName
+      },
+      ip
+    );
+
+    if (!deviceCheck.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          code: deviceCheck.code,
+          message: deviceCheck.message,
+          data: deviceCheck.conflictData
+        },
+        { status: 403 }
+      );
+    }
+
+    const session = await createUserSession(db, user.id, { ip, userAgent });
     const collegeId = profile.collegeId;
     const userName = profile.name;
     const { rawToken, csrfToken, expiresAt } = session;

@@ -67,7 +67,12 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
-  FolderKanban
+  FolderKanban,
+  LifeBuoy,
+  ShieldCheck,
+  ClipboardEdit,
+  BookOpenCheck,
+  FolderDown
 } from "lucide-react";
 import dynamic from "next/dynamic";
 
@@ -1618,6 +1623,37 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
   const [rescheduleAvailability, setRescheduleAvailability] = useState<any | null>(null);
   const [rescheduleAvailabilityLoading, setRescheduleAvailabilityLoading] = useState(false);
   const [rescheduleAvailabilityError, setRescheduleAvailabilityError] = useState("");
+  const [escalatingLnd, setEscalatingLnd] = useState(false);
+
+  const handleEscalateToLnd = async () => {
+    if (!rescheduleModalSession) return;
+    setEscalatingLnd(true);
+    try {
+      const res = await fetch("/api/demo-reallocations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "escalate_lnd",
+          demoSessionId: rescheduleModalSession.id,
+          reason: "Mentor requested assistance from L&D team to reschedule or swap this session.",
+          requestedBy: currentMentor?.name || "Mentor"
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast("Escalated to L&D team! They will assist with swapping or reassigning your session.", "success");
+        setRescheduleModalSession(null);
+        await refreshData();
+        announceDataChanged("demos");
+      } else {
+        toast(data?.message || "Failed to notify L&D team. Please try again.", "error");
+      }
+    } catch (err: any) {
+      toast(err?.message || "Network error contacting L&D team.", "error");
+    } finally {
+      setEscalatingLnd(false);
+    }
+  };
 
   const handleOpenRescheduleModal = (session: any) => {
     setRescheduleModalSession(session);
@@ -4023,55 +4059,88 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           return 0;
         };
 
+        const MENTOR_SIDEBAR_SECTIONS = [
+          {
+            title: "Daily Classroom",
+            items: [
+              { id: "home", label: "Home", icon: Home },
+              { id: "timetable", label: "My Schedule", icon: Calendar },
+              { id: "attendance", label: "Student Attendance", icon: ClipboardList },
+            ]
+          },
+          {
+            title: "Academic & Curriculum",
+            items: [
+              { id: "weekly_plan", label: "Weekly Teaching Plan", icon: CalendarRange },
+              { id: "academic_tracker", label: "Academic Tracker", icon: BookOpenCheck },
+              { id: "materials", label: "Study Materials Hub", icon: FolderDown },
+            ]
+          },
+          {
+            title: "Students & Evaluations",
+            items: [
+              { id: "tracker", label: "Student Skill Matrix", icon: GraduationCap },
+              { id: "exams", label: "Exam Marks Entry", icon: FileText },
+              { id: "student_log", label: "Student Log", icon: ClipboardEdit },
+              { id: "interviews", label: "Interview Module", icon: Video },
+            ]
+          },
+          {
+          title: "My Development & Requests",
+            items: [
+              { id: "my_skill_tracker", label: "Mentor Skill Development", icon: GraduationCap },
+              { id: "demo_evaluations", label: "Demo Evaluations", icon: Sparkles },
+              { id: "handovers", label: "Handovers", icon: Clock },
+              { id: "profile", label: "Profile", icon: User },
+            ]
+          }
+        ];
+
         return (
           <aside className={`hidden md:flex shrink-0 flex-col justify-between sticky top-6 z-30 floating-sidebar transition-all duration-300 ${isCollapsed ? "w-20 p-3" : "w-64 p-5"}`}>
             <div className="flex flex-col flex-1 overflow-y-auto">
-              <nav className={`py-2 space-y-1 ${isCollapsed ? "px-1" : "px-4"}`}>
-                {[
-                  { id: "home", label: "Home", icon: Home },
-                  { id: "timetable", label: "My Schedule", icon: Calendar },
-                  { id: "interviews", label: "Interview Module", icon: Award },
-                  { id: "demo_evaluations", label: "My L&D", icon: Sparkles },
-                  { id: "attendance", label: "Student Attendance", icon: ClipboardList },
-                  { id: "exams", label: "Exam Marks Entry", icon: FileText },
-                  { id: "student_log", label: "Student Log", icon: Award },
-                  { id: "academic_tracker", label: "Academic Tracker", icon: BookOpen },
-                  { id: "materials", label: "Study Materials Hub", icon: Book },
-                  { id: "tracker", label: "Student Skill Matrix", icon: GraduationCap },
-                  { id: "my_skill_tracker", label: "My Clearance (SME)", icon: Award },
-                  { id: "weekly_plan", label: "Weekly Teaching Plan", icon: CalendarRange },
-                  { id: "handovers", label: "Handovers", icon: Clock },
-                  { id: "profile", label: "Profile", icon: User }
-                ].map(t => {
-                  const Icon = t.icon;
-                  const isActive = activeTab === t.id;
-                  const count = getNotificationCount(t.id);
-                  return (
-                    <button
-                      key={t.id}
-                      onMouseEnter={() => prefetchRoleTab(queryClient, "mentor", t.id, { collegeId: mentorCollegeId, mentorId: currentMentor?.id || "" })}
-                      onClick={() => setActiveTab(t.id as any)}
-                      className={`w-full flex items-center rounded-xl text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer group ${isCollapsed ? "justify-center px-0 py-3" : "justify-start gap-3 px-3.5 py-2.5 text-left"
-                        } ${isActive
-                          ? "bg-zinc-900 text-white ring-1 ring-inset ring-zinc-800 font-extrabold shadow-sm dark:bg-zinc-900 dark:text-white"
-                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10"
-                        }`}
-                    >
-                      <div className="relative flex items-center justify-center">
-                        <Icon className={`h-4.5 w-4.5 shrink-0 transition-colors ${isActive ? "text-amber-400" : "text-slate-400 group-hover:text-amber-500"}`} />
-                        {isCollapsed && count > 0 && (
-                          <span className="absolute -top-1.5 -right-1.5 block h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
-                        )}
+              <nav className={`sidebar-role-mentor py-1 space-y-2.5 ${isCollapsed ? "px-1" : "px-3"}`}>
+                {MENTOR_SIDEBAR_SECTIONS.map((section, sIdx) => (
+                  <div key={section.title} className="space-y-0.5">
+                    {!isCollapsed ? (
+                      <div className={`px-3 pb-1 text-[9px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 ${sIdx > 0 ? "pt-2 border-t border-slate-100/70 dark:border-slate-800/60" : "pt-0.5"}`}>
+                        {section.title}
                       </div>
-                      {!isCollapsed && <span>{t.label}</span>}
-                      {!isCollapsed && count > 0 && (
-                        <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-rose-500 text-white"}`}>
-                          {count}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                    ) : (
+                      sIdx > 0 && <div className="my-1.5 border-t border-slate-100/80 dark:border-slate-800" />
+                    )}
+                    {section.items.map(t => {
+                      const Icon = t.icon;
+                      const isActive = activeTab === t.id;
+                      const count = getNotificationCount(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          onMouseEnter={() => prefetchRoleTab(queryClient, "mentor", t.id, { collegeId: mentorCollegeId, mentorId: currentMentor?.id || "" })}
+                          onClick={() => setActiveTab(t.id as any)}
+                          className={`w-full flex items-center rounded-xl text-xs font-bold tracking-tight transition-all duration-200 cursor-pointer group ${isCollapsed ? "justify-center px-0 py-2.5" : "justify-start gap-3 px-3 py-2 text-left"
+                            } ${isActive
+                              ? "bg-zinc-900 text-white ring-1 ring-inset ring-zinc-800 font-extrabold shadow-sm dark:bg-zinc-900 dark:text-white"
+                              : "text-slate-600 hover:text-slate-900 hover:bg-slate-100/80 dark:text-slate-300 dark:hover:text-white dark:hover:bg-white/10"
+                            }`}
+                        >
+                          <div className="relative flex items-center justify-center">
+                            <Icon className={`h-4.5 w-4.5 shrink-0 transition-colors ${isActive ? "text-amber-400" : "text-slate-400 group-hover:text-amber-500"}`} />
+                            {isCollapsed && count > 0 && (
+                              <span className="absolute -top-1.5 -right-1.5 block h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />
+                            )}
+                          </div>
+                          {!isCollapsed && <span className="truncate">{t.label}</span>}
+                          {!isCollapsed && count > 0 && (
+                            <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive ? "bg-amber-500 text-zinc-950 font-black" : "bg-rose-500 text-white"}`}>
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
               </nav>
             </div>
 
@@ -4105,12 +4174,13 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           { id: "tracker", label: "Student Matrix", icon: GraduationCap },
           { id: "more_menu", label: "More", icon: Menu },
         ];
+        const isBottomTab = ["home", "timetable", "attendance", "tracker"].includes(activeTab);
         return (
-          <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom">
+          <nav className="sidebar-role-mentor flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom">
             <div className="flex w-full justify-around items-center py-2 px-1">
               {tabs.map(t => {
                 const Icon = t.icon;
-                const isActive = activeTab === t.id || (t.id === "more_menu" && ["handovers", "profile", "demo_evaluations"].includes(activeTab));
+                const isActive = activeTab === t.id || (t.id === "more_menu" && !isBottomTab);
                 const count = t.id === "more_menu" && currentMentor
                   ? sidebarNotificationCount
                   : 0;
@@ -4151,96 +4221,81 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
           </div>
         )}
         {/* Tab More Menu: Grid of remaining tabs */}
-        {activeTab === "more_menu" && (
-          <div className="space-y-6 animate-fadeIn pb-10">
-            <h2 className="text-sm font-extrabold text-slate-800 uppercase tracking-wider">More Tools & Portals</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setActiveTab("interviews")}
-                className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-              >
-                <div className="h-10 w-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600 shrink-0 group-hover:scale-105 transition-transform">
-                  <Award className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-slate-800">Interview Module</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Evaluate student interviews & Google Meet</span>
-                </div>
-              </button>
+        {activeTab === "more_menu" && (() => {
+          const MENTOR_MORE_SECTIONS = [
+            {
+              title: "Academic & Curriculum",
+              items: [
+                { id: "weekly_plan", label: "Weekly Teaching Plan", desc: "Author & track syllabus delivery roadmaps", icon: CalendarRange, color: "text-amber-600 bg-amber-50" },
+                { id: "academic_tracker", label: "Academic Tracker", desc: "Log date-wise period topics, units & conduct", icon: BookOpenCheck, color: "text-emerald-600 bg-emerald-50" },
+                { id: "materials", label: "Study Materials Hub", desc: "Publish notes, PPTs & question banks", icon: FolderDown, color: "text-blue-600 bg-blue-50" },
+              ]
+            },
+            {
+              title: "Students & Evaluations",
+              items: [
+                { id: "exams", label: "Exam Marks Entry", desc: "Enter CIA, internal test scores & assessment marks", icon: FileText, color: "text-indigo-600 bg-indigo-50" },
+                { id: "student_log", label: "Student Log", desc: "Record student achievements, test marks & conduct logs", icon: ClipboardEdit, color: "text-amber-600 bg-amber-50" },
+                { id: "interviews", label: "Interview Module", desc: "Evaluate student interviews & Google Meet", icon: Video, color: "text-purple-600 bg-purple-50" },
+              ]
+            },
+            {
+              title: "My Development & Requests",
+              items: [
+                { id: "my_skill_tracker", label: "Mentor Skill Development", desc: "Track your skill tasks, SME feedback and demo results", icon: GraduationCap, color: "text-teal-600 bg-teal-50" },
+                { id: "demo_evaluations", label: "Demo Evaluations", desc: "View scheduled demos and completed SME evaluations", icon: Sparkles, color: "text-pink-600 bg-pink-50" },
+                { id: "handovers", label: "Handovers", desc: "Manage class swaps and coverage handovers", icon: Clock, color: "text-amber-600 bg-zinc-100" },
+                { id: "profile", label: "Profile", desc: "View profile stats, subjects & assigned classes", icon: User, color: "text-slate-600 bg-slate-100" },
+              ]
+            }
+          ];
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("handovers")}
-                className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-              >
-                <div className="h-10 w-10 rounded-xl bg-zinc-100 flex items-center justify-center text-amber-500 shrink-0 group-hover:scale-105 transition-transform">
-                  <Clock className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-slate-800">Handovers</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Manage swaps and handovers</span>
-                </div>
-              </button>
+          return (
+            <div className="space-y-6 animate-fadeIn pb-12 font-sans">
+              <div>
+                <h2 className="text-base font-black text-slate-900 tracking-tight">More Tools & Portals</h2>
+                <p className="text-xs text-slate-400 font-medium mt-0.5">Access all curriculum, student evaluation, and professional development tabs</p>
+              </div>
 
-              <button
-                type="button"
-                onClick={() => setActiveTab("demo_evaluations")}
-                className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-              >
-                <div className="h-10 w-10 rounded-xl bg-pink-50 flex items-center justify-center text-pink-500 shrink-0 group-hover:scale-105 transition-transform">
-                  <Sparkles className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-slate-800">My L&D</span>
-                  <span className="text-[10px] text-slate-400 font-medium">L&D sessions and review scorecards</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("materials")}
-                className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-              >
-                <div className="h-10 w-10 rounded-xl bg-zinc-100 flex items-center justify-center text-amber-500 shrink-0 group-hover:scale-105 transition-transform">
-                  <Book className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-slate-800">Study Materials Hub</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Publish notes, PPTs & question banks</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("student_log")}
-                className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group"
-              >
-                <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600 shrink-0 group-hover:scale-105 transition-transform">
-                  <FileText className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-slate-800">Student Log</span>
-                  <span className="text-[10px] text-slate-400 font-medium">Record student achievements, test marks & conduct logs</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab("profile")}
-                className="p-5 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-indigo-100 transition-all flex items-center gap-4 shadow-card cursor-pointer group sm:col-span-2"
-              >
-                <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 shrink-0 group-hover:scale-105 transition-transform">
-                  <User className="h-5 w-5" />
-                </div>
-                <div>
-                  <span className="block text-xs font-bold text-slate-800">Profile</span>
-                  <span className="text-[10px] text-slate-400 font-medium">View profile stats & info</span>
-                </div>
-              </button>
+              <div className="space-y-6">
+                {MENTOR_MORE_SECTIONS.map((section) => (
+                  <div key={section.title} className="space-y-2.5">
+                    <h3 className="text-[10px] font-black uppercase tracking-wider text-slate-400 px-1">{section.title}</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {section.items.map((item) => {
+                        const Icon = item.icon;
+                        const count = item.id === "handovers" && currentMentor ? sidebarNotificationCount : 0;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setActiveTab(item.id as any)}
+                            className="p-4 bg-white border border-slate-100 rounded-2xl text-left hover:border-amber-500 hover:ring-2 hover:ring-amber-100/50 transition-all flex items-center gap-3.5 shadow-card cursor-pointer group"
+                          >
+                            <div className={`h-10 w-10 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${item.color}`}>
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="block text-xs font-bold text-slate-800 truncate">{item.label}</span>
+                                {count > 0 && (
+                                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-rose-500 text-white shrink-0">
+                                    {count}
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[10.5px] text-slate-400 font-medium line-clamp-1 mt-0.5">{item.desc}</span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
 
 
@@ -6096,6 +6151,85 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Today's Classes & Attendance Action Strip */}
+              {(() => {
+                const todayDateObj = weekDates.find(d => d.dateStr === todayStr);
+                const todayClasses = todayDateObj ? getAgendaClassesForDay(todayDateObj.day) : [];
+                if (todayClasses.length === 0) return null;
+                return (
+                  <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-card space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CalendarCheck2 className="h-4 w-4 text-amber-500" />
+                        <h3 className="text-xs font-black text-slate-900 uppercase tracking-wider">Today&apos;s Classes</h3>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400">{todayDateObj?.formatted || todayStr}</span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                      {todayClasses.map((item, idx) => {
+                        const slot = item.slot;
+                        const hasAtt = studentAttendance.some(a => a.slotId === slot.id && a.dateStr === todayStr);
+                        const camKey = `${slot.id}|${todayStr}`;
+                        const approvedLateCamReq = lateAttendanceCamApprovedSet.has(camKey);
+                        const pendingLateCamReq = lateAttendanceCamPendingSet.has(camKey);
+                        const windowCheck = checkAttendanceWindow(todayStr, slot.time);
+                        const isFuture = !windowCheck.open && windowCheck.reason === "future";
+                        const isDeadlineExpired = !windowCheck.open && windowCheck.reason === "expired" && !approvedLateCamReq;
+                        const { name: cgShort } = getShortClassGroup(slot.classGroup);
+
+                        return (
+                          <div key={`${slot.id}-${idx}`} className="p-3 rounded-xl border border-slate-100 bg-slate-50/50 flex items-center justify-between gap-2.5">
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 uppercase truncate max-w-[90px]">{cgShort}</span>
+                                <span className="text-[10px] font-semibold text-slate-400 truncate">{formatTimeLabel(slot.time)}</span>
+                              </div>
+                              <p className="text-xs font-bold text-slate-800 truncate">{getCanonicalSubjectName(slot.course)}</p>
+                            </div>
+                            <div className="shrink-0">
+                              {hasAtt ? (
+                                <button
+                                  type="button"
+                                  onClick={() => todayDateObj && handleCellClick(todayDateObj.day, todayStr, todayDateObj.formatted, slot.time)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold flex items-center gap-1 cursor-pointer hover:bg-emerald-100 transition-colors"
+                                >
+                                  <CheckCircle className="h-3 w-3" />
+                                  Marked
+                                </button>
+                              ) : isFuture ? (
+                                <span className="px-2 py-1 rounded-lg bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold inline-block">
+                                  Upcoming
+                                </span>
+                              ) : pendingLateCamReq ? (
+                                <span className="px-2 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold inline-block">
+                                  CM Pending
+                                </span>
+                              ) : isDeadlineExpired ? (
+                                <button
+                                  type="button"
+                                  onClick={() => todayDateObj && handleCellClick(todayDateObj.day, todayStr, todayDateObj.formatted, slot.time)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold cursor-pointer hover:bg-rose-100 transition-colors"
+                                >
+                                  Request CM
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => todayDateObj && handleCellClick(todayDateObj.day, todayStr, todayDateObj.formatted, slot.time)}
+                                  className="px-2.5 py-1.5 rounded-lg bg-zinc-900 text-white text-[10px] font-bold cursor-pointer hover:bg-zinc-800 transition-colors shadow-xs"
+                                >
+                                  Mark Attendance
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Month filter chips — horizontal scroll */}
               <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
                 <button
@@ -7038,6 +7172,34 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                         </button>
                       );
                     })()}
+                  </div>
+                </div>
+              )}
+
+              {/* Weekly Plan Status Banner */}
+              {isRegularOwnSession && !hasVerifiedWeeklyPlan && (
+                <div className="px-5 py-2.5 bg-amber-50 border-b border-amber-200 flex items-start gap-2.5 shrink-0">
+                  <CalendarRange className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 min-w-0 flex items-center justify-between gap-3 flex-wrap">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-amber-900">SME-Verified Weekly Teaching Plan Required</p>
+                      <p className="text-[11px] text-amber-700 font-medium mt-0.5">
+                        Attendance submission requires an approved Weekly Teaching Plan matching this subject and class. Author or check your plan to proceed.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAttendanceStudioOpen(false);
+                        setIsModalOpen(false);
+                        setActiveTab("weekly_plan");
+                      }}
+                      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-extrabold bg-amber-600 hover:bg-amber-700 text-white shadow-xs transition-all cursor-pointer"
+                    >
+                      <CalendarRange className="w-3.5 h-3.5" />
+                      <span>Open Weekly Teaching Plan</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               )}
@@ -9164,17 +9326,6 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                     <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-amber-50 text-amber-800 border border-amber-200">
                                       {log.unit || "Unit 1"}
                                     </span>
-                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                                      {log.period_slot}
-                                    </span>
-                                    {(log as any).weekly_plan_id ? (
-                                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase border tracking-wider ${(log.status || "").toLowerCase().includes("not")
-                                          ? "bg-rose-50 text-rose-700 border-rose-200"
-                                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                        }`} title={`Conducted as verified against your approved Weekly Plan — Week ${(log as any).weekly_plan_week || "?"}`}>
-                                        Per Weekly Plan · W{(log as any).weekly_plan_week || "?"} {(log.status || "").toLowerCase().includes("not") ? "✗" : "✓"}
-                                      </span>
-                                    ) : null}
                                     <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase border ${isNotDelivered
                                         ? "bg-rose-100 text-rose-800 border-rose-200"
                                         : "bg-emerald-50 text-emerald-700 border-emerald-200"
@@ -10890,18 +11041,28 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                               </div>
                             )}
 
-                            {/* Constant Course Google Meet Join Button */}
-                            {effectiveMeetLink && (
-                              <a
-                                href={effectiveMeetLink}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full mt-2 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-xs transition-colors"
-                              >
-                                <Video className="h-3.5 w-3.5" />
-                                Join Course Google Meet
-                              </a>
-                            )}
+                            {/* Course Google Meet Join Button (Active & Upcoming/Today Sessions Only) */}
+                            {(() => {
+                              const todayStr = getInstitutionDateStr();
+                              const isPastDemo = Boolean(demo.dateStr && demo.dateStr < todayStr);
+                              const canJoinDemo = !isPastDemo &&
+                                demo.status !== "not_conducted" &&
+                                demo.status !== "reallocation_required" &&
+                                demo.status !== "completed" &&
+                                demo.status !== "cancelled";
+
+                              return canJoinDemo && effectiveMeetLink ? (
+                                <a
+                                  href={effectiveMeetLink}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="w-full mt-2 py-1.5 px-3 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg flex items-center justify-center gap-1.5 shadow-xs transition-colors"
+                                >
+                                  <Video className="h-3.5 w-3.5" />
+                                  Join Course Google Meet
+                                </a>
+                              ) : null;
+                            })()}
 
                             {/* Action Controls - Strict Procedure Only */}
                             {pendingRealloc ? (
@@ -10918,28 +11079,14 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
                                 Request Reschedule →
                               </button>
                             ) : (
-                              <div className="flex gap-1.5 mt-2">
+                              <div className="mt-2">
                                 <button
                                   type="button"
                                   onClick={() => handleOpenRescheduleModal(demo)}
-                                  className="flex-1 py-1.5 bg-sunken hover:bg-white text-slate-700 text-[10px] font-black rounded-lg border border-slate-200 inset-shadow-well flex items-center justify-center gap-1 transition-all cursor-pointer"
+                                  className="w-full py-1.5 bg-sunken hover:bg-white text-slate-700 text-[10px] font-black rounded-lg border border-slate-200 inset-shadow-well flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                                 >
                                   <Calendar className="h-3 w-3 text-slate-500" />
                                   Reschedule
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDemoSwapModalSession(demo);
-                                    setDemoSwapReason("I am unavailable");
-                                    setDemoSwapRemarks("");
-                                    setDemoSwapStep(1);
-                                    setSelectedProposedPeer(null);
-                                  }}
-                                  className="flex-1 py-1.5 bg-white hover:bg-slate-50 text-slate-700 text-[10px] font-black rounded-lg border border-slate-200 flex items-center justify-center gap-1 transition-all cursor-pointer"
-                                >
-                                  <RefreshCw className="h-2.5 w-2.5 text-amber-500" />
-                                  Peer Swap
                                 </button>
                               </div>
                             )}
@@ -11779,46 +11926,67 @@ export const MentorDashboard: React.FC<MentorDashboardProps> = ({
             </div>
 
             {/* Modal Footer Actions */}
-            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
+            <div className="flex items-center justify-between gap-3 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
               <button
                 type="button"
-                onClick={() => setRescheduleModalSession(null)}
-                className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                disabled={escalatingLnd}
+                onClick={handleEscalateToLnd}
+                className="px-3.5 py-2 rounded-xl text-xs font-bold border border-indigo-200 dark:border-indigo-800/80 bg-indigo-50 dark:bg-indigo-950/40 hover:bg-indigo-100 text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
               >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!rescheduleSelectedSlot || isSunday || !!holidayConflict || !!mentorLeaveOnDate || rescheduleSubmitting || rescheduleAvailabilityLoading || !!rescheduleAvailabilityError}
-                onClick={async () => {
-                  setRescheduleSubmitting(true);
-                  const res = await rescheduleDemoSession(
-                    rescheduleModalSession.id,
-                    rescheduleTargetDate,
-                    rescheduleSelectedSlot
-                  );
-                  setRescheduleSubmitting(false);
-                  if (res.success) {
-                    toast(res.message || "Demo rescheduled successfully!", "success");
-                    setRescheduleModalSession(null);
-                  } else {
-                    toast(res.message || "Failed to reschedule demo", "error");
-                  }
-                }}
-                className="px-5 py-2.5 text-xs font-black text-white btn-gradient border border-amber-500/30 hover:border-amber-500/60 rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-              >
-                {rescheduleSubmitting ? (
+                {escalatingLnd ? (
                   <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Sending Request…</span>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
+                    <span>Contacting L&D…</span>
                   </>
                 ) : (
                   <>
-                    <Check className="h-3.5 w-3.5" />
-                    <span>Confirm Reschedule</span>
+                    <LifeBuoy className="h-3.5 w-3.5 text-indigo-600" />
+                    <span>Need Help from L&D</span>
                   </>
                 )}
               </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRescheduleModalSession(null)}
+                  className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={!rescheduleSelectedSlot || isSunday || !!holidayConflict || !!mentorLeaveOnDate || rescheduleSubmitting || rescheduleAvailabilityLoading || !!rescheduleAvailabilityError}
+                  onClick={async () => {
+                    setRescheduleSubmitting(true);
+                    const res = await rescheduleDemoSession(
+                      rescheduleModalSession.id,
+                      rescheduleTargetDate,
+                      rescheduleSelectedSlot
+                    );
+                    setRescheduleSubmitting(false);
+                    if (res.success) {
+                      toast(res.message || "Demo rescheduled successfully!", "success");
+                      setRescheduleModalSession(null);
+                    } else {
+                      toast(res.message || "Failed to reschedule demo", "error");
+                    }
+                  }}
+                  className="px-5 py-2.5 text-xs font-black text-white btn-gradient border border-amber-500/30 hover:border-amber-500/60 rounded-xl transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {rescheduleSubmitting ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Sending Request…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-3.5 w-3.5" />
+                      <span>Confirm Reschedule</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
           </Dialog>

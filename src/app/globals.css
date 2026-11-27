@@ -472,8 +472,23 @@ body {
 }
 
 .sidebar-active-item svg {
-  color: #f59e0b !important;
+  color: var(--sidebar-active-accent, #f59e0b) !important;
 }
+
+/* Role accents stay on selected navigation states; surfaces and typography stay shared. */
+.sidebar-role-mentor { --sidebar-active-accent: #34d399; --sidebar-active-accent-strong: #0f766e; --sidebar-active-accent-ink: #f0fdfa; }
+.sidebar-role-student { --sidebar-active-accent: #60a5fa; --sidebar-active-accent-strong: #2563eb; --sidebar-active-accent-ink: #eff6ff; }
+.sidebar-role-kam { --sidebar-active-accent: #c084fc; --sidebar-active-accent-strong: #7c3aed; --sidebar-active-accent-ink: #f5f3ff; }
+.sidebar-role-sme { --sidebar-active-accent: #fb7185; --sidebar-active-accent-strong: #e11d48; --sidebar-active-accent-ink: #fff1f2; }
+.sidebar-role-fee-manager { --sidebar-active-accent: #22d3ee; --sidebar-active-accent-strong: #0891b2; --sidebar-active-accent-ink: #083344; }
+.sidebar-role-lnd { --sidebar-active-accent: #a3e635; --sidebar-active-accent-strong: #65a30d; --sidebar-active-accent-ink: #1a2e05; }
+
+/* Role accents apply inside role navigation only. The CM default remains amber. */
+[class*="sidebar-role-"] :is(.text-amber-400, .text-amber-500, [class~="dark:text-amber-400"], [class~="dark:text-amber-500"], [class~="group-hover:text-amber-500"]) { color: var(--sidebar-active-accent) !important; }
+[class*="sidebar-role-"] [class~="bg-amber-500"] { background-color: var(--sidebar-active-accent-strong) !important; }
+[class*="sidebar-role-"] [class~="bg-amber-500"][class~="text-zinc-950"] { color: var(--sidebar-active-accent-ink) !important; }
+[class*="sidebar-role-"] .sidebar-active-item svg { color: var(--sidebar-active-accent) !important; }
+[class*="sidebar-role-"] .sidebar-active-item { border-color: color-mix(in srgb, var(--sidebar-active-accent-strong), transparent 62%) !important; }
 
 /* ─── Custom Spin Reverse Animation ──────────────── */
 @keyframes spin-reverse {

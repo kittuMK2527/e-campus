@@ -45,6 +45,9 @@ export interface Mentor {
   department?: string;
   subject_group?: string;
   mentor_group?: string;
+  employee_id?: string;
+  phone?: string;
+  designation?: string;
 }
 
 export interface HeaderUser {
@@ -515,7 +518,7 @@ interface AppContextProps {
   updateMentor: (mentor: Omit<Mentor, "role">) => Promise<{ success: boolean; message: string }>;
   deleteMentor: (id: string) => Promise<{ success: boolean; message: string }>;
   bookDemoSession: (mentorId: string, mentorName: string, smeId: string, smeName: string, dateStr: string, timeSlot: string, subject: string, stream: string, week: number) => Promise<{ success: boolean; message: string }>;
-  evaluateDemoSession: (sessionId: string, marks: number, comments: string, checklist?: any[]) => Promise<{ success: boolean; message: string }>;
+  evaluateDemoSession: (sessionId: string, marks: number, comments: string, checklist?: any[], scoreBreakdown?: any) => Promise<{ success: boolean; message: string }>;
   correctStudentAttendance: (studentId: string, slotId: string, dateStr: string, newStatus: "present" | "absent" | "od", reason: string, isAdminOverride?: boolean) => Promise<{ success: boolean; message: string }>;
   bulkBookDemoSessions: (sessions: Array<{ mentorId: string; mentorName: string; smeId: string; smeName: string; dateStr: string; timeSlot: string; subject: string; stream: string; week: number }>) => Promise<{ success: boolean; message: string }>;
   updateDemoSession: (sessionId: string, dateStr: string, timeSlot: string, smeId: string, smeName: string) => Promise<{ success: boolean; message: string }>;
@@ -598,6 +601,8 @@ interface AppContextProps {
   ) => Promise<{ success: boolean; message: string }>;
   leaveRequests: any[];
   facultyLeaves: any[];
+  smeLeaves: any[];
+  setSmeLeaves: React.Dispatch<React.SetStateAction<any[]>>;
   holidays: Holiday[];
   updateStudent: (student: Student) => Promise<{ success: boolean; message: string }>;
   deleteStudent: (id: string) => Promise<{ success: boolean; message: string }>;
@@ -769,6 +774,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [studentAttendance, setStudentAttendance] = useState<StudentAttendance[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
   const [facultyLeaves, setFacultyLeaves] = useState<any[]>([]);
+  const [smeLeaves, setSmeLeaves] = useState<any[]>([]);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
   const [weeklyTasks, setWeeklyTasks] = useState<WeeklyTask[]>([]);
   const [studentTracker, setStudentTracker] = useState<StudentTrackerEntry[]>([]);
@@ -1012,6 +1018,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setSignupRequests(data.signupRequests || []);
         if (data.smeAvailability) setSmeAvailability(data.smeAvailability);
         if (data.facultyLeaves) setFacultyLeaves(data.facultyLeaves);
+        if (data.smeLeaves) setSmeLeaves(data.smeLeaves);
 
         if (data.demoSwapRequests) setDemoSwapRequests(data.demoSwapRequests);
         if (data.demoReallocations) setDemoReallocations(data.demoReallocations);
@@ -1761,20 +1768,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     sessionId: string,
     marks: number,
     comments: string,
-    checklist?: any[]
+    checklist?: any[],
+    scoreBreakdown?: any
   ): Promise<{ success: boolean; message: string }> => {
     const res = await fetch("/api/demo-sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "evaluate",
-        sessionId, marks, comments, checklist
+        sessionId, marks, comments, checklist, scoreBreakdown
       })
     });
     const data = await res.json();        if (data.success) {
       // DB sets status 'completed' (see /api/demo-sessions evaluate) — keep local
       // state consistent so badges/KPIs don't show a phantom "evaluated" state.
-      setDemoSessions(prev => prev.map(s => s.id === sessionId ? { ...s, marks, comments, status: "completed" } : s));
+      setDemoSessions(prev => prev.map(s => s.id === sessionId ? {
+        ...s,
+        marks,
+        comments,
+        checklist: checklist ?? s.checklist,
+        score_breakdown: scoreBreakdown ?? s.score_breakdown,
+        status: "completed"
+      } : s));
       broadcastDataChanged("demos");
       return { success: true, message: data.message || "Evaluation saved successfully!" };
     } else {
@@ -3984,6 +3999,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     markAttendance,
     leaveRequests,
     facultyLeaves,
+    smeLeaves,
+    setSmeLeaves,
     holidays,
     weeklyTasks,
     studentTracker,
@@ -4089,6 +4106,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     currentStudent,
     leaveRequests,
     facultyLeaves,
+    smeLeaves,
+    setSmeLeaves,
     holidays,
     weeklyTasks,
     studentTracker,

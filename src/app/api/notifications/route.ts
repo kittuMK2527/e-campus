@@ -5,6 +5,7 @@ import { getDb } from "@/lib/db";
 import { requireAuth } from "@/lib/authGuard";
 import { notifyRealtimeEvent } from "@/lib/realtimeServer";
 import { dispatchSystemNotification } from "@/lib/notifications";
+import { processUpcomingDemoReminders } from "@/lib/demoReminderCheck";
 import crypto from "crypto";
 import { canActOnCollege } from "@/lib/requestScope";
 
@@ -147,6 +148,9 @@ export async function GET(request: Request) {
         { status: 403 }
       );
     }
+
+    // Passive evaluation of upcoming 5-minute demo reminders
+    processUpcomingDemoReminders(db).catch((e: any) => console.warn("[/api/notifications] demo reminder scan:", e?.message));
 
     const limit = Math.min(parseInt(searchParams.get("limit") || "50", 10), 100);
 

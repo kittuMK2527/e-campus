@@ -81,14 +81,21 @@ export async function buildLndDemoTemplate(
   const isAll = !targetGroup || targetGroup.toLowerCase().trim() === "all";
   const targetGroupLower = targetGroup.toLowerCase().trim();
 
-  // Admin-created Subject Groups catalog
-  const rawSubjectGroups = ctx.subjectGroups || snap.subjectGroups || [];
-  const adminSubjectGroupNames: string[] = Array.from(new Set(
-    rawSubjectGroups
-      .map((sg: any) => (typeof sg === "string" ? sg : sg?.name))
-      .filter((n: any): n is string => Boolean(n && n.trim()))
-      .map((n: string) => n.trim())
-  ));
+  // Only canonical mentor groups belong in the template's roster and group selector.
+  // Primary authentic source of truth: configured subject_groups.
+  const mentorGroupNames = (() => {
+    if (Array.isArray(ctx.subjectGroups) && ctx.subjectGroups.length > 0) {
+      const configured = ctx.subjectGroups
+        .map((sg: any) => (typeof sg === "string" ? sg : (sg?.name || "").trim()))
+        .filter(Boolean);
+      if (configured.length > 0) {
+        return Array.from(new Set(configured)).sort((a: string, b: string) => a.localeCompare(b));
+      }
+    }
+    return Array.from(new Set(
+      mentors.map((m: any) => (m.mentor_group || m.subject_group || getMentorGroup(m) || "").trim()).filter((name: string) => name && name !== "General")
+    )).sort((a: string, b: string) => a.localeCompare(b));
+  })();
 
   const applicableColleges = collegesWithTimetable;
   if (applicableColleges.length === 0) {
@@ -96,17 +103,12 @@ export async function buildLndDemoTemplate(
     return;
   }
 
-  // Filter mentors: if specific group selected, filter by that subject group (matching mentor_group, subject_group, or department)
+  // A selected scope is a canonical mentor group. Do not widen it to course groups or departments.
   const isMentorMatch = (m: any) => {
     if (isAll) return true;
     if (!m) return false;
     const mg = (getMentorGroup(m) || "").toLowerCase().trim();
-    const sg = (m.subject_group || "").toLowerCase().trim();
-    const dept = (m.department || "").toLowerCase().trim();
-    if (mg === targetGroupLower || sg === targetGroupLower || dept === targetGroupLower) return true;
-    if (targetGroupLower === "cs" && (mg.includes("cs") || mg.includes("computer") || sg.includes("cs") || dept.includes("cs"))) return true;
-    if (targetGroupLower.length >= 3 && (mg.includes(targetGroupLower) || sg.includes(targetGroupLower) || dept.includes(targetGroupLower))) return true;
-    return false;
+    return mg === targetGroupLower;
   };
   const relevantMentors = mentors.filter(isMentorMatch);
 
@@ -114,6 +116,15 @@ export async function buildLndDemoTemplate(
   const relevantSmes = !isAll
     ? getSmesForSubjectGroup(targetGroup)
     : smes;
+
+  // When an SME has an explicit mentor_group assignment, treat it as the ownership boundary.
+  // Fall back to the shared eligibility engine only for legacy SME records without that field.
+  const mentorBelongsToSme = (mentor: any, sme: any) => {
+    const assignedGroup = String(sme?.mentor_group || "").toLowerCase().trim();
+    const mentorGroup = String(getMentorGroup(mentor) || "").toLowerCase().trim();
+    if (assignedGroup) return assignedGroup === mentorGroup;
+    return getSmesForSubjectGroup(getMentorGroup(mentor)).some((eligible: any) => eligible.id === sme?.id);
+  };
 
   const ExcelJS = await import("exceljs");
   const workbook = new ExcelJS.Workbook();
@@ -319,7 +330,18 @@ export async function buildLndDemoTemplate(
     String(a.name).localeCompare(String(b.name))
   );
 
-  const activeSmes = relevantSmes.length > 0 ? relevantSmes : (smes.length > 0 ? smes : [{ id: "sme_gen", name: "General Evaluator", subject: targetGroup }]);
+  const assignedSmes = relevantSmes.filter((sme: any) =>
+    relevantMentors.some((mentor: any) => mentorBelongsToSme(mentor, sme))
+  );
+  const activeSmes = assignedSmes.length > 0
+    ? assignedSmes
+    : [{ id: "sme_gen", name: "General Evaluator", subject: targetGroup }];
+  const mentorGroupsBySme = new Map(activeSmes.map((sme: any) => [
+    sme.id,
+    Array.from(new Set(relevantMentors
+      .filter((mentor: any) => mentorBelongsToSme(mentor, sme))
+      .map((mentor: any) => getMentorGroup(mentor))))
+  ]));
 
   // ─────────────────────────────────────────────────────────────────────────
   // HIDDEN REFERENCE SHEET: Free Mentors per SME, Day Order & Demo Time Slot
@@ -361,9 +383,9 @@ export async function buildLndDemoTemplate(
           freeMentorsForSlot = relevantMentors.filter(m => {
             // 1. Must match SME's subject group
             const mGroup = getMentorGroup(m);
-            const eligibleSmes = getSmesForSubjectGroup(mGroup);
-            const matchesSme = eligibleSmes.some(e => e.id === sme.id) ||
-              (!isAll && mGroup.toLowerCase().trim() === targetGroup.toLowerCase().trim());
+            const matchesSme = mentorBelongsToSme(m, sme) ||
+              (!isAll && mGroup.toLowerCase().trim() === targetGroup.toLowerCase().trim() &&
+                !String(sme?.mentor_group || "").trim());
             if (!matchesSme) return false;
 
             // 2. Check if mentor's campus is open / not on holiday
@@ -516,12 +538,7 @@ export async function buildLndDemoTemplate(
     const colMentors = relevantMentors.filter(m => m.college_id === colObj.id || m.collegeId === colObj.id);
 
     colMentors.forEach((m) => {
-      // Resolve canonical subject group: if a specific group was chosen, pin to targetGroup;
-      // otherwise prefer official admin-created subject group name
-      const matchedAdminGroup = adminSubjectGroupNames.find(
-        ag => ag.toLowerCase().trim() === (m.subject_group || "").toLowerCase().trim()
-      );
-      const mGroup = !isAll ? targetGroup : (matchedAdminGroup || m.subject_group || getMentorGroup(m));
+      const mGroup = !isAll ? targetGroup : getMentorGroup(m);
       let freePick: { dateStr: string; day: string; dayOrder: string; slot: string } | null = null;
 
       for (let wIdx = 0; wIdx < currentWeekDates.length && !freePick; wIdx++) {
@@ -548,7 +565,7 @@ export async function buildLndDemoTemplate(
         };
       }
 
-      const eligibleSmes = getSmesForSubjectGroup(mGroup);
+      const eligibleSmes = getSmesForSubjectGroup(mGroup).filter((sme: any) => mentorBelongsToSme(m, sme));
       let eligibleSme: any = undefined;
       if (freePick) {
         const pick = freePick;
@@ -580,9 +597,9 @@ export async function buildLndDemoTemplate(
 
   [30, 26, 24, 30, 24, 24, 20, 14].forEach((w, i) => { wsMaster.getColumn(i + 1).width = w; });
 
-  // Add Excel dropdown validation for Department / Subject Group column (C) from Admin-created Subject Groups
-  if (adminSubjectGroupNames.length > 0) {
-    const groupFormula = `"${adminSubjectGroupNames.slice(0, 35).join(",")}"`;
+  // Keep the bulk-entry group dropdown aligned with the actual mentor roster.
+  if (mentorGroupNames.length > 0) {
+    const groupFormula = `"${mentorGroupNames.slice(0, 35).join(",")}"`;
     const maxRow = Math.max(wsMaster.rowCount, 50);
     for (let r = 2; r <= maxRow; r++) {
       wsMaster.getCell(`C${r}`).dataValidation = {
@@ -619,6 +636,7 @@ export async function buildLndDemoTemplate(
   }
 
   let gridRowCursor = 2;
+  const gridRowsBySme = new Map<string, number[]>();
   currentWeekDates.forEach((w, dayIdx) => {
     const dayInfo = getEffectiveDayOrderInfo(w.dateStr, w.day, dayIdx);
     const targetDate = w.dateStr;
@@ -626,8 +644,9 @@ export async function buildLndDemoTemplate(
     let firstRowOfDay = true;
 
     activeSmes.forEach((sme) => {
-      const smeSubject = sme.subject || sme.head_subject_group || "General";
-      const rowData: string[] = [dayInfo.rowLabel, sme.name, smeSubject];
+      const smeMentorGroups = mentorGroupsBySme.get(sme.id) || [];
+      const smeGroupLabel = !isAll ? targetGroup : (smeMentorGroups.join(", ") || "General");
+      const rowData: string[] = [dayInfo.rowLabel, sme.name, smeGroupLabel];
 
       activeDemoSlots.forEach((slot) => {
         if (dayInfo.isHoliday) {
@@ -655,6 +674,9 @@ export async function buildLndDemoTemplate(
 
       const row = wsGrid.addRow(rowData);
       row.height = 24;
+      const smeRows = gridRowsBySme.get(sme.id) || [];
+      smeRows.push(row.number);
+      gridRowsBySme.set(sme.id, smeRows);
 
       for (let c = 1; c <= activeDemoSlots.length + 3; c++) {
         const cell = row.getCell(c);
@@ -742,6 +764,49 @@ export async function buildLndDemoTemplate(
     from: { row: 1, column: 1 },
     to: { row: Math.max(gridEndRow, 1), column: activeDemoSlots.length + 3 },
   };
+
+  // Give every SME a named worksheet containing only their own schedule rows. The dropdowns
+  // already use the same eligibility checks as the Master_Grid, so a sheet cannot offer a
+  // mentor outside that SME's mentor-group assignment.
+  const usedSmeSheetNames = new Set(workbook.worksheets.map(ws => ws.name.toLowerCase()));
+  const safeSheetName = (rawName: string) => {
+    const base = (`SME - ${rawName || "Evaluator"}`).replace(/[\\/?*\[\]:]/g, " ").trim().slice(0, 31) || "SME";
+    let candidate = base;
+    let suffix = 2;
+    while (usedSmeSheetNames.has(candidate.toLowerCase())) {
+      const tail = ` (${suffix++})`;
+      candidate = `${base.slice(0, 31 - tail.length)}${tail}`;
+    }
+    usedSmeSheetNames.add(candidate.toLowerCase());
+    return candidate;
+  };
+  activeSmes.forEach((sme: any) => {
+    const sourceRows = gridRowsBySme.get(sme.id) || [];
+    if (!sourceRows.length) return;
+    const wsSmeGrid = workbook.addWorksheet(safeSheetName(sme.name));
+    wsSmeGrid.views = [{ state: "frozen", xSplit: 3, ySplit: 1 }];
+    for (let col = 1; col <= activeDemoSlots.length + 3; col++) {
+      wsSmeGrid.getColumn(col).width = wsGrid.getColumn(col).width;
+    }
+    const rowsToCopy = [1, ...sourceRows];
+    rowsToCopy.forEach(sourceRowNumber => {
+      const sourceRow = wsGrid.getRow(sourceRowNumber);
+      const targetRow = wsSmeGrid.addRow([]);
+      targetRow.height = sourceRow.height;
+      for (let col = 1; col <= activeDemoSlots.length + 3; col++) {
+        const sourceCell = sourceRow.getCell(col);
+        const targetCell = targetRow.getCell(col);
+        targetCell.value = sourceCell.value;
+        targetCell.style = { ...sourceCell.style };
+        if (sourceCell.dataValidation) targetCell.dataValidation = { ...sourceCell.dataValidation };
+        if (sourceCell.note) targetCell.note = sourceCell.note;
+      }
+    });
+    wsSmeGrid.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: wsSmeGrid.rowCount, column: activeDemoSlots.length + 3 }
+    };
+  });
 
   // ─────────────────────────────────────────────────────────────────────────
   // REAL-TIME FACULTY WEEKLY L&D HOURS & QUOTA MONITOR (Directly below Master Grid)
@@ -1199,8 +1264,8 @@ export async function buildLndDemoTemplate(
 
   const guideRows = [
     ["Scope", "All Applicable Colleges & Campuses"],
-    ["Target Subject Group", targetGroup],
-    ["Configured Admin Subject Groups", adminSubjectGroupNames.join(", ") || "All"],
+    ["Target Mentor Group", targetGroup],
+    ["Configured Mentor Groups", mentorGroupNames.join(", ") || "All"],
     ["Active Week Date Range", `${currentWeekDates[0]?.dateStr || "Start"} to ${currentWeekDates[currentWeekDates.length - 1]?.dateStr || "End"}`],
     ["Campus Day Orders & Timetable Coverage", campusDayOrderSummary],
     ["Total Colleges Included", `${applicableColleges.length} colleges (${applicableColleges.map(c => c.name).join(", ")})`],
@@ -1210,8 +1275,8 @@ export async function buildLndDemoTemplate(
     ["Eligible Faculty Count", `${relevantMentors.length} active mentors`],
     ["Assigned SMEs Count", `${relevantSmes.length} assigned SMEs`],
     ["Allocation Engine Rules", "L&D sessions require: (1) Mentor is free from teaching and leave, (2) SME is free and within L&D evaluation window (Standard shift: 09:00 AM - 05:30 PM), (3) College is open (not a holiday), (4) the college timetable runs periods on that day."],
-    ["Sheet Usage", "Fill out 'Master_LnD_Schedule' for bulk multi-college uploads, or use the single unified 'Master_Grid' tab (Day Order × Assigned SME, with SME demo evaluation time slots as columns, colour-banded per day order with header filters) for visual matrix entry. 'Mentor_Summary' reports how many sessions each mentor has been assigned."],
-    ["Master_Grid Dropdowns", "Every fillable cell lists only the faculty genuinely free across all campuses who match the row's SME subject, on that Day Order, in that demo time slot, shown as 'Faculty Name (College Name)'. Mentors with classes, approved leave, or conflicting bookings have no option. Cells showing 'SME Unavailable (Training/Leave)' or 'No free faculty in this slot' have no dropdown and are ignored on import."]
+    ["Sheet Usage", "Fill out 'Master_LnD_Schedule' for bulk multi-college uploads, use 'Master_Grid' for the full L&D roster, or use the named SME tabs to work only with that SME's schedule rows. 'Mentor_Summary' reports how many sessions each mentor has been assigned."],
+    ["Master_Grid Dropdowns", "Every fillable cell lists only faculty genuinely free across all campuses who match the row's mentor group and SME assignment for that day and demo slot. Mentors with classes, approved leave, or conflicting bookings have no option. Cells showing 'SME Unavailable (Training/Leave)' or 'No free faculty in this slot' have no dropdown and are ignored on import."]
   ];
 
   guideRows.forEach(r => {

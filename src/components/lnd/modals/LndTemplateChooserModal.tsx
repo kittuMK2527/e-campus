@@ -137,25 +137,35 @@ export default function LndTemplateChooserModal({
             </div>
           )}
   
-          {/* Subject Group / Scope Selector (Admin-created Subject Groups & Mentor Groups) */}
+          {/* Mentor Group / Subject Group selector: strictly sourced from subject_groups (no fallback mock/departments when configured). */}
           {(() => {
             const availableGroups = (() => {
-              const list: string[] = [];
+              // 1. Primary authentic source of truth: configured subject_groups
               if (subjectGroups && Array.isArray(subjectGroups) && subjectGroups.length > 0) {
-                subjectGroups.forEach((sg: any) => {
-                  const name = typeof sg === "string" ? sg : sg?.name;
-                  if (name && name.trim()) list.push(name.trim());
-                });
+                const configured = subjectGroups
+                  .map((sg: any) => (typeof sg === "string" ? sg : sg?.name))
+                  .map((s) => String(s || "").trim())
+                  .filter(Boolean);
+                if (configured.length > 0) {
+                  return Array.from(new Set(configured)).sort((a, b) => a.localeCompare(b));
+                }
               }
-              // Always include mentor groups from system configuration
-              if (mentorGroups && mentorGroups.length > 0) {
-                mentorGroups.forEach(g => { if (g && g.trim()) list.push(g.trim()); });
+              // 2. Groups from configured mentorGroups / active rules (only if no subject_groups configured)
+              if (mentorGroups && Array.isArray(mentorGroups) && mentorGroups.length > 0) {
+                const list = mentorGroups
+                  .map((g: any) => (typeof g === "string" ? g : g?.name))
+                  .map((s) => String(s || "").trim())
+                  .filter(Boolean);
+                if (list.length > 0) {
+                  return Array.from(new Set(list)).sort((a, b) => a.localeCompare(b));
+                }
               }
-              // Extract from active mentors list as fallback so mentors are never orphaned
+              // 3. Mentors' assigned groups only if no configured groups at all
+              const list: string[] = [];
               if (mentors && Array.isArray(mentors)) {
-                mentors.forEach(m => {
-                  const g = getMentorGroup(m);
-                  if (g && g !== "General" && g.trim()) list.push(g.trim());
+                mentors.forEach((m) => {
+                  const g = (m.mentor_group || m.subject_group || "").trim();
+                  if (g && g !== "General") list.push(g);
                 });
               }
               return Array.from(new Set(list)).sort((a, b) => a.localeCompare(b));
@@ -169,32 +179,30 @@ export default function LndTemplateChooserModal({
               if (isAllGroups) return true;
               if (!m) return false;
               const mg = (getMentorGroup(m) || "").toLowerCase().trim();
-              const sGroup = (m.subject_group || "").toLowerCase().trim();
-              const dept = (m.department || "").toLowerCase().trim();
-              if (mg === targetLower || sGroup === targetLower || dept === targetLower) return true;
-              if (targetLower === "cs" && (mg.includes("cs") || mg.includes("computer") || sGroup.includes("cs") || dept.includes("cs"))) return true;
-              if (targetLower.length >= 3 && (mg.includes(targetLower) || sGroup.includes(targetLower) || dept.includes(targetLower))) return true;
-              return false;
+              return mg === targetLower;
             };
 
             const groupMentors = mentors.filter(isMentorMatch);
             const groupSmes = isAllGroups
               ? smes
-              : getSmesForSubjectGroup(activeGroup);
+              : getSmesForSubjectGroup(activeGroup).filter((sme: any) =>
+                  !String(sme?.mentor_group || "").trim() ||
+                  String(sme.mentor_group).toLowerCase().trim() === targetLower
+                );
   
             return (
               <div className="space-y-3">
                 <div>
                   <label className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 block mb-1.5">
-                    Subject Group
+                    Mentor Group
                   </label>
                   <select
                     value={activeGroup}
-                    aria-label="Subject Group"
+                    aria-label="Mentor Group"
                     onChange={(e) => setTemplateMentorGroup(e.target.value)}
                     className="w-full px-3.5 py-2.5 text-xs font-bold rounded-xl border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] dark:border-slate-800 bg-sunken/50 dark:bg-slate-800/50 text-slate-800 dark:text-white focus:ring-2 focus:ring-[#4F46E5] cursor-pointer"
                   >
-                    <option value="All">All Subject Groups (Comprehensive Multi-College Roster)</option>
+                    <option value="All">All Mentor Groups (Comprehensive Multi-College Roster)</option>
                     {availableGroups.map(group => (
                       <option key={group} value={group}>{group}</option>
                     ))}

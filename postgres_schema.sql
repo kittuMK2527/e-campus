@@ -736,6 +736,21 @@ CREATE TABLE IF NOT EXISTS sme_availability (
     slot_type TEXT DEFAULT 'demo'
 );
 
+CREATE TABLE IF NOT EXISTS sme_leaves (
+    id VARCHAR(255) PRIMARY KEY,
+    sme_id VARCHAR(255) NOT NULL,
+    sme_name VARCHAR(255) NOT NULL,
+    leave_type VARCHAR(100) NOT NULL DEFAULT 'Personal Leave',
+    start_date VARCHAR(50) NOT NULL,
+    end_date VARCHAR(50) NOT NULL,
+    reason TEXT,
+    status VARCHAR(50) NOT NULL DEFAULT 'approved',
+    notified_mentor_count INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_sme_leaves_sme_dates ON sme_leaves(sme_id, start_date, end_date, status);
+
 CREATE TABLE IF NOT EXISTS mentor_groups (
     id VARCHAR(255) PRIMARY KEY,
     name VARCHAR(255) NOT NULL UNIQUE,
@@ -767,6 +782,10 @@ CREATE TABLE IF NOT EXISTS demo_sessions (
     marks INTEGER,
     comments TEXT,
     checklist TEXT,
+    score_breakdown TEXT,
+    meet_link TEXT,
+    missed_notified_at TEXT,
+    reminder_5m_sent_at TEXT,
     created_at VARCHAR(100) NOT NULL
 );
 
@@ -1377,3 +1396,52 @@ GRANT USAGE, SELECT ON SEQUENCE faceprep_feedback_id_seq TO anon, authenticated,
 
 -- Force PostgREST to pick the table up immediately.
 NOTIFY pgrst, 'reload schema';
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- Multi-Device Control & Signature Fingerprinting (1 Desktop + 1 Mobile limit)
+-- ─────────────────────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS user_authorized_devices (
+    id VARCHAR(128) PRIMARY KEY,
+    user_id VARCHAR(128) NOT NULL,
+    device_type VARCHAR(32) NOT NULL,
+    device_signature VARCHAR(128) NOT NULL,
+    device_name VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(64),
+    first_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_used_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    revoked_at TIMESTAMPTZ,
+    revoked_by VARCHAR(128)
+);
+CREATE INDEX IF NOT EXISTS idx_user_auth_devices_user_type ON user_authorized_devices(user_id, device_type, is_active);
+CREATE INDEX IF NOT EXISTS idx_user_auth_devices_sig ON user_authorized_devices(device_signature);
+
+CREATE TABLE IF NOT EXISTS device_security_logs (
+    id VARCHAR(128) PRIMARY KEY,
+    user_id VARCHAR(128) NOT NULL,
+    attempted_type VARCHAR(32) NOT NULL,
+    device_signature VARCHAR(128) NOT NULL,
+    device_name VARCHAR(255) NOT NULL,
+    ip_address VARCHAR(64),
+    active_conflict_device VARCHAR(255),
+    status VARCHAR(32) NOT NULL DEFAULT 'blocked',
+    timestamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_device_sec_logs_user ON device_security_logs(user_id, timestamp DESC);
+
+CREATE TABLE IF NOT EXISTS device_reset_requests (
+    id VARCHAR(128) PRIMARY KEY,
+    user_id VARCHAR(128) NOT NULL,
+    user_name VARCHAR(255) NOT NULL,
+    user_email VARCHAR(255) NOT NULL,
+    user_role VARCHAR(64) NOT NULL,
+    college_id VARCHAR(128),
+    device_type VARCHAR(32) NOT NULL,
+    reason TEXT,
+    status VARCHAR(32) NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved_at TIMESTAMPTZ,
+    resolved_by VARCHAR(128)
+);
+CREATE INDEX IF NOT EXISTS idx_device_reset_status ON device_reset_requests(status, created_at DESC);
+

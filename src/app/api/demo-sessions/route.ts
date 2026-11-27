@@ -547,7 +547,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, message: "L&D sessions swapped successfully." });
 
     } else if (action === "evaluate") {
-      const { sessionId, marks, comments, checklist } = body;
+      const { sessionId, marks, comments, checklist, scoreBreakdown } = body;
 
       if (!sessionId || marks === undefined || comments === undefined) {
         return NextResponse.json({ success: false, message: "Missing evaluation details" }, { status: 400 });
@@ -618,10 +618,20 @@ export async function POST(request: Request) {
         }
       } catch (_) {}
 
+      let scoreBreakdownJson: string | null = null;
+      try {
+        if (typeof scoreBreakdown === "string" && scoreBreakdown.trim()) {
+          scoreBreakdownJson = scoreBreakdown.trim();
+        } else if (scoreBreakdown && typeof scoreBreakdown === "object") {
+          scoreBreakdownJson = JSON.stringify(scoreBreakdown);
+        }
+      } catch (_) {}
+
+      await ensureMigration("demo_sessions_score_breakdown_column").catch(() => {});
       await db.exec("ALTER TABLE demo_sessions ADD COLUMN checklist TEXT").catch(() => {});
       await db.run(
-        `UPDATE demo_sessions SET status = 'completed', marks = ?, comments = ?, checklist = COALESCE(?, checklist) WHERE id = ?`,
-        [marks, comments, checklistJson, sessionId]
+        `UPDATE demo_sessions SET status = 'completed', marks = ?, comments = ?, checklist = COALESCE(?, checklist), score_breakdown = COALESCE(?, score_breakdown) WHERE id = ?`,
+        [marks, comments, checklistJson, scoreBreakdownJson, sessionId]
       );
 
       // ── Skill Tracker auto-verdict (Mentor Skill Development Tracker) ──

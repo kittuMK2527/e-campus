@@ -4,10 +4,12 @@ import React, { useState, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import LndLiveDemoTable from "./LndLiveDemoTable";
 import LndReallocateSmeModal from "./modals/LndReallocateSmeModal";
+import { Dialog } from "../ui/dialog";
 import {
   RefreshCw,
   ArrowLeftRight,
   User,
+  UserCheck,
   Calendar,
   Clock,
   Check,
@@ -80,6 +82,65 @@ export default function LndQueueTab({
 
   // Local state for resolving swap in progress
   const [resolvingSwapId, setResolvingSwapId] = useState<string | null>(null);
+
+  // Local state for Mentor Swap modal
+  const [swapMentorReq, setSwapMentorReq] = useState<any | null>(null);
+  const [mentorCandidates, setMentorCandidates] = useState<any[]>([]);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [selectedTargetMentorId, setSelectedTargetMentorId] = useState<string | null>(null);
+  const [swappingMentor, setSwappingMentor] = useState(false);
+  const [mentorSwapError, setMentorSwapError] = useState("");
+
+  const handleOpenSwapMentor = async (req: any) => {
+    setSwapMentorReq(req);
+    setSelectedTargetMentorId(null);
+    setMentorSwapError("");
+    setLoadingCandidates(true);
+    try {
+      const demoId = req.demo_session_id || req.demoSessionId;
+      const res = await fetch(`/api/demo-reallocations?candidateMentorsForDemoId=${encodeURIComponent(demoId)}`);
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setMentorCandidates(data.candidates || []);
+      } else {
+        setMentorSwapError(data?.message || "Could not load candidate mentors");
+      }
+    } catch (err: any) {
+      setMentorSwapError(err?.message || "Failed to load candidate mentors");
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+
+  const handleConfirmSwapMentor = async () => {
+    if (!swapMentorReq || !selectedTargetMentorId) return;
+    setSwappingMentor(true);
+    try {
+      const res = await fetch("/api/demo-reallocations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "swap_mentor",
+          demoSessionId: swapMentorReq.demo_session_id || swapMentorReq.demoSessionId,
+          targetMentorId: selectedTargetMentorId,
+          decidedBy: "L&D Team",
+          notes: `Reassigned via L&D from ${swapMentorReq.mentor_name || swapMentorReq.mentorName}`
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        if (toast) toast(data.message || "Mentor successfully swapped!", "success");
+        setSwapMentorReq(null);
+        handleRefresh();
+      } else {
+        if (toast) toast(data?.message || "Failed to swap mentor", "error");
+      }
+    } catch (err: any) {
+      if (toast) toast(err?.message || "Network error swapping mentor", "error");
+    } finally {
+      setSwappingMentor(false);
+    }
+  };
 
   // Lookup maps
   const mentorsById = useMemo(() => {
@@ -362,8 +423,12 @@ export default function LndQueueTab({
                                 </span>
                               </div>
 
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300 border border-violet-300 dark:border-violet-700 shrink-0">
-                                {req.request_kind || "Proposal"}
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border shrink-0 ${
+                                req.request_kind === "escalated_to_lnd"
+                                  ? "bg-amber-100 text-amber-900 border-amber-300 dark:bg-amber-950 dark:text-amber-300 dark:border-amber-700 animate-pulse"
+                                  : "bg-violet-100 text-violet-800 dark:bg-violet-950 dark:text-violet-300 border-violet-300 dark:border-violet-700"
+                              }`}>
+                                {req.request_kind === "escalated_to_lnd" ? "Needs L&D Intervention" : (req.request_kind || "Proposal")}
                               </span>
                             </div>
 
@@ -386,31 +451,41 @@ export default function LndQueueTab({
                             </p>
                           </div>
 
-                          <div className="pt-2 border-t border-violet-200/60 dark:border-violet-800/40 flex items-center justify-between gap-2">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (relatedSession) {
-                                  setModalSession(relatedSession);
-                                } else {
-                                  setModalSession({
-                                    id: req.demo_session_id || req.demoSessionId,
-                                    mentorName: req.mentor_name || req.mentorName,
-                                    mentorId: req.mentor_id || req.mentorId,
-                                    smeId: req.sme_id || req.smeId,
-                                    smeName: req.sme_name || req.smeName,
-                                    subject: req.subject,
-                                    stream: req.stream,
-                                    dateStr: req.original_date_str,
-                                    timeSlot: req.original_time_slot,
-                                    status: "reallocation_required"
-                                  });
-                                }
-                              }}
-                              className="px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
-                            >
-                              Allocate / Swap
-                            </button>
+                          <div className="pt-2 border-t border-violet-200/60 dark:border-violet-800/40 flex items-center justify-between gap-2 flex-wrap">
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (relatedSession) {
+                                    setModalSession(relatedSession);
+                                  } else {
+                                    setModalSession({
+                                      id: req.demo_session_id || req.demoSessionId,
+                                      mentorName: req.mentor_name || req.mentorName,
+                                      mentorId: req.mentor_id || req.mentorId,
+                                      smeId: req.sme_id || req.smeId,
+                                      smeName: req.sme_name || req.smeName,
+                                      subject: req.subject,
+                                      stream: req.stream,
+                                      dateStr: req.original_date_str,
+                                      timeSlot: req.original_time_slot,
+                                      status: "reallocation_required"
+                                    });
+                                  }
+                                }}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                              >
+                                Reallocate SME
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleOpenSwapMentor(req)}
+                                className="px-2.5 py-1.5 rounded-xl text-xs font-bold border border-indigo-200 dark:border-indigo-800 bg-indigo-50/50 hover:bg-indigo-100 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300 transition-colors cursor-pointer flex items-center gap-1"
+                              >
+                                <User className="h-3 w-3 text-indigo-600" />
+                                Swap Mentor
+                              </button>
+                            </div>
 
                             <div className="flex items-center gap-2">
                               {decideDemoReallocation && (
@@ -646,6 +721,149 @@ export default function LndQueueTab({
           onSuccess={handleRefresh}
           colleges={colleges}
         />
+      )}
+
+      {/* ── MODAL FOR L&D SWAP TO ANOTHER MENTOR ── */}
+      {swapMentorReq && (
+        <Dialog
+          open={Boolean(swapMentorReq)}
+          onOpenChange={(next) => { if (!next) setSwapMentorReq(null); }}
+          ariaLabel="Swap demo session mentor"
+          overlayClassName="bg-slate-950/60 backdrop-blur-sm p-4"
+          panelClassName="max-w-xl dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 flex flex-col max-h-[90vh]"
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider flex items-center gap-2">
+                <User className="h-4 w-4 text-indigo-600" />
+                Swap Demo Session to Another Mentor
+              </h3>
+              <p className="text-[11px] text-slate-500 font-semibold mt-0.5">
+                Select an eligible peer mentor from the same college who has no timetable clash.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSwapMentorReq(null)}
+              className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Current session info */}
+          <div className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-100 dark:border-slate-700/80 space-y-1 text-xs">
+            <div className="flex justify-between items-center">
+              <span className="font-extrabold text-slate-900 dark:text-white">{swapMentorReq.subject}</span>
+              <span className="text-[10px] text-slate-500 font-bold">{swapMentorReq.original_date_str} • {swapMentorReq.original_time_slot}</span>
+            </div>
+            <div className="text-[11px] text-slate-600 dark:text-slate-300">
+              Current Mentor: <span className="font-bold text-slate-800 dark:text-white">{swapMentorReq.mentor_name || swapMentorReq.mentorName}</span>
+            </div>
+            <div className="text-[11px] text-slate-600 dark:text-slate-300">
+              Assigned SME: <span className="font-bold text-slate-800 dark:text-white">{swapMentorReq.sme_name || swapMentorReq.smeName}</span>
+            </div>
+            {swapMentorReq.reason && (
+              <p className="text-[10px] text-slate-400 italic mt-1">Reason: &quot;{swapMentorReq.reason}&quot;</p>
+            )}
+          </div>
+
+          {/* Candidate mentors list */}
+          <div className="space-y-2 flex-1 overflow-y-auto pr-1">
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 block">
+              Available Peer Mentors (College / Subject)
+            </span>
+
+            {loadingCandidates ? (
+              <div className="p-8 text-center text-xs text-slate-500 space-y-2">
+                <Clock className="h-5 w-5 animate-spin mx-auto text-indigo-500" />
+                <p>Checking live timetable and availability for candidate mentors…</p>
+              </div>
+            ) : mentorSwapError ? (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold rounded-xl">
+                {mentorSwapError}
+              </div>
+            ) : mentorCandidates.length === 0 ? (
+              <p className="text-xs text-slate-400 italic text-center py-6">
+                No other peer mentors found for this college.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {mentorCandidates.map((cand) => {
+                  const isSelected = selectedTargetMentorId === cand.id;
+                  return (
+                    <button
+                      key={cand.id}
+                      type="button"
+                      disabled={!cand.available}
+                      onClick={() => setSelectedTargetMentorId(cand.id)}
+                      className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-3 ${
+                        isSelected
+                          ? "bg-indigo-50 dark:bg-indigo-950/30 border-indigo-500 ring-2 ring-indigo-500 shadow-xs cursor-pointer"
+                          : cand.available
+                            ? "bg-white dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 hover:border-indigo-300 hover:bg-slate-50 cursor-pointer"
+                            : "bg-slate-50/60 dark:bg-slate-800/20 border-slate-200/50 dark:border-slate-800 opacity-60 cursor-not-allowed"
+                      }`}
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-slate-900 dark:text-white">
+                            {cand.name}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-semibold">
+                            {cand.department}
+                          </span>
+                        </div>
+                        {cand.subjects && (
+                          <span className="text-[10px] text-slate-500 block">
+                            Subjects: {cand.subjects}
+                          </span>
+                        )}
+                        <span className={`text-[9.5px] font-bold block ${cand.available ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                          {cand.available ? "✓ Free (No timetable conflict)" : `✕ Busy: ${cand.reason}`}
+                        </span>
+                      </div>
+
+                      {isSelected && (
+                        <Check className="h-4.5 w-4.5 text-indigo-600 shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-slate-800">
+            <button
+              type="button"
+              onClick={() => setSwapMentorReq(null)}
+              className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={!selectedTargetMentorId || swappingMentor}
+              onClick={handleConfirmSwapMentor}
+              className="px-4 py-2 text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-xs flex items-center gap-1.5 disabled:opacity-50 cursor-pointer"
+            >
+              {swappingMentor ? (
+                <>
+                  <Clock className="h-3.5 w-3.5 animate-spin" />
+                  <span>Swapping Mentor…</span>
+                </>
+              ) : (
+                <>
+                  <Check className="h-3.5 w-3.5" />
+                  <span>Confirm Mentor Swap</span>
+                </>
+              )}
+            </button>
+          </div>
+        </Dialog>
       )}
     </div>
   );

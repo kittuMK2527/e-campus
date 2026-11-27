@@ -13,11 +13,16 @@ const MentorDashboard = dynamic(() => import("@/components/MentorDashboard").the
 
 const normalizeMentorTab = (t: string): string => {
   if (t === "schedule") return "timetable";
-  if (t === "approvals" || t === "leaves" || t === "handover") return "handovers";
-  if (t === "weekly-plan") return "weekly_plan";
-  if (t === "academic-tracker") return "academic_tracker";
-  if (t === "my-skill-tracker" || t === "skill-tracker") return "my_skill_tracker";
-  if (t === "marks") return "exams";
+  if (t === "approvals" || t === "leaves" || t === "leave" || t === "leave-approvals" || t === "leave_requests" || t === "handover") return "handovers";
+  if (t === "weekly-plan" || t === "weeklyplan") return "weekly_plan";
+  if (t === "academic-tracker" || t === "syllabus-tracker" || t === "syllabus") return "academic_tracker";
+  if (t === "my-skill-tracker" || t === "skill-tracker" || t === "clearance" || t === "my-clearance") return "my_skill_tracker";
+  if (t === "marks" || t === "exam-marks") return "exams";
+  if (t === "student-log" || t === "studentlog" || t === "logs") return "student_log";
+  if (t === "demo-evaluations" || t === "my-lnd" || t === "lnd" || t === "demos") return "demo_evaluations";
+  if (t === "skill-matrix" || t === "matrix" || t === "student-tracker") return "tracker";
+  if (t === "study-materials" || t === "materials-hub") return "materials";
+  if (t === "more" || t === "more-menu") return "more_menu";
   return t;
 };
 

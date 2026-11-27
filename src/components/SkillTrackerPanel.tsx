@@ -71,6 +71,7 @@ export interface SkillTrackerPanelProps {
 
 interface WeekRollup {
   week_number: number;
+  task_number?: number;
   topic_name?: string | null;
   topics: { topic: string; planned: boolean; conducted: boolean }[];
   topics_planned: number;
@@ -86,6 +87,8 @@ interface WeekRollup {
   weekly_plan_id: string | null;
   plan_status: string | null;
   submission_link?: string | null;
+  submission_date?: string | null;
+  deadline?: string | null;
   task_given_date?: string | null;
   assigned_by?: string | null;
   assigned_role?: string | null;
@@ -147,6 +150,7 @@ interface MentorSkillRow {
   mentor_id: string;
   mentor_name: string | null;
   college_id: string | null;
+  college_name?: string | null;
   subject: string;
   subject_type: "Skill" | "Academic";
   semester?: string | null;
@@ -398,40 +402,131 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
   );
 
 
+  const exportTableHeaders = useMemo(
+    () =>
+      role !== "mentor"
+        ? [
+            "Employee ID",
+            "Mentor Name",
+            "Skill Course",
+            "Certification",
+            "Semester",
+            "Type",
+            "Task No",
+            "Topic",
+            "Deadline",
+            "Submission Date",
+            "Submission Document / Link",
+            "SME Verdict"
+          ]
+        : [
+            "Skill Course",
+            "Certification",
+            "Semester",
+            "Type",
+            "Task No",
+            "Topic",
+            "Deadline",
+            "Submission Date",
+            "Submission Document / Link",
+            "SME Verdict"
+          ],
+    [role]
+  );
+
+  const exportTableColWidths = useMemo(
+    () =>
+      role !== "mentor"
+        ? [
+            { wch: 16 }, // Employee ID
+            { wch: 24 }, // Mentor Name
+            { wch: 24 }, // Skill Course
+            { wch: 18 }, // Certification
+            { wch: 14 }, // Semester
+            { wch: 10 }, // Type
+            { wch: 10 }, // Task No
+            { wch: 32 }, // Topic
+            { wch: 14 }, // Deadline
+            { wch: 16 }, // Submission Date
+            { wch: 42 }, // Submission Document / Link
+            { wch: 34 }  // SME Verdict
+          ]
+        : [
+            { wch: 24 }, // Skill Course
+            { wch: 18 }, // Certification
+            { wch: 14 }, // Semester
+            { wch: 10 }, // Type
+            { wch: 10 }, // Task No
+            { wch: 32 }, // Topic
+            { wch: 14 }, // Deadline
+            { wch: 16 }, // Submission Date
+            { wch: 42 }, // Submission Document / Link
+            { wch: 34 }  // SME Verdict
+          ],
+    [role]
+  );
+
+  const buildSkillExportRow = (r: MentorSkillRow, w: WeekRollup) => {
+    const total = r.weeks.length;
+    const cleared = r.weeks.filter(wk => wk.verdict === "cleared").length;
+    const isCertified = total > 0 && cleared === total;
+    const certVal = isCertified
+      ? `Certified (${cleared}/${total})`
+      : cleared === 0
+      ? `Pending (${cleared}/${total})`
+      : `In Progress (${cleared}/${total})`;
+
+    const topicText = w.topic_name || (w.topics && w.topics.length > 0 ? w.topics.map(t => t.topic).filter(Boolean).join(", ") : "");
+    const topicVal = topicText || (w.week_number ? `Task ${w.week_number}` : "—");
+    const deadlineVal = w.deadline || w.task_given_date || "—";
+    const submissionDateVal = w.submission_date || (w.submission_link ? "Submitted" : "Pending");
+    const submissionDocVal = w.submission_link
+      ? w.submission_link.startsWith("/uploads/") && typeof window !== "undefined"
+        ? `${window.location.origin}${w.submission_link}`
+        : w.submission_link
+      : "—";
+
+    const isResubmitted = w.verdict === "pending" && !!w.remarks && !!w.submission_link;
+    const baseVerdict = VERDICT_LABELS[w.verdict] || w.verdict;
+    const verdictParts = [isResubmitted ? `${baseVerdict} (Re-submitted)` : baseVerdict];
+    if (w.score !== null && w.score !== undefined) verdictParts.push(`Score: ${w.score}`);
+    if (w.remarks) verdictParts.push(`"${w.remarks}"`);
+    if (w.verified_by) verdictParts.push(`By ${w.verified_by}`);
+    const verdictVal = verdictParts.join(" | ");
+
+    const rowData: Record<string, string> = {};
+    if (role !== "mentor") {
+      rowData["Employee ID"] = r.mentor_id;
+      rowData["Mentor Name"] = r.mentor_name || r.mentor_id;
+    }
+    rowData["Skill Course"] = r.subject;
+    rowData["Certification"] = certVal;
+    rowData["Semester"] = r.semester || "—";
+    rowData["Type"] = r.subject_type || "Skill";
+    rowData["Task No"] = w.week_number ? `Task ${w.week_number}` : "—";
+    rowData["Topic"] = topicVal;
+    rowData["Deadline"] = deadlineVal;
+    rowData["Submission Date"] = submissionDateVal;
+    rowData["Submission Document / Link"] = submissionDocVal;
+    rowData["SME Verdict"] = verdictVal;
+    return rowData;
+  };
+
   const handleExportExcel = async () => {
     try {
       const XLSX = await import("xlsx");
-      const excelRows: any[] = [];
+      const excelRows: Record<string, string>[] = [];
       filteredRows.forEach(r => {
         r.weeks.forEach(w => {
-          excelRows.push({
-            "Mentor": r.mentor_name || r.mentor_id,
-            "Mentor ID": r.mentor_id,
-            "Subject": r.subject,
-            "Semester": r.semester || "—",
-            "Department": r.department || "—",
-            "Subject Type": r.subject_type,
-            "Task Given Date": w.task_given_date || "—",
-            "Topic": w.topic_name || w.topics?.map(t => t.topic).join(", ") || "—",
-            "Week": `Week ${w.week_number}`,
-            "Topics Planned": w.topics_planned,
-            "Topics Conducted": w.topics_conducted,
-            "Demo Status": w.demo_status || "—",
-            "Demo Score": w.demo_marks ?? "—",
-            "Submission Link": w.submission_link || "—",
-            "SME Verdict": VERDICT_LABELS[w.verdict] || w.verdict,
-            "SME Score": w.score ?? "—",
-            "SME Remarks": w.remarks || "—",
-            "Verified By": w.verified_by || "—",
-            "Verified At": w.verified_at || "—"
-          });
+          excelRows.push(buildSkillExportRow(r, w));
         });
       });
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(excelRows.length > 0 ? excelRows : [{ Info: "No data" }]);
-      XLSX.utils.book_append_sheet(wb, ws, "Skill Tracker");
-      XLSX.writeFile(wb, `Mentor_Skill_Tracker_${new Date().toISOString().split("T")[0]}.xlsx`);
-      toast("Exported complete skill tracker to Excel.", "success");
+      const ws = XLSX.utils.json_to_sheet(excelRows, { header: exportTableHeaders });
+      ws["!cols"] = exportTableColWidths;
+      XLSX.utils.book_append_sheet(wb, ws, "Skill Approvals");
+      XLSX.writeFile(wb, `Skill_Approvals_${new Date().toISOString().split("T")[0]}.xlsx`);
+      toast("Exported Skill Approvals table to Excel.", "success");
     } catch (e: any) {
       toast("Export failed: " + e.message, "error");
     }
@@ -455,46 +550,28 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
         return;
       }
 
-      const excelRows: any[] = [];
+      const excelRows: Record<string, string>[] = [];
       const distinctSubjects = Array.from(new Set(mentorSubjectRows.map(r => r.subject)));
 
       mentorSubjectRows.forEach(r => {
         r.weeks.forEach(w => {
-          excelRows.push({
-            "Mentor Name": r.mentor_name || r.mentor_id,
-            "Mentor ID": r.mentor_id,
-            "Department": r.department || "—",
-            "Subject": r.subject,
-            "Semester": r.semester || "—",
-            "Subject Type": r.subject_type,
-            "Task Given Date": w.task_given_date || "—",
-            "Topic": w.topic_name || w.topics?.map(t => t.topic).join(", ") || "—",
-            "Week": `Week ${w.week_number}`,
-            "Topics Planned": w.topics_planned,
-            "Topics Conducted": w.topics_conducted,
-            "Demo Status": w.demo_status || "—",
-            "Demo Score": w.demo_marks ?? "—",
-            "Submission Link": w.submission_link || "—",
-            "SME Verdict": VERDICT_LABELS[w.verdict] || w.verdict,
-            "SME Score": w.score ?? "—",
-            "SME Remarks": w.remarks || "—",
-            "Verified By": w.verified_by || "—",
-            "Verified At": w.verified_at || "—"
-          });
+          excelRows.push(buildSkillExportRow(r, w));
         });
       });
 
       const wb = XLSX.utils.book_new();
 
       // Master sheet with all subjects
-      const wsAll = XLSX.utils.json_to_sheet(excelRows.length > 0 ? excelRows : [{ Info: "No data" }]);
+      const wsAll = XLSX.utils.json_to_sheet(excelRows, { header: exportTableHeaders });
+      wsAll["!cols"] = exportTableColWidths;
       XLSX.utils.book_append_sheet(wb, wsAll, "All Subjects");
 
       // If mentor teaches multiple subjects, also create a separate tab per subject!
       if (distinctSubjects.length > 1) {
         distinctSubjects.forEach(subj => {
-          const subjRows = excelRows.filter(r => r["Subject"] === subj);
-          const wsSubj = XLSX.utils.json_to_sheet(subjRows);
+          const subjRows = excelRows.filter(r => r["Skill Course"] === subj);
+          const wsSubj = XLSX.utils.json_to_sheet(subjRows, { header: exportTableHeaders });
+          wsSubj["!cols"] = exportTableColWidths;
           const cleanTabName = subj.slice(0, 30).replace(/[:\\\/\?\*\[\]]/g, "_");
           XLSX.utils.book_append_sheet(wb, wsSubj, cleanTabName);
         });
@@ -502,8 +579,8 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
 
       const cleanName = (targetMentorName || targetMentorId).replace(/[^a-zA-Z0-9_-]/g, "_");
       const dateStr = new Date().toISOString().split("T")[0];
-      XLSX.writeFile(wb, `Skill_Tracker_${cleanName}_${dateStr}.xlsx`);
-      toast(`Exported complete skill report for ${targetMentorName || targetMentorId} (${distinctSubjects.length} subject${distinctSubjects.length > 1 ? "s" : ""}).`, "success");
+      XLSX.writeFile(wb, `Skill_Approvals_${cleanName}_${dateStr}.xlsx`);
+      toast(`Exported skill approvals report for ${targetMentorName || targetMentorId} (${distinctSubjects.length} subject${distinctSubjects.length > 1 ? "s" : ""}).`, "success");
     } catch (e: any) {
       toast("Export failed: " + e.message, "error");
     }
@@ -595,7 +672,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-black text-slate-900">
-                  {role === "mentor" ? "My Skill Tracker" : role === "sme" ? "Mentor Skill Development Approvals" : "Mentor Skill Development Tracker"}
+                  {role === "mentor" ? "Mentor Skill Development" : role === "sme" ? "Mentor Skill Development Approvals" : "Mentor Skill Development Tracker"}
                 </h2>
                 {collegeName && (
                   <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-100 text-slate-700">
@@ -770,6 +847,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                 {role !== "mentor" && <TableHead className="p-3.5 min-w-[110px]">Employee ID</TableHead>}
                 {role !== "mentor" && <TableHead className="p-3.5 min-w-[160px]">Mentor Name</TableHead>}
                 <TableHead className="p-3.5 min-w-[140px]">Skill Course</TableHead>
+                <TableHead className="p-3.5 min-w-[130px]">Certification</TableHead>
                 <TableHead className="p-3.5 min-w-[80px]">Semester</TableHead>
                 <TableHead className="p-3.5 min-w-[70px]">Type</TableHead>
                 <TableHead className="p-3.5 text-center min-w-[85px]">Task No</TableHead>
@@ -787,7 +865,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               {loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={role !== "mentor" ? 12 : 9}
+                    colSpan={role !== "mentor" ? 13 : 10}
                     className="p-8 text-center text-slate-400"
                   >
                     Loading skill tracker...
@@ -796,7 +874,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
               ) : paginatedRows.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={role !== "mentor" ? 12 : 9}
+                    colSpan={role !== "mentor" ? 13 : 10}
                     className="p-8 text-center text-slate-400 italic"
                   >
                     No skill development records found. Records appear once tasks are assigned or imported.
@@ -833,6 +911,42 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
                         )}
                         <TableCell className="p-3.5">
                           <span className="font-bold text-slate-800 dark:text-slate-200">{row.subject}</span>
+                        </TableCell>
+                        <TableCell className="p-3.5 whitespace-nowrap">
+                          {(() => {
+                            const total = row.weeks.length;
+                            const cleared = row.weeks.filter(wk => wk.verdict === "cleared").length;
+                            const notCleared = row.weeks.filter(wk => wk.verdict === "not_cleared").length;
+                            const pct = total > 0 ? Math.round((cleared / total) * 100) : 0;
+                            const isCertified = total > 0 && cleared === total;
+                            const isPending = cleared === 0;
+
+                            return (
+                              <div className="space-y-1 min-w-[110px]">
+                                <div className="flex items-center justify-between gap-1 text-[10px]">
+                                  <span className={`px-1.5 py-0.5 rounded-md font-black uppercase text-[9px] ${
+                                    isCertified
+                                      ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300 border border-emerald-300"
+                                      : isPending
+                                      ? "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200"
+                                      : "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300 border border-amber-300"
+                                  }`}>
+                                    {isCertified ? "Certified" : isPending ? "Pending" : `In Progress`}
+                                  </span>
+                                  <span className="font-extrabold text-slate-600 dark:text-slate-400">{cleared}/{total}</span>
+                                </div>
+                                <div className="w-full bg-slate-100 dark:bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                                  <div
+                                    className={`h-full rounded-full transition-all duration-300 ${
+                                      isCertified ? "bg-emerald-500" : cleared > 0 ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-700"
+                                    }`}
+                                    style={{ width: `${pct}%` }}
+                                    title={`${pct}% certified (${cleared} of ${total} cleared)`}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell className="p-3.5">
                           <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-amber-50 text-amber-700 border border-amber-200 whitespace-nowrap">
@@ -1439,7 +1553,7 @@ export const SkillTrackerPanel: React.FC<SkillTrackerPanelProps> = ({
 
             <div>
               <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 mb-1">
-                Task Instructions (`inastructions`)
+                Task Instructions
               </label>
               <div className="p-3 bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-800 dark:text-slate-200 font-medium leading-relaxed whitespace-pre-wrap">
                 {instructionTarget.instructions || "No specific instructions provided for this task."}

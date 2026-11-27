@@ -8,6 +8,8 @@ import { LoadingButton } from "@/components/ui/LoadingButton";
 import { setSuperAdminSession } from "@/lib/superadmin";
 import { setClientCsrfToken } from "@/lib/apiFetch";
 import { getRoleHomePath } from "@/lib/utils";
+import { getDeviceFingerprint } from "@/lib/deviceFingerprint";
+import { DeviceLimitBlockedModal, type DeviceBlockedData } from "@/components/auth/DeviceLimitBlockedModal";
 
 import {
   User,
@@ -43,6 +45,10 @@ export default function Home() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
+
+  // Device authorization limit state
+  const [showBlockedModal, setShowBlockedModal] = useState(false);
+  const [blockedModalData, setBlockedModalData] = useState<DeviceBlockedData | null>(null);
   const [showForgotNote, setShowForgotNote] = useState(false);
 
   // Signup Mode States
@@ -85,13 +91,29 @@ export default function Home() {
 
     setLoginLoading(true);
     try {
+      // Capture Cursor-style client device signature
+      const fp = await getDeviceFingerprint().catch(() => null);
+
       const res = await fetch("/api/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+          deviceSignature: fp?.deviceSignature,
+          deviceType: fp?.deviceType,
+          deviceName: fp?.deviceName
+        }),
       });
 
       const data = await res.json();
+
+      if (res.status === 403 && data.code === "DEVICE_LIMIT_EXCEEDED") {
+        setBlockedModalData(data.data || null);
+        setShowBlockedModal(true);
+        setLoginError(data.message || "Device limit reached. Login blocked.");
+        return;
+      }
 
       if (data.success) {
         if (data.csrfToken) {
@@ -499,6 +521,13 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* Device Limit Blocked Modal */}
+      <DeviceLimitBlockedModal
+        open={showBlockedModal}
+        onClose={() => setShowBlockedModal(false)}
+        data={blockedModalData}
+      />
     </div>
   );
 }

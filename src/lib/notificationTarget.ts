@@ -178,19 +178,36 @@ export function resolveNotificationDestination(
   if (!notification) return null;
 
   const rawLink = notification.link?.trim();
+  const title = (notification.title || "").toLowerCase();
+  const message = (notification.message || "").toLowerCase();
+  const fullText = `${title} ${message}`;
+
+  let rawPayload: any = notification.payload;
+  if (typeof rawPayload === "string") {
+    try {
+      rawPayload = JSON.parse(rawPayload);
+    } catch {
+      rawPayload = {};
+    }
+  }
+  if (!rawPayload || typeof rawPayload !== "object") {
+    rawPayload = {};
+  }
+  const rawDomain = (notification.domain || rawPayload.domain || "").toLowerCase();
+
   if (rawLink && (rawLink.startsWith("http://") || rawLink.startsWith("https://"))) {
+    const isDemo = rawDomain === "demo_reminder" || fullText.includes("demo");
+    const isInterview = rawDomain === "interviews" || fullText.includes("interview") || fullText.includes("mock");
+    const actionLabel = isDemo ? "Join Demo" : isInterview ? "Join Meeting" : "Open Link";
+
     return {
       url: rawLink,
       isExternal: true,
       targetDate: null,
       action: "external",
-      actionLabel: "Open Link",
+      actionLabel,
     };
   }
-
-  const title = (notification.title || "").toLowerCase();
-  const message = (notification.message || "").toLowerCase();
-  const fullText = `${title} ${message}`;
 
   // Extract date if present in notification text or link
   const textWithLink = `${notification.title || ""} ${notification.message || ""} ${rawLink || ""}`;
@@ -207,10 +224,105 @@ export function resolveNotificationDestination(
     return `${baseUrl}${sep}date=${targetDate}`;
   };
 
+  const [pathPart, queryPart] = (rawLink || "").split("?");
+  const cleanPath = (pathPart || "").toLowerCase();
+
+  // Top Priority Domain 1: Security & Device Limit Management
+  const isSecurity =
+    rawDomain === "security" ||
+    cleanPath.includes("security") ||
+    cleanPath.includes("device") ||
+    fullText.includes("security alert") ||
+    fullText.includes("device limit") ||
+    fullText.includes("device reset");
+
+  if (isSecurity) {
+    const targetUserId =
+      rawPayload.userId ||
+      (queryPart ? new URLSearchParams(queryPart).get("deviceUserId") : null);
+    const dest =
+      role === "admin"
+        ? targetUserId
+          ? `/admin/users?deviceUserId=${encodeURIComponent(targetUserId)}`
+          : "/admin/users"
+        : roleRoutes.dashboard;
+    return {
+      url: dest,
+      isExternal: false,
+      targetDate: null,
+      action: "details",
+      actionLabel: "Manage Devices",
+    };
+  }
+
+  // Top Priority Domain 2: Pre-Demo 5-Minute Reminder
+  const isDemoReminder =
+    rawDomain === "demo_reminder" ||
+    fullText.includes("demo starting in 5 minutes") ||
+    (fullText.includes("demo starting") && fullText.includes("5 minutes"));
+
+  if (isDemoReminder) {
+    const meetLink =
+      rawPayload.meetLink ||
+      rawPayload.meet_link ||
+      (rawLink && (rawLink.startsWith("http://") || rawLink.startsWith("https://")) ? rawLink : null);
+
+    if (role === "mentor") {
+      return {
+        url: meetLink || "/mentor/demo_evaluations",
+        isExternal: Boolean(meetLink),
+        targetDate,
+        action: "details",
+        actionLabel: meetLink ? "Join Demo" : "View Demo",
+      };
+    }
+    if (role === "sme") {
+      return {
+        url: meetLink || "/sme/overview",
+        isExternal: Boolean(meetLink),
+        targetDate,
+        action: "details",
+        actionLabel: meetLink ? "Join Demo" : "Evaluate Demo",
+      };
+    }
+    return {
+      url: "/l-and-d",
+      isExternal: false,
+      targetDate,
+      action: "details",
+      actionLabel: "Open Demo",
+    };
+  }
+
+  // Top Priority Domain 3: L&D Reschedules & SLA Missed Demos
+  if (
+    fullText.includes("l&d reschedule") ||
+    fullText.includes("l and d reschedule") ||
+    fullText.includes("reschedule awaiting approval")
+  ) {
+    const dest = role === "sme" ? "/sme/reallocation" : role === "mentor" ? "/mentor/demo_evaluations" : "/l-and-d";
+    return {
+      url: dest,
+      isExternal: false,
+      targetDate,
+      action: "approvals",
+      actionLabel: "Review Reschedule",
+    };
+  }
+
+  if (fullText.includes("sla breach") || fullText.includes("missed demo")) {
+    const dest = role === "mentor" ? "/mentor/demo_evaluations" : "/l-and-d";
+    return {
+      url: dest,
+      isExternal: false,
+      targetDate,
+      action: "details",
+      actionLabel: "View Missed Demo",
+    };
+  }
+
   // 1. If a semantic link is stored on the notification, map it to the active user's role-appropriate route
   if (rawLink) {
-    const [pathPart, queryPart] = rawLink.split("?");
-    const cleanPath = pathPart.toLowerCase();
 
     // Query suffix to preserve (if any)
     const extraQuery = queryPart ? `?${queryPart}` : "";
@@ -487,6 +599,23 @@ export function resolveNotificationDestination(
     };
   }
 
+  // Exams & assessments (checked before generic class schedule)
+  if (
+    !isSecurity &&
+    !isDemoReminder &&
+    (/\b(exam|exams|cia|assessment|semester|internal exam)\b/i.test(fullText) ||
+     (/\btest\b/i.test(fullText) && (fullText.includes("exam") || fullText.includes("marks") || fullText.includes("score") || fullText.includes("assessment") || fullText.includes("cia"))))
+  ) {
+    return {
+      url: withDate(roleRoutes.exams),
+      isExternal: false,
+      targetDate,
+      action: "exams",
+      actionLabel: "View Exams",
+    };
+  }
+
+
   if (
     fullText.includes("schedule") ||
     fullText.includes("calendar") ||
@@ -520,20 +649,7 @@ export function resolveNotificationDestination(
     };
   }
 
-  if (
-    fullText.includes("exam") ||
-    fullText.includes("test") ||
-    fullText.includes("assessment") ||
-    fullText.includes("cia")
-  ) {
-    return {
-      url: withDate(roleRoutes.exams),
-      isExternal: false,
-      targetDate,
-      action: "exams",
-      actionLabel: "View Exams",
-    };
-  }
+
 
   if (
     fullText.includes("mark") ||

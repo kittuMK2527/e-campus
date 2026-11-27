@@ -1476,7 +1476,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
           <aside className={`hidden md:flex shrink-0 flex-col justify-between floating-sidebar transition-all duration-300 ${isCollapsed ? "w-20 p-3" : "w-64 p-6"}`}>
             <div className="flex flex-col flex-1 overflow-y-auto">
               {/* Sidebar Link items */}
-              <nav className="space-y-1 pt-2">
+              <nav className="sidebar-role-student space-y-1 pt-2">
                 {[
                   { id: "dashboard", label: "Dashboard", icon: Activity },
                   { id: "schedule", label: "Schedule", icon: Calendar },
@@ -1549,7 +1549,7 @@ export const StudentDashboard: React.FC<StudentDashboardProps> = ({
       })()}
 
       {/* Mobile Bottom Navigation — visible only on small screens */}
-      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav">
+      <nav className="sidebar-role-student flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav">
         <div className="flex w-full justify-around items-center py-2 px-0.5">
           {[
             { id: "dashboard", label: "Home", icon: Activity },

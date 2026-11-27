@@ -1136,6 +1136,146 @@ const migrations: Migration[] = [
         await db.exec("ALTER TABLE departments ADD COLUMN incharge_mentor_name TEXT;").catch(() => {});
       }
     }
+  },
+  {
+    name: "demo_eval_criteria_mentor_cert_v1",
+    run: async (db) => {
+      const existingDepts = await db.all(
+        "SELECT DISTINCT department FROM demo_evaluation_criteria"
+      ).catch(() => []);
+      for (const row of existingDepts || []) {
+        const dept = String(row?.department || "").trim();
+        if (!dept) continue;
+        const already = await db.get(
+          "SELECT id FROM demo_evaluation_criteria WHERE department = ? AND LOWER(TRIM(label)) = 'mentor certification program' LIMIT 1",
+          [dept]
+        ).catch(() => null);
+        if (!already) {
+          const maxRow = await db.get(
+            'SELECT COALESCE(MAX(sort_order), 3) AS "maxOrder" FROM demo_evaluation_criteria WHERE department = ?',
+            [dept]
+          ).catch(() => null);
+          const nextOrder = Math.max(4, Number(maxRow?.maxOrder ?? 3) + 1);
+          const deptHex = Buffer.from(dept).toString("hex").slice(0, 24);
+          const id = `dec_cert_${deptHex}`;
+          await db.run(
+            `INSERT INTO demo_evaluation_criteria (id, department, label, type, threshold, scale, is_system, is_active, sort_order, created_by)
+             VALUES (?, ?, 'Mentor certification program', 'checkbox', NULL, NULL, 1, 1, ?, 'system-seed')
+             ON CONFLICT (id) DO NOTHING`,
+            [id, dept, nextOrder]
+          ).catch(() => {});
+        }
+      }
+    }
+  },
+  {
+    name: "demo_sessions_score_breakdown_column",
+    run: async (db) => {
+      await db.exec("ALTER TABLE demo_sessions ADD COLUMN IF NOT EXISTS score_breakdown TEXT").catch(async () => {
+        await db.exec("ALTER TABLE demo_sessions ADD COLUMN score_breakdown TEXT").catch(() => {});
+      });
+    }
+  },
+  {
+    name: "sme_leaves_table",
+    run: async (db) => {
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS sme_leaves (
+          id VARCHAR(255) PRIMARY KEY,
+          sme_id VARCHAR(255) NOT NULL,
+          sme_name VARCHAR(255) NOT NULL,
+          leave_type VARCHAR(100) NOT NULL DEFAULT 'Personal Leave',
+          start_date VARCHAR(50) NOT NULL,
+          end_date VARCHAR(50) NOT NULL,
+          reason TEXT,
+          status VARCHAR(50) NOT NULL DEFAULT 'approved',
+          notified_mentor_count INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_sme_leaves_sme_dates ON sme_leaves(sme_id, start_date, end_date, status);
+      `).catch(async () => {
+        await db.exec(`
+          CREATE TABLE IF NOT EXISTS sme_leaves (
+            id TEXT PRIMARY KEY,
+            sme_id TEXT NOT NULL,
+            sme_name TEXT NOT NULL,
+            leave_type TEXT NOT NULL DEFAULT 'Personal Leave',
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            reason TEXT,
+            status TEXT NOT NULL DEFAULT 'approved',
+            notified_mentor_count INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+          );
+        `).catch(() => {});
+        await db.exec("CREATE INDEX IF NOT EXISTS idx_sme_leaves_sme_dates ON sme_leaves(sme_id, start_date, end_date, status);").catch(() => {});
+      });
+    }
+  },
+  {
+    name: "device_signature_and_authorization_tables",
+    run: async (db) => {
+      await db.exec(`
+        CREATE TABLE IF NOT EXISTS user_authorized_devices (
+          id VARCHAR(128) PRIMARY KEY,
+          user_id VARCHAR(128) NOT NULL,
+          device_type VARCHAR(32) NOT NULL,
+          device_signature VARCHAR(128) NOT NULL,
+          device_name VARCHAR(255) NOT NULL,
+          ip_address VARCHAR(64),
+          first_seen_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          last_used_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          revoked_at TIMESTAMPTZ,
+          revoked_by VARCHAR(128)
+        );
+        CREATE INDEX IF NOT EXISTS idx_user_auth_devices_user_type ON user_authorized_devices(user_id, device_type, is_active);
+        CREATE INDEX IF NOT EXISTS idx_user_auth_devices_sig ON user_authorized_devices(device_signature);
+
+        CREATE TABLE IF NOT EXISTS device_security_logs (
+          id VARCHAR(128) PRIMARY KEY,
+          user_id VARCHAR(128) NOT NULL,
+          attempted_type VARCHAR(32) NOT NULL,
+          device_signature VARCHAR(128) NOT NULL,
+          device_name VARCHAR(255) NOT NULL,
+          ip_address VARCHAR(64),
+          active_conflict_device VARCHAR(255),
+          status VARCHAR(32) NOT NULL DEFAULT 'blocked',
+          timestamp TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_device_sec_logs_user ON device_security_logs(user_id, timestamp DESC);
+
+        CREATE TABLE IF NOT EXISTS device_reset_requests (
+          id VARCHAR(128) PRIMARY KEY,
+          user_id VARCHAR(128) NOT NULL,
+          user_name VARCHAR(255) NOT NULL,
+          user_email VARCHAR(255) NOT NULL,
+          user_role VARCHAR(64) NOT NULL,
+          college_id VARCHAR(128),
+          device_type VARCHAR(32) NOT NULL,
+          reason TEXT,
+          status VARCHAR(32) NOT NULL DEFAULT 'pending',
+          created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          resolved_at TIMESTAMPTZ,
+          resolved_by VARCHAR(128)
+        );
+        CREATE INDEX IF NOT EXISTS idx_device_reset_status ON device_reset_requests(status, created_at DESC);
+
+        ALTER TABLE notifications ADD COLUMN IF NOT EXISTS dedupe_key VARCHAR(255);
+        ALTER TABLE notifications ADD COLUMN IF NOT EXISTS payload TEXT;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_notifications_user_dedupe ON notifications(LOWER(user_id), dedupe_key) WHERE dedupe_key IS NOT NULL;
+      `).catch((err: any) => console.warn("[migrations] device_signature_and_authorization_tables error:", err?.message || err));
+    }
+  },
+  {
+    name: "demo_reminder_tracking",
+    run: async (db) => {
+      await db.exec(`
+        ALTER TABLE demo_sessions ADD COLUMN IF NOT EXISTS reminder_5m_sent_at TEXT;
+      `).catch((err: any) => console.warn("[migrations] demo_reminder_tracking error:", err?.message || err));
+    }
   }
 ];
 

@@ -1023,7 +1023,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
       <aside className={`hidden md:flex shrink-0 flex-col justify-between sticky top-6 z-30 floating-sidebar transition-all duration-300 ${isCollapsed ? "w-20 p-3" : "w-64 p-5"}`}>
         <div className="flex flex-col flex-1 overflow-y-auto">
           {/* Nav items */}
-          <nav className={`py-2 space-y-1 ${isCollapsed ? "px-1" : "px-4"}`}>
+          <nav className={`sidebar-role-fee-manager py-2 space-y-1 ${isCollapsed ? "px-1" : "px-4"}`}>
             {tabs.map(({ id, label, icon: Icon }) => {
               const isActive = activeTab === id;
               return (
@@ -2236,7 +2236,7 @@ export const FeeManagerDashboard: React.FC<FeeManagerDashboardProps> = ({
       </main>
 
       {/* Mobile Bottom Navigation Bar (Persistent 1-Tap Thumb Navigation) */}
-      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom" aria-label="Fee manager sections">
+      <nav className="sidebar-role-fee-manager flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav safe-area-bottom" aria-label="Fee manager sections">
         <div className="flex w-full items-stretch justify-around px-1 py-1">
           {tabs.map(({ id, label, icon: Icon }) => {
             const isActive = activeTab === id;

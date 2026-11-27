@@ -6,6 +6,7 @@ import { ensureMigration } from "@/lib/migrations";
 import { normalizeRole, requireAuth } from "@/lib/authGuard";
 import { getInstitutionDateStrOffset } from "@/lib/localDate";
 import { processMissedDemoSessions } from "@/lib/demoMissedCheck";
+import { processUpcomingDemoReminders } from "@/lib/demoReminderCheck";
 
 // Run migrations at most once per process lifetime — not on every GET request.
 // The two checks below are idempotent (IF NOT EXISTS / ADD COLUMN IF NOT EXISTS)
@@ -513,6 +514,7 @@ export async function GET(request: Request) {
 
     // Opportunistically scan and intimate any demo sessions that expired without evaluation
     processMissedDemoSessions(db).catch((e: any) => console.warn("[/api/data] missed demo scan:", e?.message));
+    processUpcomingDemoReminders(db).catch((e: any) => console.warn("[/api/data] upcoming demo reminders scan:", e?.message));
 
     // Query demo reallocation requests (for formal reschedule & reallocation tracking)
     let demoReallocations: any[] = [];
@@ -530,6 +532,21 @@ export async function GET(request: Request) {
       } else {
         demoReallocations = await db.all(
           "SELECT * FROM demo_reallocation_requests ORDER BY created_at DESC LIMIT 200"
+        ).catch(() => []);
+      }
+    }
+
+    let smeLeaves: any[] = [];
+    if (needsDemo || isSME) {
+      await ensureMigration("sme_leaves_table").catch(() => {});
+      if (isSME && userId) {
+        smeLeaves = await db.all(
+          "SELECT * FROM sme_leaves WHERE sme_id = ? ORDER BY start_date DESC, created_at DESC LIMIT 100",
+          [userId]
+        ).catch(() => []);
+      } else {
+        smeLeaves = await db.all(
+          "SELECT * FROM sme_leaves WHERE status = 'approved' ORDER BY start_date DESC, created_at DESC LIMIT 200"
         ).catch(() => []);
       }
     }
@@ -686,6 +703,7 @@ export async function GET(request: Request) {
       campusManagers: stripSecrets(campusManagers || []),
       kamUsers: stripSecrets(kamUsers || []),
       facultyLeaves: facultyLeaves || [],
+      smeLeaves: smeLeaves || [],
       systemSettings
     }, {
       headers: {

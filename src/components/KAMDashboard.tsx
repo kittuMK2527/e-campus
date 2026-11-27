@@ -478,7 +478,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
       >
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Sidebar Nav Items */}
-          <nav className={`py-1 space-y-1.5 overflow-y-auto max-h-[calc(100dvh-11rem)] custom-scrollbar ${isCollapsed ? "px-0.5" : "px-1.5"}`}>
+          <nav className={`sidebar-role-kam py-1 space-y-1.5 overflow-y-auto max-h-[calc(100dvh-11rem)] custom-scrollbar ${isCollapsed ? "px-0.5" : "px-1.5"}`}>
             {KAM_PILLARS.map(pillar => {
               const Icon = pillar.icon;
               const isPillarActive = currentPillar.id === pillar.id;
@@ -580,7 +580,7 @@ export function KAMDashboard({ activeTab: propActiveTab = "overview", onTabChang
       </aside>
 
       {/* ── MOBILE BOTTOM NAVIGATION (Minimal 5 Destinations) ── */}
-      <nav className="flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800">
+      <nav className="sidebar-role-kam flex md:hidden fixed bottom-0 inset-x-0 z-50 mobile-bottom-nav bg-white dark:bg-zinc-900 border-t border-slate-200 dark:border-zinc-800">
         <div className="flex w-full items-stretch justify-around px-1">
           {kamMobileNavTabs.map(t => {
             const Icon = t.icon;

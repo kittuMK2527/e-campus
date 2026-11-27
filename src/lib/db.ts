@@ -957,33 +957,73 @@ function chunkForWrite<T>(items: T[], size: number): T[][] {
 export async function syncMentorSubjectGroups(db: any) {
   const groupRows = await db.all("SELECT * FROM subject_groups");
   if (!groupRows || groupRows.length === 0) return;
-  const groupNames = groupRows.map((g: any) => g.name);
+  const groupNames: string[] = groupRows.map((g: any) => g.name);
 
-  const allSubjects = await db.all("SELECT id, name, subject_group, mentor_group FROM subjects");
+  // Helper: resolve alias or synonym to an authentic configured group name
+  const resolveCanonicalGroup = (rawStr: string | null | undefined): string | null => {
+    if (!rawStr) return null;
+    const clean = rawStr.trim();
+    if (!clean) return null;
+    const lower = clean.toLowerCase();
 
+    // 1. Exact match (case-insensitive)
+    for (const g of groupNames) {
+      if (g.toLowerCase() === lower) return g;
+    }
+
+    // 2. Synonyms & abbreviations
+    for (const g of groupNames) {
+      const gLower = g.toLowerCase();
+      if (gLower === "cs" || gLower === "computer science") {
+        if (
+          lower === "cs" ||
+          lower === "bsc cs" ||
+          lower === "computer science" ||
+          lower === "computer applications" ||
+          lower === "technical" ||
+          lower.includes("computer science") ||
+          lower.includes("bsc cs") ||
+          lower.includes("data science")
+        ) {
+          return g;
+        }
+      } else if (gLower === "tamil") {
+        if (lower.includes("tamil")) return g;
+      } else if (gLower === "english" || gLower === "english / communication") {
+        if (lower.includes("english") || lower.includes("communication")) return g;
+      } else if (gLower === "maths" || gLower === "maths / aptitude") {
+        if (lower.includes("math") || lower.includes("aptitude")) return g;
+      } else if (lower.includes(gLower) || gLower.includes(lower)) {
+        return g;
+      }
+    }
+    return null;
+  };
+
+  // 1. Sync Subjects
+  const allSubjects = await db.all("SELECT id, name, department, subject_group, mentor_group FROM subjects");
   const subjectUpdates: { id: string; group: string }[] = [];
 
   for (const sub of allSubjects) {
-    let matchedGroup: string | null = sub.subject_group || sub.mentor_group || null;
+    let matchedGroup: string | null =
+      resolveCanonicalGroup(sub.subject_group) ||
+      resolveCanonicalGroup(sub.mentor_group) ||
+      resolveCanonicalGroup(sub.department);
 
     if (!matchedGroup || matchedGroup.toLowerCase() === "general") {
       const subNameLower = (sub.name || "").toLowerCase();
-
       for (const gName of groupNames) {
         if (subNameLower.includes(gName.toLowerCase())) {
           matchedGroup = gName;
           break;
         }
       }
-
-      // Rows already carrying the value in both columns used to be re-written with
-      // the same text; skipping them keeps the bulk statement to real changes.
-      if (matchedGroup && (sub.subject_group !== matchedGroup || sub.mentor_group !== matchedGroup)) {
-        subjectUpdates.push({ id: sub.id, group: matchedGroup });
-      }
     }
 
-    if (matchedGroup) sub.subject_group = matchedGroup;
+    if (matchedGroup && (sub.subject_group !== matchedGroup || sub.mentor_group !== matchedGroup)) {
+      subjectUpdates.push({ id: sub.id, group: matchedGroup });
+      sub.subject_group = matchedGroup;
+    }
   }
 
   for (const chunk of chunkForWrite(subjectUpdates, 500)) {
@@ -999,8 +1039,8 @@ export async function syncMentorSubjectGroups(db: any) {
     );
   }
 
+  // 2. Sync Mentors
   const mentors = await db.all("SELECT id, subjects, department, mentor_group, subject_group FROM mentors");
-  // Same rows the follow-up SELECT used to re-read from the subjects table.
   const updatedSubjects = allSubjects
     .filter((sub: any) => sub.subject_group && sub.subject_group !== "General")
     .map((sub: any) => ({ name: sub.name, group_name: sub.subject_group }));
@@ -1008,27 +1048,41 @@ export async function syncMentorSubjectGroups(db: any) {
   const mentorUpdates: { id: string; group: string }[] = [];
 
   for (const mentor of mentors) {
-    const mentorSubjects = (mentor.subjects || "")
-      .split(/[\n,\r]/)
-      .map((s: string) => s.trim().toLowerCase())
-      .filter((s: string) => s.length > 0);
+    const currentGroup = (mentor.mentor_group || "").trim();
+    const hasExactGroup = groupNames.some(g => g.toLowerCase() === currentGroup.toLowerCase());
 
     let matchedGroup: string | null = null;
-    for (const sub of updatedSubjects) {
-      if (
-        mentorSubjects.some(
-          (ms: string) =>
-            ms === sub.name.toLowerCase() ||
-            sub.name.toLowerCase().includes(ms) ||
-            ms.includes(sub.name.toLowerCase())
-        )
-      ) {
-        matchedGroup = sub.group_name;
-        break;
+    if (!hasExactGroup) {
+      matchedGroup =
+        resolveCanonicalGroup(mentor.mentor_group) ||
+        resolveCanonicalGroup(mentor.subject_group) ||
+        resolveCanonicalGroup(mentor.department);
+    }
+
+    if (!matchedGroup && !hasExactGroup) {
+      const mentorSubjects = (mentor.subjects || "")
+        .split(/[\n,\r]/)
+        .map((s: string) => s.trim().toLowerCase())
+        .filter((s: string) => s.length > 0);
+
+      for (const sub of updatedSubjects) {
+        if (
+          mentorSubjects.some(
+            (ms: string) =>
+              ms === sub.name.toLowerCase() ||
+              sub.name.toLowerCase().includes(ms) ||
+              ms.includes(sub.name.toLowerCase())
+          )
+        ) {
+          matchedGroup = sub.group_name;
+          break;
+        }
       }
     }
 
-    if (matchedGroup) mentorUpdates.push({ id: mentor.id, group: matchedGroup });
+    if (matchedGroup && (mentor.mentor_group !== matchedGroup || mentor.subject_group !== matchedGroup)) {
+      mentorUpdates.push({ id: mentor.id, group: matchedGroup });
+    }
   }
 
   for (const chunk of chunkForWrite(mentorUpdates, 500)) {
@@ -1039,10 +1093,41 @@ export async function syncMentorSubjectGroups(db: any) {
       `UPDATE mentors AS m
        SET mentor_group = u.grp, subject_group = u.grp
        FROM (VALUES ${values}) AS u(id, grp)
-       WHERE m.id = u.id
-         AND (m.mentor_group IS NULL OR m.mentor_group = '' OR m.mentor_group = 'General')`,
+       WHERE m.id = u.id`,
       params
     );
+  }
+
+  // 3. Sync SMEs (sme_users <-> subject_groups)
+  try {
+    const smes = await db.all("SELECT id, name, subject, mentor_group, head_subject_group, is_head_sme FROM sme_users");
+    for (const sme of smes) {
+      const canonical = resolveCanonicalGroup(sme.subject) || resolveCanonicalGroup(sme.head_subject_group) || resolveCanonicalGroup(sme.mentor_group);
+      if (canonical && sme.mentor_group !== canonical) {
+        await db.run("UPDATE sme_users SET mentor_group = ? WHERE id = ?", [canonical, sme.id]);
+      }
+    }
+
+    // Ensure subject_groups Lead SME is synced
+    for (const group of groupRows) {
+      if (!group.lead_sme_id) {
+        const matchingSme = smes.find((s: any) => {
+          const c = resolveCanonicalGroup(s.subject) || resolveCanonicalGroup(s.head_subject_group) || resolveCanonicalGroup(s.mentor_group);
+          return c?.toLowerCase() === group.name.toLowerCase();
+        });
+        if (matchingSme) {
+          await db.run("UPDATE subject_groups SET lead_sme_id = ?, lead_sme_name = ? WHERE id = ?", [matchingSme.id, matchingSme.name, group.id]);
+          await db.run("UPDATE sme_users SET is_head_sme = 1, head_subject_group = ?, mentor_group = ? WHERE id = ?", [group.name, group.name, matchingSme.id]);
+        }
+      } else {
+        await db.run(
+          "UPDATE sme_users SET is_head_sme = 1, head_subject_group = ?, mentor_group = COALESCE(mentor_group, ?) WHERE id = ?",
+          [group.name, group.name, group.lead_sme_id]
+        );
+      }
+    }
+  } catch (smeSyncErr) {
+    console.warn("[syncMentorSubjectGroups] SME sync notice:", smeSyncErr);
   }
 }
 

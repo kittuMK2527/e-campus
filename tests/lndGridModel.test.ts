@@ -5,6 +5,7 @@ import {
   computeCollegeTimetablePeriodList,
   computeEffectiveDayOrderInfo,
   computeGridWindowCapacity,
+  computeMentorGroups,
   computeQuotaSummary,
   filterQuotaRows
 } from "@/lib/lndGridModel";
@@ -151,5 +152,32 @@ describe("computeGridWindowCapacity", () => {
     const dayOrderForAll = vi.fn(() => ({ isHoliday: false, periods: 0 }));
     const { total } = computeGridWindowCapacity(week, smes, periodRows, "all", dayOrderForAll, smeSlotStatusAt);
     expect(total).toBe(4);
+  });
+});
+
+describe("computeMentorGroups", () => {
+  const mentorsWithMockDepartments = [
+    { id: "m1", name: "Alice", department: "Bsc CS", mentor_group: "" },
+    { id: "m2", name: "Bob", department: "Computer Science", mentor_group: "" },
+    { id: "m3", name: "Charlie", department: "Data Science", mentor_group: "" },
+    { id: "m4", name: "David", department: "Mathematics", mentor_group: "" }
+  ];
+
+  it("strictly returns configured subject_groups without leaking mock departments", () => {
+    const subjectGroups = [
+      { id: "sg_1", name: "CS" },
+      { id: "sg_2", name: "Tamil" }
+    ];
+    const result = computeMentorGroups(mentorsWithMockDepartments, [], subjectGroups);
+    expect(result).toEqual(["CS", "Tamil"]);
+  });
+
+  it("falls back to mentors' explicit groups when no subject_groups are configured", () => {
+    const mentors = [
+      { id: "m1", mentor_group: "English" },
+      { id: "m2", subject_group: "Physics" }
+    ];
+    const result = computeMentorGroups(mentors, [], []);
+    expect(result).toEqual(["English", "Physics"]);
   });
 });

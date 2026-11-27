@@ -5,7 +5,6 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/apiFetch";
 import { TableSurface } from "@/components/dashboard/TableSurface";
 import {
-  Table,
   TableHeader,
   TableRow,
   TableHead,
@@ -536,8 +535,7 @@ export default function LndLiveDemoTable({
           ) : undefined
         }
       >
-        <Table>
-          <TableHeader>
+        <TableHeader>
             <TableRow className="border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400">
               <TableHead className="font-black text-[10px] uppercase tracking-wider py-3.5 px-4">
                 Mentor Name
@@ -730,7 +728,6 @@ export default function LndLiveDemoTable({
               })
             )}
           </TableBody>
-        </Table>
       </TableSurface>
 
       {/* ── REALLOCATE / SWAP SME MODAL ── */}

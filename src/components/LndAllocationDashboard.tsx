@@ -83,6 +83,7 @@ export function LndAllocationDashboard() {
     deleteDemoRule,
     leaveRequests,
     facultyLeaves,
+    smeLeaves,
     holidays,
     demoSwapRequests,
     resolveDemoSwap,
@@ -296,6 +297,19 @@ export function LndAllocationDashboard() {
     queryClient.invalidateQueries({ queryKey: ["daily-configs"] });
 
 
+  // Combine mentor faculty leaves with approved self-marked SME leaves for grid availability checks
+  const effectiveFacultyLeaves = useMemo(() => {
+    const approvedSmeLeaves = (smeLeaves || [])
+      .filter((l: any) => String(l.status || "") === "approved")
+      .map((l: any) => ({
+        ...l,
+        mentor_id: l.sme_id,
+        mentorId: l.sme_id,
+        request_type: l.leave_type || "SME Leave"
+      }));
+    return [...(facultyLeaves || []), ...approvedSmeLeaves];
+  }, [facultyLeaves, smeLeaves]);
+
   // ── Derived grid model: week dates, day orders, quota rows, slot rows, capacity, free mentors ──
   // Pure logic lives in lib/lndGridModel; React wiring lives in hooks/useLndGridModel.
   const {
@@ -333,7 +347,7 @@ export function LndAllocationDashboard() {
     totalFreeSlotsCount,
     unassignedMentors
   } = useLndGridModel({
-    colleges, mentors, slots, smes, demoSessions, demoRules, facultyLeaves, holidays,
+    colleges, mentors, slots, smes, demoSessions, demoRules, facultyLeaves: effectiveFacultyLeaves, holidays,
     smeAvailability, subjectGroups, dailyConfigsMap,
     selectedDateStr, selectedCollegeId, selectedGroupId, selectedSmeId,
     mentorTargets, mentorQuotaSearch, previewSessions, generationStep
@@ -712,7 +726,7 @@ export function LndAllocationDashboard() {
   };
 
   /* ==========================================================================
-     EXCEL TEMPLATE DOWNLOAD, IMPORT & EXPORT HANDLERS (SUBJECT-GROUP BASED)
+     EXCEL TEMPLATE DOWNLOAD, IMPORT & EXPORT HANDLERS (MENTOR-GROUP BASED)
      ========================================================================== */
 
   const handleOpenTemplateModal = () => {
@@ -931,7 +945,7 @@ export function LndAllocationDashboard() {
           </div>
 
           {/* Navigation Tabs */}
-          <nav className="py-4 space-y-1.5">
+          <nav className="sidebar-role-lnd py-4 space-y-1.5">
             <button
               onClick={() => setActiveTab("matrix")}
               className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-xs font-bold transition-all cursor-pointer ${activeTab === "matrix"
@@ -994,7 +1008,7 @@ export function LndAllocationDashboard() {
 
       {/* Mobile bottom navigation — the sidebar is hidden below md */}
       <nav
-        className="fixed bottom-0 inset-x-0 z-50 flex md:hidden mobile-bottom-nav"
+        className="sidebar-role-lnd fixed bottom-0 inset-x-0 z-50 flex md:hidden mobile-bottom-nav"
         aria-label="L&D workspace sections"
       >
         <div className="flex w-full items-center justify-around px-1 py-2">

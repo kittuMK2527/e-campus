@@ -30,6 +30,7 @@ import {
   Edit,
   Trash2,
   Key,
+  Shield,
   X
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -44,6 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { UserCredentialDialog, type UserFormState } from "@/components/admin/dialogs/UserCredentialDialog";
 import { SignupApprovalDialog } from "@/components/admin/dialogs/SignupApprovalDialog";
+import { DeviceManagementModal } from "@/components/admin/security/DeviceManagementModal";
 
 export const UsersTab: React.FC = () => {
   const {
@@ -70,6 +72,7 @@ export const UsersTab: React.FC = () => {
   // User modal state
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any | null>(null);
+  const [deviceManagementUser, setDeviceManagementUser] = useState<any | null>(null);
   const [userForm, setUserForm] = useState<UserFormState>({
     email: "",
     role: "mentor",
@@ -109,6 +112,59 @@ export const UsersTab: React.FC = () => {
   const usersList = usersQuery.data || [];
   const isUsersLoading = usersQuery.isFetching;
   const isUsersError = usersQuery.isError;
+
+  // Deep-link auto popup for Device Security modal
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const checkAndOpenDeviceModal = (targetUserId?: string | null) => {
+      let uid = targetUserId;
+      if (!uid) {
+        const urlParams = new URLSearchParams(window.location.search);
+        uid = urlParams.get("deviceUserId");
+      }
+      if (!uid) {
+        try {
+          const raw = sessionStorage.getItem("fp_notif_target");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.url && parsed.url.includes("deviceUserId=")) {
+              const u = new URL(parsed.url, window.location.origin);
+              uid = u.searchParams.get("deviceUserId");
+              sessionStorage.removeItem("fp_notif_target");
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (uid) {
+        const existing = usersList.find((u: any) => u.id === uid);
+        setDeviceManagementUser(existing || { id: uid, email: "", role: "student" });
+
+        // Clean up URL parameter cleanly without full reload
+        const newUrl = new URL(window.location.href);
+        if (newUrl.searchParams.has("deviceUserId")) {
+          newUrl.searchParams.delete("deviceUserId");
+          window.history.replaceState(null, "", newUrl.toString());
+        }
+      }
+    };
+
+    checkAndOpenDeviceModal();
+
+    const handleNavigate = (e: any) => {
+      if (e?.detail?.url && e.detail.url.includes("deviceUserId=")) {
+        try {
+          const u = new URL(e.detail.url, window.location.origin);
+          const uid = u.searchParams.get("deviceUserId");
+          if (uid) checkAndOpenDeviceModal(uid);
+        } catch (_) {}
+      }
+    };
+
+    window.addEventListener("fp_navigate_target", handleNavigate);
+    return () => window.removeEventListener("fp_navigate_target", handleNavigate);
+  }, [usersList]);
 
   const camList = useMemo(() => {
     return usersList
@@ -644,6 +700,12 @@ export const UsersTab: React.FC = () => {
                               <Copy className="h-3.5 w-3.5 text-slate-500" />
                               <span>Copy Password</span>
                             </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeviceManagementUser(user)}
+                            >
+                              <Shield className="h-3.5 w-3.5 text-indigo-600" />
+                              <span>Device Security</span>
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
                               destructive
@@ -807,6 +869,16 @@ export const UsersTab: React.FC = () => {
         smes={smes}
         usersList={usersList}
         isSubmitting={isSubmittingApproval}
+      />
+
+      {/* Device Management / Security Dialog */}
+      <DeviceManagementModal
+        open={!!deviceManagementUser}
+        onClose={() => setDeviceManagementUser(null)}
+        userId={deviceManagementUser?.id || null}
+        userName={deviceManagementUser?.email?.split("@")[0] || "User"}
+        userEmail={deviceManagementUser?.email || ""}
+        userRole={deviceManagementUser?.role || "student"}
       />
     </div>
   );

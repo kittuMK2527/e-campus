@@ -46,22 +46,25 @@ export function calculateWeekNumber(dateStr: string): number {
   }
 }
 
-/** Every department group the roster, SMEs and active rules mention, sorted. */
-export function computeMentorGroups(mentors: any[], _smes?: any[], _subjectGroups?: any, _demoRules?: any): string[] {
-  const groups = new Set<string>();
+/** Every department group from configured subject groups (primary source of truth), plus registered mentors, sorted. */
+export function computeMentorGroups(mentors: any[], _smes?: any[], subjectGroups?: any[], _demoRules?: any): string[] {
+  // 1. Primary authentic source of truth: subject_groups configured in the system
+  if (Array.isArray(subjectGroups) && subjectGroups.length > 0) {
+    const configured = subjectGroups
+      .map(sg => typeof sg === "string" ? sg : (sg?.name || "").trim())
+      .filter(Boolean);
+    if (configured.length > 0) {
+      return Array.from(new Set(configured)).sort((a, b) => a.localeCompare(b));
+    }
+  }
 
-  // Only extract authentic mentor group names from registered mentors
+  // 2. Fallback only if no subject groups configured in the system
+  const groups = new Set<string>();
   if (Array.isArray(mentors)) {
     mentors.forEach(m => {
       const g = (m.mentor_group || m.subject_group || "").trim();
-      if (g) groups.add(g);
+      if (g && g !== "General") groups.add(g);
     });
-    if (groups.size === 0) {
-      mentors.forEach(m => {
-        const g = mentorGroupOf(m);
-        if (g) groups.add(g);
-      });
-    }
   }
 
   return Array.from(groups).sort((a, b) => (a || "").localeCompare(b || ""));

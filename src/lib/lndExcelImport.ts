@@ -101,9 +101,27 @@ export async function parseLndDemoWorkbook(binary: unknown, ctx: LndImportContex
 
     const normalizedRows: any[] = [];
 
-    // Smart Sheet Selection: If Master_Grid has allocations, prioritize it; otherwise check Master_LnD_Schedule
+    // Named SME worksheets are the preferred entry surface in current templates. Read all of
+    // them together so edits remain scoped to each SME while keeping the older sheet formats.
     let targetSheets: string[] = [];
-    if (wb.SheetNames.includes("Master_Grid")) {
+    const smeSheets = wb.SheetNames.filter(sheetName => sheetName.startsWith("SME - "));
+    const hasSmeAllocations = smeSheets.some(sheetName => {
+      const sheetRows: any[] = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: "" });
+      return sheetRows.some(row => {
+        const day = String(row["Day Order / Date"] || row["Day Order / Period"] || row["Day / Period"] || row["Day/Period"] || row["Day Order"] || "").trim();
+        if (!isGridDayLabel(day)) return false;
+        return Object.entries(row).some(([colKey, cellVal]) => {
+          if (["College / Campus", "Assigned SME", "Department / Subject Group", "Day Order / Date"].includes(colKey)) return false;
+          const value = String(cellVal || "").toLowerCase().trim();
+          return value && !value.includes("no free") && !value.includes("training") && !value.includes("leave") &&
+            !value.includes("holiday") && !value.includes("off-duty") && !value.includes("off duty");
+        });
+      });
+    });
+    if (hasSmeAllocations) targetSheets = smeSheets;
+
+    // Backward-compatible selection for older templates without named SME sheets.
+    if (targetSheets.length === 0 && wb.SheetNames.includes("Master_Grid")) {
       const testWs = wb.Sheets["Master_Grid"];
       const testRows: any[] = XLSX.utils.sheet_to_json(testWs, { defval: "" });
       const hasAllocations = testRows.some(row => {
