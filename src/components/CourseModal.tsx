@@ -207,7 +207,7 @@ export const CourseModal: React.FC<CourseModalProps> = ({
         start_date: val,
         start_year: startYr.toString(),
         end_year: endYr.toString(),
-        end_date: `${endYr}-05-31`
+        end_date: (!editingCourse || !prev.end_date) ? `${endYr}-05-31` : prev.end_date
       }));
     } else {
       setForm(prev => ({ ...prev, start_date: val }));
@@ -542,14 +542,14 @@ export const CourseModal: React.FC<CourseModalProps> = ({
               </select>
             </div>
 
-            {/* Batch Dates */}
+            {/* Semester / Batch Dates */}
             <div className="space-y-1">
               <label className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
-                Batch Start Date
+                Semester / Batch Start Date
               </label>
               <input
                 type="date"
-                aria-label="Batch Start Date"
+                aria-label="Semester / Batch Start Date"
                 value={form.start_date}
                 onChange={(e) => handleStartDateChange(e.target.value)}
                 className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-slate-800 text-xs"
@@ -558,11 +558,11 @@ export const CourseModal: React.FC<CourseModalProps> = ({
 
             <div className="space-y-1">
               <label className="text-[10px] text-slate-500 uppercase tracking-wider block font-bold">
-                Batch End Date
+                Semester / Batch End Date
               </label>
               <input
                 type="date"
-                aria-label="Batch End Date"
+                aria-label="Semester / Batch End Date"
                 value={form.end_date}
                 onChange={(e) => setForm(prev => ({ ...prev, end_date: e.target.value }))}
                 className="w-full bg-sunken border border-slate-200 inset-shadow-well focus:bg-white dark:focus:bg-[#131317] rounded-xl px-3.5 py-1.5 font-bold focus:outline-none focus:ring-1 focus:ring-amber-500/80 focus:border-amber-500 text-slate-800 text-xs"

@@ -518,6 +518,14 @@ export const CoursesTab: React.FC = () => {
                                     {dept.start_year}–{dept.end_year}
                                   </span>
                                 )}
+                                {(dept.start_date || dept.end_date) && (
+                                  <span
+                                    title="Semester / Batch Start & End Date"
+                                    className="px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 text-[9px] font-extrabold whitespace-nowrap"
+                                  >
+                                    {dept.start_date || "?"} → {dept.end_date || "?"}
+                                  </span>
+                                )}
                                 <span
                                   className={`px-2 py-0.5 rounded-full text-[8.5px] font-bold whitespace-nowrap ${
                                     dept.status === "Inactive"
